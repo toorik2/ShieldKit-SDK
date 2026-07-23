@@ -21,3 +21,7 @@ pages and is not memory-budget evidence. Use cgroup-v2 `memory.current` and
 result. A run is feasibility telemetry only. G4 still requires a fixed
 desktop-browser fixture, 60-second p95, and 2-GiB process-memory
 qualification; no Android or browser result is implied by unit tests.
+
+The current frozen-profile result is an explicit failure, with the rationale
+and artifact pointers in [BUDGET_GATE.md](BUDGET_GATE.md). It does not authorize
+a budget, relation, verifier, or profile change.
