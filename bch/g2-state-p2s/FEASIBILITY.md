@@ -1,8 +1,10 @@
 # G2 bare-P2S state covenant feasibility: FAIL
 
-This is a bounded, pre-G2 measurement. It is not a proof verifier, binding
-covenant, complete settlement transaction, relay result, Chipnet result, or G2
-PASS claim.
+This is an archived, bounded pre-G2 measurement. It is not a proof verifier,
+binding covenant, complete settlement transaction, relay result, Chipnet
+result, or G2 PASS claim. The active candidate uses the profile-derived
+88-byte state trampoline in `bch/g2-compressed-covenants`; this package must
+never be selected by a profile or transaction builder.
 
 ## Frozen semantics measured
 
@@ -50,11 +52,12 @@ pushes for the test fixture: a one-byte binding lock, three 32-byte
 identifiers, and `S=1,000`. A real binding source lock can only increase it.
 
 `npm run compile` emits byte-exact executable hex and CashScript's deterministic
-disassembly. `npm test` executes the instantiated full semantics against
-real-reference deposit, transfer, and withdrawal SCAR packets in both normal
-and standard libauth BCH-2026 VMs. The adversarial test rejects packet,
-unlocking, category, capability, commitment, value, output-lock, binding-lock,
-and active-index substitutions.
+disassembly. The packet layout evolved after this falsifier was recorded, so
+the old positive and mutation claims are no longer reproducible against the
+current action reference. `npm test` now preserves the byte measurement and
+proves that this archived candidate is non-accepting for all three current
+action packets in both normal and standard libauth BCH-2026 VMs. It provides
+no current adversarial-acceptance evidence.
 
 ## Verdict and boundary
 
@@ -68,7 +71,9 @@ proof verification: those are separate inputs whose whole-transaction success
 is required by BCH, and neither is available in this isolated state-covenant
 slice. Their absence makes this a pre-G2 falsifier, not a settlement claim.
 
-This result does not prove a hand-optimized BCH assembly lower bound. Any
-alternative must retain every frozen check above, provide byte-exact source and
-disassembly, and rerun the same normal/standard/adversarial VM matrix before it
-can replace this failure record.
+This result does not prove a hand-optimized BCH assembly lower bound. The active
+trampoline/helper split is qualified independently; nothing in this archived
+package is evidence for that split. Any other alternative must retain every
+frozen check above, provide byte-exact source and disassembly, and rerun the
+same normal/standard/adversarial VM matrix before it can replace the active
+candidate.
