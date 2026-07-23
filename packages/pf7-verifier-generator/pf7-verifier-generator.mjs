@@ -4,7 +4,10 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:f
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson, loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
-import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
+import {
+  derivePf7SettlementKernelAuthority,
+  parsePf7CarrierAuthority,
+} from '../core/pf7-authority.mjs';
 import {
   ACTION_PACKET_BYTES,
   actionPacketPublicLimbs,
@@ -805,6 +808,13 @@ export function derivePf7FreshVerifierSet({ verificationKeySha256, scripts, cont
     setup: { mode: 'development-only', verificationKeySha256: `sha256:${verificationKeySha256}` },
     sourceSet: carriers.sourceSet,
     scripts: carriers.scripts,
+    settlementKernel: derivePf7SettlementKernelAuthority(
+      carriers.scripts.map((script) => ({
+        role: script.name,
+        lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'),
+        valueSatoshis: BigInt(script.sourceValueSatoshis),
+      })),
+    ).artifact,
   };
   try { parsePf7CarrierAuthority(artifact); }
   catch (error) { fail(`fresh verifier-set carrier authority is invalid: ${error.message}`); }

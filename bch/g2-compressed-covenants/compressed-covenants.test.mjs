@@ -93,7 +93,7 @@ function nftCommitment(state, sequence) {
   return Buffer.concat([
     Buffer.from('SHST'),
     Buffer.of(1, 2, 0, 0),
-    profileId,
+    instanceId,
     state,
     u64le(sequence),
   ]);
@@ -319,11 +319,6 @@ test('full helper rejects every CashToken form at every non-state input and outp
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
     pf7Values,
-    profileId,
-    instanceId,
-    stateCategory,
-    maximumReserveSatoshis: maximumReserve.toString(),
-    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   });
   const stateLock = buildStateTrampolineLock({ helper, bindingLock });
@@ -567,41 +562,26 @@ test('minimal state continuity lock is <=190, executes in both VMs, and rejects 
   }, null, 2));
 });
 
-test('state helper construction fails closed unless its cap, profile, instance, and state category agree with canonical genesis', () => {
+test('pre-profile state helper fails closed on PF7 authority and carrier-base inputs', () => {
   const bindingLock = buildPacketOnlyBindingLock();
   const input = {
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
     pf7Values,
-    profileId,
-    instanceId,
-    stateCategory,
-    maximumReserveSatoshis: maximumReserve.toString(),
-    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   };
   assert.doesNotThrow(() => buildStateSettlementHelper(input));
   assert.throws(
-    () => buildStateSettlementHelper({ ...input, maximumReserveSatoshis: '20000000' }),
-    /genesis reserve cap does not match helper maximumReserveSatoshis/,
+    () => buildStateSettlementHelper({ ...input, pf7Values: pf7Values.slice(0, 6) }),
+    /exactly seven/,
   );
   assert.throws(
-    () => buildStateSettlementHelper({
-      ...input,
-      genesis: { ...genesis, reserveCapSatoshis: '20000000' },
-      maximumReserveSatoshis: '20000000',
-    }),
-    /genesis instanceId derivation mismatch/,
+    () => buildStateSettlementHelper({ ...input, pf7Values: pf7Values.map((value, index) => index === 3 ? 0n : value) }),
+    /positive VM-safe/,
   );
   assert.throws(
-    () => buildStateSettlementHelper({
-      ...input,
-      genesis: {
-        ...genesis,
-        categoryInputOutpoint: { ...genesis.categoryInputOutpoint, txid: '11'.repeat(32) },
-      },
-    }),
-    /genesis state category does not match helper stateCategory/,
+    () => buildStateSettlementHelper({ ...input, bindingCarrierBaseSatoshis: 0 }),
+    /positive VM-safe/,
   );
 });
 
@@ -611,11 +591,6 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
     pf7Values,
-    profileId,
-    instanceId,
-    stateCategory,
-    maximumReserveSatoshis: maximumReserve.toString(),
-    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   });
   const stateLock = buildStateTrampolineLock({ helper, bindingLock });

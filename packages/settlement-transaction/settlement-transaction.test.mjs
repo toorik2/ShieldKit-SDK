@@ -46,7 +46,7 @@ const stateToken = (stateValue) => ({
     capability: 'mutable',
     commitment: encodeStateNftCommitment({
       networkId: 2,
-      profileId,
+      instanceId,
       stateCommitment: stateValue.stateCommitment,
       actionSequence: stateValue.actionSequence,
     }).toString('hex'),

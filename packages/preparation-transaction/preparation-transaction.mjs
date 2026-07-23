@@ -330,7 +330,11 @@ async function authenticatedPf7Carriers(bundleDirectory, expectedProfile) {
     lockingBytecode: Buffer.from(carrier.lockingBytecode),
     valueSatoshis: carrier.valueSatoshis,
   }));
-  return Object.freeze({ bundle, carriers: Object.freeze(carriers) });
+  return Object.freeze({
+    bundle,
+    carriers: Object.freeze(carriers),
+    settlementKernel: authority.settlementKernel,
+  });
 }
 
 function parseCompletePlan(value) {
@@ -376,6 +380,7 @@ function completeTransactionFor(parsed, carriers, signature, changeValue) {
 
 async function deriveCompletePlan(value) {
   const parsed = parseCompletePlan(value); const authority = await authenticatedPf7Carriers(parsed.bundleDirectory, parsed.expectedProfile);
+  if (parsed.bindingBase !== 1_000n) fail('binding carrier base does not match the authenticated settlement kernel');
   const placeholder = Buffer.alloc(64); const provisional = completeTransactionFor(parsed, authority.carriers, placeholder, P2PKH_DUST_FLOOR_SATOSHIS);
   const wireBytes = Buffer.from(encodeTransaction(provisional)).length; const fee = BigInt(wireBytes) * parsed.minimumFeeRate;
   if (wireBytes > PREPARATION_TRANSACTION_WIRE_LIMIT_BYTES) fail(`complete preparation transaction is ${wireBytes} bytes, exceeding 59000`);

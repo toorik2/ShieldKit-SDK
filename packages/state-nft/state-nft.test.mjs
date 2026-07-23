@@ -9,7 +9,7 @@ import {
 
 const value = {
   networkId: 2,
-  profileId: '11'.repeat(32),
+  instanceId: '11'.repeat(32),
   stateCommitment: '22'.repeat(32),
   actionSequence: '18446744073709551615',
 };

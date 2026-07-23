@@ -329,11 +329,11 @@ export async function createShieldedTransitionReference() {
   };
 
   const emptyState = ({ profileId, instanceId, maximumReserve }) => buildState({ profileId, instanceId, noteRoot: frToHex(noteEmpty[NOTE_TREE_DEPTH]), nullifierRoot: frToHex(nullifierEmpty[NULLIFIER_TREE_DEPTH]), nextLeafIndex: '0', actionSequence: '0', liveNoteCount: '0', reserveSats: '0', maximumReserve });
-  const stateNftCommitment = ({ networkId, profileId, stateCommitment, actionSequence }) => {
+  const stateNftCommitment = ({ networkId, instanceId, stateCommitment, actionSequence }) => {
     if (networkId !== NETWORK_CHIPNET) fail('wrong network identifier');
     return encodeStateNftCommitment({
       networkId,
-      profileId: parseIdentifier(profileId, 'profileId'),
+      instanceId: parseIdentifier(instanceId, 'instanceId'),
       stateCommitment: frToHex(frFromHex(stateCommitment, 'state commitment')),
       actionSequence: parseUint(actionSequence, 64, 'action sequence').toString(),
     });

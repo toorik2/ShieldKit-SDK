@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
-import { deriveInstanceId } from '../../packages/core/verifier-profile.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const DENOMINATION_SATOSHIS = 10_000_000n;
-const MAX_BCH_SUPPLY_SATOSHIS = 2_100_000_000_000_000n;
 
 const op = Object.freeze({
   ZERO: 0x00,
@@ -374,7 +372,7 @@ function extractInputBytecodeSlice(out, start, length) {
 
 function appendExpectedPreCommitment(out) {
   emitData(out, Buffer.from('5348535401020000', 'hex'));
-  extractInputBytecodeSlice(out, 11, 32);
+  extractInputBytecodeSlice(out, 43, 32);
   emit(out, op.CAT);
   extractInputBytecodeSlice(out, 171, 32);
   emit(out, op.CAT);
@@ -383,7 +381,7 @@ function appendExpectedPreCommitment(out) {
 }
 
 function appendExpectedPostCommitment(out) {
-  // The relation constrains identical profile identity across both packet
+  // The relation constrains identical instance identity across both packet
   // states. Reusing the already-validated source commitment prefix/profile
   // saves thirteen locking bytes over reconstructing it again.
   emitNumber(out, 8);
@@ -470,96 +468,6 @@ export function buildPacketOnlyBindingLock() {
   emitNumber(out, 7);
   emit(out, op.INPUTBYTECODE, op.EQUALVERIFY, op.DROP, op.ONE);
   return Uint8Array.from(out);
-}
-
-function assertBytes(value, length, label) {
-  const bytes = Buffer.from(value);
-  if (bytes.length !== length) throw new Error(`${label} must be ${length} bytes`);
-  return bytes;
-}
-
-function u64le(value) {
-  const out = Buffer.alloc(8);
-  out.writeBigUInt64LE(value);
-  return out;
-}
-
-/**
- * The profile/genesis cap is a canonical decimal u64 and a fixed-note multiple.
- * The helper carries its LE encoding in the hash-authenticated state unlock, so
- * the state NFT lock commits to this exact immutable value without requiring a
- * larger P2S locking bytecode.
- */
-function canonicalMaximumReserveSatoshis(value) {
-  if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)$/.test(value)) {
-    throw new Error('maximumReserveSatoshis must be a canonical unsigned decimal string');
-  }
-  const reserve = BigInt(value);
-  if (
-    reserve < DENOMINATION_SATOSHIS
-    || reserve > MAX_BCH_SUPPLY_SATOSHIS
-    || reserve % DENOMINATION_SATOSHIS !== 0n
-  ) {
-    throw new Error('maximumReserveSatoshis must be a nonzero denomination multiple within BCH supply');
-  }
-  return u64le(reserve);
-}
-
-function canonicalHex32(value, label) {
-  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
-    throw new Error(`${label} must be 32 lowercase hexadecimal bytes`);
-  }
-  return value;
-}
-
-/**
- * Refuse to compile a state helper from separately supplied, inconsistent
- * profile/genesis facts. `deriveInstanceId` commits to the canonical genesis
- * reserve cap, category input, state category, network, and profile identity.
- */
-function requireGenesisBinding({
-  genesis,
-  profileId,
-  instanceId,
-  stateCategory,
-  maximumReserveSatoshis,
-}) {
-  if (genesis === null || Array.isArray(genesis) || typeof genesis !== 'object') {
-    throw new Error('genesis must be an object');
-  }
-  const expected = [
-    'categoryInputOutpoint', 'instanceId', 'network', 'profileId',
-    'reserveCapSatoshis', 'stateNftCategory',
-  ].sort();
-  const actual = Object.keys(genesis).sort();
-  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
-    throw new Error('genesis has missing or unknown properties');
-  }
-  const profileHex = canonicalHex32(Buffer.from(profileId).toString('hex'), 'profileId');
-  const instanceHex = canonicalHex32(Buffer.from(instanceId).toString('hex'), 'instanceId');
-  const categoryHex = canonicalHex32(Buffer.from(stateCategory).toString('hex'), 'stateCategory');
-  if (genesis.network !== 'chipnet') throw new Error('genesis network must be chipnet');
-  if (genesis.profileId !== `sha256:${profileHex}`) throw new Error('genesis profileId does not match helper profileId');
-  if (genesis.instanceId !== `sha256:${instanceHex}`) throw new Error('genesis instanceId does not match helper instanceId');
-  if (genesis.reserveCapSatoshis !== maximumReserveSatoshis) throw new Error('genesis reserve cap does not match helper maximumReserveSatoshis');
-  const categoryOutpointKeys = genesis.categoryInputOutpoint === null
-    || Array.isArray(genesis.categoryInputOutpoint)
-    || typeof genesis.categoryInputOutpoint !== 'object'
-    ? []
-    : Object.keys(genesis.categoryInputOutpoint).sort();
-  if (
-    categoryOutpointKeys.length !== 2
-    || categoryOutpointKeys[0] !== 'txid'
-    || categoryOutpointKeys[1] !== 'vout'
-    || genesis.categoryInputOutpoint.txid !== categoryHex
-    || genesis.categoryInputOutpoint.vout !== '0'
-    || genesis.stateNftCategory !== categoryHex
-  ) {
-    throw new Error('genesis state category does not match helper stateCategory');
-  }
-  if (deriveInstanceId(genesis) !== genesis.instanceId) {
-    throw new Error('genesis instanceId derivation mismatch');
-  }
 }
 
 function requirePacketSlice(out, start, length, expected) {
@@ -662,11 +570,6 @@ export function buildStateSettlementHelper({
   bindingLock,
   pf7Locks,
   pf7Values,
-  profileId,
-  instanceId,
-  stateCategory,
-  maximumReserveSatoshis,
-  genesis,
   bindingCarrierBaseSatoshis = 1_000,
 }) {
   if (!Array.isArray(pf7Locks) || pf7Locks.length !== 7) {
@@ -683,18 +586,15 @@ export function buildStateSettlementHelper({
   ) {
     throw new Error('pf7Values must contain exactly seven positive VM-safe bigints');
   }
-  const profile = assertBytes(profileId, 32, 'profileId');
-  const instance = assertBytes(instanceId, 32, 'instanceId');
-  const category = assertBytes(stateCategory, 32, 'stateCategory');
-  const maximumReserve = canonicalMaximumReserveSatoshis(maximumReserveSatoshis);
-  requireGenesisBinding({
-    genesis,
-    profileId: profile,
-    instanceId: instance,
-    stateCategory: category,
-    maximumReserveSatoshis,
-  });
-  const binding = Buffer.from(bindingLock);
+  if (
+    !Number.isSafeInteger(bindingCarrierBaseSatoshis)
+    || bindingCarrierBaseSatoshis <= 0
+  ) {
+    throw new Error('bindingCarrierBaseSatoshis must be a positive VM-safe integer');
+  }
+  if (Buffer.from(bindingLock).length === 0) {
+    throw new Error('bindingLock must be nonempty');
+  }
   const out = Array.from(buildLoopScctLock({
     activeInputIndex: 8,
     loadPacketFromInput7: true,
@@ -705,16 +605,19 @@ export function buildStateSettlementHelper({
   // public-input seam; the helper independently fixes their canonical bytes.
   requirePacketSlice(out, 3, 6, Buffer.from('534341520102', 'hex'));
   requirePacketSlice(out, 10, 1, Buffer.of(0));
-  requirePacketSlice(out, 11, 32, profile);
-  requirePacketSlice(out, 43, 32, instance);
-  requirePacketSlice(out, 203, 32, profile);
-  requirePacketSlice(out, 235, 32, instance);
-  // The profile/genesis reserve cap is not merely carried by instanceId: both
-  // state preimages must carry this exact constructor value. The proof binds
-  // the packet, and the state NFT commits to both state commitments, making
-  // this a transitive genesis -> helper -> packet -> proof/state binding.
-  requirePacketSlice(out, 163, 8, maximumReserve);
-  requirePacketSlice(out, 355, 8, maximumReserve);
+  // Preserve profile, instance, and reserve-cap identity across both packet
+  // states without embedding post-profile bytes in this pre-profile kernel.
+  // The state NFT commits to the instance ID, and the proof binds both state
+  // preimages, so genesis selects the immutable instance and reserve cap.
+  for (const [preOffset, postOffset, length] of [
+    [11, 203, 32],
+    [43, 235, 32],
+    [163, 355, 8],
+  ]) {
+    extractInputBytecodeSlice(out, preOffset, length);
+    extractInputBytecodeSlice(out, postOffset, length);
+    emit(out, op.EQUALVERIFY);
+  }
 
   // Pin every PF7 source lock and value. These checks are separate from SCCT
   // reconstruction because the context digest is proof-bound but otherwise
@@ -791,21 +694,15 @@ export function buildStateSettlementHelper({
   emit(out, op.UTXOBYTECODE, op.EQUALVERIFY, op.NIP, op.TXOUTPUTCOUNT);
   emit(out, op.ONESUB, op.OUTPUTBYTECODE, op.EQUALVERIFY);
 
-  // Pin the state category independently of capability, then require mutable
-  // capability at input 8 and output 0. The SCCT loop above requires all other
-  // token-category/commitment/amount introspection values to be empty.
-  const categoryWire = Buffer.from(category).reverse();
-  for (const [index, categoryOpcode] of [
-    [8, op.UTXOTOKENCATEGORY],
-    [0, op.OUTPUTTOKENCATEGORY],
-  ]) {
-    emitNumber(out, index);
-    emit(out, categoryOpcode);
-    emitNumber(out, 32);
-    emit(out, op.SPLIT, op.ONE, op.EQUALVERIFY);
-    emitData(out, categoryWire);
-    emit(out, op.EQUALVERIFY);
-  }
+  // Preserve the exact 32-byte category while requiring mutable capability at
+  // input 8 and output 0. The SCCT loop rejects tokens at every other role.
+  emitNumber(out, 8);
+  emit(out, op.UTXOTOKENCATEGORY);
+  emitNumber(out, 32);
+  emit(out, op.SPLIT, op.ONE, op.EQUALVERIFY);
+  emit(out, op.ZERO, op.OUTPUTTOKENCATEGORY);
+  emitNumber(out, 32);
+  emit(out, op.SPLIT, op.ONE, op.EQUALVERIFY, op.EQUALVERIFY);
 
   appendExpectedPreCommitment(out);
   emitNumber(out, 8);

@@ -96,7 +96,7 @@ test('real circomlibjs Poseidon reference executes deterministic deposit, transf
   assert.equal(acceptedWithdrawal.postState.noteRoot, acceptedDeposit.postState.noteRoot);
   assert.equal(initial.noteRoot, reference.emptyNoteRoot);
   assert.deepEqual(acceptedDeposit.publicInputs.map((value) => value.length), [64, 64]);
-  assert.equal(reference.stateNftCommitment({ networkId: 2, profileId: initial.profileId, stateCommitment: acceptedWithdrawal.postState.stateCommitment, actionSequence: '3' }).length, 80);
+  assert.equal(reference.stateNftCommitment({ networkId: 2, instanceId: initial.instanceId, stateCommitment: acceptedWithdrawal.postState.stateCommitment, actionSequence: '3' }).length, 80);
 });
 
 test('reference fails closed on field codecs, paths, membership/nullifier reuse, state deltas, identifiers, capacity, and digest limbs', async () => {

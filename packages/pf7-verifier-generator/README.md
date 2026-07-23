@@ -142,6 +142,17 @@ it deliberately excludes proofs, public
 signals, packets, full ten-output context serialization, and corpus-output
 metadata. Inputs 7--9 remain unevaluated.
 
+The stable verifier-set also carries
+`settlementKernel:shield.cash/pf7-settlement-kernel/v1`. It is derived before
+`profileId` from only the seven authenticated carrier locks/values and frozen
+protocol constants. It commits to exact binding-lock, state-helper,
+state-helper-unlock, and state-lock hashes and sizes. Consumers independently
+rederive this object and reject drift, so profile replacement changes verifier
+material without relying on ambient covenant code or creating a profile-ID
+cycle. The state NFT commits to `instanceId`, while the helper preserves packet
+profile/instance/reserve-cap identity and the live state category across each
+transition.
+
 `final-replay` adds exactly `expected:{sourceSetSha256,verifierSetSha256}` and
 `finalProfile:{bundleDirectory,profileId,instanceId}`. `sourceSetSha256` is the
 canonical seven-carrier serialization hash described above. Both hashes and all

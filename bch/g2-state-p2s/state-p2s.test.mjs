@@ -81,8 +81,9 @@ function instantiate(artifact, { bindingLock, profileId, instanceId, category, c
 }
 function token(category, commitment) { return { category, amount: 0n, nft: { capability: 'mutable', commitment } }; }
 function transactionFor({ accepted, lock, bindingLock, category, reference, profileId, carrierBase }) {
-  const preCommitment = reference.stateNftCommitment({ networkId: 2, profileId, stateCommitment: accepted.preState.stateCommitment, actionSequence: accepted.preState.actionSequence });
-  const postCommitment = reference.stateNftCommitment({ networkId: 2, profileId, stateCommitment: accepted.postState.stateCommitment, actionSequence: accepted.postState.actionSequence });
+  void profileId;
+  const preCommitment = reference.stateNftCommitment({ networkId: 2, instanceId: accepted.preState.instanceId, stateCommitment: accepted.preState.stateCommitment, actionSequence: accepted.preState.actionSequence });
+  const postCommitment = reference.stateNftCommitment({ networkId: 2, instanceId: accepted.postState.instanceId, stateCommitment: accepted.postState.stateCommitment, actionSequence: accepted.postState.actionSequence });
   const sourceOutputs = Array.from({ length: 10 }, () => ({ lockingBytecode: Uint8Array.of(0x51), valueSatoshis: 1_000n }));
   sourceOutputs[7] = { lockingBytecode: bindingLock, valueSatoshis: 1_000n };
   sourceOutputs[8] = { lockingBytecode: lock, valueSatoshis: carrierBase + BigInt(accepted.preState.reserveSats), token: token(category, preCommitment) };

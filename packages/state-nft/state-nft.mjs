@@ -51,8 +51,8 @@ function u64(value, label) {
 export function encodeStateNftCommitment(value) {
   exactKeys(value, 'state NFT commitment', [
     'actionSequence',
+    'instanceId',
     'networkId',
-    'profileId',
     'stateCommitment',
   ]);
   if (value.networkId !== CHIPNET_NETWORK_ID) {
@@ -62,7 +62,7 @@ export function encodeStateNftCommitment(value) {
   Buffer.from('SHST', 'ascii').copy(commitment, 0);
   commitment[4] = STATE_NFT_VERSION;
   commitment[5] = value.networkId;
-  hex32(value.profileId, 'profileId').copy(commitment, 8);
+  hex32(value.instanceId, 'instanceId').copy(commitment, 8);
   hex32(value.stateCommitment, 'stateCommitment').copy(commitment, 40);
   commitment.writeBigUInt64LE(u64(value.actionSequence, 'actionSequence'), 72);
   return commitment;
@@ -87,7 +87,7 @@ export function decodeStateNftCommitment(value) {
   }
   return Object.freeze({
     networkId: bytes[5],
-    profileId: bytes.subarray(8, 40).toString('hex'),
+    instanceId: bytes.subarray(8, 40).toString('hex'),
     stateCommitment: bytes.subarray(40, 72).toString('hex'),
     actionSequence: bytes.readBigUInt64LE(72).toString(),
   });

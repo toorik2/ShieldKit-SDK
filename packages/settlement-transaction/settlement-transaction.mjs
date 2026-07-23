@@ -164,7 +164,7 @@ function outputToJson(output) {
   };
 }
 
-function assertStateToken(token, label, profileId, state, expectedCategory) {
+function assertStateToken(token, label, instanceId, state, expectedCategory) {
   if (
     token === undefined
     || token.amount !== 0n
@@ -181,7 +181,7 @@ function assertStateToken(token, label, profileId, state, expectedCategory) {
   }
   const expected = encodeStateNftCommitment({
     networkId: CHIPNET_NETWORK_ID,
-    profileId,
+    instanceId,
     stateCommitment: state.stateCommitment,
     actionSequence: state.actionSequence,
   });
@@ -353,13 +353,13 @@ export function buildSettlementTransaction(value) {
   const stateCategory = assertStateToken(
     sources[STATE_INPUT_INDEX].token,
     'source state',
-    value.profileId,
+    value.instanceId,
     packet.preState,
   );
   assertStateToken(
     outputs[0].token,
     'successor state',
-    value.profileId,
+    value.instanceId,
     packet.postState,
     stateCategory,
   );

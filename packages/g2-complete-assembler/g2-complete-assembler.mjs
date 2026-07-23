@@ -18,12 +18,6 @@ import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-pro
 import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 import { encodeSettlementContext } from '../settlement-context/settlement-context.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
-import {
-  buildPacketOnlyBindingLock,
-  buildStateSettlementHelper,
-  buildStateTrampolineLock,
-  buildStateTrampolineUnlock,
-} from '../../bch/g2-compressed-covenants/compressed-covenants.mjs';
 
 export const PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE = 1n;
 export const COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
@@ -100,20 +94,23 @@ async function profilePf7Roles(profile) {
   let authority;
   try { authority = parsePf7CarrierAuthority(record); }
   catch (error) { fail(`authenticated profile bch-verifier-set carrier authority is invalid: ${error.message}`); }
-  return authority.carriers.map((carrier) => Object.freeze({
-    lockingBytecode: Buffer.from(carrier.lockingBytecode),
-    valueSatoshis: carrier.valueSatoshis,
-  }));
+  return Object.freeze({
+    roles: Object.freeze(authority.carriers.map((carrier) => Object.freeze({
+      lockingBytecode: Buffer.from(carrier.lockingBytecode),
+      valueSatoshis: carrier.valueSatoshis,
+    }))),
+    settlementKernel: authority.settlementKernel,
+  });
 }
 
-function stateToken(category, profileId, state) {
+function stateToken(category, instanceId, state) {
   return {
     category: Uint8Array.from(category), amount: 0n,
     nft: {
       capability: 'mutable',
       commitment: encodeStateNftCommitment({
         networkId: CHIPNET_NETWORK_ID,
-        profileId: hex(profileId),
+        instanceId: hex(instanceId),
         stateCommitment: state.stateCommitment,
         actionSequence: state.actionSequence,
       }),
@@ -197,11 +194,14 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const profile = await manifestGenesis(value);
   const { profileId, instanceId, stateCategory } = profile;
   const privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
-  const pf7 = await requirePf7(value.pf7, await profilePf7Roles(profile));
+  const authority = await profilePf7Roles(profile);
+  const pf7 = await requirePf7(value.pf7, authority.roles);
   const { packet, decoded } = checkedPacket(value.actionPacket, profileId, instanceId);
   if (decoded.kind !== kind) fail('action packet kind differs from assembler kind');
   const bindingCarrierBaseSatoshis = decimal(value.bindingCarrierBaseSatoshis, 'bindingCarrierBaseSatoshis');
   const stateCarrierBaseSatoshis = decimal(value.stateCarrierBaseSatoshis, 'stateCarrierBaseSatoshis');
+  if (bindingCarrierBaseSatoshis !== 1_000n) fail('bindingCarrierBaseSatoshis does not match the authenticated settlement kernel');
+  if (stateCarrierBaseSatoshis !== 1_080n) fail('stateCarrierBaseSatoshis does not match the authenticated settlement kernel');
   const feeSourceValueSatoshis = decimal(value.feeSourceValueSatoshis, 'feeSourceValueSatoshis');
   const stateOutpointTransactionHash = wireHash(value.stateOutpointTransactionHashWire, 'stateOutpointTransactionHashWire').reverse();
   const stateOutpointIndex = u32(value.stateOutpointIndex, 'stateOutpointIndex');
@@ -218,18 +218,9 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const withdrawalLock = kind === 'withdrawal' ? bytes(value.withdrawalLockingBytecode, undefined, 'withdrawalLockingBytecode') : undefined;
   if (kind === 'withdrawal' && hex(sha256(withdrawalLock)) !== decoded.withdrawalScriptHash) fail('withdrawal lock does not match packet hash');
 
-  const bindingLock = Buffer.from(buildPacketOnlyBindingLock());
-  if (bindingCarrierBaseSatoshis > BigInt(Number.MAX_SAFE_INTEGER)) fail('binding carrier base exceeds VM-number range');
-  const helper = Buffer.from(buildStateSettlementHelper({
-    bindingLock, pf7Locks: pf7.map((row) => row.lockingBytecode),
-    pf7Values: pf7.map((row) => row.valueSatoshis),
-    profileId, instanceId, stateCategory,
-    maximumReserveSatoshis: profile.maximumReserveSatoshis,
-    genesis: profile.genesis,
-    bindingCarrierBaseSatoshis: Number(bindingCarrierBaseSatoshis),
-  }));
-  const stateLock = Buffer.from(buildStateTrampolineLock({ helper, bindingLock }));
-  const stateUnlock = Buffer.from(buildStateTrampolineUnlock(helper));
+  const {
+    bindingLock, stateHelper: helper, stateHelperUnlock: stateUnlock, stateLock,
+  } = authority.settlementKernel;
   if (bindingLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES || stateLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES) fail('P2S locking-bytecode limit exceeded');
   if (stateUnlock.length > INPUT_UNLOCKING_LIMIT_BYTES) fail('state helper unlocking-bytecode limit exceeded');
 
@@ -240,7 +231,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const sources = [
     ...pf7.map((row) => sourceFor(row)),
     { valueSatoshis: bindingCarrierBaseSatoshis + (kind === 'deposit' ? 10_000_000n : 0n), lockingBytecode: bindingLock },
-    { valueSatoshis: stateCarrierBaseSatoshis + BigInt(decoded.preState.reserveSats), lockingBytecode: stateLock, token: stateToken(stateCategory, profileId, decoded.preState) },
+    { valueSatoshis: stateCarrierBaseSatoshis + BigInt(decoded.preState.reserveSats), lockingBytecode: stateLock, token: stateToken(stateCategory, instanceId, decoded.preState) },
     { valueSatoshis: feeSourceValueSatoshis, lockingBytecode: feeLock },
   ];
   const inputs = [
@@ -251,7 +242,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   ];
   const totalInputValue = sources.reduce((sum, source) => sum + source.valueSatoshis, 0n);
   const { transaction: unsignedTransaction, wireBytes: unsignedWireBytes } = fixedPointTransaction({
-    kind, inputs, sources, stateLock, postToken: stateToken(stateCategory, profileId, decoded.postState),
+    kind, inputs, sources, stateLock, postToken: stateToken(stateCategory, instanceId, decoded.postState),
     stateValue: stateCarrierBaseSatoshis + BigInt(decoded.postState.reserveSats), withdrawalLock, totalInputValue,
   });
   const provisionalContext = encodeSettlementContext({

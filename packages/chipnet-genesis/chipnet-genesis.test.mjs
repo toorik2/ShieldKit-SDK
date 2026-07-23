@@ -10,6 +10,7 @@ import {
 } from '@bitauth/libauth';
 import { buildVerifierProfileBundle } from '../profile-builder/profile-builder.mjs';
 import {
+  derivePf7SettlementKernelAuthority,
   encodeCanonicalPf7CarrierSourceSet,
 } from '../core/pf7-authority.mjs';
 import {
@@ -30,8 +31,14 @@ function verifierSet() {
     sourceValueSatoshis: String(1_000 + index),
   }));
   const sourceSet = encodeCanonicalPf7CarrierSourceSet(scripts);
+  const settlementKernel = derivePf7SettlementKernelAuthority(scripts.map((script) => ({
+    role: script.name,
+    lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'),
+    valueSatoshis: BigInt(script.sourceValueSatoshis),
+  }))).artifact;
   return Buffer.from(JSON.stringify({
     schema: 'shield.cash/bch-verifier-set/v1',
+    settlementKernel,
     sourceSet: { encoding: 'libauth-transaction-outputs-v1', carrierCount: 7, sha256: digest(sourceSet) },
     scripts,
   }));
@@ -84,7 +91,7 @@ test('constructs a deterministic exact-fee state-NFT genesis and validates the r
   assert.equal(plan.measurements.wireBytes, 397);
   assert.equal(plan.measurements.stateNftCommitmentBytes, 80);
   assert.ok(plan.measurements.stateLockingBytecodeBytes <= 190);
-  assert.equal(plan.blockers[0].id, 'GENESIS-SEMANTICS-001');
+  assert.deepEqual(plan.blockers, []);
   const signature = secp.signMessageHashSchnorr(privateKey, Buffer.from(plan.signing.signingDigestHex, 'hex'));
   assert.notEqual(typeof signature, 'string');
   const finalized = await finalizeChipnetGenesisTransaction(request, hex(signature));

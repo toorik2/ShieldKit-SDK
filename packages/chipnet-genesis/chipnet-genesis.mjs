@@ -15,12 +15,6 @@ import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-pro
 import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 import { createShieldedTransitionReference } from '../core/shielded-transition.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
-import {
-  buildPacketOnlyBindingLock,
-  buildStateSettlementHelper,
-  buildStateTrampolineLock,
-  buildStateTrampolineUnlock,
-} from '../../bch/g2-compressed-covenants/compressed-covenants.mjs';
 
 export const CHIPNET_GENESIS_FEE_RATE_SATOSHIS_PER_BYTE = 1n;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
@@ -101,6 +95,7 @@ async function loadPf7Locks(profile) {
   return Object.freeze({
     locks: Object.freeze(authority.carriers.map((carrier) => Buffer.from(carrier.lockingBytecode))),
     values: Object.freeze(authority.carriers.map((carrier) => carrier.valueSatoshis)),
+    settlementKernel: authority.settlementKernel,
   });
 }
 
@@ -122,7 +117,7 @@ function parseRequest(value) {
   const sourceValue = decimal(value.categoryInput.valueSatoshis, 'categoryInput.valueSatoshis');
   const stateCarrier = decimal(value.stateCarrierBaseSatoshis, 'stateCarrierBaseSatoshis', MINIMUM_STATE_CARRIER_SATOSHIS);
   const bindingCarrier = decimal(value.bindingCarrierBaseSatoshis, 'bindingCarrierBaseSatoshis', 1n);
-  if (bindingCarrier > BigInt(Number.MAX_SAFE_INTEGER)) fail('bindingCarrierBaseSatoshis exceeds the BCH VM number range');
+  if (bindingCarrier !== 1_000n || stateCarrier !== MINIMUM_STATE_CARRIER_SATOSHIS) fail('carrier bases must match the authenticated settlement kernel');
   if (decimal(value.minimumFeeRateSatoshisPerByte, 'minimumFeeRateSatoshisPerByte') !== CHIPNET_GENESIS_FEE_RATE_SATOSHIS_PER_BYTE) fail('minimumFeeRateSatoshisPerByte must equal the fixed protocol rate of 1');
   return Object.freeze({ outpointWire, publicKey, lockingBytecode, sourceValue, stateCarrier, bindingCarrier });
 }
@@ -150,21 +145,15 @@ function transactionFor(parsed, stateLock, stateToken, signature, changeValue) {
 async function derive(value) {
   const parsed = parseRequest(value); const profile = await loadProfile(value); categoryInputForProfile(parsed, profile);
   const pf7 = await loadPf7Locks(profile);
-  const bindingLock = Buffer.from(buildPacketOnlyBindingLock());
-  const helper = Buffer.from(buildStateSettlementHelper({
-    bindingLock, pf7Locks: pf7.locks, pf7Values: pf7.values,
-    profileId: profile.profileId, instanceId: profile.instanceId,
-    stateCategory: profile.stateCategory, maximumReserveSatoshis: profile.reserveCapSatoshis,
-    genesis: profile.bundle.manifest.genesis, bindingCarrierBaseSatoshis: Number(parsed.bindingCarrier),
-  }));
-  const stateLock = Buffer.from(buildStateTrampolineLock({ helper, bindingLock }));
-  const stateUnlock = Buffer.from(buildStateTrampolineUnlock(helper));
+  const {
+    bindingLock, stateHelper: helper, stateLock, stateHelperUnlock: stateUnlock,
+  } = pf7.settlementKernel;
   if (bindingLock.length === 0 || bindingLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES || stateLock.length === 0 || stateLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES) fail('state or binding P2S lock exceeds the 190-byte project limit');
   const reference = await createShieldedTransitionReference();
   const initialState = reference.emptyState({ profileId: hex(profile.profileId), instanceId: hex(profile.instanceId), maximumReserve: profile.reserveCapSatoshis });
   const stateToken = {
     category: Uint8Array.from(profile.stateCategory), amount: 0n,
-    nft: { capability: 'mutable', commitment: encodeStateNftCommitment({ networkId: 2, profileId: hex(profile.profileId), stateCommitment: initialState.stateCommitment, actionSequence: initialState.actionSequence }) },
+    nft: { capability: 'mutable', commitment: encodeStateNftCommitment({ networkId: 2, instanceId: hex(profile.instanceId), stateCommitment: initialState.stateCommitment, actionSequence: initialState.actionSequence }) },
   };
   const sizing = transactionFor(parsed, stateLock, stateToken, Buffer.alloc(64), 1n);
   const wireBytes = Buffer.from(encodeTransaction(sizing)).length;
@@ -191,22 +180,15 @@ export async function planChipnetGenesisTransaction(value) {
     sourceOutput: Object.freeze(outputJson(plan.sourceOutput)),
     profile: Object.freeze({ profileId: plan.profile.bundle.profileId, instanceId: plan.profile.bundle.instanceId, stateNftCategory: hex(plan.profile.stateCategory), reserveCapSatoshis: plan.profile.reserveCapSatoshis }),
     initialState: Object.freeze(initialStateJson(plan.initialState)),
-    settlementConstants: Object.freeze({ bindingCarrierBaseSatoshis: plan.parsed.bindingCarrier.toString(), stateCarrierBaseSatoshis: plan.parsed.stateCarrier.toString(), bindingLockingBytecode: hex(plan.bindingLock), stateLockingBytecode: hex(plan.stateLock), stateHelperSha256: hex(sha256(plan.stateUnlock)), stateHelperUnlockingBytes: plan.stateUnlock.length }),
+    settlementConstants: Object.freeze({ bindingCarrierBaseSatoshis: plan.parsed.bindingCarrier.toString(), stateCarrierBaseSatoshis: plan.parsed.stateCarrier.toString(), bindingLockingBytecode: hex(plan.bindingLock), stateLockingBytecode: hex(plan.stateLock), stateHelperSha256: hex(sha256(plan.helper)), stateHelperUnlockSha256: hex(sha256(plan.stateUnlock)), stateHelperUnlockingBytes: plan.stateUnlock.length }),
     signing: Object.freeze({ algorithm: 'schnorr-bch-all-forkid', sighashType: '41', signingSerializationHex: hex(plan.signingSerialization), signingDigestHex: hex(hash256(plan.signingSerialization)) }),
     measurements: Object.freeze({ wireBytes: plan.wireBytes, feeSatoshis: plan.fee.toString(), feeRateSatoshisPerByte: '1', stateNftCommitmentBytes: plan.stateToken.nft.commitment.length, stateLockingBytecodeBytes: plan.stateLock.length, bindingLockingBytecodeBytes: plan.bindingLock.length }),
-    blockers: genesisBlockers(),
+    blockers: Object.freeze([]),
   });
 }
 
 function initialStateJson(state) {
   return Object.fromEntries(Object.entries(state));
-}
-
-function genesisBlockers() {
-  return Object.freeze([
-    Object.freeze({ severity: 'critical', id: 'GENESIS-SEMANTICS-001', summary: 'The profile manifest does not commit to stateCarrierBaseSatoshis or bindingCarrierBaseSatoshis, although both parameterize the state covenant and are required by future settlement construction.', consequence: 'This offline plan cannot alone establish an authenticated deployable instance; a conforming profile/genesis specification must bind these constants and a canonical genesis transaction identity before broadcast.' }),
-    Object.freeze({ severity: 'high', id: 'GENESIS-SEMANTICS-002', summary: 'The profile bundle contains neither the generated state helper/trampoline bytes nor their hash as an authenticated profile artifact.', consequence: 'A recovery implementation cannot derive one unambiguous genesis state lock from the bundle alone; the state-covenant construction and resulting genesis lock must be profile-authenticated before deployment.' }),
-  ]);
 }
 
 /** Finalize using a caller-provided 64-byte Schnorr signature; validate the actual BCH-2026 P2PKH execution. */
@@ -226,8 +208,8 @@ export async function finalizeChipnetGenesisTransaction(value, signatureHex) {
     transaction, encodedTransaction, transactionHex: hex(encodedTransaction), transactionId: hex(Buffer.from(hashWire).reverse()),
     sourceOutput: Object.freeze(outputJson(plan.sourceOutput)), profile: Object.freeze({ profileId: plan.profile.bundle.profileId, instanceId: plan.profile.bundle.instanceId, stateNftCategory: hex(plan.profile.stateCategory), reserveCapSatoshis: plan.profile.reserveCapSatoshis }),
     initialState: Object.freeze(initialStateJson(plan.initialState)),
-    settlementConstants: Object.freeze({ bindingCarrierBaseSatoshis: plan.parsed.bindingCarrier.toString(), stateCarrierBaseSatoshis: plan.parsed.stateCarrier.toString(), bindingLockingBytecode: hex(plan.bindingLock), stateLockingBytecode: hex(plan.stateLock), stateHelperSha256: hex(sha256(plan.stateUnlock)), stateHelperUnlockingBytes: plan.stateUnlock.length }),
+    settlementConstants: Object.freeze({ bindingCarrierBaseSatoshis: plan.parsed.bindingCarrier.toString(), stateCarrierBaseSatoshis: plan.parsed.stateCarrier.toString(), bindingLockingBytecode: hex(plan.bindingLock), stateLockingBytecode: hex(plan.stateLock), stateHelperSha256: hex(sha256(plan.helper)), stateHelperUnlockSha256: hex(sha256(plan.stateUnlock)), stateHelperUnlockingBytes: plan.stateUnlock.length }),
     measurements: Object.freeze({ wireBytes: encodedTransaction.length, feeSatoshis: fee.toString(), feeRateSatoshisPerByte: '1', stateNftCommitmentBytes: plan.stateToken.nft.commitment.length, stateLockingBytecodeBytes: plan.stateLock.length, bindingLockingBytecodeBytes: plan.bindingLock.length, bch2026StandardP2pkhVmAccepted: true }),
-    blockers: genesisBlockers(),
+    blockers: Object.freeze([]),
   });
 }

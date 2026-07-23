@@ -5,6 +5,7 @@ import {
   PF7_CARRIER_ROLES,
   PF7_CARRIER_SOURCE_ENCODING,
   Pf7AuthorityError,
+  derivePf7SettlementKernelAuthority,
   encodeCanonicalPf7CarrierSourceSet,
   parsePf7CarrierAuthority,
 } from './pf7-authority.mjs';
@@ -24,9 +25,15 @@ function fixture() {
     };
   });
   const serialization = encodeCanonicalPf7CarrierSourceSet(scripts);
+  const carriers = scripts.map((script) => ({
+    role: script.name,
+    lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'),
+    valueSatoshis: BigInt(script.sourceValueSatoshis),
+  }));
   return {
     schema: 'shield.cash/bch-verifier-set/v1',
     scripts,
+    settlementKernel: derivePf7SettlementKernelAuthority(carriers).artifact,
     sourceSet: {
       carrierCount: 7,
       encoding: PF7_CARRIER_SOURCE_ENCODING,
@@ -52,6 +59,7 @@ test('rejects stale encoding, source hash, P2SH32 redeem, role, and value', () =
     (record) => { record.scripts[1].name = 'exec0'; },
     (record) => { record.scripts[2].sourceValueSatoshis = '0'; },
     (record) => { record.scripts[3].sourceValueSatoshis = String(2n ** 64n); },
+    (record) => { record.settlementKernel.constants.stateCarrierBaseSatoshis = '1000'; },
   ];
   for (const mutate of mutations) {
     const record = structuredClone(fixture());

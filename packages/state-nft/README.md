@@ -4,7 +4,7 @@ Strict codec for the 80-byte mutable state-NFT commitment:
 
 ```
 SHST || u8(1) || u8(2) || u16le(0) ||
-profileId[32] || stateCommitment[32] || u64le(actionSequence)
+instanceId[32] || stateCommitment[32] || u64le(actionSequence)
 ```
 
 The commitment is below the profile's 120-byte project gate and the BCH-2026
