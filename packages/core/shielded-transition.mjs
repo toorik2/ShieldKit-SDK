@@ -213,7 +213,10 @@ export async function createShieldedTransitionReference() {
     exactKeys(path, 'note append path', ['siblings']);
     const siblings = assertArray(path.siblings, NOTE_TREE_DEPTH, 'note append path');
     const index = BigInt(pre.nextLeafIndex);
-    if (index >= (1n << 32n)) fail('note tree is full');
+    // nextLeafIndex is u32, so the successor must remain representable. This
+    // G1 candidate intentionally leaves index 2^32-1 unused; G2 may instead
+    // widen the counter and regenerate all dependent artifacts.
+    if (index >= (1n << 32n) - 1n) fail('note tree has no representable successor index');
     const preRoot = rootFromPath(noteEmpty[0], index, siblings, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_NODE, 'note append path');
     if (preRoot !== frFromHex(pre.noteRoot, 'pre-state note root')) fail('note append path does not prove an empty next leaf');
     return frToHex(rootFromPath(hash(DOMAIN_TAGS.NOTE_TREE_LEAF, frFromHex(cm, 'output note commitment')), index, siblings, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_NODE, 'note append path'));

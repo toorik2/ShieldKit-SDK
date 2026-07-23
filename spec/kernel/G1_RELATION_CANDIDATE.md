@@ -132,8 +132,13 @@ It satisfies:
 ```
 reserveSats = liveNoteCount * D
 reserveSats <= maximumReserve
-nextLeafIndex <= 2^noteTreeDepth
+nextLeafIndex < 2^noteTreeDepth
 ```
+
+With the candidate `u32` counter and depth-32 tree, an output action additionally
+requires `pre.nextLeafIndex <= 2^32 - 2`, so its successor remains representable.
+This leaves the last depth-32 leaf unused. G2 may widen the counter instead, but
+must regenerate and remeasure every dependent artifact if it does.
 
 The state commitment is the profile-pinned `H(POOL_STATE, ...)` over every
 field above, including the two-limb encodings of the identifiers. No circuit,

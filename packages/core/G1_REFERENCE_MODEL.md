@@ -43,6 +43,13 @@ spend proves the selected sparse leaf is the canonical empty leaf; an occupied
 leaf therefore rejects both a duplicate and a truncated-key collision without
 value creation.
 
+Because the candidate encodes `nextLeafIndex` as `u32`, an output action
+requires the pre-state index to be at most `2^32 - 2`; the successor may be
+`2^32 - 1`, after which no further output action is representable. Thus this
+candidate uses at most `2^32 - 1` leaves and deliberately leaves the final
+depth-32 leaf unused. G2 must either retain this explicit terminal rule or widen
+the counter and regenerate the relation, vectors, and profile.
+
 The action packet has a fixed reference encoding and binds complete pre/post
 states, note/nullifier material, fixed 192-byte active output record or zero
 inactive record, boundary descriptor, and transaction-context digest. Output

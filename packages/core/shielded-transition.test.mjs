@@ -116,6 +116,12 @@ test('reference fails closed on field codecs, paths, membership/nullifier reuse,
   await assert.rejects(async () => reference.transition(bindPublic(reference, wrongSequence)), /post-state mismatch: actionSequence/);
   const wrongId = { ...deposit, profileId: digest('wrong-profile') };
   await assert.rejects(async () => reference.transition(bindPublic(reference, wrongId)), /identifiers do not match/);
+  const exhaustedPre = reference.buildState({ ...initial, nextLeafIndex: '4294967295' });
+  const exhausted = { ...deposit, preState: exhaustedPre };
+  await assert.rejects(
+    async () => reference.prepareTransition(exhausted),
+    /note tree has no representable successor index/,
+  );
   assert.throws(
     () => reference.emptyState({ profileId, instanceId, maximumReserve: '0' }),
     /maximum reserve must be a nonzero denomination multiple within BCH supply/,
