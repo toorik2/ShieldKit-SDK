@@ -120,15 +120,31 @@ and rejects any copied or forged adapter metadata.
 Discovery rebuilds each action twice, enforces the retained seam terminal
 `1d543756...`, clean pinned toolchains, 7/7 normal and BCH-2026 VM verdicts,
 18 raw attacks, 17 seam/cross-action rejections, 59,000-byte context, 10,000
-bytes per unlock, and identical source locks. It writes a **development-only,
-non-authoritative** source-set hash, corpus-output hash, and a dedicated
+bytes per unlock, and identical PF7 carrier locks. The verifier.cash fresh seam
+build emits a complete ten-output context file: PF7 carriers `0..6`, then
+packet/state/fee context `7..9`. Fresh decoding requires canonical lowercase
+hex, canonical CompactSize framing, exactly ten tokenless outputs, and no
+truncation or trailing bytes. It extracts the exact raw first seven outputs,
+reserializes `CompactSize(7) || outputs[0..6]`, and hashes that serialization.
+Accordingly, every `sourceSetSha256` in this path means **only the ordered
+seven-carrier authority**, never the ten-output context file.
+
+The full `c7_candidate_srcouts.hex` file is still identity-checked between the
+two builds of each action and recorded by SHA-256 in that action's corpus
+evidence/dependencies. Structural outputs are evidence context, not profile
+authority; they may differ across actions without changing the seven-carrier
+source set. Discovery writes a **development-only, non-authoritative**
+seven-carrier source-set hash, corpus-output hash, and a dedicated
 `bch-verifier-set.json`. The stable verifier-set hash is derived only from the
-fixed PF7 candidate/provenance, the pre-profile verification-key hash, and the
-seven ordered source/redeem pairs; it deliberately excludes proofs, public
-signals, packets, and corpus-output metadata. Inputs 7--9 remain unevaluated.
+fixed PF7 candidate/provenance, the pre-profile verification-key hash, the
+canonical seven-carrier output serialization, and ordered source/redeem pairs;
+it deliberately excludes proofs, public
+signals, packets, full ten-output context serialization, and corpus-output
+metadata. Inputs 7--9 remain unevaluated.
 
 `final-replay` adds exactly `expected:{sourceSetSha256,verifierSetSha256}` and
-`finalProfile:{bundleDirectory,profileId,instanceId}`. Both hashes and all
+`finalProfile:{bundleDirectory,profileId,instanceId}`. `sourceSetSha256` is the
+canonical seven-carrier serialization hash described above. Both hashes and all
 bundle identity coordinates are caller-pinned; final replay loads and verifies
 the real local bundle and refuses any mismatch. The bundle must be
 `development-only`, bind the same R1CS and verification-key artifact, and
