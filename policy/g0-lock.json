@@ -1,0 +1,94 @@
+{
+  "schema": "shield.cash/g0-lock/v1",
+  "freezeId": "g0-v1",
+  "freezeTag": "g0-v1",
+  "status": "PASS",
+  "frozenAt": "2026-07-23",
+  "baseline": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
+    "candidate": "bn254-onetx-pf6-a3-r1",
+    "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "scoreBytes": 54949,
+    "wireBytes": 54739
+  },
+  "feeModel": {
+    "type": "transparent-input-with-change",
+    "transparentInputs": 1,
+    "canonicalChangeOutputs": 1,
+    "carrierValuesMayContribute": true,
+    "poolReserveSubsidy": false,
+    "relayerRequired": false
+  },
+  "deploymentTarget": {
+    "network": "chipnet",
+    "workingEndToEndRequired": true,
+    "mainnetAuthorized": false,
+    "funding": "Ask the user only after a fresh local address, exact amount, and transaction plan are ready."
+  },
+  "lockedDecisions": [
+    "D-001",
+    "D-002",
+    "D-003",
+    "D-004",
+    "D-005",
+    "D-006",
+    "D-007",
+    "D-008",
+    "D-009",
+    "D-010",
+    "D-011",
+    "D-012",
+    "D-013",
+    "D-014"
+  ],
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "695de398554a7458047dee6f484a74785cd8a2e51e30af23b64ff991c3dbd5d6"
+    },
+    {
+      "path": "docs/CHARTER.md",
+      "sha256": "a0c6f7c50067e027984841af3c5c5b582855666a6339dcfa2008f9178fb5a122"
+    },
+    {
+      "path": "docs/KILL_GATES.md",
+      "sha256": "291269bcb86f0bdb3dcf3c56faa51441bd58568ac9356117c843f69ac3309ed4"
+    },
+    {
+      "path": "docs/OPEN_QUESTIONS.md",
+      "sha256": "1d1c0c1bb8273e27cd74635162af42a8947843d55a2c43bb746ad115274f2912"
+    },
+    {
+      "path": "docs/PRIVACY.md",
+      "sha256": "6e441896ef3f5242476c70be6498eb8ea7d793057403860b31b271ff5fccbf5f"
+    },
+    {
+      "path": "docs/BUILD_PLAN.md",
+      "sha256": "2a5dab1759261690e5285330cf800f57696ecf71c8533c65123d86c6b44e980f"
+    },
+    {
+      "path": "docs/CHANGE_CONTROL.md",
+      "sha256": "dbf5badc5396e7591aa1a1b1693569bb64cf933659a141106be7be872bc17853"
+    },
+    {
+      "path": "scripts/check-policy.mjs",
+      "sha256": "a9f60ac251cc030414eff654ef6153a7a1c1c8fc3a8f4ac15d9a1f58bb3e2102"
+    },
+    {
+      "path": ".github/workflows/policy.yml",
+      "sha256": "736a9d2989dc497ccc76af5a52e2ed7554dc3a6283387fe330863a28f1c823dd"
+    },
+    {
+      "path": "policy/evidence.schema.json",
+      "sha256": "bb960e96f9eb7b5a819dc75306630c0c30d26dc4f8ceae4f7d0b314f754a6297"
+    },
+    {
+      "path": "policy/change.schema.json",
+      "sha256": "bf53b177ef20ead51e609d1049c3d5269ca4e92c59f487d70effadeb181b7ad6"
+    },
+    {
+      "path": "package.json",
+      "sha256": "9032e36cef3494f0b20d8ab2d0b3e3f7e140441aa1769b94cded6b821f3234e5"
+    }
+  ]
+}

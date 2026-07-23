@@ -1,0 +1,47 @@
+{
+  "schema": "shield.cash/gates/v1",
+  "updated": "2026-07-23",
+  "gates": {
+    "G0": {
+      "status": "PASS",
+      "freeze": "g0-v1",
+      "reason": "Direction, privacy claim, resource budgets, operational boundary, fee default, and change control are frozen."
+    },
+    "G1": {
+      "status": "OPEN",
+      "reason": "Current BCH policy and the qualifying verifier envelope require full reproduction."
+    },
+    "G2": {
+      "status": "NOT ENTERED",
+      "reason": "G1 prerequisite."
+    },
+    "G3": {
+      "status": "NOT ENTERED",
+      "reason": "G2 prerequisite."
+    },
+    "G4": {
+      "status": "NOT ENTERED",
+      "reason": "G2 prerequisite."
+    },
+    "G5": {
+      "status": "NOT ENTERED",
+      "reason": "G2 prerequisite."
+    },
+    "G6": {
+      "status": "NOT ENTERED",
+      "reason": "G2 prerequisite."
+    },
+    "G7": {
+      "status": "NOT ENTERED",
+      "reason": "G3 through G6 prerequisites."
+    },
+    "G8": {
+      "status": "NOT ENTERED",
+      "reason": "G3 through G6 prerequisites."
+    },
+    "G9": {
+      "status": "NOT ENTERED",
+      "reason": "G7 and G8 prerequisites."
+    }
+  }
+}
