@@ -25,5 +25,5 @@
     "standardChecks":"six reports, each 7/7",
     "rawTamper": {"v0Deposit":{"rejected":18,"falseAccepts":0,"setupErrors":0,"sha256":"c7f006e0dc40ee2fe1f7a74caf544fa554b513d74c9f4279d0c1da9fc83fd9ca"},"v1Deposit":{"rejected":18,"falseAccepts":0,"setupErrors":0,"sha256":"6f5a325fd3a9b15af1b6ed4f6f257b92a634e9274caed869eaf585482895b0f3"}}
   },
-  "generatorReplay": {"adapterSha256":"d895e004e163ed8c07f08b0ed98d339d9e0ac22a56f6c76d00b81436bca64637","bchVerifierSetSha256":"aba0161429c437bacfd83527e30fda4e3835b946d28bf306de4de60ad218d2b9","note":"reproducible external output; not imported as profile authority"}
+  "generatorReplay": {"adapterSha256":"d895e004e163ed8c07f08b0ed98d339d9e0ac22a56f6c76d00b81436bca64637","bchVerifierSetSha256":"b4d0aabcc71a1fec03026ab98e233d41f90cc4b161e313dbf62176bf9fb74ce4","note":"clean detached replay with lock-bound, version-checked runtime roots; reproducible external output, not imported as profile authority"}
 }
