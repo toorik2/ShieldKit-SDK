@@ -5,5 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "circomlibjs": "0.1.7"
   }
 }

@@ -1,0 +1,50 @@
+# G1 deterministic transition reference
+
+Status: feasibility reference only. It does not compile a circuit, generate or
+verify a proof, execute BCH VM bytecode, or establish any G1/G2/release claim.
+
+`shielded-transition.mjs` uses the pinned `circomlibjs@0.1.7` BN254 Poseidon
+implementation. No SHA-derived substitute or injectable hash callback exists.
+
+## Bound identities and codecs
+
+`profileId` and `instanceId` are required canonical lowercase 32-byte inputs.
+This reference **does not derive either identifier**. The only authority for
+`instanceId` is verifier-profile manifest v1: its canonical derivation binds
+the selected profile, network, immutable reserve cap, category-input outpoint,
+and state-NFT category. The reference separately binds the same immutable
+`maximumReserve` in every state commitment and rejects any state exceeding it.
+
+Fr uses strict 32-byte big-endian encoding below the BN254 scalar modulus.
+SHA-256 public inputs are its two unsigned big-endian 128-bit halves, each
+encoded as canonical Fr. All uint state fields are canonical decimal strings
+and serialize little-endian in action packets.
+
+## Candidate Poseidon domain tags
+
+| Name | Fr literal |
+| --- | ---: |
+| `SPEND_AUTHORITY` | 1001 |
+| `NOTE` | 1002 |
+| `NULLIFIER` | 1003 |
+| `NOTE_TREE_LEAF` | 1010 |
+| `NOTE_TREE_NODE` | 1011 |
+| `NOTE_TREE_EMPTY` | 1012 |
+| `NULLIFIER_TREE_LEAF` | 1020 |
+| `NULLIFIER_TREE_NODE` | 1021 |
+| `NULLIFIER_TREE_EMPTY` | 1022 |
+| `POOL_STATE` | 1030 |
+
+The note tree is append-only at depth 32 and consumes append-index bits from
+least significant to most significant. The sparse nullifier tree is depth 128,
+indexes the most-significant 128 bits of the canonical nullifier Fr encoding,
+and likewise consumes that unsigned integer's bits least-significant first. A
+spend proves the selected sparse leaf is the canonical empty leaf; an occupied
+leaf therefore rejects both a duplicate and a truncated-key collision without
+value creation.
+
+The action packet has a fixed reference encoding and binds complete pre/post
+states, note/nullifier material, fixed 192-byte active output record or zero
+inactive record, boundary descriptor, and transaction-context digest. Output
+record AEAD correctness is intentionally outside this relation reference until
+the G2 construction is selected.

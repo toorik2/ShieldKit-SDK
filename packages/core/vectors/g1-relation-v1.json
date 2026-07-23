@@ -1,0 +1,30 @@
+{
+  "schema": "shield.cash/g1-relation-reference-vector/v1",
+  "status": "non-proof deterministic reference fixture",
+  "poseidon": {
+    "implementation": "circomlibjs",
+    "version": "0.1.7",
+    "curve": "bn254"
+  },
+  "fixture": {
+    "profileId": "8f153701118a339f1d1fd41f7c0c5afc4c15f505f74631a3264647f6d1f7e39b",
+    "instanceId": "3f5aa57b81dd8e4f8be305dbef75c5265baf9a24f0d746e75bfd49f2a990a3ff"
+  },
+  "actions": {
+    "deposit": {
+      "digest": "3b3f83ecabc740a380a2a2b7ca6ee6cd08b01ccea4dd983e069ec37006fdafda",
+      "publicInputs": ["000000000000000000000000000000003b3f83ecabc740a380a2a2b7ca6ee6cd", "0000000000000000000000000000000008b01ccea4dd983e069ec37006fdafda"],
+      "stateCommitment": "14c29a571af56b2f2cf790df2a992845cc50e57a8904ace34b07ed2a050b5802"
+    },
+    "transfer": {
+      "digest": "bd6df7eeff6521677fcb831c8c8fac1085c8fd4bbd48be9fda752666ae3447d7",
+      "publicInputs": ["00000000000000000000000000000000bd6df7eeff6521677fcb831c8c8fac10", "0000000000000000000000000000000085c8fd4bbd48be9fda752666ae3447d7"],
+      "stateCommitment": "0e2d1ea3654c03acfcfb6153dd0689ff72c03556f0f059c5ae808d8a595fe867"
+    },
+    "withdrawal": {
+      "digest": "9509f08e76a788c5ec47b9fe016a35ff9ea77197c1b31c8d7fea29070a97f3d1",
+      "publicInputs": ["000000000000000000000000000000009509f08e76a788c5ec47b9fe016a35ff", "000000000000000000000000000000009ea77197c1b31c8d7fea29070a97f3d1"],
+      "stateCommitment": "241ceacf5a8dc7eac856845899525fdf1ab206cca1ca1617a2de9e2721e791c0"
+    }
+  }
+}
