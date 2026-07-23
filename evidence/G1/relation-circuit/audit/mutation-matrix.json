@@ -1,0 +1,737 @@
+{
+  "schema": "shield.cash/g1-relation-audit/v1",
+  "packetParity": {
+    "deposit": {
+      "packetBytes": 752,
+      "digest": "3b3f83ecabc740a380a2a2b7ca6ee6cd08b01ccea4dd983e069ec37006fdafda",
+      "expectedLimbs": [
+        "3b3f83ecabc740a380a2a2b7ca6ee6cd",
+        "08b01ccea4dd983e069ec37006fdafda"
+      ],
+      "observedLimbs": [
+        "3b3f83ecabc740a380a2a2b7ca6ee6cd",
+        "08b01ccea4dd983e069ec37006fdafda"
+      ],
+      "pass": true
+    },
+    "transfer": {
+      "packetBytes": 752,
+      "digest": "bd6df7eeff6521677fcb831c8c8fac1085c8fd4bbd48be9fda752666ae3447d7",
+      "expectedLimbs": [
+        "bd6df7eeff6521677fcb831c8c8fac10",
+        "85c8fd4bbd48be9fda752666ae3447d7"
+      ],
+      "observedLimbs": [
+        "bd6df7eeff6521677fcb831c8c8fac10",
+        "85c8fd4bbd48be9fda752666ae3447d7"
+      ],
+      "pass": true
+    },
+    "withdrawal": {
+      "packetBytes": 752,
+      "digest": "9509f08e76a788c5ec47b9fe016a35ff9ea77197c1b31c8d7fea29070a97f3d1",
+      "expectedLimbs": [
+        "9509f08e76a788c5ec47b9fe016a35ff",
+        "9ea77197c1b31c8d7fea29070a97f3d1"
+      ],
+      "observedLimbs": [
+        "9509f08e76a788c5ec47b9fe016a35ff",
+        "9ea77197c1b31c8d7fea29070a97f3d1"
+      ],
+      "pass": true
+    }
+  },
+  "validWitnesses": {
+    "deposit": "accept",
+    "transfer": "accept",
+    "withdrawal": "accept"
+  },
+  "directInputIncidence": {
+    "directInputLeaves": 1770,
+    "privateInputLeaves": 1768,
+    "r1csPrivateInputs": 1768,
+    "r1csPublicInputs": 2,
+    "r1csConstraints": 608499,
+    "publicOrder": [
+      "main.publicDigestHi",
+      "main.publicDigestLo"
+    ],
+    "observedPublicWires": [
+      1,
+      2
+    ],
+    "missingSymbols": [],
+    "noDirectConstraint": [
+      "main.postMaximumReserve"
+    ],
+    "packetBoundNoDirectConstraint": [
+      "main.postMaximumReserve"
+    ],
+    "unconstrainedAndUnbound": [],
+    "pass": true
+  },
+  "mutationCases": [
+    {
+      "name": "deposit.isDeposit",
+      "action": "deposit",
+      "family": "action-one-hot",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.isTransfer",
+      "action": "deposit",
+      "family": "action-one-hot",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.isWithdrawal",
+      "action": "deposit",
+      "family": "action-one-hot",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.profileHi",
+      "action": "deposit",
+      "family": "profile-instance",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.profileLo",
+      "action": "deposit",
+      "family": "profile-instance",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.instanceHi",
+      "action": "deposit",
+      "family": "profile-instance",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.instanceLo",
+      "action": "deposit",
+      "family": "profile-instance",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preNoteRoot",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preNullifierRoot",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preStateCommitment",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postNoteRoot",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postNullifierRoot",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postStateCommitment",
+      "action": "deposit",
+      "family": "state-roots-commitments",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preNextLeafIndex",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postNextLeafIndex",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preActionSequence",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postActionSequence",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preLiveNoteCount",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postLiveNoteCount",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preReserveSats",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postReserveSats",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preMaximumReserve",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.postMaximumReserve",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.maximumLiveNotes",
+      "action": "deposit",
+      "family": "counters-cap-denomination",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preNextLeafIndex",
+      "action": "deposit",
+      "family": "u32-boundary",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.preReserveSats",
+      "action": "deposit",
+      "family": "u64-boundary",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.profileHi",
+      "action": "deposit",
+      "family": "u128-boundary",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inSk",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inRho",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inR",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inputAk",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inputCm",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.inputNf",
+      "action": "transfer",
+      "family": "spend-secret-ak-cm-nf",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.noteIndex",
+      "action": "transfer",
+      "family": "membership-index-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.noteSiblings[0]",
+      "action": "transfer",
+      "family": "membership-index-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.noteSiblings[15]",
+      "action": "transfer",
+      "family": "membership-index-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.noteSiblings[31]",
+      "action": "transfer",
+      "family": "membership-index-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.nullifierSiblings[0]",
+      "action": "transfer",
+      "family": "nullifier-key-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.nullifierSiblings[63]",
+      "action": "transfer",
+      "family": "nullifier-key-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.nullifierSiblings[127]",
+      "action": "transfer",
+      "family": "nullifier-key-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.duplicate-nullifier-pre-root",
+      "action": "transfer",
+      "family": "nullifier-duplicate-collision",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.outputAk",
+      "action": "deposit",
+      "family": "output-note",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.outputRho",
+      "action": "deposit",
+      "family": "output-note",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.outputR",
+      "action": "deposit",
+      "family": "output-note",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.outputCm",
+      "action": "deposit",
+      "family": "output-note",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.outputAk",
+      "action": "withdrawal",
+      "family": "inactive-output",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.outputRho",
+      "action": "withdrawal",
+      "family": "inactive-output",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.outputR",
+      "action": "withdrawal",
+      "family": "inactive-output",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.outputCm",
+      "action": "withdrawal",
+      "family": "inactive-output",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inSk",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inRho",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inR",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inputAk",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inputCm",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.inputNf",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.noteIndex",
+      "action": "deposit",
+      "family": "inactive-spend",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.noteSiblings[0]",
+      "action": "deposit",
+      "family": "inactive-spend-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.noteSiblings[31]",
+      "action": "deposit",
+      "family": "inactive-spend-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.nullifierSiblings[0]",
+      "action": "deposit",
+      "family": "inactive-nullifier-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.nullifierSiblings[127]",
+      "action": "deposit",
+      "family": "inactive-nullifier-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.appendSiblings[0]",
+      "action": "withdrawal",
+      "family": "inactive-append-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.appendSiblings[31]",
+      "action": "withdrawal",
+      "family": "inactive-append-path",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.boundaryAmount",
+      "action": "deposit",
+      "family": "boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.withdrawalScriptHi",
+      "action": "deposit",
+      "family": "inactive-boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.withdrawalScriptLo",
+      "action": "deposit",
+      "family": "inactive-boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.boundaryAmount",
+      "action": "transfer",
+      "family": "boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.withdrawalScriptHi",
+      "action": "transfer",
+      "family": "inactive-boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.withdrawalScriptLo",
+      "action": "transfer",
+      "family": "inactive-boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.withdrawalScriptHi",
+      "action": "withdrawal",
+      "family": "boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.withdrawalScriptLo",
+      "action": "withdrawal",
+      "family": "boundary-script",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.recordBits[0]",
+      "action": "deposit",
+      "family": "record-bytes",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.recordBits[767]",
+      "action": "deposit",
+      "family": "record-bytes",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.recordBits[1535]",
+      "action": "deposit",
+      "family": "record-bytes",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.recordBits[0]",
+      "action": "withdrawal",
+      "family": "inactive-record-bytes",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.recordBits[1535]",
+      "action": "withdrawal",
+      "family": "inactive-record-bytes",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.transactionContextHi",
+      "action": "transfer",
+      "family": "transaction-context-digest",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "transfer.transactionContextLo",
+      "action": "transfer",
+      "family": "transaction-context-digest",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.publicDigestHi",
+      "action": "withdrawal",
+      "family": "public-digest-limbs",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.publicDigestLo",
+      "action": "withdrawal",
+      "family": "public-digest-limbs",
+      "expected": "reject",
+      "observed": "reject",
+      "pass": true
+    },
+    {
+      "name": "deposit.recordBits[0]",
+      "action": "deposit",
+      "family": "record-rebound-alternative",
+      "expected": "accept-legitimate-alternative",
+      "observed": "accept",
+      "pass": true
+    },
+    {
+      "name": "transfer.transactionContextHi",
+      "action": "transfer",
+      "family": "context-rebound-alternative",
+      "expected": "accept-legitimate-alternative",
+      "observed": "accept",
+      "pass": true
+    },
+    {
+      "name": "withdrawal.withdrawalScriptHi",
+      "action": "withdrawal",
+      "family": "script-rebound-alternative",
+      "expected": "accept-legitimate-alternative",
+      "observed": "accept",
+      "pass": true
+    }
+  ],
+  "counts": {
+    "total": 82,
+    "pass": 82,
+    "unexpectedAccepts": 0,
+    "unexpectedRejects": 0
+  }
+}
