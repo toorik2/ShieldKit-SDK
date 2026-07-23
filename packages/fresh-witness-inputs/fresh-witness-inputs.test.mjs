@@ -40,6 +40,10 @@ test('authenticated development profile produces relation-valid chained packets'
   const loaded = await loadVerifierProfileBundle(bundleDirectory);
   const expectedProfile = { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId };
   const result = await generateFreshWitnessInputs({ bundleDirectory, expectedProfile, witnessSeed: hex(0x41), withdrawalScriptHash: hex(0x42), transactionContextDigests: { deposit: hex(0x51), transfer: hex(0x52), withdrawal: hex(0x53) } });
+  await assert.rejects(
+    () => generateFreshWitnessInputs({ bundleDirectory, expectedProfile: { ...expectedProfile, profileId: `sha256:${hex(0xff)}` }, witnessSeed: hex(0x41), withdrawalScriptHash: hex(0x42), transactionContextDigests: { deposit: hex(0x51), transfer: hex(0x52), withdrawal: hex(0x53) } }),
+    /expected profile binding mismatch: refusing hot swap/,
+  );
   const reference = await createShieldedTransitionReference();
   assert.equal(result.profile.setupMode, 'development-only');
   for (const [kind, value] of Object.entries(result.actions)) {
@@ -56,6 +60,8 @@ test('authenticated development profile produces relation-valid chained packets'
   assert.equal(decryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId: result.profile.profileId, instanceId: result.profile.instanceId, outputCm: dNote.cm, recipientNoteSecret: dNote.sk, record: deposit.action.outputRecord }).rho, dNote.rho);
   assert.equal(decryptRecoveryRecord({ kind: 'transfer', slot: 0, profileId: result.profile.profileId, instanceId: result.profile.instanceId, outputCm: tNote.cm, recipientNoteSecret: tNote.sk, record: transfer.action.outputRecord }).r, tNote.r);
   assert.ok(result.actions.withdrawal.action.outputRecord.equals(Buffer.alloc(192)));
+  const malformedWithdrawal = { ...result.actions.withdrawal.action, outputRecord: Buffer.alloc(192, 1) };
+  assert.throws(() => reference.transition({ ...malformedWithdrawal, publicInputs: result.actions.withdrawal.publicInputs }), /inactive output record must be all zero/);
 });
 
 test('exact 9,977,099-byte G1 WASM accepts all generated relation inputs when supplied', async (t) => {
