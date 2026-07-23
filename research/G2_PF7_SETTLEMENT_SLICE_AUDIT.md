@@ -44,8 +44,8 @@ Indices are consensus material, not labels.
 | 4 | `exec4` | Profile-authenticated generated PF7 P2SH32 lock. |
 | 5 | `genesis` | Profile-authenticated generated PF7 P2SH32 lock. |
 | 6 | `terminal` | Regenerated PF7 terminal; derives the two Groth16 public limbs from the canonical input-7 packet, not fixture fields. |
-| 7 | `binding` | P2SH32 carrier, canonical packet push only, profile/instance-bound and self-pinned. Its source value is `B + D` for deposit and `B` otherwise. |
-| 8 | `state` | Instance-bound P2SH32 source holding the sole mutable state NFT. Source value/commitment equal packet pre-state. It pins the exact binding lock at input 7. |
+| 7 | `binding` | Bare P2S covenant, canonical packet push only, profile/instance-bound and self-pinned. Its source value is `B + D` for deposit and `B` otherwise. |
+| 8 | `state` | Instance-bound bare P2S covenant holding the sole mutable state NFT. Source value/commitment equal packet pre-state. It pins the exact binding lock at input 7. |
 | 9 | `fee` | One normal transparent user/sponsor UTXO. Its outpoint, source value, lock hash, sequence, and canonical change script are packet-bound. |
 
 The generated verifier set must make this ten-role map explicit in every
@@ -144,7 +144,7 @@ PASS, feasibility PASS, or assigned byte budget.
    regenerate a terminal that parses/binds input 7.
 2. Implement the context-preimage encoder and test exact byte offsets/hashes
    from independently constructed transaction fields.
-3. Implement binding and state P2SH32 scripts only after their constructor
+3. Implement binding and state P2S scripts only after their constructor
    graph is fixed; add whole-transaction lock/value/token/index substitutions.
 4. Build deposit, transfer, and withdrawal complete transactions with real
    proofs from one typed `development-only` profile; execute every input in the
