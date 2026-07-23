@@ -502,8 +502,8 @@ legally compliant.
 
 | Gate | Status | Reason |
 | --- | --- | --- |
-| G0 | PASS | Direction frozen by `g0-v1`; locked decisions and change control are machine-checked |
-| G1 | OPEN | Current BCH policy and the qualifying verifier envelope require full reproduction |
+| G0 | OPEN | RFC-0001 reopens the verifier setup and profile-replacement boundary |
+| G1 | NOT ENTERED | G0 prerequisite |
 | G2 | NOT ENTERED | G1 prerequisite |
 | G3 | NOT ENTERED | G2 prerequisite |
 | G4 | NOT ENTERED | G2 prerequisite |

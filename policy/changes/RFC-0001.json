@@ -1,0 +1,10 @@
+{
+  "schema": "shield.cash/change/v1",
+  "rfc": "RFC-0001",
+  "oldFreeze": "g0-v1",
+  "newFreeze": "g0-v2",
+  "changedDecisions": ["D-008"],
+  "invalidatedGates": ["G0", "G1"],
+  "invalidatedEvidence": [],
+  "reason": "Separate locally initialized development verifier material from a later multi-party-ceremony production verifier through a versioned profile interface."
+}

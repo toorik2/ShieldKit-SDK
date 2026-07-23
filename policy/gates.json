@@ -3,13 +3,13 @@
   "updated": "2026-07-23",
   "gates": {
     "G0": {
-      "status": "PASS",
+      "status": "OPEN",
       "freeze": "g0-v1",
-      "reason": "Direction, privacy claim, resource budgets, operational boundary, fee default, and change control are frozen."
+      "reason": "RFC-0001 reopens the verifier setup and profile-replacement boundary."
     },
     "G1": {
-      "status": "OPEN",
-      "reason": "Current BCH policy and the qualifying verifier envelope require full reproduction."
+      "status": "NOT ENTERED",
+      "reason": "G0 prerequisite."
     },
     "G2": {
       "status": "NOT ENTERED",
