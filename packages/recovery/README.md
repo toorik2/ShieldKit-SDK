@@ -44,6 +44,23 @@ one recipient address for `(accountSeed, profileId, instanceId)`; applications
 with a master seed must supply their own versioned account derivation and scan
 each account seed separately.
 
+## Raw settlement extraction (Node-only subpath)
+
+`@shield.cash/recovery/raw-settlement-history` consumes caller-supplied raw BCH
+genesis and settlement transaction bytes. It computes each transaction ID,
+requires ten settlement inputs, extracts only input 7's exact
+`PUSHDATA2(752)` packet, validates input 8's direct vout-0 state ancestry,
+state lock/hash, mutable zero-amount NFT category and commitment, and packet
+profile/instance/state continuity. Its result is exact anchors plus packets for
+`recoverAuthenticatedChainHistory`.
+
+`createRawSettlementJournal` is an offline append/rollback/replay container for
+caller-supplied branches. Its synthetic structural scale test exercises journal
+memory and deterministic rollback mechanics only; it is not raw-node, BCH VM,
+Chipnet, reorg, provider-authentication, or 10,000-transition recovery
+evidence. The caller must authenticate raw BCH provenance and confirmation
+order, and an independent implementation remains a G5 requirement.
+
 ## Cryptographic and portability boundary
 
 V1 derivation, domains, record layout, X25519, HKDF-SHA256,
