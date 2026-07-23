@@ -5,5 +5,19 @@
   "type": "module",
   "scripts": {
     "test": "node --test *.test.mjs"
+  },
+  "exports": {
+    ".": "./recovery.mjs",
+    "./portable-core": "./portable-core.mjs",
+    "./node": "./node-backend.mjs"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.1.1",
+    "@noble/curves": "2.2.0",
+    "@noble/hashes": "2.2.0",
+    "poseidon-lite": "0.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5"
   }
 }

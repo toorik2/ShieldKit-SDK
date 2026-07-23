@@ -1,200 +1,172 @@
-// Typed public-address note construction and chain-recovery primitive.
-// This module is local wallet code; it does not prove, broadcast, or make a
-// qualification/privacy claim. Its 192-byte record is only byte-bound by G1.
+// Portable recipient address and chain-recovery V1 API. No Node built-ins,
+// Buffer, network access, or storage are required by this entrypoint.
 import {
-  createCipheriv, createDecipheriv, createHash, createPrivateKey, createPublicKey,
-  diffieHellman, hkdfSync, randomBytes,
-} from 'node:crypto';
-import {
-  FR_MODULUS, OUTPUT_RECORD_BYTES, createShieldedTransitionReference, frFromHex, frToHex,
-} from '../core/shielded-transition.mjs';
+  ADDRESS_SCHEMA, FR_MODULUS, NOBLE_CRYPTO_BACKEND, OUTPUT_RECORD_BYTES, PortableCoreError,
+  RECOVERY_RECORD_CIPHERTEXT_BYTES, RECOVERY_RECORD_PADDING_BYTES, RECORD_VERSION, assertCryptoBackend,
+  bytes, bytesToHex, deriveOutputNote, deriveRecipientAuthority, deriveRecipientNote, deriveScalar, equalBytes, hex32,
+  hexToBytes, isBytes, nonzeroFr, recoveryAad, recoveryPrivateKey,
+} from './portable-core.mjs';
 
-const HEX_32 = /^[0-9a-f]{64}$/;
 const KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 const KIND_CODE = Object.freeze({ deposit: 1, transfer: 2, withdrawal: 3 });
-const X25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b656e04220420', 'hex');
-const X25519_SPKI_PREFIX = Buffer.from('302a300506032b656e032100', 'hex');
-const RECORD_VERSION = 1;
-const RECORD_CIPHERTEXT_BYTES = 128;
-const RECORD_PADDING_BYTES = 2;
-const ADDRESS_SCHEMA = 'shield.cash/recipient-address/v1';
 
 export class RecoveryError extends Error {
-  constructor(message) { super(message); this.name = 'RecoveryError'; }
+  constructor(code, message) { super(message); this.name = 'RecoveryError'; this.code = code; }
 }
 
-const fail = (message) => { throw new RecoveryError(message); };
-const sha256 = (...parts) => {
-  const hash = createHash('sha256'); for (const part of parts) hash.update(part); return hash.digest();
+const fail = (code, message) => { throw new RecoveryError(code, message); };
+const translate = (error) => {
+  if (error instanceof RecoveryError) throw error;
+  if (error instanceof PortableCoreError) fail(error.code, error.message);
+  fail('CRYPTOGRAPHIC_FAILURE', 'cryptographic operation failed');
 };
 const exactKeys = (value, label, expected) => {
-  if (value === null || Array.isArray(value) || typeof value !== 'object') fail(`${label} must be an object`);
+  if (value === null || Array.isArray(value) || typeof value !== 'object') fail('INVALID_OBJECT', `${label} must be an object`);
   const actual = Object.keys(value).sort(); const wanted = [...expected].sort();
-  if (actual.length !== wanted.length || actual.some((key, i) => key !== wanted[i])) fail(`${label} has missing or unknown properties`);
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) fail('UNKNOWN_PROPERTY', `${label} has missing or unknown properties`);
 };
 const oneOfKeys = (value, label, alternatives) => {
   for (const expected of alternatives) {
     const actual = value !== null && !Array.isArray(value) && typeof value === 'object' ? Object.keys(value).sort() : [];
     const wanted = [...expected].sort();
-    if (actual.length === wanted.length && actual.every((key, i) => key === wanted[i])) return;
+    if (actual.length === wanted.length && actual.every((key, index) => key === wanted[index])) return;
   }
-  fail(`${label} has missing or unknown properties`);
+  fail('UNKNOWN_PROPERTY', `${label} has missing or unknown properties`);
 };
-const hex32 = (value, label) => {
-  if (typeof value !== 'string' || !HEX_32.test(value)) fail(`${label} must be 32 lowercase hexadecimal bytes`);
-  return value;
-};
-const field = (value, label, nonzero = true) => {
-  try {
-    const parsed = frFromHex(value, label);
-    if (nonzero && parsed === 0n) fail(`${label} must be nonzero`);
-    return frToHex(parsed);
-  } catch (error) {
-    if (error instanceof RecoveryError) throw error;
-    fail(error.message);
-  }
+const optionalBackend = (value) => {
+  try { return value === undefined ? NOBLE_CRYPTO_BACKEND : assertCryptoBackend(value); } catch (error) { translate(error); }
 };
 const seed32 = (value) => {
-  if (!Buffer.isBuffer(value) || value.length !== 32) fail('wallet seed must contain exactly 32 bytes');
-  return value;
+  if (!isBytes(value, 32)) fail('INVALID_SEED', 'wallet seed must contain exactly 32 bytes');
+  return new Uint8Array(value);
 };
 const kind = (value) => {
-  if (!KINDS.includes(value)) fail('record kind is unsupported');
+  if (!KINDS.includes(value)) fail('UNSUPPORTED_KIND', 'record kind is unsupported');
   return value;
 };
 const slot = (value) => {
-  if (!Number.isInteger(value) || value < 0 || value > 0xff) fail('record slot must be a byte');
+  if (!Number.isInteger(value) || value < 0 || value > 0xff) fail('INVALID_SLOT', 'record slot must be a byte');
   return value;
 };
-const rawPrivateKey = (bytes) => {
-  if (!Buffer.isBuffer(bytes) || bytes.length !== 32) fail('X25519 private material must contain exactly 32 bytes');
-  return createPrivateKey({ key: Buffer.concat([X25519_PKCS8_PREFIX, bytes]), format: 'der', type: 'pkcs8' });
+const identifier = (value, label) => { try { return hex32(value, label); } catch (error) { translate(error); } };
+const field = (value, label) => { try { return nonzeroFr(value, label); } catch (error) { translate(error); } };
+const validBytes = (value, length, label) => {
+  if (!isBytes(value, length)) fail('INVALID_BYTES', `${label} must contain exactly ${length} bytes`);
+  return new Uint8Array(value);
 };
-const rawPublicKey = (bytes) => {
-  if (!Buffer.isBuffer(bytes) || bytes.length !== 32) fail('X25519 public material must contain exactly 32 bytes');
-  return createPublicKey({ key: Buffer.concat([X25519_SPKI_PREFIX, bytes]), format: 'der', type: 'spki' });
-};
-const publicRaw = (privateKey) => Buffer.from(createPublicKey(privateKey).export({ format: 'der', type: 'spki' })).subarray(-32);
 const random = (rng, length) => {
-  let bytes;
-  try { bytes = rng === undefined ? randomBytes(length) : rng.bytes(length); }
-  catch { fail('CSPRNG failed'); }
-  if (!Buffer.isBuffer(bytes) || bytes.length !== length) fail('CSPRNG returned an invalid byte string');
-  return Buffer.from(bytes);
+  let output;
+  try { output = rng.bytes(length); } catch { fail('CSPRNG_FAILURE', 'CSPRNG failed'); }
+  if (!isBytes(output, length)) fail('CSPRNG_FAILURE', 'CSPRNG returned an invalid byte string');
+  return new Uint8Array(output);
 };
 const randomField = (rng, label) => {
   for (let attempt = 0; attempt < 1024; attempt += 1) {
-    const bytes = random(rng, 32); const value = BigInt(`0x${bytes.toString('hex')}`);
-    if (value > 0n && value < FR_MODULUS) return frToHex(value);
+    const candidate = BigInt(`0x${bytesToHex(random(rng, 32))}`);
+    if (candidate > 0n && candidate < FR_MODULUS) return candidate.toString(16).padStart(64, '0');
   }
-  fail(`CSPRNG did not produce a canonical nonzero ${label}`);
+  fail('CSPRNG_FAILURE', `CSPRNG did not produce a canonical nonzero ${label}`);
 };
+
+/** Wrap a genuine WebCrypto CSPRNG; it fails closed on absent or malformed APIs. */
+export function createWebCryptoRandomSource(crypto = globalThis.crypto) {
+  if (crypto === null || typeof crypto !== 'object' || typeof crypto.getRandomValues !== 'function') fail('CSPRNG_UNAVAILABLE', 'WebCrypto getRandomValues is unavailable');
+  return Object.freeze({ bytes(length) {
+    if (!Number.isSafeInteger(length) || length < 0 || length > 65_536) fail('CSPRNG_FAILURE', 'invalid WebCrypto random-byte request');
+    try { return crypto.getRandomValues(new Uint8Array(length)); } catch { fail('CSPRNG_FAILURE', 'WebCrypto getRandomValues failed'); }
+  } });
+}
 
 function assertAddress(address) {
   exactKeys(address, 'recipient address', ['ak', 'instanceId', 'profileId', 'recoveryPublicKey', 'schema']);
-  if (address.schema !== ADDRESS_SCHEMA) fail('recipient address schema is unsupported');
-  const profileId = hex32(address.profileId, 'recipient address profileId');
-  const instanceId = hex32(address.instanceId, 'recipient address instanceId');
-  const ak = field(address.ak, 'recipient address ak');
-  hex32(address.recoveryPublicKey, 'recipient address recovery public key');
-  return Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak, recoveryPublicKey: address.recoveryPublicKey });
+  if (address.schema !== ADDRESS_SCHEMA) fail('UNSUPPORTED_ADDRESS_SCHEMA', 'recipient address schema is unsupported');
+  const profileId = identifier(address.profileId, 'recipient address profileId'); const instanceId = identifier(address.instanceId, 'recipient address instanceId');
+  const ak = field(address.ak, 'recipient address ak'); const recoveryPublicKey = identifier(address.recoveryPublicKey, 'recipient address recovery public key');
+  return Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak, recoveryPublicKey });
 }
 
-function aad({ kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm }) {
-  return Buffer.concat([
-    Buffer.from('shield.cash/recovery-record/v1\0SCAR', 'utf8'), Buffer.of(RECORD_VERSION, 2, KIND_CODE[recordKind], 0, recordSlot),
-    Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'), Buffer.from(outputCm, 'hex'),
-  ]);
-}
-
-function deriveScalar(seed, label, profileId, instanceId) {
-  const digest = sha256(Buffer.from(label, 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'));
-  return frToHex((BigInt(`0x${digest.toString('hex')}`) % (FR_MODULUS - 1n)) + 1n);
+function normalizeDerivationInput(input, label) {
+  oneOfKeys(input, label, [['instanceId', 'profileId', 'seed'], ['cryptoBackend', 'instanceId', 'profileId', 'seed']]);
+  return { seed: seed32(input.seed), profileId: identifier(input.profileId, 'wallet profileId'), instanceId: identifier(input.instanceId, 'wallet instanceId'), backend: optionalBackend(input.cryptoBackend) };
 }
 
 /** Derive profile- and instance-separated private wallet material from a seed. */
 export async function deriveRecipientWallet(input) {
-  exactKeys(input, 'wallet derivation input', ['instanceId', 'profileId', 'seed']);
-  const profileId = hex32(input.profileId, 'wallet profileId'); const instanceId = hex32(input.instanceId, 'wallet instanceId');
-  const seed = seed32(input.seed);
-  const spendSecret = deriveScalar(seed, 'shield.cash/wallet-spend/v1\0', profileId, instanceId);
-  const recoveryPrivateKey = sha256(Buffer.from('shield.cash/wallet-recovery-x25519/v1\0', 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'));
-  const reference = await createShieldedTransitionReference();
-  const authority = reference.deriveNote({ profileId, instanceId, sk: spendSecret, rho: frToHex(1n), r: frToHex(1n) }).ak;
-  field(authority, 'derived recipient authority key');
-  const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, recoveryPublicKey: publicRaw(rawPrivateKey(recoveryPrivateKey)).toString('hex') });
-  return Object.freeze({ address, spendSecret, recoveryPrivateKey: Buffer.from(recoveryPrivateKey) });
+  const { seed, profileId, instanceId, backend } = normalizeDerivationInput(input, 'wallet derivation input');
+  try {
+    const spendSecret = deriveScalar(seed, 'shield.cash/wallet-spend/v1\0', profileId, instanceId);
+    const recoverySecret = recoveryPrivateKey(seed, profileId, instanceId);
+    const authority = await deriveRecipientAuthority({ profileId, instanceId, spendSecret });
+    const recoveryPublicKey = bytesToHex(validBytes(backend.getPublicKey(recoverySecret), 32, 'X25519 public key'));
+    const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, recoveryPublicKey });
+    return Object.freeze({ address, spendSecret, recoveryPrivateKey: new Uint8Array(recoverySecret) });
+  } catch (error) { translate(error); }
 }
 
 /** Derive the public recipient address without exposing spend or scan material. */
-export async function deriveRecipientAddress(input) {
-  exactKeys(input, 'address derivation input', ['instanceId', 'profileId', 'seed']);
-  return (await deriveRecipientWallet(input)).address;
-}
+export async function deriveRecipientAddress(input) { return (await deriveRecipientWallet(input)).address; }
 
-/** Construct a recipient-bound public output and its exact 192-byte recovery record. */
+/** Construct a public recipient output and its exact 192-byte recovery record. */
 export async function constructRecipientOutput(input) {
   oneOfKeys(input, 'output construction input', [
     ['address', 'kind', 'slot'], ['address', 'kind', 'rng', 'slot'],
+    ['address', 'cryptoBackend', 'kind', 'slot'], ['address', 'cryptoBackend', 'kind', 'rng', 'slot'],
   ]);
   const address = assertAddress(input.address); const recordKind = kind(input.kind); const recordSlot = slot(input.slot);
-  if (recordKind === 'withdrawal') fail('withdrawal has no active recipient output');
-  if (input.rng !== undefined && (input.rng === null || Array.isArray(input.rng) || typeof input.rng !== 'object' || typeof input.rng.bytes !== 'function')) fail('rng must expose bytes(length)');
-  const rho = randomField(input.rng, 'rho'); const r = randomField(input.rng, 'r');
-  const reference = await createShieldedTransitionReference();
-  const output = reference.deriveOutputNote({ profileId: address.profileId, instanceId: address.instanceId, ak: address.ak, rho, r });
-  const ephemeralPrivate = rawPrivateKey(random(input.rng, 32)); const nonce = random(input.rng, 12);
-  let shared;
-  try { shared = diffieHellman({ privateKey: ephemeralPrivate, publicKey: rawPublicKey(Buffer.from(address.recoveryPublicKey, 'hex')) }); }
-  catch { fail('recipient recovery public key is invalid'); }
-  const associatedData = aad({ kind: recordKind, slot: recordSlot, profileId: address.profileId, instanceId: address.instanceId, outputCm: output.cm });
-  const key = Buffer.from(hkdfSync('sha256', shared, Buffer.from(address.profileId, 'hex'), associatedData, 32));
-  const plaintext = Buffer.concat([Buffer.from(address.profileId, 'hex'), Buffer.from(address.instanceId, 'hex'), Buffer.from(rho, 'hex'), Buffer.from(r, 'hex')]);
-  const cipher = createCipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
-  cipher.setAAD(associatedData, { plaintextLength: plaintext.length });
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-  if (ciphertext.length !== RECORD_CIPHERTEXT_BYTES) fail('internal recovery ciphertext size mismatch');
-  const record = Buffer.concat([Buffer.of(RECORD_VERSION, recordSlot), publicRaw(ephemeralPrivate), nonce, cipher.getAuthTag(), ciphertext, Buffer.alloc(RECORD_PADDING_BYTES)]);
-  if (record.length !== OUTPUT_RECORD_BYTES) fail('internal recovery record size mismatch');
-  return Object.freeze({ output: Object.freeze(output), record });
+  if (recordKind === 'withdrawal') fail('UNSUPPORTED_KIND', 'withdrawal has no active recipient output');
+  const rng = input.rng === undefined ? createWebCryptoRandomSource() : input.rng;
+  if (rng === null || typeof rng !== 'object' || typeof rng.bytes !== 'function') fail('INVALID_RNG', 'rng must expose bytes(length)');
+  const backend = optionalBackend(input.cryptoBackend);
+  try {
+    const rho = randomField(rng, 'rho'); const r = randomField(rng, 'r');
+    const output = await deriveOutputNote({ profileId: address.profileId, instanceId: address.instanceId, ak: address.ak, rho, r });
+    const ephemeralPrivate = random(rng, 32); const nonce = random(rng, 12);
+    const peer = hexToBytes(address.recoveryPublicKey); const ephemeralPublic = validBytes(backend.getPublicKey(ephemeralPrivate), 32, 'ephemeral X25519 public key');
+    let shared;
+    try { shared = validBytes(backend.getSharedSecret(ephemeralPrivate, peer), 32, 'X25519 shared secret'); } catch { fail('RECORD_AUTHENTICATION_FAILED', 'recipient recovery public key is invalid'); }
+    const associatedData = recoveryAad({ kindCode: KIND_CODE[recordKind], slot: recordSlot, profileId: address.profileId, instanceId: address.instanceId, outputCm: output.cm });
+    const key = validBytes(backend.hkdfSha256(shared, hexToBytes(address.profileId), associatedData, 32), 32, 'HKDF output');
+    const plaintext = bytes(hexToBytes(address.profileId), hexToBytes(address.instanceId), hexToBytes(rho), hexToBytes(r));
+    const sealed = validBytes(backend.seal(key, nonce, associatedData, plaintext), 144, 'ChaCha20-Poly1305 output');
+    const record = bytes(Uint8Array.of(RECORD_VERSION, recordSlot), ephemeralPublic, nonce, sealed, new Uint8Array(RECOVERY_RECORD_PADDING_BYTES));
+    if (record.length !== OUTPUT_RECORD_BYTES) fail('INTERNAL_SIZE', 'internal recovery record size mismatch');
+    return Object.freeze({ output: Object.freeze(output), record });
+  } catch (error) { translate(error); }
 }
 
-function decryptRecord({ recoveryPrivateKey, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, record }) {
-  if (!Buffer.isBuffer(record) || record.length !== OUTPUT_RECORD_BYTES) fail('record must contain exactly 192 bytes');
-  if (record[0] !== RECORD_VERSION || record[1] !== recordSlot) fail('record version or output slot mismatch');
-  if (!record.subarray(OUTPUT_RECORD_BYTES - RECORD_PADDING_BYTES).equals(Buffer.alloc(RECORD_PADDING_BYTES))) fail('record padding must be zero');
-  const ephemeral = record.subarray(2, 34); const nonce = record.subarray(34, 46); const tag = record.subarray(46, 62); const ciphertext = record.subarray(62, 190);
+function decryptRecord({ recoveryPrivateKey, backend, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, record }) {
+  const bytesRecord = validBytes(record, OUTPUT_RECORD_BYTES, 'record');
+  if (bytesRecord[0] !== RECORD_VERSION || bytesRecord[1] !== recordSlot) fail('RECORD_HEADER', 'record version or output slot mismatch');
+  if (!equalBytes(bytesRecord.subarray(OUTPUT_RECORD_BYTES - RECOVERY_RECORD_PADDING_BYTES), new Uint8Array(RECOVERY_RECORD_PADDING_BYTES))) fail('RECORD_PADDING', 'record padding must be zero');
+  const ephemeral = bytesRecord.subarray(2, 34); const nonce = bytesRecord.subarray(34, 46); const sealed = bytesRecord.subarray(46, 190);
   let shared;
-  try { shared = diffieHellman({ privateKey: rawPrivateKey(recoveryPrivateKey), publicKey: rawPublicKey(ephemeral) }); }
-  catch { fail('record authentication failed'); }
-  const associatedData = aad({ kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm });
-  const key = Buffer.from(hkdfSync('sha256', shared, Buffer.from(profileId, 'hex'), associatedData, 32));
-  const decipher = createDecipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
-  decipher.setAAD(associatedData, { plaintextLength: ciphertext.length }); decipher.setAuthTag(tag);
+  try { shared = validBytes(backend.getSharedSecret(recoveryPrivateKey, ephemeral), 32, 'X25519 shared secret'); } catch { fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed'); }
+  const associatedData = recoveryAad({ kindCode: KIND_CODE[recordKind], slot: recordSlot, profileId, instanceId, outputCm });
+  const key = validBytes(backend.hkdfSha256(shared, hexToBytes(profileId), associatedData, 32), 32, 'HKDF output');
   let plaintext;
-  try { plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]); } catch { fail('record authentication failed'); }
-  if (plaintext.length !== RECORD_CIPHERTEXT_BYTES) fail('record plaintext length is invalid');
-  const decoded = { profileId: plaintext.subarray(0, 32).toString('hex'), instanceId: plaintext.subarray(32, 64).toString('hex'), rho: plaintext.subarray(64, 96).toString('hex'), r: plaintext.subarray(96, 128).toString('hex') };
-  if (decoded.profileId !== profileId || decoded.instanceId !== instanceId) fail('record plaintext identity mismatch');
+  try { plaintext = validBytes(backend.open(key, nonce, associatedData, sealed), RECOVERY_RECORD_CIPHERTEXT_BYTES, 'record plaintext'); } catch { fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed'); }
+  const decoded = { profileId: bytesToHex(plaintext.subarray(0, 32)), instanceId: bytesToHex(plaintext.subarray(32, 64)), rho: bytesToHex(plaintext.subarray(64, 96)), r: bytesToHex(plaintext.subarray(96, 128)) };
+  if (decoded.profileId !== profileId || decoded.instanceId !== instanceId) fail('RECORD_IDENTITY', 'record plaintext identity mismatch');
   return decoded;
 }
 
 /** Decrypt, recompute, and validate a record from local seed and serialized chain fields. */
 export async function recoverRecipientOutput(input) {
-  exactKeys(input, 'recovery input', ['instanceId', 'kind', 'outputCommitment', 'profileId', 'record', 'seed', 'slot']);
-  const profileId = hex32(input.profileId, 'recovery profileId'); const instanceId = hex32(input.instanceId, 'recovery instanceId');
-  const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const seed = seed32(input.seed);
-  const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
-  const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
-  const decoded = decryptRecord({ recoveryPrivateKey: wallet.recoveryPrivateKey, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, record: input.record });
-  field(decoded.rho, 'record rho'); field(decoded.r, 'record r');
-  const reference = await createShieldedTransitionReference();
-  const output = reference.deriveOutputNote({ profileId, instanceId, ak: wallet.address.ak, rho: decoded.rho, r: decoded.r });
-  if (output.cm !== outputCommitment) fail('record plaintext does not match output commitment');
-  const note = reference.deriveNote({ profileId, instanceId, sk: wallet.spendSecret, rho: decoded.rho, r: decoded.r });
-  if (note.ak !== wallet.address.ak || note.cm !== outputCommitment) fail('recomputed spendable note does not match output commitment');
-  return Object.freeze(note);
+  oneOfKeys(input, 'recovery input', [
+    ['instanceId', 'kind', 'outputCommitment', 'profileId', 'record', 'seed', 'slot'],
+    ['cryptoBackend', 'instanceId', 'kind', 'outputCommitment', 'profileId', 'record', 'seed', 'slot'],
+  ]);
+  const profileId = identifier(input.profileId, 'recovery profileId'); const instanceId = identifier(input.instanceId, 'recovery instanceId');
+  const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const seed = seed32(input.seed); const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
+  const backend = optionalBackend(input.cryptoBackend);
+  try {
+    const wallet = await deriveRecipientWallet({ seed, profileId, instanceId, cryptoBackend: backend });
+    const decoded = decryptRecord({ recoveryPrivateKey: wallet.recoveryPrivateKey, backend, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, record: input.record });
+    const note = await deriveRecipientNote({ profileId, instanceId, spendSecret: wallet.spendSecret, rho: decoded.rho, r: decoded.r });
+    if (note.cm !== outputCommitment) fail('COMMITMENT_MISMATCH', 'record plaintext does not match output commitment');
+    return note;
+  } catch (error) { translate(error); }
 }
 
-export const RECOVERY_RECORD_LAYOUT = Object.freeze({ bytes: OUTPUT_RECORD_BYTES, version: RECORD_VERSION, ciphertextBytes: RECORD_CIPHERTEXT_BYTES, paddingBytes: RECORD_PADDING_BYTES });
+export const RECOVERY_RECORD_LAYOUT = Object.freeze({ bytes: OUTPUT_RECORD_BYTES, version: RECORD_VERSION, ciphertextBytes: RECOVERY_RECORD_CIPHERTEXT_BYTES, paddingBytes: RECOVERY_RECORD_PADDING_BYTES });
 export const RECIPIENT_ADDRESS_SCHEMA = ADDRESS_SCHEMA;
