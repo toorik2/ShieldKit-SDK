@@ -342,3 +342,19 @@ export function verifyCompleteG2Vm(candidate, standard = true) {
   const vm = createVirtualMachineBch2026(standard);
   return candidate.transaction.inputs.map((_, inputIndex) => vm.evaluate({ inputIndex, sourceOutputs: candidate.sourceOutputs, transaction: candidate.transaction }));
 }
+
+/** Classify every one of the ten independent BCH-VM role evaluations. */
+export function classifyCompleteG2Vm(candidate, standard = true) {
+  const results = verifyCompleteG2Vm(candidate, standard);
+  const failedInputIndexes = results.flatMap((result, inputIndex) => (
+    result.error === undefined && result.stack.length === 1 && result.stack[0].some((byte) => byte !== 0)
+      ? [] : [inputIndex]
+  ));
+  return Object.freeze({
+    standard,
+    inputCount: results.length,
+    accepted: failedInputIndexes.length === 0,
+    failedInputIndexes: Object.freeze(failedInputIndexes),
+    results: Object.freeze(results),
+  });
+}
