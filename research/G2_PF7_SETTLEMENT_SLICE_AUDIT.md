@@ -45,7 +45,7 @@ Indices are consensus material, not labels.
 | 5 | `genesis` | Profile-authenticated generated PF7 P2SH32 lock. |
 | 6 | `terminal` | Regenerated PF7 terminal; derives the two Groth16 public limbs from the canonical input-7 packet, not fixture fields. |
 | 7 | `binding` | Bare P2S covenant, canonical packet push only, profile/instance-bound and self-pinned. Its source value is `B + D` for deposit and `B` otherwise. |
-| 8 | `state` | Instance-bound bare P2S covenant holding the sole mutable state NFT. Source value/commitment equal packet pre-state. It pins the exact binding lock at input 7. |
+| 8 | `state` | Instance-bound bare P2S covenant holding the sole mutable state NFT. Its value is `S + preReserve`, where `S` is a profile-fixed state carrier preserved at output 0; its commitment equals packet pre-state. It pins the exact binding lock at input 7. |
 | 9 | `fee` | One normal transparent user/sponsor UTXO. Its outpoint, source value, lock hash, sequence, and canonical change script are packet-bound. |
 
 The generated verifier set must make this ten-role map explicit in every
@@ -67,17 +67,23 @@ The 192-B encrypted record is carried in the canonical input-7 action packet,
 which is on-chain transaction data; it must be included in the relation packet
 and the binding parser. No protocol/maintainer/relayer output is permitted.
 
-Let `K = sum(verifier carrier values) + B`, `F` be input-9 value, and `C` the
-canonical change. The binding and state scripts must jointly enforce:
+Let `K = sum(verifier carrier values) + B`, `S` be the profile-fixed state
+carrier, `F` be input-9 value, and `C` the canonical change. The binding and
+state scripts must jointly enforce:
 
 ```
-deposit:    input7 = B + D, Rpost = Rpre + D, W = 0
-transfer:   input7 = B,     Rpost = Rpre,     W = 0
-withdrawal: input7 = B,     Rpost = Rpre - D, W = D
+deposit:    input7 = B + D, input8 = S + Rpre, output0 = S + Rpost,
+            Rpost = Rpre + D, W = 0
+transfer:   input7 = B,     input8 = S + Rpre, output0 = S + Rpost,
+            Rpost = Rpre, W = 0
+withdrawal: input7 = B,     input8 = S + Rpre, output0 = S + Rpost,
+            Rpost = Rpre - D, W = D
 miner fee = K + F - C
 ```
 
-Thus neither the pool reserve nor a protocol role subsidizes the miner fee.
+The preserved `S` term cancels. It prevents the empty state from requiring a
+zero-satoshi spendable token output without becoming fee budget. Thus neither
+the pool reserve nor the state carrier subsidizes the miner fee.
 
 ## Transaction-context preimage to implement
 
