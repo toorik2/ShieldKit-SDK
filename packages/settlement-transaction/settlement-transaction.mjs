@@ -10,11 +10,15 @@ import {
   encodeSettlementContext,
   INPUT_ROLES,
 } from '../settlement-context/settlement-context.mjs';
+import {
+  encodeStateNftCommitment,
+  STATE_NFT_COMMITMENT_LIMIT_BYTES,
+} from '../state-nft/state-nft.mjs';
 
 export const COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
 export const INPUT_UNLOCKING_LIMIT_BYTES = 10_000;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
-export const STATE_NFT_COMMITMENT_LIMIT_BYTES = 120;
+export { STATE_NFT_COMMITMENT_LIMIT_BYTES };
 
 const HEX = /^[0-9a-f]*$/;
 const HEX_32 = /^[0-9a-f]{64}$/;
@@ -152,17 +156,6 @@ function outputToJson(output) {
   };
 }
 
-function expectedStateCommitment(profileId, state) {
-  const commitment = Buffer.alloc(80);
-  Buffer.from('SHST', 'ascii').copy(commitment, 0);
-  commitment[4] = 1;
-  commitment[5] = CHIPNET_NETWORK_ID;
-  Buffer.from(profileId, 'hex').copy(commitment, 8);
-  Buffer.from(state.stateCommitment, 'hex').copy(commitment, 40);
-  commitment.writeBigUInt64LE(BigInt(state.actionSequence), 72);
-  return commitment;
-}
-
 function assertStateToken(token, label, profileId, state, expectedCategory) {
   if (
     token === undefined
@@ -178,7 +171,12 @@ function assertStateToken(token, label, profileId, state, expectedCategory) {
   ) {
     fail(`${label} changes the state NFT category`);
   }
-  const expected = expectedStateCommitment(profileId, state);
+  const expected = encodeStateNftCommitment({
+    networkId: CHIPNET_NETWORK_ID,
+    profileId,
+    stateCommitment: state.stateCommitment,
+    actionSequence: state.actionSequence,
+  });
   if (!Buffer.from(token.nft.commitment).equals(expected)) {
     fail(`${label} state NFT commitment does not encode the packet state`);
   }

@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { buildPoseidon } from 'circomlibjs';
 import { encodeActionPacket } from '../action-packet/action-packet.mjs';
+import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
 
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const DENOMINATION_SATS = 10_000_000n;
@@ -313,9 +314,12 @@ export async function createShieldedTransitionReference() {
   const emptyState = ({ profileId, instanceId, maximumReserve }) => buildState({ profileId, instanceId, noteRoot: frToHex(noteEmpty[NOTE_TREE_DEPTH]), nullifierRoot: frToHex(nullifierEmpty[NULLIFIER_TREE_DEPTH]), nextLeafIndex: '0', actionSequence: '0', liveNoteCount: '0', reserveSats: '0', maximumReserve });
   const stateNftCommitment = ({ networkId, profileId, stateCommitment, actionSequence }) => {
     if (networkId !== NETWORK_CHIPNET) fail('wrong network identifier');
-    const out = Buffer.alloc(80); Buffer.from('SHST', 'ascii').copy(out, 0); out[4] = 1; out[5] = networkId;
-    Buffer.from(parseIdentifier(profileId, 'profileId'), 'hex').copy(out, 8); frToBytes(frFromHex(stateCommitment, 'state commitment')).copy(out, 40); u64le(parseUint(actionSequence, 64, 'action sequence')).copy(out, 72);
-    return out;
+    return encodeStateNftCommitment({
+      networkId,
+      profileId: parseIdentifier(profileId, 'profileId'),
+      stateCommitment: frToHex(frFromHex(stateCommitment, 'state commitment')),
+      actionSequence: parseUint(actionSequence, 64, 'action sequence').toString(),
+    });
   };
 
   return Object.freeze({

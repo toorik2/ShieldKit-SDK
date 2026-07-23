@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { encodeActionPacket } from '../action-packet/action-packet.mjs';
 import { encodeSettlementContext, INPUT_ROLES } from '../settlement-context/settlement-context.mjs';
+import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
 import {
   buildSettlementTransaction,
   SettlementTransactionError,
@@ -30,20 +31,18 @@ const state = (sequence, reserve, commitment) => ({
   maximumReserve: '30000000',
   stateCommitment: hex(commitment, 32),
 });
-const stateCommitment = (stateValue) => {
-  const commitment = Buffer.alloc(80);
-  Buffer.from('SHST').copy(commitment);
-  commitment[4] = 1;
-  commitment[5] = 2;
-  Buffer.from(profileId, 'hex').copy(commitment, 8);
-  Buffer.from(stateValue.stateCommitment, 'hex').copy(commitment, 40);
-  commitment.writeBigUInt64LE(BigInt(stateValue.actionSequence), 72);
-  return commitment.toString('hex');
-};
 const stateToken = (stateValue) => ({
   category,
   amount: '0',
-  nft: { capability: 'mutable', commitment: stateCommitment(stateValue) },
+  nft: {
+    capability: 'mutable',
+    commitment: encodeStateNftCommitment({
+      networkId: 2,
+      profileId,
+      stateCommitment: stateValue.stateCommitment,
+      actionSequence: stateValue.actionSequence,
+    }).toString('hex'),
+  },
 });
 const output = (lockingBytecode, valueSatoshis, token = null) => ({
   lockingBytecode,

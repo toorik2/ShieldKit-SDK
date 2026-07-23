@@ -1,0 +1,9 @@
+{
+  "name": "@shield.cash/state-nft",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  }
+}
