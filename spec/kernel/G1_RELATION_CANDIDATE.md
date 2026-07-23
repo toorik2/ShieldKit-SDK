@@ -51,19 +51,12 @@ All textual literals below are ASCII without a terminator. `u8`, `u32`, and
 `u64` encodings are fixed-width little-endian. SHA-256 results are opaque
 32-byte strings unless explicitly converted to field limbs.
 
-```
-profileId  = SHA256(canonical verifier-profile manifest preimage)
-instanceId = SHA256(
-  "shield.cash/instance/v1" ||
-  networkId:u8 ||
-  profileId:bytes32 ||
-  stateNftCategory:bytes32
-)
-```
-
-`stateNftCategory` is known before genesis construction from the CashToken
-category-creating input outpoint. Genesis does not depend on its own transaction
-identifier.
+`profileId` and `instanceId` are derived exactly as specified by
+[`manifest-v1.md`](../verifier-profile/manifest-v1.md). In particular, the
+instance preimage binds network, profile, immutable reserve cap, the
+category-creating output-0 input, and the derived state NFT category. That
+category is known before genesis construction, so neither identifier depends on
+the transaction identifier of the genesis transaction itself.
 
 The verifier bundle, profile manifest, every circuit domain, every note, every
 state, and every action bind both `profileId` and `instanceId` where applicable.
@@ -293,4 +286,3 @@ This candidate advances only with:
 9. independent VM/formal agreement on accepting and rejecting transactions.
 
 Until those exist, this document is a falsifiable relation target only.
-
