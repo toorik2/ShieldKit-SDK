@@ -1,0 +1,107 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.development-setup-pair.real-low128.20260723",
+  "gate": "G1",
+  "candidate": "g1-bn254-groth16-single-note-v0",
+  "claim": "Two independently randomized local development-only Groth16 initializations over the same relation and Phase-1 artifact produced distinct valid zkeys and VKs, and both proved the same deposit, transfer, and withdrawal statements.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "a5c3c8a3d6d24140e7576f8803635ccc83f79f3a",
+    "dirtyPaths": [
+      "evidence/G1/development-setup-pair/REPORT.md",
+      "evidence/G1/development-setup-pair/observation.json"
+    ]
+  },
+  "environment": {
+    "observedAt": "2026-07-23T15:22:22Z",
+    "hardware": {
+      "architecture": "x86_64"
+    },
+    "software": {
+      "node": "25.9.0",
+      "snarkjs": "0.7.6",
+      "snarkjsCliSha256": "6d787e37a4d1a2c6dd6032dadca09c0b3b007d4d4578bb6232a98136555d051a"
+    }
+  },
+  "commands": [
+    "node packages/local-setup/cli.mjs --input /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/development-setup-low128-v0.input.json --entropy-fd 3 3</home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/.development-setup-low128-v0.entropy",
+    "node packages/local-setup/cli.mjs --input /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/development-setup-low128-v1.input.json --entropy-fd 3 3</home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/.development-setup-low128-v1.entropy",
+    "node packages/local-setup/node_modules/snarkjs/build/cli.cjs zkey verify <r1cs> <ptau> <development-v0-or-v1/final.zkey>",
+    "node packages/local-setup/node_modules/snarkjs/build/cli.cjs zkey export verificationkey <development-v0-or-v1/final.zkey> <new-temporary-output>",
+    "node packages/proof-corpus/proof-corpus.mjs /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/proof-corpus-low128-v0.manifest.json",
+    "node packages/proof-corpus/proof-corpus.mjs /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/proof-corpus-low128-v1.manifest.json",
+    "node packages/local-setup/node_modules/snarkjs/build/cli.cjs groth16 verify <setup-specific-vk> <action-public.json> <action-proof.json>",
+    "shred --force --iterations=3 --zero --remove=unlink -- <exact-private-entropy-file>"
+  ],
+  "artifacts": [
+    {
+      "path": "evidence/G1/development-setup-pair/REPORT.md",
+      "sha256": "1a2a569ac9174e97dd9ca4145981d059c02c1dc63d7badfde9325e02075a43cb",
+      "bytes": 3260
+    }
+  ],
+  "measurements": {
+    "r1csSha256": "46e109afbd2e1b129bcd9a5661b4a98e268cf6753144349686829f139c4f5d3a",
+    "ptauSha256": "159d3f938d941e06767d99f30b9fe59a245400a4aae138cf8e411732d7a2f6cd",
+    "setups": {
+      "v0": {
+        "metadataSha256": "43475c7c38e336c68cdedb21a4f9f5e87c806234e26ecb0e31c492463decf887",
+        "zkeySha256": "37a7ee2fe9e7ee1e2583d60e0e52d86360d7c7a7be5b23dbb0cc166bb5905453",
+        "verificationKeySha256": "d4b6b4e0a6c371a019ffa7457a7c2a265b7e3a90ae2a12619424a249903c9a59",
+        "proofCorpusResultSha256": "02a121f8a3d22bbd2afec20b8443256d7bda8b7dc5a0f4b607b1a823ffde9bfa"
+      },
+      "v1": {
+        "metadataSha256": "d092b52767e184d9fea08b9ff51e3824074d1c363e1ef2299b31ec4160555b60",
+        "zkeySha256": "d69d2ccc38964ec4e50b12e73bc31a562bb18871e5ddef8693de6cc92f18bb24",
+        "verificationKeySha256": "da160f126c13550ecd302547caaf1308434574c50e76268b3b310c64203d2358",
+        "proofCorpusResultSha256": "63b874000f03edaced8fb4f32d1684c134a864e96ed98de7d41fab3d0bc04486"
+      }
+    }
+  },
+  "tests": [
+    {
+      "name": "both setup metadata records are canonical and hash-consistent",
+      "expected": 2,
+      "observed": 2,
+      "pass": true
+    },
+    {
+      "name": "both final zkeys verify against the same R1CS and Phase-1 artifact",
+      "expected": 2,
+      "observed": 2,
+      "pass": true
+    },
+    {
+      "name": "independent VK re-export matches each published VK",
+      "expected": 2,
+      "observed": 2,
+      "pass": true
+    },
+    {
+      "name": "setup outputs differ",
+      "expected": "distinct randomness commitments, initializer commitments, final zkeys, and verification keys",
+      "observed": "all four identities differ",
+      "pass": true
+    },
+    {
+      "name": "same three action statements prove and verify under each setup",
+      "expected": 6,
+      "observed": 6,
+      "pass": true
+    },
+    {
+      "name": "typed replacement produces distinct profile identifier and genesis",
+      "expected": "two complete setup-specific verifier bundles derive distinct profile and genesis identities",
+      "observed": "not yet run because the v1 BCH verifier set is not generated",
+      "pass": false
+    }
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "FAIL keeps G1 open; the two-real-setup and same-relation proof prerequisites pass.",
+    "These are same-operator local initializations, not independent ceremony participants or production ceremony evidence.",
+    "Setup-specific BCH verifier scripts, complete typed profile identifiers, genesis data, instance identifiers, and full transaction qualification are not yet available for both setups.",
+    "The setup processes began before commit d5fd0db fixed their post-completion worker-pool shutdown; the wrappers were interrupted only after final output publication and independent validation.",
+    "Best-effort overwrite and unlink cannot prove removal from SSD remapping, copy-on-write, journal, backup, or snapshot layers."
+  ]
+}
