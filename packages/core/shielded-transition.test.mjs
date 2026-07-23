@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   createShieldedTransitionReference, DENOMINATION_SATS, DOMAIN_TAGS, FR_MODULUS,
-  frToHex, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH, OUTPUT_RECORD_BYTES,
+  frToHex, MAX_BCH_SUPPLY_SATS, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH, OUTPUT_RECORD_BYTES,
   RelationValidationError,
 } from './shielded-transition.mjs';
 
@@ -116,8 +116,22 @@ test('reference fails closed on field codecs, paths, membership/nullifier reuse,
   await assert.rejects(async () => reference.transition(bindPublic(reference, wrongSequence)), /post-state mismatch: actionSequence/);
   const wrongId = { ...deposit, profileId: digest('wrong-profile') };
   await assert.rejects(async () => reference.transition(bindPublic(reference, wrongId)), /identifiers do not match/);
-  const overflow = { ...deposit, preState: reference.emptyState({ profileId, instanceId, maximumReserve: '0' }), postState: initial };
-  await assert.rejects(async () => reference.transition(bindPublic(reference, overflow)), /post-state reserve exceeds maximum reserve/);
+  assert.throws(
+    () => reference.emptyState({ profileId, instanceId, maximumReserve: '0' }),
+    /maximum reserve must be a nonzero denomination multiple within BCH supply/,
+  );
+  assert.throws(
+    () => reference.emptyState({ profileId, instanceId, maximumReserve: '10000001' }),
+    /maximum reserve must be a nonzero denomination multiple within BCH supply/,
+  );
+  assert.throws(
+    () => reference.emptyState({
+      profileId,
+      instanceId,
+      maximumReserve: (MAX_BCH_SUPPLY_SATS + DENOMINATION_SATS).toString(),
+    }),
+    /maximum reserve must be a nonzero denomination multiple within BCH supply/,
+  );
   const boundDeposit = bindPublic(reference, deposit); const wrongLimbs = { ...boundDeposit, publicInputs: [...boundDeposit.publicInputs] }; wrongLimbs.publicInputs[0] = field(0);
   assert.throws(() => reference.transition(wrongLimbs), /public SHA-256 digest limbs mismatch/);
   assert.equal(initial.actionSequence, '0');

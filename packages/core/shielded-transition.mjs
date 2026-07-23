@@ -5,6 +5,7 @@ import { buildPoseidon } from 'circomlibjs';
 
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const DENOMINATION_SATS = 10_000_000n;
+export const MAX_BCH_SUPPLY_SATS = 2_100_000_000_000_000n;
 export const NOTE_TREE_DEPTH = 32;
 export const NULLIFIER_TREE_DEPTH = 128;
 export const OUTPUT_RECORD_BYTES = 192;
@@ -170,6 +171,13 @@ export async function createShieldedTransitionReference() {
     const live = BigInt(normalized.liveNoteCount);
     const reserve = BigInt(normalized.reserveSats);
     const maximum = BigInt(normalized.maximumReserve);
+    if (
+      maximum < DENOMINATION_SATS
+      || maximum > MAX_BCH_SUPPLY_SATS
+      || maximum % DENOMINATION_SATS !== 0n
+    ) {
+      fail(`${label} maximum reserve must be a nonzero denomination multiple within BCH supply`);
+    }
     if (reserve !== live * DENOMINATION_SATS) fail(`${label} reserve does not equal live note count times denomination`);
     if (reserve > maximum) fail(`${label} reserve exceeds maximum reserve`);
     if (BigInt(normalized.nextLeafIndex) > (1n << 32n)) fail(`${label} next leaf index exceeds note tree capacity`);
@@ -306,7 +314,10 @@ export async function createShieldedTransitionReference() {
   };
 
   return Object.freeze({
-    constants: Object.freeze({ DENOMINATION_SATS, NOTE_TREE_DEPTH, NULLIFIER_TREE_DEPTH, OUTPUT_RECORD_BYTES, NETWORK_CHIPNET }),
+    constants: Object.freeze({
+      DENOMINATION_SATS, MAX_BCH_SUPPLY_SATS, NOTE_TREE_DEPTH,
+      NULLIFIER_TREE_DEPTH, OUTPUT_RECORD_BYTES, NETWORK_CHIPNET,
+    }),
     poseidon: hash, deriveNote, emptyState, buildState,
     // Preparation computes deterministic packet limbs but is not an acceptance API.
     prepareTransition: (action) => evaluateTransition(action, false),

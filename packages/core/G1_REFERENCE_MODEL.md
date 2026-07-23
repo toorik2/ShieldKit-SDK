@@ -48,3 +48,13 @@ states, note/nullifier material, fixed 192-byte active output record or zero
 inactive record, boundary descriptor, and transaction-context digest. Output
 record AEAD correctness is intentionally outside this relation reference until
 the G2 construction is selected.
+
+The numeric Chipnet discriminator `2` and 192-byte record length are
+profile-candidate constants, not claims about a BCH consensus network enum or a
+frozen G2 wire format. They must be replaced only by changing the candidate
+profile material and regenerating every dependent vector and artifact.
+
+`maximumReserve` follows the verifier-bundle genesis rule: it is a nonzero
+multiple of 10,000,000 satoshis and is no greater than
+2,100,000,000,000,000 satoshis. This prevents the reference model from
+constructing a state that the profile loader could never admit.
