@@ -15,6 +15,22 @@ headroom.
 No script in this document is an `OP_TRUE`, synthetic acceptance path, or
 substitute for proof verification.
 
+### Measured integration status
+
+The nine-input layout below remains an experiment target, not a qualified
+topology. The measured six-input PF6 verifier matches its verifier-role count
+but has three unlocking bytecodes above the 9,500-byte G2 ceiling. The measured
+PF7 sub62 repartition clears that component ceiling but has seven verifier
+roles. Appending binding, state, and fee-shaped structural inputs to its
+existing scripts produced a ten-input context in which the real terminal
+verifier rejected at `OP_VERIFY`.
+
+Therefore neither existing fixed-VK verifier can be relabeled as this
+settlement candidate. G1 must generate and execute either a new explicit
+ten-role profile with seven verifier roles plus separate binding/state/fee
+roles, or a real merged-role construction that preserves every binding
+condition. No merged construction currently exists.
+
 ## 2. Settlement inputs
 
 The candidate settlement transaction has exactly nine inputs in this order:
