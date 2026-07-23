@@ -13,6 +13,9 @@ const CANDIDATE_SHA256 = 'c03e8ae157998f513f058433e58e3252e05a2d2c39f5577a992d39
 const ROOT_PACKAGE_SHA256 = 'eb77c00095f5ebba72ffb4e35e8287134f063b0afca4d6d7e5bc1279dc647892';
 const ROOT_LOCK_SHA256 = '1b0a9c2b198cb0bfaf9661368fc65445e4c11c6ba549804ee3d6574daf6fe5d7';
 const ROOT_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8', '@noble/curves': '1.9.7', '@noble/hashes': '1.8.0' });
+const LEAN_OPTIMIZER_PACKAGE_SHA256 = '85466c817d79d430baa023f2799017cfb366b454a3f7af0e484878a0aa8581db';
+const LEAN_OPTIMIZER_LOCK_SHA256 = 'b9b1935da7df52b4e34649353231c77a8a1f20c11d07a03e4d17c02a10277dd5';
+const LEAN_OPTIMIZER_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8' });
 const HARNESS_PACKAGE_SHA256 = '31244146be6aabb1983b78f49149a98cdcbb0f2979e406e343836e3c03b13ea2';
 const HARNESS_LOCK_SHA256 = '123bfd3aa1497c01c40c71367a188efc7d435125d4d3539d5f7175d1e09eed01';
 const HARNESS_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8', '@noble/curves': '2.2.0', tsx: '4.22.4', typescript: '6.0.3' });
@@ -99,6 +102,14 @@ async function validateRootRuntime(checkout) {
   const packages = await validateRuntimePackageVersions(path.join(checkout, 'node_modules'), ROOT_RUNTIME_PACKAGES, 'verifier root');
   return { packageManifestSha256: ROOT_PACKAGE_SHA256, lockfileSha256: ROOT_LOCK_SHA256, packages };
 }
+async function validateLeanOptimizerRuntime(leanBchRoot) {
+  const optimizer = await regularAbsolute(path.join(leanBchRoot, 'optimizer'), 'LeanBCH optimizer', { directory: true });
+  const packageManifest = await pinnedFile({ path: path.join(optimizer.path, 'package.json'), sha256: LEAN_OPTIMIZER_PACKAGE_SHA256 }, 'LeanBCH optimizer package manifest');
+  const lock = await pinnedFile({ path: path.join(optimizer.path, 'package-lock.json'), sha256: LEAN_OPTIMIZER_LOCK_SHA256 }, 'LeanBCH optimizer lockfile');
+  void packageManifest; void lock;
+  const packages = await validateRuntimePackageVersions(path.join(optimizer.path, 'node_modules'), LEAN_OPTIMIZER_RUNTIME_PACKAGES, 'LeanBCH optimizer');
+  return { packageManifestSha256: LEAN_OPTIMIZER_PACKAGE_SHA256, lockfileSha256: LEAN_OPTIMIZER_LOCK_SHA256, packages };
+}
 async function validateHarnessRuntime(checkout) {
   const harness = await regularAbsolute(path.join(checkout, 'harness'), 'verifier harness', { directory: true });
   // node_modules is ignored by Git. Require it to be a direct directory and
@@ -153,10 +164,18 @@ async function oneBuild(adapter, verifier, stage) {
   const environment = exactEnvironment({ adapter, verifier, stage }); await mkdir(environment.C7_TMP, { recursive: true }); await mkdir(environment.C7_GEN, { recursive: true });
   await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), ['lanes/bn254-onetx/src/c7/build.ts'], { cwd: verifier.checkout, env: environment });
   const build = environment.C7_TMP; const standardness = path.join(build, 'standardness.json'); const attacks = path.join(build, 'raw-attacks.json');
+  const result = parseStrictJson(await readFile(path.join(build, 'result.json')), 'PF7 result');
+  assertBuildComplete(result);
   await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), ['lanes/bn254-onetx/src/c7/check-standardness.ts', build, standardness], { cwd: verifier.checkout, env: environment });
   await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), ['lanes/bn254-onetx/src/c7/measure-terminal-raw-attacks.ts', build, attacks], { cwd: verifier.checkout, env: environment });
   const files = Object.fromEntries(await Promise.all(['result.json', 'inputs_dump.json', 'c7_candidate_srcouts.hex', 'c7_candidate_tx.hex', 'standardness.json', 'raw-attacks.json'].map(async (name) => { const value = await readFile(path.join(build, name)); return [name, { bytes: value, sha256: digest(value) }]; })));
-  return { files, result: parseStrictJson(files['result.json'].bytes, 'PF7 result'), inputs: parseStrictJson(files['inputs_dump.json'].bytes, 'PF7 inputs'), standardness: parseStrictJson(files['standardness.json'].bytes, 'PF7 standardness'), attacks: parseStrictJson(files['raw-attacks.json'].bytes, 'PF7 attacks') };
+  return { files, result, inputs: parseStrictJson(files['inputs_dump.json'].bytes, 'PF7 inputs'), standardness: parseStrictJson(files['standardness.json'].bytes, 'PF7 standardness'), attacks: parseStrictJson(files['raw-attacks.json'].bytes, 'PF7 attacks') };
+}
+export function assertBuildComplete(result) {
+  if (result?.built !== true) {
+    const cause = JSON.stringify(result?.errors ?? null);
+    fail(`PF7 build reported incomplete boundary: ${cause.slice(0, 4000)}`);
+  }
 }
 function assertMeasured(runResult, expectedSourceSetSha256) {
   const { result, standardness, attacks } = runResult;
@@ -179,6 +198,7 @@ export async function generatePf7VerifierSet(input) {
   await assertCleanGitRepository(leanRoot.path, 'LeanBCH checkout');
   const rootRuntime = await validateRootRuntime(verifierRoot.path);
   const harnessRuntime = await validateHarnessRuntime(verifierRoot.path);
+  const leanOptimizerRuntime = await validateLeanOptimizerRuntime(leanRoot.path);
   const expectedForAdapter = await expectedSourceSetForAdapter(adapter.sha256);
   if (input.expectedSourceSetSha256 !== expectedForAdapter) fail('caller source-lock set is not the adapter action-invariant set');
   const verifier = { ...input.verifier, checkout: verifierRoot.path, cashcRoot: cashcRoot.path, leanBchRoot: leanRoot.path };
@@ -198,7 +218,7 @@ export async function generatePf7VerifierSet(input) {
     const stableDependencies = Object.fromEntries(Object.entries(second.files)
       .filter(([name]) => name !== 'raw-attacks.json')
       .map(([name, value]) => [name, { sha256: value.sha256, bytes: value.bytes.length }]));
-    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: TERMINAL, terminalTree: TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit, rootRuntime, harnessRuntime }, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
+    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: TERMINAL, terminalTree: TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit, rootRuntime, harnessRuntime, leanOptimizerRuntime }, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
     // mkdir is the no-clobber publication reservation. Consumers require the
     // manifest, written last with O_EXCL, as the completion marker; therefore
     // they never treat a partial crash directory as an emitted artifact.

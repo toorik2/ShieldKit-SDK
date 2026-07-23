@@ -7,7 +7,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
-import { assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance, validateRuntimePackageVersions } from './pf7-verifier-generator.mjs';
+import { assertBuildComplete, assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance, validateRuntimePackageVersions } from './pf7-verifier-generator.mjs';
 
 const execFileAsync = promisify(execFile);
 const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').update(bytes).digest()).digest();
@@ -96,4 +96,9 @@ test('runtime package closure rejects a symlink boundary and version drift', asy
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('an incomplete PF7 boundary build fails before downstream artifact tools', () => {
+  assert.throws(() => assertBuildComplete({ built: false, errors: { terminal: 'optimizer dependency missing' } }), /incomplete boundary.*optimizer dependency missing/);
+  assert.doesNotThrow(() => assertBuildComplete({ built: true }));
 });
