@@ -1,0 +1,18 @@
+# Policy baseline (shield.cash worktree)
+npm test
+
+# Source inspection, verifier.cash source commit 26468ae29004d2401619032de2a6ec8de269a4d6
+rg -n -C 2 'COMPOSED_EXECUTOR_COUNT|EXPECTED_INPUTS|txTopologyGuard|allMeta =|fusedTx|assertAllInputsReal|eligInstanceLocal' lanes/bn254-onetx/src/c7/build.ts
+rg -n -C 2 'TOPO_6|TOPO_7|inputs_dump|length === 6|length === 7' lanes/bn254-onetx/src/c7/run-input-redteam.ts
+rg -n -C 2 'pairfoldTopology|topology.*[678]|C7_PAIRFOLD' lanes/bn254-onetx/src/build-adapter.mjs
+
+# Real BCH-2026 VM negative probe against the pre-existing, gate-green PF7 build.
+# The external inputs are explicitly structural-only P2PKH, not binding/state/fee substitutes.
+cd /tmp/verifiercash-partition.ire1jY
+harness/node_modules/.bin/tsx \
+  /tmp/shieldcash-g1-verifier-envelope-019f8ed4/evidence/G1/verifier-envelope-integration/probe-10input-context.mjs \
+  /tmp/verifiercash-partition.ire1jY \
+  /tmp/verifiercash-partition.ire1jY/.vc/runs/g1-pf7-sub62/build
+
+# Post-change policy baseline (shield.cash worktree)
+npm test
