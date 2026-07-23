@@ -45,3 +45,7 @@ The activation predicate is previous-block median-time-past (MTP) >= configured 
 ### Unblocking evidence
 
 Run two independently operated, unmodified BCHN v29 peers (one mainnet and one Chipnet evidence set as applicable) and archive: getnetworkinfo, getblockchaininfo including MTP/upgrade status, getmempoolinfo, startup arguments, testmempoolaccept / submission verdicts for the exact complete transactions, and the raw transactions/UTXOs. Verify the same P2S, token, unlocking-bytecode, transaction-size, op-cost, and fee cases on both. That work is required before this source record can contribute to a G1 pass claim.
+
+## Follow-up: disposable local runtime probe
+
+The initial inventory statement above remains an accurate snapshot of the host before this work. A subsequent source-identified, no-wallet BCHN v29 build started two isolated, loopback-only Chipnet processes and captured genesis-only RPC state. The processes were not independent operators, did not reach a current Chipnet tip, and did not complete their configured loopback P2P handshake. No transaction, wallet, funding, mining, external peer, or broadcast was used. The complete follow-up record is [live-nodes/](live-nodes/), and it leaves G1 **OPEN**.

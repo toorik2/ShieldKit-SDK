@@ -1,0 +1,27 @@
+source remote tag query:
+89a591f7c5b1fd110c0819377ad8f2647d656800	refs/tags/v29.0.0
+
+source checkout:
+HEAD=89a591f7c5b1fd110c0819377ad8f2647d656800
+tree=b5defaae9825a25a30b723df8101d06ef9607b2d
+git status --short: empty
+git fsck --no-dangling: success
+git verify-tag v29.0.0: error: v29.0.0: cannot verify a non-tag object of type commit
+
+common node arguments:
+-chipnet -server=1 -listen=1 -discover=0 -dnsseed=0 -listenonion=0 -upnp=0 -natpmp=0 -blocksonly=1 -persistmempool=0 -debug=net -printtoconsole=0
+
+first attempt (no daemon started):
+Error parsing command line arguments: Invalid parameter -fixedseeds
+
+second attempt:
+node A: -datadir=<a> -port=48443 -bind=127.0.0.1:48443 -bind=127.0.0.1:48445=onion -rpcbind=127.0.0.1:18432 -rpcallowip=127.0.0.1 -connect=127.0.0.1:48444 -maxconnections=2
+node B: -datadir=<b> -port=48444 -bind=127.0.0.1:48444 -bind=127.0.0.1:48446=onion -rpcbind=127.0.0.1:18433 -rpcallowip=127.0.0.1 -connect=127.0.0.1:48443 -maxconnections=2
+explicit onion binds were required because the default Chipnet onion listener would otherwise contend for 48334/48444.
+
+corrected topology attempt:
+node A: -datadir=<a> -port=48543 -bind=127.0.0.1:48543 -bind=127.0.0.1:48545=onion -rpcbind=127.0.0.1:18532 -rpcallowip=127.0.0.1 -connect=0 -maxconnections=8
+node B: -datadir=<b> -port=48544 -bind=127.0.0.1:48544 -bind=127.0.0.1:48546=onion -rpcbind=127.0.0.1:18533 -rpcallowip=127.0.0.1 -connect=127.0.0.1:48543 -maxconnections=8
+
+authentication: per-datadir cookie authentication; cookie values intentionally not captured.
+wallet: compiled out; no wallet creation or key material supplied.

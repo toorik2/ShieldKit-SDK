@@ -1,0 +1,24 @@
+{
+  "bestblockhash": "000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b",
+  "blocks": 0,
+  "chain": "chip",
+  "chainwork": "0000000000000000000000000000000000000000000000000000000100010001",
+  "difficulty": 1,
+  "headers": 0,
+  "initialblockdownload": true,
+  "mediantime": 1597811185,
+  "pruned": false,
+  "size_on_disk": 293,
+  "upgrade_status": {
+    "block_postactivation_hash": null,
+    "block_postactivation_height": null,
+    "block_preactivation_hash": null,
+    "block_preactivation_height": null,
+    "mempool_activated": false,
+    "mempool_activation_mtp": 1763208000,
+    "name": "May 2026 Upgrade (chipnet)",
+    "software_expiration_time": 1794744000
+  },
+  "verificationprogress": 8.844934464301894e-7,
+  "warnings": "This is a pre-release test build - use at your own risk - do not use for mining or merchant applications"
+}

@@ -1,0 +1,94 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.bch-surface.live-nodes.20260723",
+  "gate": "G1",
+  "candidate": "g0-v2/bch-execution-surface",
+  "claim": "A source-identified BCHN v29.0.0 no-wallet build started two isolated local Chipnet processes and exposed their genesis-only RPC state; it did not produce a live peer, independent-operator, or transaction-behavior result.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "1a39acc17d277793c7c2d40df8dbb25c4f1a8fd1",
+    "dirtyPaths": []
+  },
+  "environment": {
+    "observedAt": "2026-07-23T13:30:00Z",
+    "hardware": { "architecture": "x86_64" },
+    "software": {
+      "bchnSourceTag": "v29.0.0",
+      "bchnSourceCommit": "89a591f7c5b1fd110c0819377ad8f2647d656800",
+      "bitcoindVersion": "v29.0.0-89a591f",
+      "bitcoinCliVersion": "v29.0.0-89a591f",
+      "cmake": "4.4.0",
+      "ninja": "1.13.2",
+      "compiler": "g++ 16.1.1"
+    }
+  },
+  "commands": [
+    "git ls-remote --tags https://github.com/bitcoin-cash-node/bitcoin-cash-node.git refs/tags/v29.0.0",
+    "git clone --depth 1 --branch v29.0.0 https://github.com/bitcoin-cash-node/bitcoin-cash-node.git <temporary-source>",
+    "git rev-parse HEAD^{tree}; git status --short; git fsck --no-dangling",
+    "cmake -S <source> -B <build> -GNinja -DCMAKE_BUILD_TYPE=Release -DBUILD_BITCOIN_WALLET=OFF -DBUILD_BITCOIN_QT=OFF -DBUILD_BITCOIN_ZMQ=OFF -DBUILD_BITCOIN_SEEDER=OFF -DBUILD_LIBBITCOINCONSENSUS=OFF -DENABLE_TEST=OFF -DENABLE_MAN=OFF -DENABLE_QRCODE=OFF -DENABLE_NATPMP=OFF -DENABLE_UPNP=OFF -DSTART_WITH_NATPMP=OFF -DSTART_WITH_UPNP=OFF",
+    "ninja -C <build> -j4 bitcoind bitcoin-cli",
+    "bitcoind -chipnet <isolated loopback-only arguments>; bitcoin-cli getnetworkinfo|getblockchaininfo|getmempoolinfo|getpeerinfo|getconnectioncount; bitcoin-cli stop"
+  ],
+  "artifacts": [],
+  "measurements": {
+    "nodeA": {
+      "chain": "chip",
+      "blocks": 0,
+      "headers": 0,
+      "mediantime": 1597811185,
+      "mempoolSize": 0,
+      "minRelaySatPerByte": 1,
+      "connectionsObserved": 0
+    },
+    "nodeB": {
+      "chain": "chip",
+      "blocks": 0,
+      "headers": 0,
+      "mediantime": 1597811185,
+      "mempoolSize": 0,
+      "minRelaySatPerByte": 1,
+      "connectionsObserved": 0
+    },
+    "peerTopology": {
+      "independentOperators": 0,
+      "completedHandshake": false,
+      "configuredRemoteAddresses": ["127.0.0.1:48443", "127.0.0.1:48444", "127.0.0.1:48543"],
+      "externalPeersContacted": 0
+    }
+  },
+  "tests": [
+    {
+      "name": "pinned BCHN v29 source build",
+      "expected": "tag resolves to recorded commit and no-wallet binaries build",
+      "observed": "HEAD 89a591f7c5b1fd110c0819377ad8f2647d656800; bitcoind and bitcoin-cli built",
+      "pass": true
+    },
+    {
+      "name": "isolated Chipnet RPC startup",
+      "expected": "two separately configured local daemons expose runtime state and stop cleanly",
+      "observed": "two genesis-only local daemons returned network, chain, and mempool RPC responses and stopped",
+      "pass": true
+    },
+    {
+      "name": "loopback peer handshake",
+      "expected": "a completed P2P version handshake",
+      "observed": "no completed handshake; daemon logged connection dropped full",
+      "pass": false
+    },
+    {
+      "name": "two independent BCHN v29 peer reproductions",
+      "expected": 2,
+      "observed": 0,
+      "pass": false
+    }
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "The runtime was locally initialized at Chipnet genesis, not synchronized to current Chipnet.",
+    "Both processes ran on one host and are not independent operators.",
+    "The sole loopback peer configuration did not complete a P2P handshake.",
+    "No wallet, funds, private key, transaction construction, testmempoolaccept, submission, relay, broadcast, mining, or mainnet activity occurred.",
+    "This record cannot contribute a G1 pass claim."
+  ]
+}

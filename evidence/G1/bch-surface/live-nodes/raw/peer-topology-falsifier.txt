@@ -1,0 +1,33 @@
+v3 two-outbound attempt, node A:
+2026-07-23T13:30:17Z sending version (119 bytes) peer=1
+2026-07-23T13:30:17Z socket send error Broken pipe (32)
+2026-07-23T13:30:17Z disconnecting peer=1
+2026-07-23T13:30:17Z failed to find an eviction candidate - connection dropped (full)
+2026-07-23T13:30:19Z Shutdown: done
+
+v3 two-outbound attempt, node B:
+2026-07-23T13:30:17Z sending version (119 bytes) peer=2
+2026-07-23T13:30:17Z socket recv error Connection reset by peer (104)
+2026-07-23T13:30:17Z disconnecting peer=2
+2026-07-23T13:30:17Z failed to find an eviction candidate - connection dropped (full)
+2026-07-23T13:30:19Z Shutdown: done
+
+v5 passive-A / connecting-B attempt, node A:
+2026-07-23T13:32:12Z Bound to 127.0.0.1:48543
+2026-07-23T13:32:12Z Bound to 127.0.0.1:48545
+2026-07-23T13:32:12Z failed to find an eviction candidate - connection dropped (full)
+2026-07-23T13:32:17Z Shutdown: done
+
+v5 passive-A / connecting-B attempt, node B:
+2026-07-23T13:32:12Z trying connection 127.0.0.1:48543 lastseen=0.0hrs
+2026-07-23T13:32:12Z Added connection peer=0
+2026-07-23T13:32:12Z sending version (119 bytes) peer=0
+2026-07-23T13:32:12Z socket send error Broken pipe (32)
+2026-07-23T13:32:12Z disconnecting peer=0
+2026-07-23T13:32:17Z Shutdown: done
+
+v5 RPC after retries:
+node A getconnectioncount: 0
+node B getconnectioncount: 0
+node A getpeerinfo: []
+node B getpeerinfo: []

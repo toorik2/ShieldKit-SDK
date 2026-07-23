@@ -1,0 +1,23 @@
+{
+  "connections": 0,
+  "connections_in": 0,
+  "connections_out": 0,
+  "excessutxocharge": 0e-8,
+  "localaddresses": [],
+  "localrelay": false,
+  "localservices": "0000000000000425",
+  "networkactive": true,
+  "networks": [
+    { "limited": false, "name": "ipv4", "proxy": "", "proxy_randomize_credentials": false, "reachable": true },
+    { "limited": false, "name": "ipv6", "proxy": "", "proxy_randomize_credentials": false, "reachable": true },
+    { "limited": true, "name": "onion", "proxy": "", "proxy_randomize_credentials": false, "reachable": false },
+    { "limited": false, "name": "", "proxy": "", "proxy_randomize_credentials": false, "reachable": true },
+    { "limited": false, "name": "", "proxy": "", "proxy_randomize_credentials": false, "reachable": true }
+  ],
+  "protocolversion": 70016,
+  "relayfee": 0.00001000,
+  "subversion": "/Bitcoin Cash Node:29.0.0(EB2.0)/",
+  "timeoffset": 0,
+  "version": 29000000,
+  "warnings": "This is a pre-release test build - use at your own risk - do not use for mining or merchant applications"
+}
