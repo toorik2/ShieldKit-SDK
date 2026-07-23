@@ -11,6 +11,10 @@ document's status is explicit:
 The current documents are G1 feasibility candidates. They must not be used to
 identify a deployed profile or to claim protocol compatibility.
 
+The current G2 enforcement experiment is
+[kernel/G2_SETTLEMENT_SPLIT_CANDIDATE.md](kernel/G2_SETTLEMENT_SPLIT_CANDIDATE.md).
+It is executable research, not a frozen G2 profile.
+
 The standard is deliberately narrow: fixed 0.1 BCH notes, deposit, one-note
 private transfer, withdrawal, local proving, one transparent fee input, one
 canonical change output, and immutable profile-bound verifier material.

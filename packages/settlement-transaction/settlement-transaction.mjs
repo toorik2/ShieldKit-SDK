@@ -193,6 +193,51 @@ function assertNoToken(output, label) {
   if (output.token !== undefined) fail(`${label} must not contain a token`);
 }
 
+function hash160(bytes) {
+  const sha = createHash('sha256').update(bytes).digest();
+  return createHash('ripemd160').update(sha).digest();
+}
+
+function assertCanonicalPreparationPair(rawInputs, sources, outputs, parsedInputs) {
+  if (
+    rawInputs[BINDING_INPUT_INDEX].outpointTransactionHashWire
+      !== rawInputs[FEE_INPUT_INDEX].outpointTransactionHashWire
+    || rawInputs[BINDING_INPUT_INDEX].outpointIndex !== '0'
+    || rawInputs[FEE_INPUT_INDEX].outpointIndex !== '1'
+  ) {
+    fail('binding and fee inputs must spend preparation sibling outputs 0 and 1');
+  }
+  const feeLock = Buffer.from(sources[FEE_INPUT_INDEX].lockingBytecode);
+  if (
+    feeLock.length !== 25
+    || feeLock[0] !== 0x76
+    || feeLock[1] !== 0xa9
+    || feeLock[2] !== 0x14
+    || feeLock[23] !== 0x88
+    || feeLock[24] !== 0xac
+  ) {
+    fail('fee source must use canonical P2PKH locking bytecode');
+  }
+  const changeLock = Buffer.from(outputs.at(-1).lockingBytecode);
+  if (!changeLock.equals(feeLock)) {
+    fail('canonical change must preserve the exact fee-input P2PKH lock');
+  }
+  const feeUnlock = Buffer.from(parsedInputs[FEE_INPUT_INDEX].unlockingBytecode);
+  if (
+    feeUnlock.length !== 100
+    || feeUnlock[0] !== 0x41
+    || feeUnlock[65] !== 0x41
+    || feeUnlock[66] !== 0x21
+    || ![0x02, 0x03].includes(feeUnlock[67])
+  ) {
+    fail('fee input must use a canonical Schnorr P2PKH ALL|FORKID unlock');
+  }
+  const publicKey = feeUnlock.subarray(67, 100);
+  if (!hash160(publicKey).equals(feeLock.subarray(3, 23))) {
+    fail('fee input public key does not match its P2PKH source lock');
+  }
+}
+
 function sumValues(outputs) {
   return outputs.reduce((total, output) => total + output.valueSatoshis, 0n);
 }
@@ -344,6 +389,7 @@ export function buildSettlementTransaction(value) {
   }
   const change = outputs.at(-1);
   if (change.valueSatoshis === 0n) fail('canonical change output must be positive');
+  assertCanonicalPreparationPair(value.inputs, sources, outputs, inputs);
 
   const contextMaterials = {
     kind: value.kind,

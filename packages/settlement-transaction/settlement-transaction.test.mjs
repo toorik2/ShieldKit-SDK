@@ -18,6 +18,12 @@ const instanceId = hex(0x22, 32);
 const category = hex(0x33, 32);
 const verifierLock = (index) => `aa20${hex(index + 1, 32)}87`;
 const p2s = (opcode) => opcode.toString(16).padStart(2, '0');
+const feePublicKey = `02${hex(0xbc, 32)}`;
+const feePublicKeyHash = createHash('ripemd160')
+  .update(createHash('sha256').update(Buffer.from(feePublicKey, 'hex')).digest())
+  .digest('hex');
+const feeLock = `76a914${feePublicKeyHash}88ac`;
+const feeUnlock = `41${hex(0xcd, 64)}4121${feePublicKey}`;
 const outpoint = (index) => Buffer.from(
   Array.from({ length: 32 }, (_, offset) => (index * 37 + offset * 11 + 3) & 0xff),
 ).toString('hex');
@@ -66,21 +72,21 @@ function fixture(kind = 'deposit') {
     ? [
         output(p2s(0x51), '1000', stateToken(post)),
         output(withdrawalLock, '10000000'),
-        output('51', '40000'),
+        output(feeLock, '40000'),
       ]
     : [
         output(p2s(0x51), kind === 'deposit' ? '10001000' : '10001000', stateToken(post)),
-        output('51', '40000'),
+        output(feeLock, '40000'),
       ];
   const sourceOutputs = INPUT_ROLES.map((_, index) => {
     if (index < 7) return output(verifierLock(index), '1000');
     if (index === 7) return output(p2s(0x51), kind === 'deposit' ? '10001000' : '1000');
     if (index === 8) return output(p2s(0x51), (1000n + BigInt(pre.reserveSats)).toString(), stateToken(pre));
-    return output('76a914' + hex(0xbb, 20) + '88ac', '100000');
+    return output(feeLock, '100000');
   });
   const inputMetadata = INPUT_ROLES.map((_, index) => ({
-    outpointTransactionHashWire: outpoint(index),
-    outpointIndex: String(index),
+    outpointTransactionHashWire: [7, 9].includes(index) ? outpoint(7) : outpoint(index),
+    outpointIndex: index === 7 ? '0' : index === 9 ? '1' : String(index),
     sequenceNumber: '0',
   }));
   const context = encodeSettlementContext({
@@ -114,7 +120,7 @@ function fixture(kind = 'deposit') {
     ...input,
     unlockingBytecode: index === 7
       ? `4df002${actionPacket.toString('hex')}`
-      : '51',
+      : index === 9 ? feeUnlock : '51',
   }));
   return {
     actionPacket: actionPacket.toString('hex'),
@@ -153,6 +159,14 @@ test('rejects context, packet, role, state, withdrawal, fee, and size mutations'
     (value) => { value.sourceOutputs[8].token.nft.capability = 'minting'; },
     (value) => { value.outputs[0].lockingBytecode = '52'; },
     (value) => { value.outputs.at(-1).valueSatoshis = '0'; },
+    (value) => { value.inputs[9].outpointTransactionHashWire = outpoint(9); },
+    (value) => { value.inputs[9].outpointIndex = '2'; },
+    (value) => { value.inputs[9].unlockingBytecode = '51'; },
+    (value) => {
+      value.inputs[9].unlockingBytecode = `${feeUnlock.slice(0, 130)}01${feeUnlock.slice(132)}`;
+    },
+    (value) => { value.sourceOutputs[9].lockingBytecode = `76a914${hex(0xee, 20)}88ac`; },
+    (value) => { value.outputs.at(-1).lockingBytecode = '51'; },
     (value) => { value.inputs[0].unlockingBytecode = hex(1, 10_001); },
   ];
   for (const mutate of mutations) {
