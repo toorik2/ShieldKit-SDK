@@ -56,7 +56,7 @@ async function fixture() {
   const depositPost = reference.buildState({ ...initial, noteRoot: rootAfterDeposit, nextLeafIndex: '1', actionSequence: '1', liveNoteCount: '1', reserveSats: DENOMINATION_SATS.toString() });
   const deposit = {
     kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost,
-    depositSats: DENOMINATION_SATS.toString(), outputNote: note1, noteAppendPath: { siblings: notePathEmpty.map(frToHex) },
+    depositSats: DENOMINATION_SATS.toString(), outputNote: { ak: derived1.ak, rho: note1.rho, r: note1.r }, noteAppendPath: { siblings: notePathEmpty.map(frToHex) },
     outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 1), transactionContextDigest: digest('deposit-context'),
   };
   const appendForIndex1 = [leaf1, ...notePathEmpty.slice(1)];
@@ -69,7 +69,7 @@ async function fixture() {
   const transfer = {
     kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost,
     spend: { note: note1, noteIndex: '0', noteSiblings: notePathEmpty.map(frToHex), nullifierSiblings: nullifierPathEmpty.map(frToHex) },
-    outputNote: note2, noteAppendPath: { siblings: appendForIndex1.map(frToHex) }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 2), transactionContextDigest: digest('transfer-context'),
+    outputNote: { ak: derived2.ak, rho: note2.rho, r: note2.r }, noteAppendPath: { siblings: appendForIndex1.map(frToHex) }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 2), transactionContextDigest: digest('transfer-context'),
   };
   const withdrawalPost = reference.buildState({ ...depositPost, nullifierRoot: nullRootAfterFirstSpend, actionSequence: '2', liveNoteCount: '0', reserveSats: '0' });
   const withdrawal = {

@@ -1,31 +1,18 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { decodeActionPacket } from '../action-packet/action-packet.mjs';
-import { createShieldedTransitionReference, frToHex } from '../core/shielded-transition.mjs';
+import { createShieldedTransitionReference } from '../core/shielded-transition.mjs';
 import { loadVerifierProfileBundle } from '../core/verifier-profile.mjs';
-import {
-  decryptRecoveryRecord, encryptRecoveryRecord, generateFreshWitnessInputs,
-} from './fresh-witness-inputs.mjs';
+import { generateFreshWitnessInputs } from './fresh-witness-inputs.mjs';
 
 const execFileAsync = promisify(execFile);
 const hex = (byte) => Buffer.alloc(32, byte).toString('hex');
-
-test('recovery record is fixed-size authenticated X25519/ChaCha material', async () => {
-  const reference = await createShieldedTransitionReference();
-  const profileId = hex(0x11); const instanceId = hex(0x22);
-  const raw = { sk: frToHex(11n), rho: frToHex(12n), r: frToHex(13n) };
-  const note = reference.deriveNote({ ...raw, profileId, instanceId });
-  const record = encryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId, instanceId, outputNote: note, outputCm: note.cm, witnessSeed: hex(0x33) });
-  assert.equal(record.length, 192);
-  assert.deepEqual(decryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId, instanceId, outputCm: note.cm, recipientNoteSecret: raw.sk, record }), { profileId, instanceId, rho: raw.rho, r: raw.r });
-  const tampered = Buffer.from(record); tampered[62] ^= 1;
-  assert.throws(() => decryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId, instanceId, outputCm: note.cm, recipientNoteSecret: raw.sk, record: tampered }), /authentication failed/);
-});
 
 test('fresh generator fails before loading a bundle when fixed-point inputs are malformed', async () => {
   await assert.rejects(
@@ -55,24 +42,29 @@ test('authenticated development profile produces relation-valid chained packets'
     assert.equal(value.circuitInput.publicDigestLo, BigInt(`0x${value.publicInputs[1]}`).toString());
   }
   const deposit = result.actions.deposit; const transfer = result.actions.transfer;
-  const dNote = reference.deriveNote({ ...deposit.action.outputNote, profileId: result.profile.profileId, instanceId: result.profile.instanceId });
-  const tNote = reference.deriveNote({ ...transfer.action.outputNote, profileId: result.profile.profileId, instanceId: result.profile.instanceId });
-  assert.equal(decryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId: result.profile.profileId, instanceId: result.profile.instanceId, outputCm: dNote.cm, recipientNoteSecret: dNote.sk, record: deposit.action.outputRecord }).rho, dNote.rho);
-  assert.equal(decryptRecoveryRecord({ kind: 'transfer', slot: 0, profileId: result.profile.profileId, instanceId: result.profile.instanceId, outputCm: tNote.cm, recipientNoteSecret: tNote.sk, record: transfer.action.outputRecord }).r, tNote.r);
+  const dNote = reference.deriveOutputNote({ ...deposit.action.outputNote, profileId: result.profile.profileId, instanceId: result.profile.instanceId });
+  const tNote = reference.deriveOutputNote({ ...transfer.action.outputNote, profileId: result.profile.profileId, instanceId: result.profile.instanceId });
+  assert.equal(dNote.cm, decodeActionPacket(deposit.actionPacket).outputCommitment);
+  assert.equal(tNote.cm, decodeActionPacket(transfer.actionPacket).outputCommitment);
+  assert.deepEqual(Object.keys(deposit.action.outputNote).sort(), ['ak', 'r', 'rho']);
+  assert.deepEqual(Object.keys(transfer.action.outputNote).sort(), ['ak', 'r', 'rho']);
   assert.ok(result.actions.withdrawal.action.outputRecord.equals(Buffer.alloc(192)));
   const malformedWithdrawal = { ...result.actions.withdrawal.action, outputRecord: Buffer.alloc(192, 1) };
   assert.throws(() => reference.transition({ ...malformedWithdrawal, publicInputs: result.actions.withdrawal.publicInputs }), /inactive output record must be all zero/);
 });
 
-test('exact 9,977,099-byte G1 WASM accepts all generated relation inputs when supplied', async (t) => {
-  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE; const wasm = process.env.SHIELD_FRESH_WITNESS_TEST_WASM;
-  if (!bundleDirectory || !wasm) return t.skip('set SHIELD_FRESH_WITNESS_TEST_BUNDLE and SHIELD_FRESH_WITNESS_TEST_WASM');
+test('authenticated G1 WASM accepts all generated relation inputs when supplied with a pinned generator', async (t) => {
+  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE; const wasm = process.env.SHIELD_FRESH_WITNESS_TEST_WASM; const generator = process.env.SHIELD_FRESH_WITNESS_TEST_GENERATOR;
+  if (!bundleDirectory || !wasm || !generator) return t.skip('set SHIELD_FRESH_WITNESS_TEST_BUNDLE, SHIELD_FRESH_WITNESS_TEST_WASM, and SHIELD_FRESH_WITNESS_TEST_GENERATOR');
   assert.equal((await stat(wasm)).size, 9_977_099);
   const loaded = await loadVerifierProfileBundle(bundleDirectory);
+  const witnessArtifact = loaded.manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator');
+  assert.ok(witnessArtifact);
+  assert.equal(`sha256:${createHash('sha256').update(await readFile(wasm)).digest('hex')}`, witnessArtifact.sha256);
+  assert.ok((await stat(generator)).isFile());
   const result = await generateFreshWitnessInputs({ bundleDirectory, expectedProfile: { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId }, witnessSeed: hex(0x61), withdrawalScriptHash: hex(0x62), transactionContextDigests: { deposit: hex(0x71), transfer: hex(0x72), withdrawal: hex(0x73) } });
   const root = await mkdtemp(path.join(tmpdir(), 'shield-fresh-witness-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const generator = path.join(path.dirname(wasm), 'generate_witness.js');
   for (const [kind, value] of Object.entries(result.actions)) {
     const input = path.join(root, `${kind}.json`); const witness = path.join(root, `${kind}.wtns`);
     await writeFile(input, `${JSON.stringify(value.circuitInput)}\n`);

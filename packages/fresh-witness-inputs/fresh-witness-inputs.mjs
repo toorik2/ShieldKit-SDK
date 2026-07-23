@@ -1,23 +1,16 @@
 // Typed, local witness material for the pinned low128 G1 relation. This is
 // deliberately profile-bound and does not initialize setup, make proofs, or
 // construct BCH transactions.
+import { createHash } from 'node:crypto';
 import {
-  createCipheriv, createDecipheriv, createHash, createPrivateKey, createPublicKey,
-  diffieHellman, hkdfSync,
-} from 'node:crypto';
-import {
-  DENOMINATION_SATS, DOMAIN_TAGS, FR_MODULUS, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH,
+  DENOMINATION_SATS, DOMAIN_TAGS, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH,
   OUTPUT_RECORD_BYTES, createShieldedTransitionReference, frToHex,
 } from '../core/shielded-transition.mjs';
 import { loadVerifierProfileBundle } from '../core/verifier-profile.mjs';
+import { constructRecipientOutput, deriveRecipientWallet } from '../recovery/recovery.mjs';
 
 const HEX_32 = /^[0-9a-f]{64}$/;
 const KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
-const KIND_CODE = Object.freeze({ deposit: 1, transfer: 2, withdrawal: 3 });
-const X25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b656e04220420', 'hex');
-const X25519_SPKI_PREFIX = Buffer.from('302a300506032b656e032100', 'hex');
-const RECORD_VERSION = 1;
-const RECORD_CIPHERTEXT_BYTES = 128;
 
 export class FreshWitnessInputsError extends Error {
   constructor(message) { super(message); this.name = 'FreshWitnessInputsError'; }
@@ -43,78 +36,16 @@ const sha256 = (...parts) => {
   const hash = createHash('sha256'); for (const part of parts) hash.update(part); return hash.digest();
 };
 
-function deriveField(seed, label) {
-  const reduced = BigInt(`0x${sha256(Buffer.from('shield.cash/fresh-witness-inputs/v1\\0', 'utf8'), seed, Buffer.from(label, 'utf8')).toString('hex')}`) % (FR_MODULUS - 1n);
-  return frToHex(reduced + 1n);
-}
-
-function rawPrivateKey(bytes) {
-  if (!Buffer.isBuffer(bytes) || bytes.length !== 32) fail('X25519 private material must contain exactly 32 bytes');
-  return createPrivateKey({ key: Buffer.concat([X25519_PKCS8_PREFIX, bytes]), format: 'der', type: 'pkcs8' });
-}
-function rawPublicKey(bytes) {
-  if (!Buffer.isBuffer(bytes) || bytes.length !== 32) fail('X25519 public material must contain exactly 32 bytes');
-  return createPublicKey({ key: Buffer.concat([X25519_SPKI_PREFIX, bytes]), format: 'der', type: 'spki' });
-}
-function publicRaw(privateKey) {
-  const encoded = createPublicKey(privateKey).export({ format: 'der', type: 'spki' });
-  return Buffer.from(encoded).subarray(-32);
-}
-function recoveryPrivate(noteSecret) {
-  return rawPrivateKey(sha256(Buffer.from('shield.cash/recovery-x25519/v1\\0', 'utf8'), Buffer.from(noteSecret, 'hex')));
-}
-function recordAad({ kind, slot, profileId, instanceId, outputCm }) {
-  return Buffer.concat([
-    Buffer.from('shield.cash/recovery-record/v1\\0SCAR', 'utf8'), Buffer.of(1, 2, KIND_CODE[kind], 0, slot),
-    Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'), Buffer.from(outputCm, 'hex'),
-  ]);
-}
-
-/**
- * Create the 192-byte X25519/HKDF-SHA256/ChaCha20-Poly1305 recovery record
- * described by the G1 candidate. Circuit G1 only binds these bytes: it does
- * not yet prove AEAD correctness, so callers must decrypt and recompute note
- * material before accepting a discovered record.
- */
-export function encryptRecoveryRecord({ kind, slot, profileId, instanceId, outputNote, outputCm, witnessSeed }) {
-  if (!KINDS.includes(kind)) fail('record kind is unsupported');
-  if (!Number.isInteger(slot) || slot < 0 || slot > 0xff) fail('record slot must be a byte');
-  hex32(profileId, 'record profileId'); hex32(instanceId, 'record instanceId'); hex32(outputCm, 'record output commitment'); hex32(witnessSeed, 'witnessSeed');
-  exactKeys(outputNote, 'output note', ['ak', 'cm', 'nf', 'r', 'rho', 'sk']);
-  for (const key of ['ak', 'cm', 'nf', 'r', 'rho', 'sk']) hex32(outputNote[key], `output note ${key}`);
-  const recipient = recoveryPrivate(outputNote.sk);
-  const ephemeral = rawPrivateKey(sha256(Buffer.from('shield.cash/recovery-ephemeral/v1\\0', 'utf8'), Buffer.from(witnessSeed, 'hex'), Buffer.from(kind, 'utf8')));
-  const shared = diffieHellman({ privateKey: ephemeral, publicKey: createPublicKey(recipient) });
-  const nonce = sha256(Buffer.from('shield.cash/recovery-nonce/v1\\0', 'utf8'), Buffer.from(witnessSeed, 'hex'), Buffer.from(kind, 'utf8')).subarray(0, 12);
-  const key = Buffer.from(hkdfSync('sha256', shared, Buffer.from(profileId, 'hex'), recordAad({ kind, slot, profileId, instanceId, outputCm }), 32));
-  const plaintext = Buffer.concat([Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'), Buffer.from(outputNote.rho, 'hex'), Buffer.from(outputNote.r, 'hex')]);
-  if (plaintext.length !== RECORD_CIPHERTEXT_BYTES) fail('internal recovery plaintext size mismatch');
-  const cipher = createCipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
-  cipher.setAAD(recordAad({ kind, slot, profileId, instanceId, outputCm }), { plaintextLength: plaintext.length });
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-  const record = Buffer.concat([Buffer.of(RECORD_VERSION, slot), publicRaw(ephemeral), nonce, cipher.getAuthTag(), ciphertext, Buffer.alloc(2)]);
-  if (record.length !== OUTPUT_RECORD_BYTES) fail('internal recovery record size mismatch');
-  return record;
-}
-
-export function decryptRecoveryRecord({ kind, slot, profileId, instanceId, outputCm, recipientNoteSecret, record }) {
-  if (!KINDS.includes(kind)) fail('record kind is unsupported');
-  if (!Number.isInteger(slot) || slot < 0 || slot > 0xff) fail('record slot must be a byte');
-  hex32(profileId, 'record profileId'); hex32(instanceId, 'record instanceId'); hex32(outputCm, 'record output commitment'); hex32(recipientNoteSecret, 'recipient note secret');
-  if (!Buffer.isBuffer(record) || record.length !== OUTPUT_RECORD_BYTES) fail('record must contain exactly 192 bytes');
-  if (record[0] !== RECORD_VERSION || record[1] !== slot) fail('record version or output slot mismatch');
-  if (!record.subarray(190, 192).equals(Buffer.alloc(2))) fail('record padding must be zero');
-  const ephemeral = rawPublicKey(record.subarray(2, 34)); const nonce = record.subarray(34, 46); const tag = record.subarray(46, 62); const ciphertext = record.subarray(62, 190);
-  const recipient = recoveryPrivate(recipientNoteSecret); const shared = diffieHellman({ privateKey: recipient, publicKey: ephemeral });
-  const key = Buffer.from(hkdfSync('sha256', shared, Buffer.from(profileId, 'hex'), recordAad({ kind, slot, profileId, instanceId, outputCm }), 32));
-  const decipher = createDecipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
-  decipher.setAAD(recordAad({ kind, slot, profileId, instanceId, outputCm }), { plaintextLength: ciphertext.length }); decipher.setAuthTag(tag);
-  let plaintext;
-  try { plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]); } catch { fail('record authentication failed'); }
-  if (plaintext.length !== RECORD_CIPHERTEXT_BYTES) fail('record plaintext length is invalid');
-  const decoded = Object.freeze({ profileId: plaintext.subarray(0, 32).toString('hex'), instanceId: plaintext.subarray(32, 64).toString('hex'), rho: plaintext.subarray(64, 96).toString('hex'), r: plaintext.subarray(96, 128).toString('hex') });
-  if (decoded.profileId !== profileId || decoded.instanceId !== instanceId) fail('record plaintext identity mismatch');
-  return decoded;
+function deterministicRng(seed, label) {
+  let counter = 0;
+  return Object.freeze({ bytes(length) {
+    const chunks = [];
+    while (Buffer.concat(chunks).length < length) {
+      const count = Buffer.alloc(4); count.writeUInt32BE(counter++);
+      chunks.push(sha256(Buffer.from('shield.cash/fresh-witness-rng/v1\\0', 'utf8'), seed, Buffer.from(label, 'utf8'), count));
+    }
+    return Buffer.concat(chunks).subarray(0, length);
+  } });
 }
 
 function emptySiblings(reference, depth, emptyTag, nodeTag) {
@@ -149,7 +80,7 @@ function noteKey(note) { return BigInt(`0x${Buffer.from(note.nf, 'hex').subarray
 function circuitInput({ kind, action, prepared, reference, maximumLiveNotes }) {
   const pre = prepared.preState; const post = prepared.postState; const profileId = pre.profileId; const instanceId = pre.instanceId;
   const spend = action.spend ? reference.deriveNote({ ...action.spend.note, profileId, instanceId }) : undefined;
-  const output = action.outputNote ? reference.deriveNote({ ...action.outputNote, profileId, instanceId }) : undefined;
+  const output = action.outputNote ? reference.deriveOutputNote({ ...action.outputNote, profileId, instanceId }) : undefined;
   const zero = '0'; const withdrawal = action.withdrawal;
   return Object.freeze({
     publicDigestHi: BigInt(`0x${prepared.publicInputs[0]}`).toString(), publicDigestLo: BigInt(`0x${prepared.publicInputs[1]}`).toString(),
@@ -185,21 +116,29 @@ export async function generateFreshWitnessInputs(input) {
   const profileId = idHex(bundle.profileId, 'bundle profileId'); const instanceId = idHex(bundle.instanceId, 'bundle instanceId'); const maximumReserve = bundle.manifest.genesis.reserveCapSatoshis;
   const maximumLiveNotes = BigInt(maximumReserve) / DENOMINATION_SATS;
   const reference = await createShieldedTransitionReference(); const seed = Buffer.from(input.witnessSeed, 'hex');
-  const note1 = { sk: deriveField(seed, 'note-1/sk'), rho: deriveField(seed, 'note-1/rho'), r: deriveField(seed, 'note-1/r') };
-  const note2 = { sk: deriveField(seed, 'note-2/sk'), rho: deriveField(seed, 'note-2/rho'), r: deriveField(seed, 'note-2/r') };
+  // The self-transfer chain intentionally follows the same public-recipient
+  // path as a cross-wallet sender. Output notes never contain recipient sk.
+  const walletSeed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/v1\\0', 'utf8'), seed);
+  const recipient1 = await deriveRecipientWallet({ seed: walletSeed, profileId, instanceId, addressIndex: 0 });
+  const recipient2 = await deriveRecipientWallet({ seed: walletSeed, profileId, instanceId, addressIndex: 1 });
+  const depositOutput = await constructRecipientOutput({ address: recipient1.address, kind: 'deposit', slot: 0, rng: deterministicRng(seed, 'deposit') });
+  const transferOutput = await constructRecipientOutput({ address: recipient2.address, kind: 'transfer', slot: 0, rng: deterministicRng(seed, 'transfer') });
+  const note1 = { sk: recipient1.spendSecret, rho: depositOutput.output.rho, r: depositOutput.output.r };
+  const note2 = { sk: recipient2.spendSecret, rho: transferOutput.output.rho, r: transferOutput.output.r };
+  const outputNote1 = { ak: depositOutput.output.ak, rho: depositOutput.output.rho, r: depositOutput.output.r };
+  const outputNote2 = { ak: transferOutput.output.ak, rho: transferOutput.output.rho, r: transferOutput.output.r };
   const derived1 = reference.deriveNote({ ...note1, profileId, instanceId }); const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });
+  if (derived1.cm !== depositOutput.output.cm || derived2.cm !== transferOutput.output.cm) fail('public recipient output commitment mismatch');
   const noteEmpty = emptySiblings(reference, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_EMPTY, DOMAIN_TAGS.NOTE_TREE_NODE);
   const nullifierEmpty = emptySiblings(reference, NULLIFIER_TREE_DEPTH, DOMAIN_TAGS.NULLIFIER_TREE_EMPTY, DOMAIN_TAGS.NULLIFIER_TREE_NODE);
   const initial = reference.emptyState({ profileId, instanceId, maximumReserve });
   const leaf1 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived1.cm}`));
   const depositPost = reference.buildState({ ...initial, noteRoot: frToHex(rootFromPath(reference, leaf1, 0n, noteEmpty, DOMAIN_TAGS.NOTE_TREE_NODE)), nextLeafIndex: '1', actionSequence: '1', liveNoteCount: '1', reserveSats: DENOMINATION_SATS.toString() });
-  const depositRecord = encryptRecoveryRecord({ kind: 'deposit', slot: 0, profileId, instanceId, outputNote: derived1, outputCm: derived1.cm, witnessSeed: input.witnessSeed });
-  const deposit = { kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost, depositSats: DENOMINATION_SATS.toString(), outputNote: note1, noteAppendPath: { siblings: noteEmpty }, outputRecord: depositRecord, transactionContextDigest: input.transactionContextDigests.deposit };
+  const deposit = { kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost, depositSats: DENOMINATION_SATS.toString(), outputNote: outputNote1, noteAppendPath: { siblings: noteEmpty }, outputRecord: depositOutput.record, transactionContextDigest: input.transactionContextDigests.deposit };
   const appendIndex1 = [frToHex(leaf1), ...noteEmpty.slice(1)]; const leaf2 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived2.cm}`));
   const key1 = noteKey(derived1); const nfLeaf1 = reference.poseidon(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, BigInt(`0x${derived1.nf}`));
   const transferPost = reference.buildState({ ...depositPost, noteRoot: frToHex(rootFromPath(reference, leaf2, 1n, appendIndex1, DOMAIN_TAGS.NOTE_TREE_NODE)), nullifierRoot: frToHex(rootFromPath(reference, nfLeaf1, key1, nullifierEmpty, DOMAIN_TAGS.NULLIFIER_TREE_NODE)), nextLeafIndex: '2', actionSequence: '2' });
-  const transferRecord = encryptRecoveryRecord({ kind: 'transfer', slot: 0, profileId, instanceId, outputNote: derived2, outputCm: derived2.cm, witnessSeed: input.witnessSeed });
-  const transfer = { kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost, spend: { note: note1, noteIndex: '0', noteSiblings: noteEmpty, nullifierSiblings: nullifierEmpty }, outputNote: note2, noteAppendPath: { siblings: appendIndex1 }, outputRecord: transferRecord, transactionContextDigest: input.transactionContextDigests.transfer };
+  const transfer = { kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost, spend: { note: note1, noteIndex: '0', noteSiblings: noteEmpty, nullifierSiblings: nullifierEmpty }, outputNote: outputNote2, noteAppendPath: { siblings: appendIndex1 }, outputRecord: transferOutput.record, transactionContextDigest: input.transactionContextDigests.transfer };
   const key2 = noteKey(derived2); const nfLeaf2 = reference.poseidon(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, BigInt(`0x${derived2.nf}`)); const withdrawalNullifierPath = sparsePath(reference, key2, new Map([[key1.toString(), nfLeaf1]]));
   const withdrawalPost = reference.buildState({ ...transferPost, nullifierRoot: frToHex(rootFromPath(reference, nfLeaf2, key2, withdrawalNullifierPath, DOMAIN_TAGS.NULLIFIER_TREE_NODE)), actionSequence: '3', liveNoteCount: '0', reserveSats: '0' });
   const withdrawal = { kind: 'withdrawal', networkId: 2, profileId, instanceId, preState: transferPost, postState: withdrawalPost, spend: { note: note2, noteIndex: '1', noteSiblings: appendIndex1, nullifierSiblings: withdrawalNullifierPath }, withdrawal: { amountSats: DENOMINATION_SATS.toString(), scriptHash: input.withdrawalScriptHash }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES), transactionContextDigest: input.transactionContextDigests.withdrawal };

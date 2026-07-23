@@ -36,13 +36,13 @@ const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });
 const initial = reference.emptyState({ profileId, instanceId, maximumReserve: '30000000' });
 const leaf1 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived1.cm}`));
 const depositPost = reference.buildState({ ...initial, noteRoot: frToHex(root(leaf1, 0n, notePathEmpty, DOMAIN_TAGS.NOTE_TREE_NODE)), nextLeafIndex: '1', actionSequence: '1', liveNoteCount: '1', reserveSats: D });
-const deposit = { kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost, depositSats: D, outputNote: note1, noteAppendPath: { siblings: notePathEmpty }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 1), transactionContextDigest: digest('deposit-context') };
+const deposit = { kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost, depositSats: D, outputNote: { ak: derived1.ak, rho: note1.rho, r: note1.r }, noteAppendPath: { siblings: notePathEmpty }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 1), transactionContextDigest: digest('deposit-context') };
 const appendIndex1 = [frToHex(leaf1), ...notePathEmpty.slice(1)];
 const leaf2 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived2.cm}`));
 const nf1 = BigInt(`0x${derived1.nf}`); const key1 = BigInt(`0x${Buffer.from(derived1.nf, 'hex').subarray(16, 32).toString('hex')}`);
 const nullLeaf1 = reference.poseidon(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, nf1);
 const transferPost = reference.buildState({ ...depositPost, noteRoot: frToHex(root(leaf2, 1n, appendIndex1, DOMAIN_TAGS.NOTE_TREE_NODE)), nullifierRoot: frToHex(root(nullLeaf1, key1, nullifierPathEmpty, DOMAIN_TAGS.NULLIFIER_TREE_NODE)), nextLeafIndex: '2', actionSequence: '2' });
-const transfer = { kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost, spend: { note: note1, noteIndex: '0', noteSiblings: notePathEmpty, nullifierSiblings: nullifierPathEmpty }, outputNote: note2, noteAppendPath: { siblings: appendIndex1 }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 2), transactionContextDigest: digest('transfer-context') };
+const transfer = { kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost, spend: { note: note1, noteIndex: '0', noteSiblings: notePathEmpty, nullifierSiblings: nullifierPathEmpty }, outputNote: { ak: derived2.ak, rho: note2.rho, r: note2.r }, noteAppendPath: { siblings: appendIndex1 }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 2), transactionContextDigest: digest('transfer-context') };
 const withdrawalPost = reference.buildState({ ...depositPost, nullifierRoot: frToHex(root(nullLeaf1, key1, nullifierPathEmpty, DOMAIN_TAGS.NULLIFIER_TREE_NODE)), actionSequence: '2', liveNoteCount: '0', reserveSats: '0' });
 const withdrawal = { kind: 'withdrawal', networkId: 2, profileId, instanceId, preState: depositPost, postState: withdrawalPost, spend: { note: note1, noteIndex: '0', noteSiblings: notePathEmpty, nullifierSiblings: nullifierPathEmpty }, withdrawal: { amountSats: D, scriptHash: digest('withdrawal-script') }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES), transactionContextDigest: digest('withdrawal-context') };
 const prepared = Object.fromEntries(Object.entries({ deposit, transfer, withdrawal }).map(([kind, action]) => [kind, reference.prepareTransition(action)]));
@@ -56,7 +56,7 @@ const inputFor = (kind, action, result) => {
   const pre = result.preState; const post = result.postState;
   const [profileHi, profileLo] = idLimbs(profileId); const [instanceHi, instanceLo] = idLimbs(instanceId);
   const spend = action.spend ? reference.deriveNote({ ...action.spend.note, profileId, instanceId }) : null;
-  const output = action.outputNote ? reference.deriveNote({ ...action.outputNote, profileId, instanceId }) : null;
+  const output = action.outputNote ? reference.deriveOutputNote({ ...action.outputNote, profileId, instanceId }) : null;
   const withdrawalBoundary = action.withdrawal;
   return {
     publicDigestHi: BigInt(`0x${result.publicInputs[0]}`).toString(), publicDigestLo: BigInt(`0x${result.publicInputs[1]}`).toString(),

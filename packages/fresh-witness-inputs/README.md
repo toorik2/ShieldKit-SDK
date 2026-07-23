@@ -29,11 +29,13 @@ assembler's exact SCCT digest for each action into
 `profile` echoes the authenticated profile ID, instance ID, state-NFT category,
 and reserve cap for the assembler to cross-check.
 
-Active records are 192-byte X25519/HKDF-SHA256/ChaCha20-Poly1305 records. They
-are cryptographically constructed and byte-bound by G1, but G1 does not yet
-prove AEAD correctness. Wallet recovery must decrypt and recompute the note
-before accepting it. This module is development-only witness tooling, not a
-G2/Chipnet qualification claim.
+Active records are constructed through the public recipient-address path in
+`@shield.cash/recovery`: a sender has only `{ak,recoveryPublicKey}` and never
+needs a recipient spend secret. They are 192-byte
+X25519/HKDF-SHA256/ChaCha20-Poly1305 records, cryptographically constructed and
+byte-bound by G1, but G1 does not prove AEAD correctness. Wallet recovery must
+decrypt and recompute the note before accepting it. This module is
+development-only witness tooling, not a G2/Chipnet qualification claim.
 
 To exercise the real relation witness generator when an authenticated local
 bundle and its matching WASM are available:
@@ -41,8 +43,11 @@ bundle and its matching WASM are available:
 ```sh
 SHIELD_FRESH_WITNESS_TEST_BUNDLE=/path/to/bundle \
 SHIELD_FRESH_WITNESS_TEST_WASM=/path/to/g1_relation.wasm \
+SHIELD_FRESH_WITNESS_TEST_GENERATOR=/pinned/path/to/generate_witness.js \
 npm test --prefix packages/fresh-witness-inputs
 ```
 
-The test fail-closes unless the supplied WASM is exactly 9,977,099 bytes; it
-generates all three witnesses and verifies their 19,301,356-byte output size.
+The test fail-closes unless the supplied WASM is exactly 9,977,099 bytes and
+its SHA-256 equals the authenticated bundle's `witness-generator` artifact; it
+also requires an explicit pinned generator path, then verifies all three
+19,301,356-byte witness outputs.

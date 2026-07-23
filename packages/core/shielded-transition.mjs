@@ -211,6 +211,22 @@ export async function createShieldedTransitionReference() {
     return Object.freeze({ ak: frToHex(ak), cm: frToHex(cm), nf: frToHex(nf), sk: frToHex(secret), rho: frToHex(nonce), r: frToHex(randomness) });
   };
 
+  // Output construction deliberately accepts a recipient authority key, not a
+  // recipient spend secret. A sender can therefore create a note for a public
+  // recipient address; only a later spend needs `sk` to derive its nullifier.
+  const deriveOutputNote = (output) => {
+    exactKeys(output, 'output note', ['profileId', 'instanceId', 'ak', 'rho', 'r']);
+    const profile = identifierLimbs(output.profileId, 'output note profileId');
+    const instance = identifierLimbs(output.instanceId, 'output note instanceId');
+    const authority = frFromHex(output.ak, 'output note ak');
+    const nonce = frFromHex(output.rho, 'output note rho');
+    const randomness = frFromHex(output.r, 'output note r');
+    if (authority === 0n || nonce === 0n || randomness === 0n) fail('output note ak, rho, and r must be nonzero');
+    const cm = hash(DOMAIN_TAGS.NOTE, ...profile, ...instance, DENOMINATION_SATS, authority, nonce, randomness);
+    if (cm === 0n) fail('derived output note commitment is zero');
+    return Object.freeze({ ak: frToHex(authority), cm: frToHex(cm), rho: frToHex(nonce), r: frToHex(randomness) });
+  };
+
   const appendNote = (pre, cm, path) => {
     exactKeys(path, 'note append path', ['siblings']);
     const siblings = assertArray(path.siblings, NOTE_TREE_DEPTH, 'note append path');
@@ -285,12 +301,12 @@ export async function createShieldedTransitionReference() {
     let outputRecord; let boundaryAmount = 0n; let withdrawalScriptHash = ZERO_DIGEST;
     if (kind === 'deposit') {
       if (parseUint(action.depositSats, 64, 'deposit contribution') !== DENOMINATION_SATS) fail('deposit contribution must equal denomination');
-      const output = deriveNote({ ...action.outputNote, profileId: pre.profileId, instanceId: pre.instanceId }); outputCm = output.cm;
+      const output = deriveOutputNote({ ...action.outputNote, profileId: pre.profileId, instanceId: pre.instanceId }); outputCm = output.cm;
       noteRoot = appendNote(pre, output.cm, action.noteAppendPath); outputRecord = recordBytes(action.outputRecord, true); boundaryAmount = DENOMINATION_SATS;
       live += 1n; reserve += DENOMINATION_SATS;
     } else if (kind === 'transfer') {
       const spent = spendNote(pre, action.spend); inputCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
-      const output = deriveNote({ ...action.outputNote, profileId: pre.profileId, instanceId: pre.instanceId }); outputCm = output.cm;
+      const output = deriveOutputNote({ ...action.outputNote, profileId: pre.profileId, instanceId: pre.instanceId }); outputCm = output.cm;
       noteRoot = appendNote(pre, output.cm, action.noteAppendPath); outputRecord = recordBytes(action.outputRecord, true);
     } else {
       const spent = spendNote(pre, action.spend); inputCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
@@ -327,7 +343,7 @@ export async function createShieldedTransitionReference() {
       DENOMINATION_SATS, MAX_BCH_SUPPLY_SATS, NOTE_TREE_DEPTH,
       NULLIFIER_TREE_DEPTH, OUTPUT_RECORD_BYTES, NETWORK_CHIPNET,
     }),
-    poseidon: hash, deriveNote, emptyState, buildState,
+    poseidon: hash, deriveNote, deriveOutputNote, emptyState, buildState,
     // Preparation computes deterministic packet limbs but is not an acceptance API.
     prepareTransition: (action) => evaluateTransition(action, false),
     transition: (action) => evaluateTransition(action, true), stateNftCommitment,
