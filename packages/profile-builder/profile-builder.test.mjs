@@ -127,6 +127,24 @@ test('expected binding rejection happens during staging and does not create a de
   await assert.rejects(() => lstat(destination));
 });
 
+test('file-backed proving material is streamed, post-copy hashed, and never materialized with readFile', async (t) => {
+  const root = await testRoot(t); const destination = path.join(root, 'large-proving-bundle');
+  const input = await makeInput(root, 'large-proving-key', destination);
+  const proving = input.artifacts.find((artifact) => artifact.kind === 'proving-key');
+  const largeProvingKey = Buffer.alloc(16 * 1024 * 1024, 0xa5);
+  await writeFile(proving.source.sourcePath, largeProvingKey);
+  input.setup.material.phase2.finalZkeySha256 = digest(largeProvingKey);
+  const result = await buildVerifierProfileBundle(input);
+  assert.equal((await lstat(path.join(result.directory, proving.path))).size, largeProvingKey.length);
+  const moduleSource = await readFile(path.join(path.dirname(new URL(import.meta.url).pathname), 'profile-builder.mjs'), 'utf8');
+  const materializer = moduleSource.slice(moduleSource.indexOf('async function materializeSource'), moduleSource.indexOf('async function bufferedVerifierSet'));
+  const copier = moduleSource.slice(moduleSource.indexOf('async function copyFileArtifact'), moduleSource.indexOf('async function writeBundle'));
+  assert.doesNotMatch(materializer, /readFile/);
+  assert.match(materializer, /hashFile/);
+  assert.match(copier, /pipeline/);
+  assert.match(copier, /hashFile\(target\)/);
+});
+
 test('CLI resolves caller paths from metadata and emits only built identities', async (t) => {
   const root = await testRoot(t);
   const input = await makeInput(root, 'cli', path.join(root, 'cli-output'));

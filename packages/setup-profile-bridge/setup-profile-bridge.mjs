@@ -146,7 +146,8 @@ async function bridgeArtifacts(artifacts, local) {
 
 /**
  * Package a hash-pinned, local-development setup as a new immutable profile.
- * This function never initializes setup or constructs a BCH instance.
+ * Returned identifiers are derived pre-genesis identity inputs only: this
+ * function never initializes setup, constructs, or broadcasts a BCH instance.
  */
 export async function bridgeLocalSetupToProfile(input) {
   object(input, 'bridge input');

@@ -6,7 +6,11 @@ contributions, BCH scripts, wallets, transactions, or network activity.
 
 `buildVerifierProfileBundle(input)` accepts typed metadata plus each artifact
 and toolchain record as either an API-only `Uint8Array`/`Buffer` or a regular,
-non-symlink `sourcePath`. It calculates every artifact and toolchain digest,
+non-symlink `sourcePath`. File-backed artifacts are hashed and copied in
+bounded streams to both staging and final bundle directories, with direct-file
+and post-copy hash checks; they are never read wholesale into builder memory.
+Only the BCH verifier-set bytes are buffered for the pre-genesis identifier
+scan. It calculates every artifact and toolchain digest,
 constructs canonical manifest-v1 bytes, derives IDs through `packages/core`,
 stages, reloads with the core loader, and only then creates a new destination.
 Existing destinations fail closed and are never overwritten.

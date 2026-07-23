@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
 import {
   lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import {
   BundleValidationError, canonicalJson, deriveInstanceId, deriveProfileId,
   loadVerifierProfileBundle,
@@ -71,21 +74,43 @@ function safeBundlePath(value, label) {
   return value;
 }
 
-async function sourceBytes(source, label) {
+async function regularFile(sourcePath, label) {
+  const requested = path.resolve(string(sourcePath, label));
+  const stats = await lstat(requested).catch(() => fail(`${label} does not exist`));
+  if (!stats.isFile() || stats.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`);
+  const resolved = await realpath(requested).catch(() => fail(`${label} cannot be resolved`));
+  if (resolved !== requested) fail(`${label} must not use symlinks`);
+  return resolved;
+}
+
+async function hashFile(file) {
+  return new Promise((resolve, reject) => {
+    const hasher = createHash('sha256'); const stream = createReadStream(file, { highWaterMark: 64 * 1024 });
+    stream.on('data', (chunk) => hasher.update(chunk));
+    stream.on('error', () => reject(new ProfileBuildError('source file cannot be hashed')));
+    stream.on('end', () => resolve(`sha256:${hasher.digest('hex')}`));
+  });
+}
+
+async function materializeSource(source, label) {
   object(source, label);
   const hasPath = Object.hasOwn(source, 'sourcePath'); const hasBytes = Object.hasOwn(source, 'bytes');
   if (hasPath === hasBytes) fail(`${label} must contain exactly one of sourcePath or bytes`);
   exactKeys(source, label, hasPath ? ['sourcePath'] : ['bytes']);
   if (hasBytes) {
     if (!Buffer.isBuffer(source.bytes) && !(source.bytes instanceof Uint8Array)) fail(`${label}.bytes must be Buffer or Uint8Array`);
-    return Buffer.from(source.bytes);
+    const bytes = Buffer.from(source.bytes);
+    return { bytes, sha256: sha256(bytes) };
   }
-  const requested = path.resolve(string(source.sourcePath, `${label}.sourcePath`));
-  const stats = await lstat(requested).catch(() => fail(`${label}.sourcePath does not exist`));
-  if (!stats.isFile() || stats.isSymbolicLink()) fail(`${label}.sourcePath must be a regular non-symlink file`);
-  const resolved = await realpath(requested).catch(() => fail(`${label}.sourcePath cannot be resolved`));
-  if (resolved !== requested) fail(`${label}.sourcePath must not use symlinks`);
-  return readFile(resolved);
+  const sourcePath = await regularFile(source.sourcePath, `${label}.sourcePath`);
+  return { sourcePath, sha256: await hashFile(sourcePath) };
+}
+
+async function bufferedVerifierSet(source, label) {
+  if (source.bytes !== undefined) return source.bytes;
+  const sourcePath = await regularFile(source.sourcePath, `${label}.sourcePath`);
+  const bytes = await readFile(sourcePath);
+  return bytes;
 }
 
 function normalizeArtifactInput(input) {
@@ -113,10 +138,16 @@ async function materializeArtifacts(inputs) {
     if (kinds.has(input.kind)) fail('artifact input kinds must be unique');
     if (paths.has(input.path)) fail('artifact input paths must be unique');
     previousId = input.id; kinds.add(input.kind); paths.add(input.path);
-    const bytes = await sourceBytes(input.source, `artifact ${input.id}`);
-    const actualHash = sha256(bytes);
+    const source = await materializeSource(input.source, `artifact ${input.id}`);
+    const actualHash = source.sha256;
     if (input.expectedSha256 !== undefined && input.expectedSha256 !== actualHash) fail(`artifact expected hash mismatch: ${input.id}`);
-    artifacts.push({ id: input.id, kind: input.kind, path: input.path, sha256: actualHash, bytes });
+    if (input.kind === 'bch-verifier-set') {
+      const bytes = await bufferedVerifierSet(input.source, `artifact ${input.id}`);
+      if (sha256(bytes) !== actualHash) fail('bch-verifier-set source changed during materialization');
+      artifacts.push({ id: input.id, kind: input.kind, path: input.path, sha256: actualHash, bytes, ...(source.sourcePath === undefined ? {} : { sourcePath: source.sourcePath }) });
+    } else {
+      artifacts.push({ id: input.id, kind: input.kind, path: input.path, sha256: actualHash, ...source });
+    }
   }
   for (const kind of REQUIRED_ARTIFACT_KINDS) if (!kinds.has(kind)) fail(`required artifact input is missing: ${kind}`);
   return artifacts;
@@ -124,8 +155,8 @@ async function materializeArtifacts(inputs) {
 
 async function materializeTool(tool, label) {
   exactKeys(tool, label, ['name', 'version', 'source']);
-  const bytes = await sourceBytes(tool.source, `${label}.source`);
-  return { name: string(tool.name, `${label}.name`), version: string(tool.version, `${label}.version`), sha256: sha256(bytes) };
+  const source = await materializeSource(tool.source, `${label}.source`);
+  return { name: string(tool.name, `${label}.name`), version: string(tool.version, `${label}.version`), sha256: source.sha256 };
 }
 
 function cloneTyped(value, label) {
@@ -187,7 +218,7 @@ function makeManifest(input, artifacts, toolchain) {
     setup,
     toolchain,
     network: cloneTyped(input.network, 'network input'),
-    artifacts: artifacts.map(({ bytes: _bytes, ...artifact }) => artifact),
+    artifacts: artifacts.map(({ bytes: _bytes, sourcePath: _sourcePath, ...artifact }) => artifact),
     identity: { profileId: '' },
     genesis: {
       ...cloneTyped(input.genesis, 'genesis input'), profileId: '', instanceId: '', network: input.network.name,
@@ -218,11 +249,25 @@ async function destinationPath(destination) {
   return { parent, target };
 }
 
+async function copyFileArtifact(artifact, target) {
+  const sourcePath = await regularFile(artifact.sourcePath, `artifact ${artifact.id} sourcePath`);
+  if (sourcePath !== artifact.sourcePath) fail(`artifact source path drift: ${artifact.id}`);
+  const hasher = createHash('sha256');
+  const hashing = new Transform({
+    transform(chunk, _encoding, callback) { hasher.update(chunk); callback(null, chunk); },
+  });
+  await pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), hashing, createWriteStream(target, { flags: 'wx', mode: 0o600 }));
+  const copiedHash = `sha256:${hasher.digest('hex')}`;
+  if (copiedHash !== artifact.sha256 || await hashFile(target) !== artifact.sha256) fail(`artifact source changed during copy: ${artifact.id}`);
+  if (await hashFile(sourcePath) !== artifact.sha256) fail(`artifact source changed after copy: ${artifact.id}`);
+}
+
 async function writeBundle(directory, artifacts, manifestBytes) {
   for (const artifact of artifacts) {
     const target = path.join(directory, ...artifact.path.split('/'));
     await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, artifact.bytes, { flag: 'wx' });
+    if (artifact.sourcePath !== undefined) await copyFileArtifact(artifact, target);
+    else await writeFile(target, artifact.bytes, { flag: 'wx', mode: 0o600 });
   }
   await writeFile(path.join(directory, 'manifest.json'), manifestBytes, { flag: 'wx' });
 }
