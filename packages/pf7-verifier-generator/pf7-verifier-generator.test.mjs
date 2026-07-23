@@ -1,19 +1,27 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
+import { encodeActionPacket, OUTPUT_RECORD_BYTES } from '../action-packet/action-packet.mjs';
 import {
   assertBuildComplete,
+  assertExactPf7FreshFinalVerifierSetArtifact,
+  assertPf7FreshReplayAuthority,
   assertCleanGitRepository,
   assertSeamMeasured,
   assertSeamRedteam,
+  deriveFreshDevelopmentActions,
+  derivePf7FreshVerifierSet,
   extractVerifierSet,
+  generatePf7FreshDevelopmentCorpus,
   Pf7VerifierGeneratorError,
+  validatePf7FreshDevelopmentInput,
+  validatePf7FreshFinalBundle,
   validateAdapter,
   validateProvenance,
   validateRuntimePackageVersions,
@@ -169,4 +177,166 @@ test('seam redteam requires thirteen local and four cross-action rejections', ()
   assert.equal(assertSeamRedteam(report), true);
   report.attackCount = 16;
   assert.throws(() => assertSeamRedteam(report), /cross-action redteam/);
+});
+
+const freshHash = 'a'.repeat(64);
+const freshRecord = (name) => ({ path: `/fresh/${name}`, sha256: freshHash });
+const freshInput = (mode = 'discovery') => {
+  const value = {
+    mode,
+    destination: '/fresh/out',
+    scratchDirectory: '/fresh/scratch',
+    preProfile: {
+      schema: 'shield.cash/pf7-fresh-development-preprofile/v1',
+      setupMetadata: freshRecord('setup-metadata.json'), r1cs: freshRecord('action.r1cs'), verificationKey: freshRecord('verification_key.json'),
+    },
+    actions: ['deposit', 'transfer', 'withdrawal'].map((kind) => ({ kind, packet: freshRecord(`${kind}.packet`), proof: freshRecord(`${kind}.proof.json`), publicSignals: freshRecord(`${kind}.public.json`), verificationKey: freshRecord('verification_key.json') })),
+    verifier: { checkout: '/fresh/verifier', cashcRoot: '/fresh/cashc', cashcCommit: '1'.repeat(40), leanBchRoot: '/fresh/lean', leanBchCommit: '2'.repeat(40) },
+  };
+  if (mode === 'final-replay') {
+    value.expected = { sourceSetSha256: 'b'.repeat(64), verifierSetSha256: 'c'.repeat(64) };
+    value.finalProfile = { profileId: `sha256:${'d'.repeat(64)}`, instanceId: `sha256:${'e'.repeat(64)}`, bundleDirectory: '/fresh/profile-bundle' };
+  }
+  return value;
+};
+
+test('fresh development PF7 input is strict, two-stage, and cannot accept copied adapter metadata', () => {
+  assert.equal(validatePf7FreshDevelopmentInput(freshInput()).mode, 'discovery');
+  assert.equal(validatePf7FreshDevelopmentInput(freshInput('final-replay')).mode, 'final-replay');
+  const cases = [
+    ['unknown top-level key', (value) => { value.adapter = freshRecord('forged-adapter.json'); }],
+    ['forged action adapter metadata', (value) => { value.actions[0].adapter = freshRecord('forged-adapter.json'); }],
+    ['wrong action order', (value) => { value.actions[1].kind = 'withdrawal'; }],
+    ['packet traversal', (value) => { value.actions[0].packet.path = '/fresh/../escape.packet'; }],
+    ['missing final replay identity', (value) => { delete value.finalProfile; }],
+    ['invalid final replay profile', (value) => { value.finalProfile.profileId = 'not-an-id'; }],
+  ];
+  for (const [name, mutate] of cases) {
+    const value = freshInput(name.includes('final replay') ? 'final-replay' : 'discovery'); mutate(value);
+    assert.throws(() => validatePf7FreshDevelopmentInput(value), Pf7VerifierGeneratorError, name);
+  }
+});
+
+test('fresh development entrypoint rejects a symlinked pre-profile source before any verifier build', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-symlink-'));
+  try {
+    const actual = path.join(directory, 'actual.json'); const linked = path.join(directory, 'setup.json');
+    await writeFile(actual, '{}'); await symlink(actual, linked);
+    const value = freshInput(); value.preProfile.setupMetadata = { path: linked, sha256: createHash('sha256').update('{}').digest('hex') };
+    value.preProfile.r1cs = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+    value.preProfile.verificationKey = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+    for (const action of value.actions) {
+      action.packet = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+      action.proof = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+      action.publicSignals = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+      action.verificationKey = { path: actual, sha256: createHash('sha256').update('{}').digest('hex') };
+    }
+    value.destination = path.join(directory, 'out'); value.scratchDirectory = directory;
+    await assert.rejects(() => generatePf7FreshDevelopmentCorpus(value), /fresh setup metadata.path has the wrong filesystem type/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+const actionHex = (byte) => byte.repeat(32);
+const actionState = (sequence, reserve, commitment) => ({
+  profileId: actionHex('11'), instanceId: actionHex('22'), noteRoot: actionHex('33'), nullifierRoot: actionHex('44'),
+  nextLeafIndex: '1', actionSequence: sequence, liveNoteCount: reserve === '0' ? '0' : '1', reserveSats: reserve, maximumReserve: '30000000', stateCommitment: actionHex(commitment),
+});
+const canonicalDepositPacket = () => encodeActionPacket({
+  kind: 'deposit', networkId: 2, preState: actionState('0', '0', '55'), postState: actionState('1', '10000000', '66'),
+  inputCommitment: actionHex('00'), inputNullifier: actionHex('00'), outputCommitment: actionHex('77'), outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 0x88),
+  boundaryAmount: '10000000', withdrawalScriptHash: actionHex('00'), transactionContextDigest: actionHex('99'),
+});
+
+test('fresh path reads raw proof/signal/VK itself and rejects symlink swaps before a build', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-raw-'));
+  try {
+    const fixtureDirectory = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../snarkjs-adapter/test-fixtures/two-public');
+    const proof = path.join(directory, 'proof.json'); const signals = path.join(directory, 'public.json'); const vk = path.join(directory, 'verification_key.json'); const packet = path.join(directory, 'packet.bin');
+    await writeFile(proof, await readFile(path.join(fixtureDirectory, 'proof.json'))); await writeFile(signals, await readFile(path.join(fixtureDirectory, 'public.json'))); await writeFile(vk, await readFile(path.join(fixtureDirectory, 'verification_key.json'))); await writeFile(packet, canonicalDepositPacket());
+    const record = async (filename) => ({ path: filename, sha256: createHash('sha256').update(await readFile(filename)).digest('hex') });
+    const raw = { kind: 'deposit', proof: await record(proof), publicSignals: await record(signals), verificationKey: await record(vk), packet: await record(packet) };
+    const setup = { verificationKey: { sha256: raw.verificationKey.sha256 } };
+    // The trusted adapter does parse the supplied raw tuple; this test reaches
+    // the packet/public-input binding rather than accepting copied metadata.
+    await assert.rejects(() => deriveFreshDevelopmentActions({ actions: [raw] }, setup), /packet digest limbs do not match re-derived public inputs/);
+    for (const key of ['proof', 'publicSignals', 'packet']) {
+      const linked = path.join(directory, `${key}-link`); await symlink(raw[key].path, linked);
+      const swapped = structuredClone(raw); swapped[key] = { path: linked, sha256: raw[key].sha256 };
+      await assert.rejects(() => deriveFreshDevelopmentActions({ actions: [swapped] }, setup), /wrong filesystem type/, `${key} symlink swap`);
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('fresh path rejects verification-key and final-profile swaps at schema boundary', () => {
+  const vkSwap = freshInput(); vkSwap.actions[2].verificationKey.sha256 = 'f'.repeat(64);
+  assert.throws(() => validatePf7FreshDevelopmentInput(vkSwap), /pre-profile verification key/);
+  const profileSwap = freshInput('final-replay'); profileSwap.finalProfile.instanceId = `sha256:${'0'.repeat(64)}`;
+  assert.doesNotThrow(() => validatePf7FreshDevelopmentInput(profileSwap));
+  // A different profile identity is syntactically allowed only as a separately
+  // caller-pinned final replay; it can never be inferred from discovery.
+  assert.throws(() => validatePf7FreshDevelopmentInput({ ...freshInput(), finalProfile: profileSwap.finalProfile }), /missing or unknown properties/);
+});
+
+test('stable verifier-set identity excludes action proof and packet material but rejects script changes', () => {
+  const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
+  const setup = 'a'.repeat(64);
+  // Discovery and final replay can legitimately exercise distinct raw proofs
+  // and packets. Neither enters the profile-import verifier-set identity.
+  const discovery = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'b'.repeat(64), actionPacketSha256: 'c'.repeat(64) });
+  const replay = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'd'.repeat(64), actionPacketSha256: 'e'.repeat(64) });
+  assert.equal(discovery.sha256, replay.sha256);
+  const altered = structuredClone(scripts); altered[6].redeemBytecodeHex = '52';
+  assert.notEqual(derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts: altered }).sha256, discovery.sha256);
+});
+
+test('final replay bundle must bind exact development setup, R1CS, VK, and stable verifier set', () => {
+  const setup = { r1cs: { sha256: 'a'.repeat(64) }, verificationKey: { sha256: 'b'.repeat(64) } };
+  const expected = { sourceSetSha256: 'c'.repeat(64), verifierSetSha256: 'd'.repeat(64) };
+  const bundle = { manifest: {
+    setup: { mode: 'development-only' },
+    profile: { constraintSystemHash: `sha256:${setup.r1cs.sha256}`, bchVerifierSetHash: `sha256:${expected.verifierSetSha256}` },
+    artifacts: [
+      { kind: 'verification-key', sha256: `sha256:${setup.verificationKey.sha256}` },
+      { kind: 'bch-verifier-set', sha256: `sha256:${expected.verifierSetSha256}`, path: 'artifacts/bch-verifier-set.json' },
+    ],
+  } };
+  assert.equal(validatePf7FreshFinalBundle(bundle, setup, expected).kind, 'bch-verifier-set');
+  for (const mutate of [
+    (value) => { value.manifest.setup.mode = 'ceremony-production'; },
+    (value) => { value.manifest.profile.constraintSystemHash = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.manifest.artifacts[0].sha256 = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.manifest.profile.bchVerifierSetHash = `sha256:${'0'.repeat(64)}`; },
+  ]) {
+    const changed = structuredClone(bundle); mutate(changed);
+    assert.throws(() => validatePf7FreshFinalBundle(changed, setup, expected), Pf7VerifierGeneratorError);
+  }
+});
+
+test('replay authority accepts changed action material but rejects source-set or verifier-set changes', () => {
+  const expected = { sourceSetSha256: 'a'.repeat(64), verifierSetSha256: 'b'.repeat(64) };
+  // Packet/proof hashes do not occur in this authority. The independent
+  // packet/proof binding is exercised by the PF7 build and red-team gates.
+  assert.equal(assertPf7FreshReplayAuthority(expected, { ...expected }), true);
+  assert.throws(() => assertPf7FreshReplayAuthority(expected, { ...expected, sourceSetSha256: 'c'.repeat(64) }), /source-set/);
+  assert.throws(() => assertPf7FreshReplayAuthority(expected, { ...expected, verifierSetSha256: 'd'.repeat(64) }), /verifier-set/);
+});
+
+test('final replay rejects a bundle file whose bytes differ despite claimed stable verifier-set hash', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-bundle-artifact-'));
+  try {
+    const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
+    const stable = derivePf7FreshVerifierSet({ verificationKeySha256: 'b'.repeat(64), scripts });
+    const setup = { r1cs: { sha256: 'a'.repeat(64) }, verificationKey: { sha256: 'b'.repeat(64) } };
+    const expected = { sourceSetSha256: 'c'.repeat(64), verifierSetSha256: stable.sha256 };
+    const artifactDirectory = path.join(directory, 'artifacts'); await mkdir(artifactDirectory);
+    const artifactFile = path.join(artifactDirectory, 'bch-verifier-set.json'); await writeFile(artifactFile, stable.serialized);
+    const bundle = { root: directory, manifest: {
+      setup: { mode: 'development-only' },
+      profile: { constraintSystemHash: `sha256:${setup.r1cs.sha256}`, bchVerifierSetHash: `sha256:${stable.sha256}` },
+      artifacts: [{ kind: 'verification-key', sha256: `sha256:${setup.verificationKey.sha256}` }, { kind: 'bch-verifier-set', sha256: `sha256:${stable.sha256}`, path: 'artifacts/bch-verifier-set.json' }],
+    } };
+    await assert.doesNotReject(() => assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...stable, setup }, expected));
+    await writeFile(artifactFile, 'different bytes');
+    await assert.rejects(() => assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...stable, setup }, expected), /exact stable verifier-set artifact/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
