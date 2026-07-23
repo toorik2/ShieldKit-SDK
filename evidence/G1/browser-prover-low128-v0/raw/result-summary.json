@@ -1,0 +1,12 @@
+{
+  "schema": "shield.cash/browser-prover-summary/v1",
+  "externalResult": {"path": "/tmp/shield-browser-prover-out/browser-run/result.json", "sha256": "a4e2959dcb28b2b84f98dda3154af54cadad6ff57eaad6bebb3622f5a37121b6", "bytes": 7184},
+  "browser": {"path": "/usr/bin/chromium", "version": "Chromium 150.0.7871.114", "sha256": "e7900755f29bf804f9fbd8de2932407a1da357097016ace20f9c0b6c46c5c712"},
+  "artifacts": {"wasm": "1332f89bf4287fc51d7a6f4fd86acb45511a3aaf4ccd4859c6aecda4dd4b3b57", "zkey": "37a7ee2fe9e7ee1e2583d60e0e52d86360d7c7a7be5b23dbb0cc166bb5905453", "verificationKey": "d4b6b4e0a6c371a019ffa7457a7c2a265b7e3a90ae2a12619424a249903c9a59", "snarkjsBundle": "3f61bbd9ac0a10173902eaef65b510fa4e9a2c057f759c7f18a6d0446b20fd06", "snarkjsCli": "6d787e37a4d1a2c6dd6032dadca09c0b3b007d4d4578bb6232a98136555d051a"},
+  "runs": [
+    {"kind": "deposit", "elapsedMs": 11397.583409, "browserProcessTreePeakRssKiB": 10567700, "proof": {"sha256": "f1e148352e49937b3c6310edce5be231210e4160bc47b6e65323c349badd9927", "bytes": 725}, "publicSignals": {"sha256": "99ea939e7a373c377baf30d4cbc9ac999df5915026c8301294406d36dd7aef04", "bytes": 84}},
+    {"kind": "transfer", "elapsedMs": 11453.619157, "browserProcessTreePeakRssKiB": 9440176, "proof": {"sha256": "1a98f0a018208d28f65287bbc992a7496fc7a7361de64531baf297ba7036deab", "bytes": 723}, "publicSignals": {"sha256": "05bc95dbf29e7bdc695b9c3b63a1508c4055f4ffcaf329f77778bec9963745cf", "bytes": 86}},
+    {"kind": "withdrawal", "elapsedMs": 12088.555897, "browserProcessTreePeakRssKiB": 9429252, "proof": {"sha256": "56826f40a80d68cb1d9b1f2d539771355389c77877d812491d69b23f04adb7a4", "bytes": 725}, "publicSignals": {"sha256": "add6716874a5c31ff13176ecbfab7afa3472a7472f5437a32bd1b0e42d4035a2", "bytes": 85}}
+  ],
+  "memoryScope": "sum of RSS for the directly spawned Chromium process and all descendants, sampled every 50 ms; excludes Node harness and loopback server; RSS summation is conservative because shared pages may be counted more than once"
+}
