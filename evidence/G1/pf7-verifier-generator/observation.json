@@ -4,7 +4,7 @@
   "gate": "G1",
   "candidate": "bn254-onetx-pf7-sub62-r1 typed development-only verifier reference",
   "claim": "The retained seven-input PF7 source chain and bounded v0/v1 reference matrix are consumable through a SHA-pinned adapter generator without authorizing generic or ten-role fallback.",
-  "source": {"repository":"shield.cash","commit":"fd9f12378228d965da178c2c243735a488ba44cf","dirtyPaths":[]},
+  "source": {"repository":"shield.cash","commit":"25c2a69696b5daa19b9adcf5edbfde2fd1b61c98","dirtyPaths":[]},
   "environment": {"observedAt":"2026-07-23T16:10:00Z","hardware":{"scope":"local development host"},"software":{"node":"25.9.0","generator":"packages/pf7-verifier-generator"}},
   "commands":["npm test --prefix packages/pf7-verifier-generator","node packages/conformance/validate-evidence.mjs","node scripts/check-policy.mjs"],
   "artifacts":[

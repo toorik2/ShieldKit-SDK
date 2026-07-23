@@ -10,6 +10,9 @@ const TERMINAL = '17c6b9552c48b0fc5271be626a1578fb0065df09';
 const TREE = 'd9673df5a3f5358df6aaff9c4042a029bc26a521';
 const CANDIDATE = 'bn254-onetx-pf7-sub62-r1';
 const CANDIDATE_SHA256 = 'c03e8ae157998f513f058433e58e3252e05a2d2c39f5577a992d39c9daf3ff19';
+const HARNESS_PACKAGE_SHA256 = '31244146be6aabb1983b78f49149a98cdcbb0f2979e406e343836e3c03b13ea2';
+const HARNESS_LOCK_SHA256 = '123bfd3aa1497c01c40c71367a188efc7d435125d4d3539d5f7175d1e09eed01';
+const HARNESS_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8', '@noble/curves': '2.2.0', tsx: '4.22.4', typescript: '6.0.3' });
 const HASH = /^[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(packageDirectory, '../..');
@@ -50,6 +53,14 @@ export function validateAdapter(bytes) {
   for (const name of ['proof', 'publicSignals', 'verificationKey']) { exactKeys(adapter.source[name], `PF7 adapter source.${name}`, ['bytes', 'path', 'sha256']); if (!HASH.test(adapter.source[name].sha256) || !Number.isSafeInteger(adapter.source[name].bytes)) fail(`PF7 adapter source.${name} is malformed`); }
   return adapter;
 }
+async function validateAdapterSources(adapter) {
+  for (const name of ['proof', 'publicSignals', 'verificationKey']) {
+    const source = adapter.source[name];
+    if (source.bytes < 0) fail(`PF7 adapter source.${name}.bytes must be nonnegative`);
+    const pinned = await pinnedFile({ path: source.path, sha256: source.sha256 }, `PF7 adapter source.${name}`);
+    if (pinned.bytes.length !== source.bytes) fail(`PF7 adapter source.${name} byte length mismatch`);
+  }
+}
 function run(executable, args, { cwd, env }) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { cwd, env, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -60,9 +71,32 @@ function run(executable, args, { cwd, env }) {
   });
 }
 async function git(checkout, args) { return (await run('git', ['-C', checkout, ...args], { cwd: checkout, env: { PATH: process.env.PATH ?? '' } })).stdout.trim(); }
+export async function assertCleanGitRepository(checkout, label) {
+  const topLevel = await git(checkout, ['rev-parse', '--show-toplevel']);
+  if (await git(topLevel, ['status', '--porcelain=v1', '--untracked-files=all']) !== '') fail(`${label} repository has tracked or untracked changes`);
+  return topLevel;
+}
+async function validateHarnessRuntime(checkout) {
+  const harness = await regularAbsolute(path.join(checkout, 'harness'), 'verifier harness', { directory: true });
+  // node_modules is ignored by Git. Require it to be a direct directory and
+  // bind its declared package closure to the terminal checkout's lockfile.
+  await regularAbsolute(path.join(harness.path, 'node_modules'), 'verifier harness node_modules', { directory: true });
+  const packageManifest = await pinnedFile({ path: path.join(harness.path, 'package.json'), sha256: HARNESS_PACKAGE_SHA256 }, 'verifier harness package manifest');
+  const lock = await pinnedFile({ path: path.join(harness.path, 'pnpm-lock.yaml'), sha256: HARNESS_LOCK_SHA256 }, 'verifier harness lockfile');
+  void packageManifest; void lock;
+  const versions = {};
+  for (const [name, expected] of Object.entries(HARNESS_RUNTIME_PACKAGES)) {
+    const packageJson = parseStrictJson(await readFile(path.join(harness.path, 'node_modules', name, 'package.json')), `verifier runtime package ${name}`);
+    if (packageJson?.version !== expected) fail(`verifier runtime package version mismatch: ${name}`);
+    versions[name] = packageJson.version;
+  }
+  return { packageManifestSha256: HARNESS_PACKAGE_SHA256, lockfileSha256: HARNESS_LOCK_SHA256, packages: versions };
+}
 export async function validateProvenance() {
   const bytes = await readFile(provenanceFile); const source = parseStrictJson(bytes, 'PF7 provenance');
   exactKeys(source, 'PF7 provenance', ['base', 'patches', 'schema', 'terminal']);
+  exactKeys(source.base, 'PF7 provenance base', ['commit']);
+  exactKeys(source.terminal, 'PF7 provenance terminal', ['commit', 'tree']);
   if (source.schema !== 'shield.cash/verifier.cash-pf7-provenance/v1' || source.base.commit !== BASE || source.terminal.commit !== TERMINAL || source.terminal.tree !== TREE || !Array.isArray(source.patches) || source.patches.length !== 7) fail('retained PF7 provenance is not the approved chain');
   for (const patch of source.patches) { exactKeys(patch, 'PF7 provenance patch', ['commit', 'path', 'sha256', 'tree']); if (!HASH.test(patch.sha256) || !/^[0-9a-f]{40}$/.test(patch.commit) || !/^[0-9a-f]{40}$/.test(patch.tree)) fail('PF7 provenance patch is malformed'); const file = await regularAbsolute(path.join(path.dirname(provenanceFile), patch.path), 'PF7 provenance patch'); if (digest(await readFile(file.path)) !== patch.sha256) fail(`retained patch hash mismatch: ${patch.path}`); }
   return source;
@@ -122,7 +156,11 @@ function inputValidation(input) {
   return input;
 }
 export async function generatePf7VerifierSet(input) {
-  inputValidation(input); const adapter = await pinnedFile(input.adapter, 'adapter'); const adapterValue = validateAdapter(adapter.bytes); const verifierRoot = await regularAbsolute(input.verifier.checkout, 'verifier.checkout', { directory: true }); const cashcRoot = await regularAbsolute(input.verifier.cashcRoot, 'verifier.cashcRoot', { directory: true }); const leanRoot = await regularAbsolute(input.verifier.leanBchRoot, 'verifier.leanBchRoot', { directory: true });
+  inputValidation(input); const adapter = await pinnedFile(input.adapter, 'adapter'); const adapterValue = validateAdapter(adapter.bytes); await validateAdapterSources(adapterValue); const verifierRoot = await regularAbsolute(input.verifier.checkout, 'verifier.checkout', { directory: true }); const cashcRoot = await regularAbsolute(input.verifier.cashcRoot, 'verifier.cashcRoot', { directory: true }); const leanRoot = await regularAbsolute(input.verifier.leanBchRoot, 'verifier.leanBchRoot', { directory: true });
+  await assertCleanGitRepository(verifierRoot.path, 'verifier checkout');
+  await assertCleanGitRepository(cashcRoot.path, 'CashC checkout');
+  await assertCleanGitRepository(leanRoot.path, 'LeanBCH checkout');
+  const harnessRuntime = await validateHarnessRuntime(verifierRoot.path);
   const expectedForAdapter = await expectedSourceSetForAdapter(adapter.sha256);
   if (input.expectedSourceSetSha256 !== expectedForAdapter) fail('caller source-lock set is not the adapter action-invariant set');
   const verifier = { ...input.verifier, checkout: verifierRoot.path, cashcRoot: cashcRoot.path, leanBchRoot: leanRoot.path };
@@ -142,7 +180,7 @@ export async function generatePf7VerifierSet(input) {
     const stableDependencies = Object.fromEntries(Object.entries(second.files)
       .filter(([name]) => name !== 'raw-attacks.json')
       .map(([name, value]) => [name, { sha256: value.sha256, bytes: value.bytes.length }]));
-    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: TERMINAL, terminalTree: TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit }, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
+    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: TERMINAL, terminalTree: TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit, harnessRuntime }, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
     // mkdir is the no-clobber publication reservation. Consumers require the
     // manifest, written last with O_EXCL, as the completion marker; therefore
     // they never treat a partial crash directory as an emitted artifact.

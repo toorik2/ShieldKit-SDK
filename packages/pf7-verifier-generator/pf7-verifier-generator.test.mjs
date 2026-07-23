@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import test from 'node:test';
-import { extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance } from './pf7-verifier-generator.mjs';
+import { loadCliConfig } from './cli.mjs';
+import { assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance } from './pf7-verifier-generator.mjs';
 
+const execFileAsync = promisify(execFile);
 const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').update(bytes).digest()).digest();
 const lockFor = (redeem) => Buffer.concat([Buffer.from([0xaa, 0x20]), hash256(redeem), Buffer.from([0x87])]).toString('hex');
 const push = (bytes) => Buffer.concat([Buffer.from([bytes.length]), bytes]).toString('hex');
@@ -31,4 +38,43 @@ test('source/redeem tampering and generic topology are rejected before output', 
 
 test('adapter parser rejects non-complete or wrong-schema input', () => {
   assert.throws(() => validateAdapter(Buffer.from('{"schema":"wrong"}')), Pf7VerifierGeneratorError);
+});
+
+test('all provenance repositories must have neither tracked nor untracked changes', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-clean-git-'));
+  try {
+    await execFileAsync('git', ['init', '-q', directory]);
+    await execFileAsync('git', ['-C', directory, 'config', 'user.email', 'pf7@example.invalid']);
+    await execFileAsync('git', ['-C', directory, 'config', 'user.name', 'PF7 test']);
+    await writeFile(path.join(directory, 'tracked.txt'), 'clean\n');
+    await execFileAsync('git', ['-C', directory, 'add', 'tracked.txt']);
+    await execFileAsync('git', ['-C', directory, 'commit', '-qm', 'initial']);
+    assert.equal(await assertCleanGitRepository(directory, 'fixture'), directory);
+    await writeFile(path.join(directory, 'tracked.txt'), 'changed\n');
+    await assert.rejects(assertCleanGitRepository(directory, 'fixture'), Pf7VerifierGeneratorError);
+    await execFileAsync('git', ['-C', directory, 'checkout', '--', 'tracked.txt']);
+    await writeFile(path.join(directory, 'untracked.txt'), 'present\n');
+    await assert.rejects(assertCleanGitRepository(directory, 'fixture'), Pf7VerifierGeneratorError);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('CLI accepts only direct strict-JSON configuration files', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-cli-config-'));
+  try {
+    const valid = path.join(directory, 'valid.json');
+    await writeFile(valid, '{}');
+    assert.equal(JSON.stringify(await loadCliConfig(valid)), '{}');
+    for (const [name, contents] of [['duplicate.json', '{"a":1,"a":2}'], ['trailing.json', '{}{}'], ['bom.json', Buffer.from([0xef, 0xbb, 0xbf, 0x7b, 0x7d])]]) {
+      const file = path.join(directory, name);
+      await writeFile(file, contents);
+      await assert.rejects(loadCliConfig(file));
+    }
+    const linked = path.join(directory, 'linked.json');
+    await symlink(valid, linked);
+    await assert.rejects(loadCliConfig(linked), /regular non-symlink/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
