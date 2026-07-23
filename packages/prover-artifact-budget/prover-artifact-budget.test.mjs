@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
-import { PROVER_ARTIFACT_BUDGET_BYTES, budgetVerdict, canonicalJson, packageProverArtifacts } from './prover-artifact-budget.mjs';
+import { PROVER_ARTIFACT_BUDGET_BYTES, ProverArtifactBudgetError, budgetVerdict, canonicalJson, packageProverArtifacts } from './prover-artifact-budget.mjs';
 
 const execFileAsync = promisify(execFile);
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -54,6 +54,8 @@ test('rejects bad pins, direct-input symlinks, duplicates, and overwrite attempt
   await assert.rejects(() => packageProverArtifacts(duplicate), /inputs must be distinct/);
   const overwrite = await inputFor(data, zstd); await mkdir(overwrite.destination);
   await assert.rejects(() => packageProverArtifacts(overwrite), /destination already exists/);
+  const malformed = await inputFor(data, zstd); malformed.finalZkey = null;
+  await assert.rejects(() => packageProverArtifacts(malformed), ProverArtifactBudgetError);
 });
 
 test('fixed budget is not caller-overridable and FAIL remains measurable', () => {
@@ -76,4 +78,26 @@ test('detects source changes after compression and bounds zstd stderr', async (t
   const noisy = await fakeZstd(t, data.root, 'head -c 70000 /dev/zero | tr "\\000" x >&2; exit 1');
   const noisyInput = await inputFor(data, noisy, path.join(data.root, 'noisy-output'));
   await assert.rejects(() => packageProverArtifacts(noisyInput), /bounded capture limit/);
+  const selfMutating = await fakeZstd(t, data.root, 'out=""; last=""; prev=""; for arg in "$@"; do if [ "$prev" = "-o" ]; then out="$arg"; fi; prev="$arg"; last="$arg"; done; if [ "$1" = "-d" ]; then cat "$last"; else cp "$last" "$out"; printf "#mutated\\n" >> "$0"; fi');
+  const selfMutatingInput = await inputFor(data, selfMutating, path.join(data.root, 'binary-mutation-output'));
+  await assert.rejects(() => packageProverArtifacts(selfMutatingInput), /zstd binary changed during packaging/);
+});
+
+test('CLI uses duplicate-safe manifest parsing, relative paths, and canonical success output', async (t) => {
+  const data = await fixture(t); const zstd = await realZstd(); const manifest = path.join(data.root, 'input.json');
+  const input = await inputFor(data, zstd, path.join(data.root, 'cli-packed'));
+  const relative = (filename) => path.relative(data.root, filename);
+  const document = {
+    schema: 'shield.cash/prover-artifact-budget-input/v1', destination: relative(input.destination),
+    zstd: { ...zstd, path: relative(zstd.path) }, finalZkey: { ...input.finalZkey, path: relative(input.finalZkey.path) }, witnessGeneratorWasm: { ...input.witnessGeneratorWasm, path: relative(input.witnessGeneratorWasm.path) },
+  };
+  await writeFile(manifest, canonicalJson(document));
+  const { stdout, stderr } = await execFileAsync(process.execPath, ['cli.mjs', '--input', manifest], { cwd: path.dirname(new URL(import.meta.url).pathname), env: {} });
+  assert.equal(stderr, ''); const result = JSON.parse(stdout); assert.equal(canonicalJson(result), stdout.trim());
+  assert.equal(canonicalJson(result), (await readFile(path.join(input.destination, 'result.json'), 'utf8')).trim());
+  const duplicate = path.join(data.root, 'duplicate.json'); await writeFile(duplicate, '{"schema":"shield.cash/prover-artifact-budget-input/v1","schema":"shield.cash/prover-artifact-budget-input/v1"}');
+  await assert.rejects(
+    () => execFileAsync(process.execPath, ['cli.mjs', '--input', duplicate], { cwd: path.dirname(new URL(import.meta.url).pathname), env: {} }),
+    (error) => error.stdout === '' && /duplicate JSON object name/.test(error.stderr),
+  );
 });

@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { parseStrictJson } from '../core/verifier-profile.mjs';
 
 export const PROVER_ARTIFACT_BUDGET_BYTES = 512 * 1024 * 1024;
 const HASH = /^sha256:[0-9a-f]{64}$/;
@@ -21,6 +22,34 @@ export const canonicalJson = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   object(value, 'canonical JSON value'); return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 };
+
+function validatePackageInput(input) {
+  exactKeys(input, 'package input', ['destination', 'zstd', 'finalZkey', 'witnessGeneratorWasm']);
+  string(input.destination, 'destination');
+  exactKeys(input.zstd, 'zstd', ['path', 'sha256', 'version']); string(input.zstd.path, 'zstd.path'); hash(input.zstd.sha256, 'zstd.sha256'); string(input.zstd.version, 'zstd.version');
+  for (const [label, record] of [['finalZkey', input.finalZkey], ['witnessGeneratorWasm', input.witnessGeneratorWasm]]) {
+    exactKeys(record, label, ['path', 'sha256']); string(record.path, `${label}.path`); hash(record.sha256, `${label}.sha256`);
+  }
+}
+
+/** Parse the CLI manifest before any path is resolved or dereferenced. */
+export function parsePackageManifest(bytes, manifestFilename) {
+  let manifest;
+  try { manifest = parseStrictJson(bytes); } catch (error) { fail(`input manifest is invalid: ${error.message}`); }
+  exactKeys(manifest, 'input manifest', ['schema', 'destination', 'zstd', 'finalZkey', 'witnessGeneratorWasm']);
+  if (manifest.schema !== 'shield.cash/prover-artifact-budget-input/v1') fail('unsupported input manifest schema');
+  const base = path.dirname(path.resolve(string(manifestFilename, 'input manifest filename')));
+  const resolveRecord = (record, label) => {
+    exactKeys(record, label, ['path', 'sha256']); return { path: path.resolve(base, string(record.path, `${label}.path`)), sha256: hash(record.sha256, `${label}.sha256`) };
+  };
+  exactKeys(manifest.zstd, 'input manifest zstd', ['path', 'sha256', 'version']);
+  const parsed = {
+    destination: path.resolve(base, string(manifest.destination, 'input manifest destination')),
+    zstd: { path: path.resolve(base, string(manifest.zstd.path, 'input manifest zstd.path')), sha256: hash(manifest.zstd.sha256, 'input manifest zstd.sha256'), version: string(manifest.zstd.version, 'input manifest zstd.version') },
+    finalZkey: resolveRecord(manifest.finalZkey, 'input manifest finalZkey'), witnessGeneratorWasm: resolveRecord(manifest.witnessGeneratorWasm, 'input manifest witnessGeneratorWasm'),
+  };
+  validatePackageInput(parsed); return parsed;
+}
 
 async function directRegularFile(filename, label) {
   const requested = path.resolve(string(filename, label));
@@ -74,7 +103,7 @@ async function zstdIdentity(record) {
   const observed = (await boundedChild(binary.path, ['--version'])).stdout.trim();
   if (observed !== string(record.version, 'zstd.version')) fail('zstd version mismatch');
   await assertStable(binary, 'zstd binary');
-  return { path: binary.path, sha256: binary.sha256, version: observed };
+  return { identity: { path: binary.path, sha256: binary.sha256, version: observed }, snapshot: binary };
 }
 
 async function decompressAndHash(tool, compressed, expected, label) {
@@ -107,7 +136,7 @@ export function budgetVerdict(totalCompressedBytes) {
 }
 
 export async function packageProverArtifacts(input) {
-  exactKeys(input, 'package input', ['destination', 'zstd', 'finalZkey', 'witnessGeneratorWasm']);
+  validatePackageInput(input);
   if (input.finalZkey.path === input.witnessGeneratorWasm.path) fail('final zkey and witness generator inputs must be distinct');
   const destination = await privateDestination(input.destination);
   const tool = await zstdIdentity(input.zstd);
@@ -124,13 +153,14 @@ export async function packageProverArtifacts(input) {
     for (const [name, source, outputName] of snapshots) {
       await assertStable(source, name); const compressed = path.join(destination.staging, outputName);
       const argv = ['-q', '--no-progress', '-T1', '-19', '--no-check', '-o', compressed, source.path];
-      await boundedChild(tool.path, argv); const compressedFile = await directRegularFile(compressed, `${name} compressed output`);
+      await boundedChild(tool.identity.path, argv); await assertStable(tool.snapshot, 'zstd binary'); const compressedFile = await directRegularFile(compressed, `${name} compressed output`);
       const compressedSha256 = await sha256File(compressedFile.path); const compressedStats = await lstat(compressedFile.path);
-      const decompressed = await decompressAndHash(tool, compressedFile.path, source, name); await assertStable(source, name);
+      const decompressed = await decompressAndHash(tool.identity, compressedFile.path, source, name); await assertStable(tool.snapshot, 'zstd binary'); await assertStable(source, name);
       artifacts[name] = { source: { path: source.path, sha256: source.sha256, bytes: source.bytes }, compressed: { path: path.join(destination.destination, outputName), sha256: compressedSha256, bytes: compressedStats.size }, compressionArgv: argv, decompressionArgv: decompressed.argv };
     }
+    await assertStable(tool.snapshot, 'zstd binary');
     const totalCompressedBytes = Object.values(artifacts).reduce((sum, artifact) => sum + artifact.compressed.bytes, 0);
-    const result = { schema: 'shield.cash/prover-artifact-budget/v1', scope: 'artifact compression measurement only; not G1 qualification', node: { version: process.version }, zstd: tool, artifacts, budget: { compressedLimitBytes: PROVER_ARTIFACT_BUDGET_BYTES, totalCompressedBytes, verdict: budgetVerdict(totalCompressedBytes) } };
+    const result = { schema: 'shield.cash/prover-artifact-budget/v1', scope: 'artifact compression measurement only; not G1 qualification', node: { version: process.version }, zstd: tool.identity, artifacts, budget: { compressedLimitBytes: PROVER_ARTIFACT_BUDGET_BYTES, totalCompressedBytes, verdict: budgetVerdict(totalCompressedBytes) } };
     await writeFile(path.join(destination.staging, 'result.json'), `${canonicalJson(result)}\n`, { flag: 'wx', mode: 0o600 });
     if (await lstat(destination.destination).catch(() => undefined)) fail('destination already exists; refusing overwrite');
     await rename(destination.staging, destination.destination); published = true; return result;
