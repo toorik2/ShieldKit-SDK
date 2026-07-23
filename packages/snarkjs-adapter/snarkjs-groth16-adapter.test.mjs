@@ -34,7 +34,25 @@ test('adapts a real snarkjs-verified two-public BN254 Groth16 fixture into PF7 f
   assert.match(stdout, /OK!/);
   const result = await adaptSnarkjsGroth16(await records());
   const rawProof = JSON.parse(await readFile(proof, 'utf8'));
+  const rawKey = JSON.parse(await readFile(key, 'utf8'));
   assert.equal(result.verificationKey.publicArity, 2);
+  assert.deepEqual(result.verifierCashVk, {
+    alpha: { x: rawKey.vk_alpha_1[0], y: rawKey.vk_alpha_1[1] },
+    beta: {
+      x0: rawKey.vk_beta_2[0][0], x1: rawKey.vk_beta_2[0][1],
+      y0: rawKey.vk_beta_2[1][0], y1: rawKey.vk_beta_2[1][1],
+    },
+    gamma: {
+      x0: rawKey.vk_gamma_2[0][0], x1: rawKey.vk_gamma_2[0][1],
+      y0: rawKey.vk_gamma_2[1][0], y1: rawKey.vk_gamma_2[1][1],
+    },
+    delta: {
+      x0: rawKey.vk_delta_2[0][0], x1: rawKey.vk_delta_2[0][1],
+      y0: rawKey.vk_delta_2[1][0], y1: rawKey.vk_delta_2[1][1],
+    },
+    ic: rawKey.IC.map(([x, y, z]) => z === '0' ? { x: '0', y: '1', infinity: true } : { x, y }),
+  });
+  assert.equal('alphaBeta' in result.verifierCashVk, false);
   assert.deepEqual(result.verifierCashFixture, {
     Ax: rawProof.pi_a[0], Ay: rawProof.pi_a[1],
     Bxa: rawProof.pi_b[0][0], Bxb: rawProof.pi_b[0][1],

@@ -13,7 +13,7 @@ UTF-8, unknown keys, wrong protocol/curve/arity, noncanonical field/scalar
 strings, invalid affine encodings, infinity, invalid curve points, and
 non-subgroup points.
 
-PF7 output is exactly:
+PF7 proof/public-signal fixture output is exactly:
 
 ```text
 Ax Ay Bxa Bxb Bya Byb Cx Cy in0 in1
@@ -24,6 +24,14 @@ preserve snarkjs G2 affine `[[x.c0,x.c1],[y.c0,y.c1],[1,0]]`; no Solidity-style
 Fq2 component reversal occurs. Values remain canonical unsigned decimal JSON
 strings. PF7 retains responsibility for converting them to its internal VM
 number encoding.
+
+The same result also contains `verifierCashVk`, the complete affine material
+PF7 needs to rebuild its four Groth16 pairing terms: `alpha` (G1),
+`beta`/`gamma`/`delta` (G2 as `x0,x1,y0,y1`), and `ic[0..2]` (G1). These use
+the same component order as the proof mapping above. `vk_alphabeta_12` is
+validated from snarkjs input but intentionally not exported: verifier.cash
+derives the alpha/beta Miller trajectory from the affine points and consumes no
+precomputed alpha-beta value.
 
 `test-fixtures/two-public` is a local development-only two-public-signal
 snarkjs fixture. The test first asks pinned snarkjs to verify it, then adapts

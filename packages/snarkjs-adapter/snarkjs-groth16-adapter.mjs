@@ -172,8 +172,9 @@ function verificationKey(raw) {
     delta: g2(raw.vk_delta_2, 'verification_key.json.vk_delta_2'),
     alphaBeta: fq12(raw.vk_alphabeta_12, 'verification_key.json.vk_alphabeta_12'),
     // IC[0] is the constant term and may legitimately be the canonical G1
-    // infinity (the zero contribution). Proof points and other VK points may not.
-    ic: raw.IC.map((point, index) => g1(point, `verification_key.json.IC[${index}]`, { allowInfinity: true })),
+    // infinity (the zero contribution). Proof points and nonconstant IC terms
+    // may not. PF7 may impose a stricter finite-IC import gate downstream.
+    ic: raw.IC.map((point, index) => g1(point, `verification_key.json.IC[${index}]`, { allowInfinity: index === 0 })),
   });
 }
 function proof(raw) {
@@ -217,6 +218,16 @@ export async function adaptSnarkjsGroth16(records) {
       g2: 'snarkjs affine [[x.c0,x.c1],[y.c0,y.c1],[1,0]] maps directly to Bxa/Bxb/Bya/Byb; no component reversal',
     }),
     verificationKey: Object.freeze({ publicArity: vk.ic.length - 1, ic: vk.ic.length }),
+    // verifier.cash derives every Miller trajectory directly from these affine
+    // points. It does not consume snarkjs's vk_alphabeta_12 precomputation, so
+    // that value is intentionally validated above but not exported as material.
+    verifierCashVk: Object.freeze({
+      alpha: vk.alpha,
+      beta: vk.beta,
+      gamma: vk.gamma,
+      delta: vk.delta,
+      ic: vk.ic,
+    }),
     verifierCashFixture: fixture,
   });
 }
