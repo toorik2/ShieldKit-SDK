@@ -1,11 +1,15 @@
 {
-  "schema": "shield.cash/verifier.cash-pf7-provenance/v1",
+  "schema": "shield.cash/verifier.cash-pf7-provenance/v2",
   "base": {
     "commit": "26468ae29004d2401619032de2a6ec8de269a4d6"
   },
-  "terminal": {
+  "referenceTerminal": {
     "commit": "17c6b9552c48b0fc5271be626a1578fb0065df09",
     "tree": "d9673df5a3f5358df6aaff9c4042a029bc26a521"
+  },
+  "terminal": {
+    "commit": "1d543756602edfd92081a0b58dba62d33d0aea34",
+    "tree": "1c1efb23e95bf51a715f8ab29f3cf698a359303d"
   },
   "patches": [
     {"commit":"aa12905c0f4928b20e2b66475a438eb9c7dcb613","tree":"920579af614f6e2b7f155faaa4588ef197a1ad06","path":"patches/0001-feat-bn254-add-bounded-PF7-ten-role-verifier-context.patch","sha256":"a1b374c8318b72b0e310002f5aa02c3475d5add3fdd3e5a3501385b948e80a5a"},
@@ -14,6 +18,7 @@
     {"commit":"971b0ff6e7709bb877a78c851ccd42a62cad8f36","tree":"af777fff919b49c8d1456fef0114dff01e360bb4","path":"patches/0004-fix-bn254-reject-adapter-before-static-PF7-generator.patch","sha256":"b2be331fa83f8aaf7de601148a96da012bb325dead18914d91aa02dcb1988234"},
     {"commit":"156163853ab6a80a26993047d1b55c9ea1886cae","tree":"b6149468b5599f95777ba833d536915a1381dc1a","path":"patches/0005-feat-bn254-parameterize-PF7-active-instance-from-ada.patch","sha256":"f897dbbfc421269dc6c39f862c338b0455f71b85c8f0a60e6ffcb40580c9d0d2"},
     {"commit":"c9a0c1653709ae360d69611a997ac114bf9a4c8f","tree":"1898211efc354b364ec16c7724c652614cd0a568","path":"patches/0006-test-bn254-exercise-role-bound-carrier-substitutions.patch","sha256":"8432125c5f659c0ab1339b8e7d6b2c743eea70094886bcf708b5ec8d2c099ad2"},
-    {"commit":"17c6b9552c48b0fc5271be626a1578fb0065df09","tree":"d9673df5a3f5358df6aaff9c4042a029bc26a521","path":"patches/0007-research-qualify-PF7-sub62-shield-adapters.patch","sha256":"86461a0e6db8bb1375f40ec81c222278249123f96004c10566b122e155192a80"}
+    {"commit":"17c6b9552c48b0fc5271be626a1578fb0065df09","tree":"d9673df5a3f5358df6aaff9c4042a029bc26a521","path":"patches/0007-research-qualify-PF7-sub62-shield-adapters.patch","sha256":"86461a0e6db8bb1375f40ec81c222278249123f96004c10566b122e155192a80"},
+    {"commit":"1d543756602edfd92081a0b58dba62d33d0aea34","tree":"1c1efb23e95bf51a715f8ab29f3cf698a359303d","path":"patches/0008-feat-bn254-bind-PF7-shield-packet-digest-at-runtime.patch","sha256":"c40db1abc1cb54fca82c5754f985d6ede22d236f8bf1404771ae105ab438bd83"}
   ]
 }

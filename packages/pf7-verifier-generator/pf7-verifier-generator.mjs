@@ -4,10 +4,17 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:f
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson, parseStrictJson } from '../core/verifier-profile.mjs';
+import {
+  ACTION_PACKET_BYTES,
+  actionPacketPublicLimbs,
+  decodeActionPacket,
+} from '../action-packet/action-packet.mjs';
 
 const BASE = '26468ae29004d2401619032de2a6ec8de269a4d6';
-const TERMINAL = '17c6b9552c48b0fc5271be626a1578fb0065df09';
-const TREE = 'd9673df5a3f5358df6aaff9c4042a029bc26a521';
+const REFERENCE_TERMINAL = '17c6b9552c48b0fc5271be626a1578fb0065df09';
+const REFERENCE_TREE = 'd9673df5a3f5358df6aaff9c4042a029bc26a521';
+const SEAM_TERMINAL = '1d543756602edfd92081a0b58dba62d33d0aea34';
+const SEAM_TREE = '1c1efb23e95bf51a715f8ab29f3cf698a359303d';
 const CANDIDATE = 'bn254-onetx-pf7-sub62-r1';
 const CANDIDATE_SHA256 = 'c03e8ae157998f513f058433e58e3252e05a2d2c39f5577a992d39c9daf3ff19';
 const ROOT_PACKAGE_SHA256 = 'eb77c00095f5ebba72ffb4e35e8287134f063b0afca4d6d7e5bc1279dc647892';
@@ -24,6 +31,7 @@ const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(packageDirectory, '../..');
 const provenanceFile = path.join(repositoryRoot, 'provenance/verifier.cash-pf7-sub62/series.json');
 const referenceMatrixFile = path.join(repositoryRoot, 'evidence/G1/pf7-verifier-generator/reference-matrix.json');
+const ACTION_KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 
 export class Pf7VerifierGeneratorError extends Error {
   constructor(message) { super(message); this.name = 'Pf7VerifierGeneratorError'; }
@@ -122,14 +130,28 @@ async function validateHarnessRuntime(checkout) {
 }
 export async function validateProvenance() {
   const bytes = await readFile(provenanceFile); const source = parseStrictJson(bytes, 'PF7 provenance');
-  exactKeys(source, 'PF7 provenance', ['base', 'patches', 'schema', 'terminal']);
+  exactKeys(source, 'PF7 provenance', ['base', 'patches', 'referenceTerminal', 'schema', 'terminal']);
   exactKeys(source.base, 'PF7 provenance base', ['commit']);
+  exactKeys(source.referenceTerminal, 'PF7 provenance reference terminal', ['commit', 'tree']);
   exactKeys(source.terminal, 'PF7 provenance terminal', ['commit', 'tree']);
-  if (source.schema !== 'shield.cash/verifier.cash-pf7-provenance/v1' || source.base.commit !== BASE || source.terminal.commit !== TERMINAL || source.terminal.tree !== TREE || !Array.isArray(source.patches) || source.patches.length !== 7) fail('retained PF7 provenance is not the approved chain');
-  for (const patch of source.patches) { exactKeys(patch, 'PF7 provenance patch', ['commit', 'path', 'sha256', 'tree']); if (!HASH.test(patch.sha256) || !/^[0-9a-f]{40}$/.test(patch.commit) || !/^[0-9a-f]{40}$/.test(patch.tree)) fail('PF7 provenance patch is malformed'); const file = await regularAbsolute(path.join(path.dirname(provenanceFile), patch.path), 'PF7 provenance patch'); if (digest(await readFile(file.path)) !== patch.sha256) fail(`retained patch hash mismatch: ${patch.path}`); }
+  if (
+    source.schema !== 'shield.cash/verifier.cash-pf7-provenance/v2'
+    || source.base.commit !== BASE
+    || source.referenceTerminal.commit !== REFERENCE_TERMINAL
+    || source.referenceTerminal.tree !== REFERENCE_TREE
+    || source.terminal.commit !== SEAM_TERMINAL
+    || source.terminal.tree !== SEAM_TREE
+    || !Array.isArray(source.patches)
+    || source.patches.length !== 8
+    || source.patches[6]?.commit !== REFERENCE_TERMINAL
+    || source.patches[6]?.tree !== REFERENCE_TREE
+    || source.patches[7]?.commit !== SEAM_TERMINAL
+    || source.patches[7]?.tree !== SEAM_TREE
+  ) fail('retained PF7 provenance is not the approved reference-plus-seam chain');
+  for (const patch of source.patches) { exactKeys(patch, 'PF7 provenance patch', ['commit', 'path', 'sha256', 'tree']); if (!HASH.test(patch.sha256) || !/^[0-9a-f]{40}$/.test(patch.commit) || !/^[0-9a-f]{40}$/.test(patch.tree) || !/^patches\/[0-9]{4}-[A-Za-z0-9._-]+\.patch$/.test(patch.path)) fail('PF7 provenance patch is malformed'); const file = await regularAbsolute(path.join(path.dirname(provenanceFile), patch.path), 'PF7 provenance patch'); if (digest(await readFile(file.path)) !== patch.sha256) fail(`retained patch hash mismatch: ${patch.path}`); }
   return source;
 }
-async function expectedSourceSetForAdapter(adapterSha256) {
+async function referenceRowForAdapter(adapterSha256) {
   const matrix = parseStrictJson(await readFile(referenceMatrixFile), 'PF7 reference matrix');
   exactKeys(matrix, 'PF7 reference matrix', ['candidate', 'generatorReplay', 'invariants', 'qualification', 'runs', 'schema']);
   if (matrix.schema !== 'shield.cash/pf7-reference-matrix/v1' || !Array.isArray(matrix.runs)) fail('PF7 reference matrix is unsupported');
@@ -137,7 +159,10 @@ async function expectedSourceSetForAdapter(adapterSha256) {
   if (rows.length !== 1 || !HASH.test(rows[0].sourceSetSha256)) fail('adapter is not a bounded action-corpus member');
   const setupSet = matrix.invariants?.actionIndependentLocks?.[rows[0].setup];
   if (setupSet !== rows[0].sourceSetSha256) fail('reference matrix action-lock invariant is inconsistent');
-  return setupSet;
+  return { row: rows[0], sourceSetSha256: setupSet };
+}
+async function expectedSourceSetForAdapter(adapterSha256) {
+  return (await referenceRowForAdapter(adapterSha256)).sourceSetSha256;
 }
 function parseLastPush(hex) {
   const bytes = Buffer.from(hex, 'hex'); let offset = 0; let last;
@@ -149,19 +174,25 @@ export function extractVerifierSet(inputs) {
   const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
   return inputs.map((input, index) => { exactKeys(input, `input ${index}`, ['lock', 'name', 'unlock']); if (input.name !== names[index] || !/^[0-9a-f]+$/.test(input.lock) || !/^[0-9a-f]+$/.test(input.unlock)) fail('unexpected PF7 input record'); const lock = Buffer.from(input.lock, 'hex'); const redeem = parseLastPush(input.unlock); if (lock.length !== 35 || lock[0] !== 0xaa || lock[1] !== 0x20 || lock[34] !== 0x87 || !sha256d(redeem).equals(lock.subarray(2, 34))) fail(`input ${input.name} is not an exact P2SH32 source/redeem pair`); return { name: input.name, lockingBytecodeHex: input.lock, redeemBytecodeHex: redeem.toString('hex') }; });
 }
-function exactEnvironment({ adapter, stage, verifier }) {
+function exactEnvironment({ actionPacket, adapter, stage, verifier }) {
   return {
     PATH: `${path.join(verifier.checkout, 'harness/node_modules/.bin')}:${process.env.PATH ?? ''}`,
+    TMPDIR: path.join(stage, 'tmp'),
     CASHC_ROOT: verifier.cashcRoot, LEANBCH_ROOT: verifier.leanBchRoot,
     C7_SHIELD_ADAPTER_FILE: adapter.path, C7_SHIELD_ADAPTER_SHA256: adapter.sha256,
+    ...(actionPacket === undefined ? {} : {
+      C7_STRUCTURAL_ROLE_COUNT: '3',
+      C7_SHIELD_ACTION_PACKET_FILE: actionPacket.path,
+      C7_SHIELD_ACTION_PACKET_SHA256: actionPacket.sha256,
+    }),
     C7_TMP: path.join(stage, 'build'), C7_GEN: path.join(stage, 'generated'),
     KWIN: '13', STRIPED_FRAGS: '5', SW: '32', CDNW: '1', CDWIDTH: '34', UNW: '16', WDWIDTH: '32', WIDE_POS: '', FIN_PAD: '', C7_MAXTRY: '2', NITS: '1', RESCHEDULE: 'on',
     SZ_ALLAFF: '1', L17SEL: '1', SEAMNARROW: '1', KSPEC: '1', SIBLING_READ: '1', FIXED_WDAT: '1', DYN_PACK: '1', DERIVE_MODE: '1', DP: '1', STRIPED: '1', STRIPE_BOUNDARY: '1', DIRECT_FINALIZE_STATE: '1', STRICT_DEPLOYMENT: '1', PUBLIC_BENCH_CONTEXT: '1', DRIVER_PACK_DERIVED: '1', DRIVER_WINDOW_DERIVED: '1',
     C7_PROJECTED_BQ_7: '1', C7_FIXED_G2_TABLE: '1', C7_FIXED_G2_COMPACT: '1', C7_FIXED_G2_NORMALIZED_ADDS: '1', C7_VK_DIGEST: '1', C7_WSEL_U8: '1', C7_COMPOSED_P2SH: '1', C7_COMPOSED_DIRECT_TERMINAL: '1', C7_PAIRFOLD_TOPOLOGY: '7', C7_SCALAR_ENDPOINT: '1', C7_ZBITS_GB3: './normalized-gb3.mjs', C7_SZ_MODULE: './mixed-sz.mjs', C7_FIXED_G2_UNLOCK_TABLE: '1', C7_FIXED_G2_WITNESS_TABLE_BYTES: '0,1536,2460,2427,2304', C7_SELF_CARRIED_TERMINAL: '1', TERMINAL_FUSION9: '1', TERMINAL_REUSE_ZPOWERS: '1', TERMINAL_CANON_ZPROLOGUE: '1', TERMINAL_FULL_OPT: '1',
   };
 }
-async function oneBuild(adapter, verifier, stage) {
-  const environment = exactEnvironment({ adapter, verifier, stage }); await mkdir(environment.C7_TMP, { recursive: true }); await mkdir(environment.C7_GEN, { recursive: true });
+async function oneBuild(adapter, verifier, stage, actionPacket) {
+  const environment = exactEnvironment({ actionPacket, adapter, verifier, stage }); await mkdir(environment.TMPDIR, { recursive: true }); await mkdir(environment.C7_TMP, { recursive: true }); await mkdir(environment.C7_GEN, { recursive: true });
   await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), ['lanes/bn254-onetx/src/c7/build.ts'], { cwd: verifier.checkout, env: environment });
   const build = environment.C7_TMP; const standardness = path.join(build, 'standardness.json'); const attacks = path.join(build, 'raw-attacks.json');
   const result = parseStrictJson(await readFile(path.join(build, 'result.json')), 'PF7 result');
@@ -187,25 +218,144 @@ function assertMeasured(runResult, expectedSourceSetSha256) {
 function inputValidation(input) {
   exactKeys(input, 'PF7 generator input', ['adapter', 'destination', 'expectedSourceSetSha256', 'verifier']);
   if (!HASH.test(input.expectedSourceSetSha256)) fail('expectedSourceSetSha256 must be lowercase SHA-256'); string(input.destination, 'destination'); if (!path.isAbsolute(input.destination)) fail('destination must be absolute');
-  exactKeys(input.verifier, 'verifier input', ['cashcCommit', 'cashcRoot', 'checkout', 'leanBchCommit', 'leanBchRoot']);
-  for (const key of ['cashcCommit', 'leanBchCommit']) if (!/^[0-9a-f]{40}$/.test(input.verifier[key])) fail(`${key} must be a full commit hash`);
+  validateVerifierShape(input.verifier);
   return input;
 }
-export async function generatePf7VerifierSet(input) {
-  inputValidation(input); const adapter = await pinnedFile(input.adapter, 'adapter'); const adapterValue = validateAdapter(adapter.bytes); await validateAdapterSources(adapterValue); const verifierRoot = await regularAbsolute(input.verifier.checkout, 'verifier.checkout', { directory: true }); const cashcRoot = await regularAbsolute(input.verifier.cashcRoot, 'verifier.cashcRoot', { directory: true }); const leanRoot = await regularAbsolute(input.verifier.leanBchRoot, 'verifier.leanBchRoot', { directory: true });
+function validateVerifierShape(verifier) {
+  object(verifier, 'verifier input');
+  exactKeys(verifier, 'verifier input', ['cashcCommit', 'cashcRoot', 'checkout', 'leanBchCommit', 'leanBchRoot']);
+  for (const key of ['cashcCommit', 'leanBchCommit']) if (!/^[0-9a-f]{40}$/.test(verifier[key])) fail(`${key} must be a full commit hash`);
+  for (const key of ['cashcRoot', 'checkout', 'leanBchRoot']) if (!path.isAbsolute(string(verifier[key], `verifier.${key}`))) fail(`verifier.${key} must be absolute`);
+  return verifier;
+}
+async function prepareVerifier(input, { commit, tree, label }) {
+  const verifierRoot = await regularAbsolute(input.checkout, 'verifier.checkout', { directory: true });
+  const cashcRoot = await regularAbsolute(input.cashcRoot, 'verifier.cashcRoot', { directory: true });
+  const leanRoot = await regularAbsolute(input.leanBchRoot, 'verifier.leanBchRoot', { directory: true });
   await assertCleanGitRepository(verifierRoot.path, 'verifier checkout');
   await assertCleanGitRepository(cashcRoot.path, 'CashC checkout');
   await assertCleanGitRepository(leanRoot.path, 'LeanBCH checkout');
   const rootRuntime = await validateRootRuntime(verifierRoot.path);
   const harnessRuntime = await validateHarnessRuntime(verifierRoot.path);
   const leanOptimizerRuntime = await validateLeanOptimizerRuntime(leanRoot.path);
-  const expectedForAdapter = await expectedSourceSetForAdapter(adapter.sha256);
-  if (input.expectedSourceSetSha256 !== expectedForAdapter) fail('caller source-lock set is not the adapter action-invariant set');
-  const verifier = { ...input.verifier, checkout: verifierRoot.path, cashcRoot: cashcRoot.path, leanBchRoot: leanRoot.path };
-  await validateProvenance(); if (await git(verifier.checkout, ['rev-parse', 'HEAD']) !== TERMINAL || await git(verifier.checkout, ['rev-parse', 'HEAD^{tree}']) !== TREE || await git(verifier.checkout, ['merge-base', '--is-ancestor', BASE, 'HEAD']).catch(() => 'no') !== '') fail('verifier checkout does not exactly match the retained PF7 chain');
+  const verifier = { ...input, checkout: verifierRoot.path, cashcRoot: cashcRoot.path, leanBchRoot: leanRoot.path };
+  await validateProvenance();
+  if (
+    await git(verifier.checkout, ['rev-parse', 'HEAD']) !== commit
+    || await git(verifier.checkout, ['rev-parse', 'HEAD^{tree}']) !== tree
+    || await git(verifier.checkout, ['merge-base', '--is-ancestor', BASE, 'HEAD']).catch(() => 'no') !== ''
+  ) fail(`verifier checkout does not exactly match the retained PF7 ${label} chain`);
   if (await git(verifier.cashcRoot, ['rev-parse', 'HEAD']) !== verifier.cashcCommit || await git(verifier.leanBchRoot, ['rev-parse', 'HEAD']) !== verifier.leanBchCommit) fail('toolchain checkout commit mismatch');
   const candidate = await pinnedFile({ path: path.join(verifier.checkout, 'agent-work/pf7-sub55/candidates/bn254-onetx-pf7-sub62-r1.json'), sha256: CANDIDATE_SHA256 }, 'candidate manifest'); void candidate;
-  const destination = path.resolve(input.destination); const parent = await regularAbsolute(path.dirname(destination), 'destination parent', { directory: true }); try { await lstat(destination); fail('destination already exists; refusing clobber'); } catch (error) { if (!(error?.code === 'ENOENT')) throw error; }
+  return { verifier, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit, rootRuntime, harnessRuntime, leanOptimizerRuntime } };
+}
+async function reserveDestination(destinationInput, label = 'destination') {
+  string(destinationInput, label); if (!path.isAbsolute(destinationInput)) fail(`${label} must be absolute`);
+  const destination = path.resolve(destinationInput);
+  const parent = await regularAbsolute(path.dirname(destination), `${label} parent`, { directory: true });
+  try { await lstat(destination); fail(`${label} already exists; refusing clobber`); } catch (error) { if (!(error?.code === 'ENOENT')) throw error; }
+  return { destination, parent };
+}
+function normalizedRawAttackReport(attacks) {
+  exactKeys(attacks, 'PF7 raw attack report', ['falseAccepts', 'honest', 'rejected', 'results', 'runDir', 'setupErrors', 'total']);
+  return { total: attacks.total, rejected: attacks.rejected, falseAccepts: attacks.falseAccepts, setupErrors: attacks.setupErrors, honest: attacks.honest, results: attacks.results };
+}
+function normalizedSeamRedteamReport(report) {
+  exactKeys(report, 'PF7 seam redteam report', ['attackCount', 'attacks', 'crossAction', 'fixture', 'honest', 'honestDir', 'schema', 'scope', 'verdict']);
+  return { schema: report.schema, scope: report.scope, honest: report.honest, attacks: report.attacks, crossAction: report.crossAction, attackCount: report.attackCount, verdict: report.verdict };
+}
+function sha256Canonical(value) {
+  return digest(Buffer.from(canonicalJson(value)));
+}
+function artifactDependencies(files) {
+  return Object.fromEntries(Object.entries(files)
+    .filter(([name]) => name !== 'raw-attacks.json')
+    .map(([name, value]) => [name, { sha256: value.sha256, bytes: value.bytes.length }]));
+}
+function exactSourceLockHashes(inputs) {
+  if (!Array.isArray(inputs) || inputs.length !== 10) fail('seam build must expose exactly ten input records');
+  const expected = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal', 'packet', 'state', 'fee'];
+  return inputs.map((input, index) => {
+    exactKeys(input, `seam input ${index}`, ['lock', 'name', 'unlock']);
+    if (input.name !== expected[index] || !/^[0-9a-f]+$/.test(input.lock) || (input.unlock !== '' && !/^[0-9a-f]+$/.test(input.unlock))) fail('unexpected seam input record');
+    return { name: input.name, lockingBytecodeSha256: digest(Buffer.from(input.lock, 'hex')), lockingBytes: input.lock.length / 2 };
+  });
+}
+export function assertSeamMeasured(runResult) {
+  const { result, standardness, attacks } = runResult;
+  const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal', 'packet', 'state', 'fee'];
+  if (
+    result?.built !== true || result.gateOk !== true
+    || result.verifierInputCount !== 7
+    || result.structuralRoleCount !== 3
+    || result.structuralRolesUnevaluated !== true
+    || result.wire > 59000
+    || !Array.isArray(result.manual) || result.manual.length !== 10
+    || result.manual.some((row, index) => row.i !== index || row.name !== names[index] || row.unlockLen > 10000)
+    || result.manual.slice(0, 7).some((row) => row.accepts !== true)
+    || result.packet?.index !== 7 || result.packet.bytes !== ACTION_PACKET_BYTES || result.packet.unlockBytes !== ACTION_PACKET_BYTES + 3 || !HASH.test(result.packet.sha256)
+    || result.projectionSignalCarrier?.genesisIndex !== 5
+    || result.projectionSignalCarrier?.pushHeader !== '4de001'
+    || result.projectionSignalCarrier?.projectionOffset !== 3
+    || result.projectionSignalCarrier?.projectionBytes !== 448
+    || result.projectionSignalCarrier?.digestOffset !== 451
+    || result.projectionSignalCarrier?.digestBytes !== 32
+  ) fail('PF7 seam normal-VM/topology/byte gate failed');
+  if (
+    standardness?.standardVm !== 'createVirtualMachineBch2026(true)'
+    || standardness.contextInputCount !== 10
+    || standardness.evaluatedInputCount !== 7
+    || standardness.scope !== 'verifier roles only; structural packet/state/fee roles explicitly unevaluated'
+    || standardness.allAccept !== true
+    || !Array.isArray(standardness.rows) || standardness.rows.length !== 7
+    || standardness.rows.some((row, index) => row.index !== index || row.name !== names[index] || row.accepts !== true || row.unlockingBytes > 10000)
+  ) fail('PF7 seam standard-VM gate failed');
+  if (attacks?.honest?.allAccept !== true || attacks.total !== 18 || attacks.rejected !== 18 || attacks.falseAccepts !== 0 || attacks.setupErrors !== 0 || !Array.isArray(attacks.results) || attacks.results.length !== 18) fail('PF7 seam raw terminal tamper gate failed');
+  return true;
+}
+export function assertSeamRedteam(report) {
+  const attackNames = [
+    'altered-in0', 'altered-in1', 'carrier-digest-byte', 'carrier-header',
+    'carrier-high-bit', 'carrier-little-endian-halves', 'carrier-swapped-halves',
+    'input5-input7-swap', 'packet-byte', 'packet-header',
+    'packet-nonminimal-push', 'packet-short', 'packet-trailing',
+  ];
+  if (
+    report?.schema !== 'verifier.cash/bn254-onetx-shield-action-seam-redteam/v1'
+    || report.scope !== 'seven verifier roles evaluated in complete ten-input context; packet/state/fee structural roles unevaluated'
+    || report.verdict !== 'pass' || report.attackCount !== 17
+    || !Array.isArray(report.honest) || report.honest.length !== 7 || report.honest.some((row) => row.accepts !== true)
+    || object(report.attacks, 'PF7 seam redteam attacks') === undefined
+    || Object.keys(report.attacks).sort().join('\0') !== attackNames.sort().join('\0')
+    || Object.values(report.attacks).some((rows) => !Array.isArray(rows) || rows.length !== 7 || rows.every((row) => row.accepts === true))
+    || !Array.isArray(report.crossAction) || report.crossAction.length !== 2
+    || report.crossAction.some((cross) => !Array.isArray(cross.packetSubstitution) || cross.packetSubstitution.length !== 7 || cross.packetSubstitution[6]?.accepts !== false || !Array.isArray(cross.genesisSubstitution) || cross.genesisSubstitution.length !== 7 || cross.genesisSubstitution.every((row) => row.accepts === true))
+  ) fail('PF7 seam cross-action redteam gate failed');
+  return true;
+}
+function seamInputValidation(input) {
+  exactKeys(input, 'PF7 seam corpus input', ['actions', 'destination', 'scratchDirectory', 'verifier']);
+  string(input.destination, 'destination'); if (!path.isAbsolute(input.destination)) fail('destination must be absolute');
+  string(input.scratchDirectory, 'scratchDirectory'); if (!path.isAbsolute(input.scratchDirectory)) fail('scratchDirectory must be absolute');
+  validateVerifierShape(input.verifier);
+  if (!Array.isArray(input.actions) || input.actions.length !== ACTION_KINDS.length) fail('actions must contain exactly deposit, transfer, and withdrawal');
+  input.actions.forEach((action, index) => {
+    exactKeys(action, `actions[${index}]`, ['adapter', 'kind', 'packet']);
+    if (action.kind !== ACTION_KINDS[index]) fail('actions must be ordered deposit, transfer, withdrawal');
+    for (const field of ['adapter', 'packet']) {
+      exactKeys(action[field], `actions[${index}].${field}`, ['path', 'sha256']);
+      string(action[field].path, `actions[${index}].${field}.path`);
+      if (!path.isAbsolute(action[field].path) || !HASH.test(action[field].sha256)) fail(`actions[${index}].${field} must be an absolute SHA-256-pinned file`);
+    }
+  });
+  return input;
+}
+export async function generatePf7VerifierSet(input) {
+  inputValidation(input); const adapter = await pinnedFile(input.adapter, 'adapter'); const adapterValue = validateAdapter(adapter.bytes); await validateAdapterSources(adapterValue);
+  const expectedForAdapter = await expectedSourceSetForAdapter(adapter.sha256);
+  if (input.expectedSourceSetSha256 !== expectedForAdapter) fail('caller source-lock set is not the adapter action-invariant set');
+  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: REFERENCE_TERMINAL, tree: REFERENCE_TREE, label: 'reference' });
+  const { destination, parent } = await reserveDestination(input.destination);
   const stage = await mkdtemp(path.join(parent.path, '.pf7-generator-')); let reservation; let published = false;
   try {
     const first = await oneBuild(adapter, verifier, path.join(stage, 'first')); const second = await oneBuild(adapter, verifier, path.join(stage, 'second'));
@@ -215,10 +365,8 @@ export async function generatePf7VerifierSet(input) {
     // intentionally excluded from the canonical profile artifact. Its parsed
     // 18/18 verdict is still a hard gate above; the bounded evidence matrix
     // records externally retained raw-report hashes.
-    const stableDependencies = Object.fromEntries(Object.entries(second.files)
-      .filter(([name]) => name !== 'raw-attacks.json')
-      .map(([name, value]) => [name, { sha256: value.sha256, bytes: value.bytes.length }]));
-    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: TERMINAL, terminalTree: TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain: { cashcCommit: verifier.cashcCommit, leanBchCommit: verifier.leanBchCommit, rootRuntime, harnessRuntime, leanOptimizerRuntime }, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
+    const stableDependencies = artifactDependencies(second.files);
+    const artifact = { schema: 'shield.cash/bch-verifier-set/v1', qualification: 'development-only verifier reference transaction; not complete shield.cash protocol settlement', candidate: { id: CANDIDATE, baseCommit: BASE, terminalCommit: REFERENCE_TERMINAL, terminalTree: REFERENCE_TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' }, adapter: { sha256: adapter.sha256, source: Object.fromEntries(Object.entries(adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])) }, toolchain, measurements: { wireBytes: second.result.wire, scoreBytes: second.result.score, maxUnlockingBytes: Math.max(...second.result.manual.map((row) => row.unlockLen)), normalVm: '7/7', standardVm: '7/7', rawTamper: '18/18 reject', sourceSetSha256: second.files['c7_candidate_srcouts.hex'].sha256 }, scripts: locks, dependencies: stableDependencies };
     // mkdir is the no-clobber publication reservation. Consumers require the
     // manifest, written last with O_EXCL, as the completion marker; therefore
     // they never treat a partial crash directory as an emitted artifact.
@@ -227,6 +375,155 @@ export async function generatePf7VerifierSet(input) {
     await writeFile(path.join(destination, 'bch-verifier-set.json'), serialized, { flag: 'wx', mode: 0o600 });
     await writeFile(path.join(destination, 'manifest.json'), `${canonicalJson({ schema: 'shield.cash/pf7-verifier-generator-output/v1', bchVerifierSetSha256: digest(Buffer.from(serialized)), adapterSha256: adapter.sha256 })}\n`, { flag: 'wx', mode: 0o600 });
     published = true; return { destination, sha256: digest(Buffer.from(serialized)), artifact };
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+    if (!published && reservation !== undefined) {
+      const current = await lstat(destination).catch(() => undefined);
+      if (current?.isDirectory() && !current.isSymbolicLink() && current.dev === reservation.dev && current.ino === reservation.ino) await rm(destination, { recursive: true, force: true });
+    }
+  }
+}
+
+export async function generatePf7ActionSeamCorpus(input) {
+  seamInputValidation(input);
+  const actions = [];
+  for (const actionInput of input.actions) {
+    const adapter = await pinnedFile(actionInput.adapter, `${actionInput.kind} adapter`);
+    const adapterValue = validateAdapter(adapter.bytes);
+    await validateAdapterSources(adapterValue);
+    const packet = await pinnedFile(actionInput.packet, `${actionInput.kind} action packet`);
+    if (packet.bytes.length !== ACTION_PACKET_BYTES) fail(`${actionInput.kind} action packet must be exactly ${ACTION_PACKET_BYTES} bytes`);
+    let decoded;
+    try { decoded = decodeActionPacket(packet.bytes); } catch (error) { fail(`${actionInput.kind} action packet is not canonical: ${error.message}`); }
+    if (decoded.kind !== actionInput.kind) fail(`${actionInput.kind} action packet kind mismatch`);
+    const publicLimbs = actionPacketPublicLimbs(packet.bytes);
+    if (
+      adapterValue.verifierCashFixture?.in0 !== publicLimbs[0]
+      || adapterValue.verifierCashFixture?.in1 !== publicLimbs[1]
+    ) fail(`${actionInput.kind} packet digest limbs do not match adapter public inputs`);
+    const reference = await referenceRowForAdapter(adapter.sha256);
+    if (reference.row.action !== actionInput.kind) fail(`${actionInput.kind} adapter is assigned to the wrong action`);
+    actions.push({ kind: actionInput.kind, adapter, adapterValue, packet, publicLimbs, reference });
+  }
+  if (new Set(actions.map((action) => action.reference.row.setup)).size !== 1) fail('all seam adapters must belong to one reference setup');
+  if (new Set(actions.map((action) => action.reference.sourceSetSha256)).size !== 1) fail('reference adapters do not have action-invariant source locks');
+
+  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: SEAM_TERMINAL, tree: SEAM_TREE, label: 'seam' });
+  const { destination } = await reserveDestination(input.destination);
+  const scratch = await regularAbsolute(input.scratchDirectory, 'scratchDirectory', { directory: true });
+  const stage = await mkdtemp(path.join(scratch.path, '.pf7-seam-corpus-')); let reservation; let published = false;
+  try {
+    const builds = [];
+    const identityStableFiles = ['result.json', 'inputs_dump.json', 'c7_candidate_srcouts.hex', 'c7_candidate_tx.hex', 'standardness.json'];
+    for (const action of actions) {
+      const first = await oneBuild(action.adapter, verifier, path.join(stage, action.kind, 'first'), action.packet);
+      const second = await oneBuild(action.adapter, verifier, path.join(stage, action.kind, 'second'), action.packet);
+      for (const name of identityStableFiles) if (first.files[name].sha256 !== second.files[name].sha256) fail(`${action.kind} PF7 seam build is not identity-stable: ${name}`);
+      if (canonicalJson(normalizedRawAttackReport(first.attacks)) !== canonicalJson(normalizedRawAttackReport(second.attacks))) fail(`${action.kind} PF7 seam raw-attack report is not identity-stable`);
+      assertSeamMeasured(first); assertSeamMeasured(second);
+      if (second.result.packet.sha256 !== action.packet.sha256) fail(`${action.kind} PF7 seam result did not bind the pinned packet`);
+      builds.push({ action, first, second, directory: path.join(stage, action.kind, 'second', 'build') });
+    }
+
+    const sourceSetSha256 = builds[0].second.files['c7_candidate_srcouts.hex'].sha256;
+    if (builds.some((build) => build.second.files['c7_candidate_srcouts.hex'].sha256 !== sourceSetSha256)) fail('PF7 seam source-output set changes across actions');
+    const sourceLocks = exactSourceLockHashes(builds[0].second.inputs);
+    const sourceLockIdentity = canonicalJson(sourceLocks);
+    for (const build of builds.slice(1)) if (canonicalJson(exactSourceLockHashes(build.second.inputs)) !== sourceLockIdentity) fail('PF7 seam source locking bytecode changes across actions');
+    const scripts = extractVerifierSet(builds[0].second.inputs.slice(0, 7));
+
+    const redteams = new Map();
+    for (const build of builds) {
+      const output = path.join(stage, `${build.action.kind}-seam-redteam.json`);
+      const crosses = builds.filter((other) => other !== build);
+      await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), [
+        'lanes/bn254-onetx/src/c7/run-shield-action-seam-redteam.ts',
+        '--honest', build.directory,
+        '--fixture', build.action.adapter.path,
+        '--out', output,
+        ...crosses.flatMap((other) => ['--cross', other.directory]),
+      ], { cwd: verifier.checkout, env: exactEnvironment({ actionPacket: build.action.packet, adapter: build.action.adapter, stage: path.join(stage, 'redteam-environment'), verifier }) });
+      const report = parseStrictJson(await readFile(output), `${build.action.kind} PF7 seam redteam`);
+      assertSeamRedteam(report);
+      redteams.set(build.action.kind, normalizedSeamRedteamReport(report));
+    }
+
+    const actionRows = builds.map((build) => {
+      const rawTerminal = normalizedRawAttackReport(build.second.attacks);
+      const seamRedteam = redteams.get(build.action.kind);
+      return {
+        kind: build.action.kind,
+        adapter: {
+          sha256: build.action.adapter.sha256,
+          source: Object.fromEntries(Object.entries(build.action.adapterValue.source).map(([name, value]) => [name, { bytes: value.bytes, sha256: value.sha256 }])),
+        },
+        actionPacket: { sha256: build.action.packet.sha256, bytes: build.action.packet.bytes.length, publicLimbs: build.action.publicLimbs },
+        measurements: {
+          contextWireBytes: build.second.result.wire,
+          allBytesScore: build.second.result.score,
+          maxVerifierUnlockingBytes: Math.max(...build.second.result.manual.slice(0, 7).map((row) => row.unlockLen)),
+          maxContextUnlockingBytes: Math.max(...build.second.result.manual.map((row) => row.unlockLen)),
+          normalVerifierVm: '7/7',
+          standardVerifierVm: '7/7',
+          rawTerminalTamper: '18/18 reject',
+          seamRedteam: '17/17 reject',
+        },
+        reports: {
+          rawTerminalNormalizedSha256: sha256Canonical(rawTerminal),
+          seamRedteamNormalizedSha256: sha256Canonical(seamRedteam),
+        },
+        dependencies: artifactDependencies(build.second.files),
+      };
+    });
+    const artifact = {
+      schema: 'shield.cash/pf7-action-seam-corpus/v1',
+      qualification: 'development-only verifier-role evidence experiment; not a complete settlement, G2 artifact, node-relay result, Chipnet result, ceremony, profile, or release claim',
+      candidate: {
+        id: CANDIDATE,
+        baseCommit: BASE,
+        referenceTerminalCommit: REFERENCE_TERMINAL,
+        referenceTerminalTree: REFERENCE_TREE,
+        seamTerminalCommit: SEAM_TERMINAL,
+        seamTerminalTree: SEAM_TREE,
+        manifestSha256: CANDIDATE_SHA256,
+        verifierInputs: 7,
+        contextInputs: 10,
+        genericFallback: 'forbidden',
+      },
+      limits: { contextWireTargetBytes: 59000, perInputUnlockingBytes: 10000, percentageHeadroomRequired: false },
+      scope: {
+        evaluatedRoles: ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'],
+        unevaluatedStructuralRoles: ['packet', 'state', 'fee'],
+        structuralRoleWarning: 'inputs 7 through 9 are present in transaction context but are not evaluated as settlement covenants',
+        packetAbi: 'input7 exactly PUSHDATA2(752); terminal single-SHA256; genesis first push PUSHDATA2(480)=projection[448]||digest[32]',
+      },
+      reproducibility: { buildsPerAction: 2, identityStableFiles, sourceLocksIdenticalAcrossActions: true },
+      setup: actions[0].reference.row.setup,
+      sourceSetSha256,
+      sourceLocks,
+      scripts,
+      toolchain,
+      actions: actionRows,
+    };
+
+    await mkdir(destination, { mode: 0o700 }); reservation = await lstat(destination);
+    const outputFiles = {};
+    for (const build of builds) {
+      const rawTerminal = `${canonicalJson(normalizedRawAttackReport(build.second.attacks))}\n`;
+      const seamRedteam = `${canonicalJson(redteams.get(build.action.kind))}\n`;
+      for (const [suffix, contents] of [['raw-terminal-attacks', rawTerminal], ['seam-redteam', seamRedteam]]) {
+        const name = `${build.action.kind}-${suffix}.json`;
+        await writeFile(path.join(destination, name), contents, { flag: 'wx', mode: 0o600 });
+        outputFiles[name] = { sha256: digest(Buffer.from(contents)), bytes: Buffer.byteLength(contents) };
+      }
+    }
+    const serialized = `${canonicalJson(artifact)}\n`;
+    await writeFile(path.join(destination, 'pf7-action-seam-corpus.json'), serialized, { flag: 'wx', mode: 0o600 });
+    outputFiles['pf7-action-seam-corpus.json'] = { sha256: digest(Buffer.from(serialized)), bytes: Buffer.byteLength(serialized) };
+    const manifest = `${canonicalJson({ schema: 'shield.cash/pf7-action-seam-corpus-output/v1', corpusSha256: outputFiles['pf7-action-seam-corpus.json'].sha256, files: outputFiles })}\n`;
+    await writeFile(path.join(destination, 'manifest.json'), manifest, { flag: 'wx', mode: 0o600 });
+    published = true;
+    return { destination, sha256: outputFiles['pf7-action-seam-corpus.json'].sha256, artifact };
   } finally {
     await rm(stage, { recursive: true, force: true });
     if (!published && reservation !== undefined) {

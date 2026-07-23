@@ -7,7 +7,17 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
-import { assertBuildComplete, assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance, validateRuntimePackageVersions } from './pf7-verifier-generator.mjs';
+import {
+  assertBuildComplete,
+  assertCleanGitRepository,
+  assertSeamMeasured,
+  assertSeamRedteam,
+  extractVerifierSet,
+  Pf7VerifierGeneratorError,
+  validateAdapter,
+  validateProvenance,
+  validateRuntimePackageVersions,
+} from './pf7-verifier-generator.mjs';
 
 const execFileAsync = promisify(execFile);
 const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').update(bytes).digest()).digest();
@@ -17,8 +27,11 @@ const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal
 
 test('retained PF7 format-patch chain is hash-pinned and complete', async () => {
   const provenance = await validateProvenance();
-  assert.equal(provenance.patches.length, 7);
-  assert.equal(provenance.terminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');
+  assert.equal(provenance.patches.length, 8);
+  assert.equal(provenance.referenceTerminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');
+  assert.equal(provenance.terminal.commit, '1d543756602edfd92081a0b58dba62d33d0aea34');
+  assert.equal(provenance.terminal.tree, '1c1efb23e95bf51a715f8ab29f3cf698a359303d');
+  assert.equal(provenance.patches[7].sha256, 'c40db1abc1cb54fca82c5754f985d6ede22d236f8bf1404771ae105ab438bd83');
 });
 
 test('seven exact P2SH32 source/redeem pairs are canonicalized in role order', () => {
@@ -101,4 +114,55 @@ test('runtime package closure rejects a symlink boundary and version drift', asy
 test('an incomplete PF7 boundary build fails before downstream artifact tools', () => {
   assert.throws(() => assertBuildComplete({ built: false, errors: { terminal: 'optimizer dependency missing' } }), /incomplete boundary.*optimizer dependency missing/);
   assert.doesNotThrow(() => assertBuildComplete({ built: true }));
+});
+
+test('seam measurements require seven accepted verifier roles in one ten-input context', () => {
+  const contextNames = [...names, 'packet', 'state', 'fee'];
+  const result = {
+    built: true,
+    gateOk: true,
+    verifierInputCount: 7,
+    structuralRoleCount: 3,
+    structuralRolesUnevaluated: true,
+    wire: 55311,
+    manual: contextNames.map((name, i) => ({ i, name, accepts: i < 7, unlockLen: i === 6 ? 9277 : 755 })),
+    packet: { index: 7, bytes: 752, unlockBytes: 755, sha256: '0'.repeat(64) },
+    projectionSignalCarrier: { genesisIndex: 5, pushHeader: '4de001', projectionOffset: 3, projectionBytes: 448, digestOffset: 451, digestBytes: 32 },
+  };
+  const standardness = {
+    standardVm: 'createVirtualMachineBch2026(true)',
+    contextInputCount: 10,
+    evaluatedInputCount: 7,
+    scope: 'verifier roles only; structural packet/state/fee roles explicitly unevaluated',
+    allAccept: true,
+    rows: names.map((name, index) => ({ index, name, accepts: true, unlockingBytes: 9277 })),
+  };
+  const attacks = { honest: { allAccept: true }, total: 18, rejected: 18, falseAccepts: 0, setupErrors: 0, results: Array.from({ length: 18 }, (_, index) => ({ index })) };
+  assert.equal(assertSeamMeasured({ result, standardness, attacks }), true);
+  const tooLarge = structuredClone(result); tooLarge.wire = 59001;
+  assert.throws(() => assertSeamMeasured({ result: tooLarge, standardness, attacks }), /normal-VM/);
+  const evaluatedStructural = structuredClone(result); evaluatedStructural.structuralRolesUnevaluated = false;
+  assert.throws(() => assertSeamMeasured({ result: evaluatedStructural, standardness, attacks }), /normal-VM/);
+});
+
+test('seam redteam requires thirteen local and four cross-action rejections', () => {
+  const row = (accepts = true) => names.map((name, index) => ({ index, name, accepts: index === 6 ? accepts : true }));
+  const attacks = Object.fromEntries([
+    'altered-in0', 'altered-in1', 'carrier-digest-byte', 'carrier-header',
+    'carrier-high-bit', 'carrier-little-endian-halves', 'carrier-swapped-halves',
+    'input5-input7-swap', 'packet-byte', 'packet-header',
+    'packet-nonminimal-push', 'packet-short', 'packet-trailing',
+  ].map((name) => [name, row(false)]));
+  const report = {
+    schema: 'verifier.cash/bn254-onetx-shield-action-seam-redteam/v1',
+    scope: 'seven verifier roles evaluated in complete ten-input context; packet/state/fee structural roles unevaluated',
+    verdict: 'pass',
+    attackCount: 17,
+    honest: row(true),
+    attacks,
+    crossAction: Array.from({ length: 2 }, () => ({ packetSubstitution: row(false), genesisSubstitution: row(false) })),
+  };
+  assert.equal(assertSeamRedteam(report), true);
+  report.attackCount = 16;
+  assert.throws(() => assertSeamRedteam(report), /cross-action redteam/);
 });

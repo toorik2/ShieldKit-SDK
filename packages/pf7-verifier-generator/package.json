@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "seam": "node seam-cli.mjs",
     "test": "node --test pf7-verifier-generator.test.mjs"
   }
 }
