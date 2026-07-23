@@ -77,3 +77,54 @@ The retained verifier source chain is in
 historical seven-patch reference manifest remains byte-identical at its
 original path; the eight-patch seam manifest is a distinct authority record.
 Temporary worktrees are not authority.
+
+## Fresh local-development path
+
+`generatePf7FreshDevelopmentCorpus` (or `npm run fresh -- ABSOLUTE_CONFIG.json`)
+is the only PF7 seam entrypoint for new local setup material. It is deliberately
+separate from both historical entrypoints above: it cannot consume an adapter
+file or the retained reference matrix.
+
+Its `preProfile` has exactly a typed development-setup metadata file, R1CS, and
+verification key, each absolute, regular, non-symlink, SHA-256-pinned inputs.
+The metadata must bind the same two-public-input R1CS and verification key and
+must remain `development-only` / `local-initialization`. Each ordered action
+supplies only its raw `proof.json`, `public.json`, the same raw verification
+key, and its canonical 752-byte packet. The implementation calls the trusted
+`snarkjs-adapter` itself, re-derives every PF7 proof/VK/public-signal field,
+and rejects any copied or forged adapter metadata.
+
+```json
+{
+  "mode": "discovery",
+  "destination": "/nonexistent/output",
+  "scratchDirectory": "/short/direct/private/scratch",
+  "preProfile": {
+    "schema": "shield.cash/pf7-fresh-development-preprofile/v1",
+    "setupMetadata": {"path":"/setup/setup-metadata.json","sha256":"..."},
+    "r1cs": {"path":"/setup/action.r1cs","sha256":"..."},
+    "verificationKey": {"path":"/setup/verification_key.json","sha256":"..."}
+  },
+  "actions": [
+    {"kind":"deposit","proof":{"path":"/proofs/d.json","sha256":"..."},"publicSignals":{"path":"/proofs/d-public.json","sha256":"..."},"verificationKey":{"path":"/setup/verification_key.json","sha256":"..."},"packet":{"path":"/packets/d.bin","sha256":"..."}},
+    {"kind":"transfer","proof":{"path":"/proofs/t.json","sha256":"..."},"publicSignals":{"path":"/proofs/t-public.json","sha256":"..."},"verificationKey":{"path":"/setup/verification_key.json","sha256":"..."},"packet":{"path":"/packets/t.bin","sha256":"..."}},
+    {"kind":"withdrawal","proof":{"path":"/proofs/w.json","sha256":"..."},"publicSignals":{"path":"/proofs/w-public.json","sha256":"..."},"verificationKey":{"path":"/setup/verification_key.json","sha256":"..."},"packet":{"path":"/packets/w.bin","sha256":"..."}}
+  ],
+  "verifier": {"checkout":"/exact/verifier.cash","cashcRoot":"/exact/cashc","cashcCommit":"...","leanBchRoot":"/exact/LeanBCH","leanBchCommit":"..."}
+}
+```
+
+Discovery rebuilds each action twice, enforces the retained seam terminal
+`1d543756...`, clean pinned toolchains, 7/7 normal and BCH-2026 VM verdicts,
+18 raw attacks, 17 seam/cross-action rejections, 59,000-byte context, 10,000
+bytes per unlock, and identical source locks. It writes a **development-only,
+non-authoritative** source-set/output hash. Inputs 7--9 remain unevaluated.
+
+`final-replay` adds exactly `expected:{sourceSetSha256,outputSha256}` and
+`finalProfile:{bundleDirectory,profileId,instanceId}`. Both hashes and all
+bundle identity coordinates are caller-pinned; final replay loads and verifies
+the real local bundle and refuses any mismatch. The stable corpus hash is
+intentionally identical to discovery; replay-only identity linkage is in the
+output manifest. That linkage records a candidate for a later profile builder;
+it never makes discovery or replay a
+profile, G2, settlement, ceremony, node/relay, or Chipnet claim.
