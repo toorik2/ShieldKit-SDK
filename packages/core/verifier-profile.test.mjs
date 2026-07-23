@@ -9,7 +9,7 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   BundleValidationError, canonicalJson, deriveInstanceId, deriveProfileId,
-  deriveStateNftCategory, loadVerifierProfileBundle,
+  deriveStateNftCategory, compareDevelopmentVerifierProfileBundles, loadVerifierProfileBundle,
 } from './verifier-profile.mjs';
 
 const digest = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -91,6 +91,40 @@ async function writeBoundManifest(bundle) {
   await writeFile(path.join(bundle.directory, 'manifest.json'), canonicalJson(bundle.manifest));
 }
 
+async function makeReplacementBundle(seed) {
+  return makeDevelopmentBundle(seed, (manifest, files) => {
+    files['artifacts/witness-generator.bin'] = fixtureBytes('witness-generator', 'shared-replacement-interface');
+    manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator').sha256 = digest(files['artifacts/witness-generator.bin']);
+  });
+}
+
+async function makeCeremonyBundle(seed) {
+  return makeDevelopmentBundle(seed, (manifest, files, artifact) => {
+    files['artifacts/transcript.json'] = fixtureBytes('ceremony-transcript', 'complete-fixture');
+    manifest.artifacts.splice(1, 0, artifact('ceremony-transcript', 'ceremony-transcript', 'artifacts/transcript.json'));
+    const verifier = { name: 'fixture-verifier', version: '0', sha256: digest('fixture-verifier') };
+    const contributions = [
+      { sequence: '1', participantCommitment: digest('participant-1'), contributionHash: digest('contribution-1'), verification: { status: 'verified', verifier } },
+      { sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier } },
+    ];
+    manifest.setup = {
+      mode: 'ceremony-production',
+      provenance: { method: 'multi-party-randomness', initializerCommitment: digest(`ceremony-init-${seed}`) },
+      material: {
+        phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest(`ptau-${seed}`) },
+        phase2: {
+          initializationCommand: { argv: ['fixture-zkey', 'new'] },
+          finalZkeySha256: digest(files['artifacts/pk.bin']),
+          finalZkeyVerification: { status: 'verified', verifier },
+          contributionChainSha256: digest(canonicalJson(contributions)),
+        },
+      },
+      transcript: { status: 'complete', artifactPath: 'artifacts/transcript.json', sha256: digest(files['artifacts/transcript.json']), verifier },
+      contributions,
+    };
+  });
+}
+
 test('same relation and ABI with different local setup/key material derives a new profile and loads as a new instance', async () => {
   const first = await makeDevelopmentBundle('independent-a');
   const second = await makeDevelopmentBundle('independent-b');
@@ -127,6 +161,59 @@ test('same relation and ABI with different local setup/key material derives a ne
   });
   assert.equal(newInstance.profileId, right.profileId);
   assert.equal(newInstance.instanceId, right.instanceId);
+});
+
+test('replacement comparator proves only the local-development interface property and fails closed', async () => {
+  const first = await makeReplacementBundle('replacement-a');
+  const second = await makeReplacementBundle('replacement-b');
+  const comparisonBytes = await compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory });
+  const comparison = JSON.parse(comparisonBytes);
+  assert.equal(canonicalJson(comparison), comparisonBytes);
+  assert.equal(comparison.scope, 'interface-replacement-only');
+  assert.equal(comparison.replacementProperty, 'satisfied');
+  assert.equal(comparison.shared.witnessGeneratorHash, first.manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator').sha256);
+  assert.notEqual(comparison.replacements.left.profileId, comparison.replacements.right.profileId);
+  assert.notDeepEqual(comparison.replacements.left.categoryInputOutpoint, comparison.replacements.right.categoryInputOutpoint);
+
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory, profileId: first.manifest.identity.profileId }),
+    /replacement comparison input has missing or unknown properties/,
+  );
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: first.directory }),
+    /requires distinct bundle directories/,
+  );
+  const reusedSetup = await makeReplacementBundle('replacement-a');
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: reusedSetup.directory }),
+    /requires distinct initializer commitments/,
+  );
+  const changedReserve = await makeReplacementBundle('replacement-reserve');
+  changedReserve.manifest.genesis.reserveCapSatoshis = '20000000';
+  await writeBoundManifest(changedReserve);
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: changedReserve.directory }),
+    /requires equal denomination-relevant reserve-cap semantics/,
+  );
+
+  const alias = path.join(first.directory, 'bundle-alias');
+  await symlink(first.directory, alias, 'dir');
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: alias, rightDirectory: second.directory }),
+    /bundle directory must be a real non-symlink directory/,
+  );
+
+  await writeFile(path.join(second.directory, 'artifacts/vk.bin'), fixtureBytes('verification-key', 'drifted-after-comparison'));
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory }),
+    /artifact hash mismatch: artifacts\/vk.bin/,
+  );
+
+  const ceremony = await makeCeremonyBundle('replacement-ceremony');
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: ceremony.directory }),
+    /replacement comparison requires right development-only setup/,
+  );
 });
 
 test('setup mode and setup provenance cannot be relabeled in place', async () => {

@@ -338,7 +338,11 @@ function deepFreeze(value) {
 }
 
 export async function loadVerifierProfileBundle(directory, expected = {}) {
-  const root = await realpath(directory).catch(() => fail('bundle directory does not exist'));
+  const requested = path.resolve(string(directory, 'bundle directory'));
+  const directoryStats = await lstat(requested).catch(() => fail('bundle directory does not exist'));
+  if (!directoryStats.isDirectory() || directoryStats.isSymbolicLink()) fail('bundle directory must be a real non-symlink directory');
+  const root = await realpath(requested).catch(() => fail('bundle directory cannot be resolved'));
+  if (root !== requested) fail('bundle directory path must not use symlinks');
   const manifestPath = path.join(root, 'manifest.json');
   const manifestStats = await lstat(manifestPath).catch(() => fail('bundle manifest is missing'));
   if (!manifestStats.isFile() || manifestStats.isSymbolicLink()) fail('bundle manifest must be a regular non-symlink file');
@@ -361,5 +365,100 @@ export async function loadVerifierProfileBundle(directory, expected = {}) {
   if (expected.profileId !== undefined && expected.profileId !== profileId) fail('expected profile binding mismatch: refusing hot swap');
   if (expected.instanceId !== undefined && expected.instanceId !== instanceId) fail('expected instance binding mismatch: refusing hot swap');
   if (expected.network !== undefined && expected.network !== manifest.network.name) fail('expected network binding mismatch');
-  return deepFreeze({ manifest, profileId, instanceId });
+  return deepFreeze({ root, manifest, profileId, instanceId });
+}
+
+function artifactHashByKind(manifest, kind) {
+  const artifact = manifest.artifacts.find((candidate) => candidate.kind === kind);
+  if (!artifact) fail(`replacement comparison requires ${kind} artifact`);
+  return artifact.sha256;
+}
+
+function requireEqual(left, right, label) {
+  if (left !== right) fail(`replacement comparison requires equal ${label}`);
+}
+
+function requireDistinct(left, right, label) {
+  if (left === right) fail(`replacement comparison requires distinct ${label}`);
+}
+
+/**
+ * Compare two completed local-development bundles for the narrow G1 setup
+ * replacement property. This is read-only: it loads existing bundles only and
+ * never initializes setup, creates a genesis transaction, or accepts caller
+ * identity pins. The canonical result is returned only after every predicate
+ * below has passed.
+ */
+export async function compareDevelopmentVerifierProfileBundles(input) {
+  exactKeys(input, 'replacement comparison input', ['leftDirectory', 'rightDirectory']);
+  const left = await loadVerifierProfileBundle(input.leftDirectory);
+  const right = await loadVerifierProfileBundle(input.rightDirectory);
+  if (left.root === right.root) fail('replacement comparison requires distinct bundle directories');
+
+  const leftManifest = left.manifest; const rightManifest = right.manifest;
+  for (const [label, manifest] of [['left', leftManifest], ['right', rightManifest]]) {
+    if (manifest.setup.mode !== 'development-only') fail(`replacement comparison requires ${label} development-only setup`);
+    if (manifest.setup.provenance.method !== 'local-initialization') fail(`replacement comparison requires ${label} local-initialization provenance`);
+  }
+
+  requireEqual(leftManifest.standard.id, rightManifest.standard.id, 'standard id');
+  requireEqual(leftManifest.standard.version, rightManifest.standard.version, 'standard version');
+  requireEqual(leftManifest.network.name, rightManifest.network.name, 'network');
+  requireEqual(leftManifest.profile.proofSystem, rightManifest.profile.proofSystem, 'proof system');
+  requireEqual(leftManifest.profile.curve, rightManifest.profile.curve, 'curve');
+  requireEqual(leftManifest.profile.relation.id, rightManifest.profile.relation.id, 'relation id');
+  requireEqual(leftManifest.profile.relation.sha256, rightManifest.profile.relation.sha256, 'relation hash');
+  requireEqual(leftManifest.profile.constraintSystemHash, rightManifest.profile.constraintSystemHash, 'constraint-system hash');
+  requireEqual(leftManifest.profile.publicInputAbi.id, rightManifest.profile.publicInputAbi.id, 'public-input ABI id');
+  requireEqual(leftManifest.profile.publicInputAbi.sha256, rightManifest.profile.publicInputAbi.sha256, 'public-input ABI hash');
+  requireEqual(artifactHashByKind(leftManifest, 'witness-generator'), artifactHashByKind(rightManifest, 'witness-generator'), 'witness-generator hash');
+  requireEqual(leftManifest.genesis.reserveCapSatoshis, rightManifest.genesis.reserveCapSatoshis, 'denomination-relevant reserve-cap semantics');
+
+  requireDistinct(leftManifest.setup.provenance.initializerCommitment, rightManifest.setup.provenance.initializerCommitment, 'initializer commitments');
+  requireDistinct(leftManifest.setup.material.phase2.randomnessCommitment, rightManifest.setup.material.phase2.randomnessCommitment, 'setup randomness commitments');
+  requireDistinct(leftManifest.setup.material.phase2.finalZkeySha256, rightManifest.setup.material.phase2.finalZkeySha256, 'final zkey hashes');
+  requireDistinct(artifactHashByKind(leftManifest, 'verification-key'), artifactHashByKind(rightManifest, 'verification-key'), 'verification-key hashes');
+  requireDistinct(leftManifest.profile.bchVerifierSetHash, rightManifest.profile.bchVerifierSetHash, 'BCH verifier-set hashes');
+  requireDistinct(left.profileId, right.profileId, 'profile identifiers');
+  requireDistinct(left.instanceId, right.instanceId, 'instance identifiers');
+  requireDistinct(canonicalJson(leftManifest.genesis.categoryInputOutpoint), canonicalJson(rightManifest.genesis.categoryInputOutpoint), 'category input outpoints');
+
+  return canonicalJson({
+    schema: 'shield.cash/verifier-profile-replacement/v1',
+    scope: 'interface-replacement-only',
+    replacementProperty: 'satisfied',
+    shared: {
+      standard: leftManifest.standard,
+      network: leftManifest.network,
+      proofSystem: leftManifest.profile.proofSystem,
+      curve: leftManifest.profile.curve,
+      relation: leftManifest.profile.relation,
+      constraintSystemHash: leftManifest.profile.constraintSystemHash,
+      publicInputAbi: leftManifest.profile.publicInputAbi,
+      witnessGeneratorHash: artifactHashByKind(leftManifest, 'witness-generator'),
+      genesis: { reserveCapSatoshis: leftManifest.genesis.reserveCapSatoshis },
+    },
+    replacements: {
+      left: {
+        setupInitializerCommitment: leftManifest.setup.provenance.initializerCommitment,
+        setupRandomnessCommitment: leftManifest.setup.material.phase2.randomnessCommitment,
+        finalZkeySha256: leftManifest.setup.material.phase2.finalZkeySha256,
+        verificationKeySha256: artifactHashByKind(leftManifest, 'verification-key'),
+        bchVerifierSetSha256: leftManifest.profile.bchVerifierSetHash,
+        profileId: left.profileId,
+        instanceId: left.instanceId,
+        categoryInputOutpoint: leftManifest.genesis.categoryInputOutpoint,
+      },
+      right: {
+        setupInitializerCommitment: rightManifest.setup.provenance.initializerCommitment,
+        setupRandomnessCommitment: rightManifest.setup.material.phase2.randomnessCommitment,
+        finalZkeySha256: rightManifest.setup.material.phase2.finalZkeySha256,
+        verificationKeySha256: artifactHashByKind(rightManifest, 'verification-key'),
+        bchVerifierSetSha256: rightManifest.profile.bchVerifierSetHash,
+        profileId: right.profileId,
+        instanceId: right.instanceId,
+        categoryInputOutpoint: rightManifest.genesis.categoryInputOutpoint,
+      },
+    },
+  });
 }

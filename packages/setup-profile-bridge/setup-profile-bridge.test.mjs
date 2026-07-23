@@ -10,6 +10,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { SNARKJS_VERSION, getPinnedSnarkjsInfo, initializeDevelopmentGroth16 } from '../local-setup/local-setup.mjs';
+import { compareDevelopmentVerifierProfileBundles } from '../core/verifier-profile.mjs';
 import { SetupProfileBridgeError, bridgeLocalSetupToProfile } from './setup-profile-bridge.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -97,12 +98,46 @@ test('two tiny real local setups bridge as distinct immutable development profil
   const fixture = await realFixture(t); const firstSetup = await fixture.setup('setup-a'); const secondSetup = await fixture.setup('setup-b');
   const firstInput = await bridgeInput(fixture, firstSetup.directory, path.join(fixture.root, 'profile-a'));
   const secondInput = await bridgeInput(fixture, secondSetup.directory, path.join(fixture.root, 'profile-b'));
-  const first = await bridgeLocalSetupToProfile(firstInput); const second = await bridgeLocalSetupToProfile(secondInput);
+  const first = await bridgeLocalSetupToProfile(firstInput);
+  secondInput.genesis.categoryInputOutpoint.txid = '22'.repeat(32);
+  const secondVerifierSet = secondInput.artifacts.find((artifact) => artifact.kind === 'bch-verifier-set').source.sourcePath;
+  await writeFile(secondVerifierSet, 'TEST-ONLY replacement verifier-set bytes; no BCH execution claim\n');
+  const second = await bridgeLocalSetupToProfile(secondInput);
   assert.equal(first.manifest.setup.mode, 'development-only');
   assert.equal(first.manifest.artifacts.find((artifact) => artifact.kind === 'proving-key').sha256, first.manifest.setup.material.phase2.finalZkeySha256);
   assert.deepEqual(await readFile(path.join(first.directory, 'artifacts/final.zkey')), await readFile(path.join(firstSetup.directory, 'final.zkey')));
   assert.notEqual(first.profileId, second.profileId);
   assert.notEqual(first.instanceId, second.instanceId);
+
+  const comparison = await compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory });
+  const parsed = JSON.parse(comparison);
+  assert.equal(parsed.scope, 'interface-replacement-only');
+  assert.equal(parsed.replacementProperty, 'satisfied');
+  assert.equal(parsed.shared.genesis.reserveCapSatoshis, '10000000');
+  assert.notEqual(parsed.replacements.left.bchVerifierSetSha256, parsed.replacements.right.bchVerifierSetSha256);
+  assert.notDeepEqual(parsed.replacements.left.categoryInputOutpoint, parsed.replacements.right.categoryInputOutpoint);
+
+  const { stdout, stderr } = await execFileAsync(
+    process.execPath,
+    [path.join(here, '../core/compare-development-profiles.mjs'), '--left', first.directory, '--right', second.directory],
+    { cwd: here, env: {} },
+  );
+  assert.equal(stderr, ''); assert.equal(stdout, `${comparison}\n`);
+
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory, instanceId: first.instanceId }),
+    /replacement comparison input has missing or unknown properties/,
+  );
+  const alias = path.join(fixture.root, 'profile-a-alias'); await symlink(first.directory, alias, 'dir');
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: alias, rightDirectory: second.directory }),
+    /bundle directory must be a real non-symlink directory/,
+  );
+  await writeFile(path.join(second.directory, 'artifacts/verification_key.json'), 'post-build hash drift\n');
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: second.directory }),
+    /artifact hash mismatch: artifacts\/verification_key.json/,
+  );
 });
 
 test('bridge rejects relabeling, metadata drift, key-source override, and existing profile destination', async (t) => {
