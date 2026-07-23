@@ -71,9 +71,13 @@ function safeLocalOutputPath(value, label) {
 async function metadataFile(input) {
   exactKeys(input.setupMetadata, 'setup metadata input', ['sourcePath', 'expectedSha256']);
   const sourcePath = await regularFile(input.setupMetadata.sourcePath, 'setup metadata sourcePath');
-  if (await digestFile(sourcePath) !== hash(input.setupMetadata.expectedSha256, 'setup metadata expectedSha256')) fail('setup metadata hash mismatch');
+  const expectedSha256 = hash(input.setupMetadata.expectedSha256, 'setup metadata expectedSha256');
+  if (await digestFile(sourcePath) !== expectedSha256) fail('setup metadata hash mismatch');
+  const bytes = await readFile(sourcePath);
+  if (`sha256:${createHash('sha256').update(bytes).digest('hex')}` !== expectedSha256) fail('setup metadata changed while reading');
+  if (await digestFile(sourcePath) !== expectedSha256) fail('setup metadata changed after reading');
   let metadata;
-  try { metadata = parseStrictJson(await readFile(sourcePath)); }
+  try { metadata = parseStrictJson(bytes); }
   catch (error) { if (error instanceof SetupProfileBridgeError) throw error; fail('setup metadata is invalid'); }
   return { sourcePath, metadata };
 }
