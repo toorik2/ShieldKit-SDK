@@ -1,0 +1,72 @@
+{
+  "schema": "shield.cash/chipnet-genesis-evidence/v1",
+  "createdAt": "2026-07-23T19:51:38.126Z",
+  "qualification": "development-only",
+  "profile": {
+    "profileId": "sha256:fd0090245d7ce7306dfd29b9f69f0c14c2b1e47fc76b441e8164d8609e3e545a",
+    "instanceId": "sha256:dc75731f22a82baca91893b073e2870a08e939baf80a539dd4f5424d76e4a63d",
+    "stateNftCategory": "6c44a9429956b8d71baaaed1c2e4526b4aeac17687d45e59bbb8c9179cc47e7e",
+    "reserveCapSatoshis": "10000000",
+    "manifestSha256": "sha256:e24551776b6cd6fa80922b4f62fcae6473d05079e1c371bc86589dea2d1fae8f"
+  },
+  "categoryInput": {
+    "txid": "6c44a9429956b8d71baaaed1c2e4526b4aeac17687d45e59bbb8c9179cc47e7e",
+    "vout": 0,
+    "valueSatoshis": "25000000",
+    "lockingBytecode": "76a914233c0f9b7593aecb09dca11931965a16b90548c288ac"
+  },
+  "initialState": {
+    "profileId": "fd0090245d7ce7306dfd29b9f69f0c14c2b1e47fc76b441e8164d8609e3e545a",
+    "instanceId": "dc75731f22a82baca91893b073e2870a08e939baf80a539dd4f5424d76e4a63d",
+    "noteRoot": "2a6ea1a6ecf5a6f08c2cc0fabe68bda1c47c1f8ba8c8d90ceda188eebee20ae4",
+    "nullifierRoot": "0e4a9260c23c1199000abceedf70bb505bea3724cdca604b778cb10d22f1521b",
+    "nextLeafIndex": "0",
+    "actionSequence": "0",
+    "liveNoteCount": "0",
+    "reserveSats": "0",
+    "maximumReserve": "10000000",
+    "stateCommitment": "2c9b85964a2bfa762ead70b7bfed6277245132d4a7ac5cc01f423391f83a2b6a"
+  },
+  "settlementConstants": {
+    "bindingCarrierBaseSatoshis": "1000",
+    "stateCarrierBaseSatoshis": "1080",
+    "bindingLockingBytecode": "c0579d8202f0029d76034df0027c7e57ca887551",
+    "stateLockingBytecode": "74519dc0589dc100cd8857c7a820a9e3b84411bea21f865f16fa708743b33afe801fc565ed6ed06b605a9f14cade8858caa820b78cf69adbb01704d56392abe44a2de78ba7545929366016bf828cf113e8fb8b88007d898a",
+    "stateHelperSha256": "3dc9e7e65ebcce839d97ab3e160272accf0f57a658d00ce3732850480d7a0de1",
+    "stateHelperUnlockSha256": "b78cf69adbb01704d56392abe44a2de78ba7545929366016bf828cf113e8fb8b",
+    "stateHelperUnlockingBytes": 1119
+  },
+  "measurements": {
+    "wireBytes": 397,
+    "feeSatoshis": "397",
+    "feeRateSatoshisPerByte": "1",
+    "stateNftCommitmentBytes": 80,
+    "stateLockingBytecodeBytes": 88,
+    "bindingLockingBytecodeBytes": 20,
+    "bch2026StandardP2pkhVmAccepted": true
+  },
+  "transactionId": "4c5233ca89eee894701ddd2352a753647af3ea2cdf67c1903d96e730bfacfb99",
+  "transactionHex": "02000000017e7ec49c17c9b8bb595ed48776c1ea4a6b52e4c2d1aeaa1bd7b8569942a9446c000000006441ed41af8349f930f16f556a3947e755ce006fec4bb308a6b5cea478630f9a1bbdb4991758b6531fc45638f784835ef25a7de2c8afb3dd827b78420efb27b935414121035ca53c5f99e71def9ee8f4e6335e00309d4c810997feb32baad722e841aeb06000000000023804000000000000cbef7e7ec49c17c9b8bb595ed48776c1ea4a6b52e4c2d1aeaa1bd7b8569942a9446c61505348535401020000dc75731f22a82baca91893b073e2870a08e939baf80a539dd4f5424d76e4a63d2c9b85964a2bfa762ead70b7bfed6277245132d4a7ac5cc01f423391f83a2b6a000000000000000074519dc0589dc100cd8857c7a820a9e3b84411bea21f865f16fa708743b33afe801fc565ed6ed06b605a9f14cade8858caa820b78cf69adbb01704d56392abe44a2de78ba7545929366016bf828cf113e8fb8b88007d898a7b727d01000000001976a914233c0f9b7593aecb09dca11931965a16b90548c288ac00000000",
+  "outputs": [
+    {
+      "index": 0,
+      "valueSatoshis": "1080",
+      "lockingBytecode": "74519dc0589dc100cd8857c7a820a9e3b84411bea21f865f16fa708743b33afe801fc565ed6ed06b605a9f14cade8858caa820b78cf69adbb01704d56392abe44a2de78ba7545929366016bf828cf113e8fb8b88007d898a",
+      "token": {
+        "category": "6c44a9429956b8d71baaaed1c2e4526b4aeac17687d45e59bbb8c9179cc47e7e",
+        "amount": "0",
+        "nft": {
+          "capability": "mutable",
+          "commitment": "5348535401020000dc75731f22a82baca91893b073e2870a08e939baf80a539dd4f5424d76e4a63d2c9b85964a2bfa762ead70b7bfed6277245132d4a7ac5cc01f423391f83a2b6a0000000000000000"
+        }
+      }
+    },
+    {
+      "index": 1,
+      "valueSatoshis": "24998523",
+      "lockingBytecode": "76a914233c0f9b7593aecb09dca11931965a16b90548c288ac",
+      "token": null
+    }
+  ],
+  "status": "constructed-and-standard-vm-accepted-not-yet-broadcast"
+}
