@@ -1,0 +1,69 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.bn254-onetx-pf6-a3-r1-verifier-baseline",
+  "gate": "G1",
+  "candidate": "bn254-onetx-pf6-a3-r1",
+  "claim": "The pinned verifier.cash research fixture has an externally observed 54,949 all-bytes score and 54,739-byte wire transaction, but this worker could not independently regenerate a gate-green result from an archived clean checkout.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
+    "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "dirtyPaths": []
+  },
+  "environment": {
+    "observedAt": "2026-07-23T16:19:49+03:00",
+    "hardware": {"kernel": "Linux 7.1.3-arch1-2 x86_64"},
+    "software": {
+      "node": "v25.9.0",
+      "npm": "11.12.1",
+      "corepack": "0.34.6",
+      "pnpm": "11.13.0",
+      "candidateCashcCommit": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+      "candidateLibauth": "3.1.0-next.8",
+      "candidateLeanBchCommit": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+      "candidateBchVm": "BCH-2026"
+    }
+  },
+  "commands": [
+    "git -C /home/toorik/Projects/ZK-Proofs/verifier.cash archive --format=tar 26468ae29004d2401619032de2a6ec8de269a4d6 | tar -x -C <clean-temp>",
+    "npm ci --no-audit --no-fund",
+    "cd harness && corepack pnpm install --frozen-lockfile",
+    "npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf6-a3-r1.json --run-id shield-g1-repro-final-2"
+  ],
+  "artifacts": [
+    {"path": "read-only-source-run/build/result.json", "sha256": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca", "bytes": 1781},
+    {"path": "read-only-source-run/build/c7_candidate_srcouts.hex", "sha256": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02", "bytes": 530},
+    {"path": "read-only-source-run/build/boundary_parts.json", "sha256": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c", "bytes": 665},
+    {"path": "read-only-source-run/build/c7_opmargin.json", "sha256": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77", "bytes": 53}
+  ],
+  "measurements": {
+    "observedReadOnlyRun": "20260723t123647234z-bn254-onetx-pf6-a3-r1-ab74b984c9-12d9febd",
+    "observedResultSha256": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca",
+    "transactionHexSha256": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+    "allBytesScore": 54949,
+    "wireBytes": 54739,
+    "scriptBytes": 54671,
+    "transactionOverheadBytes": 278,
+    "sourceOutputs": 6,
+    "sourceLockingBytecodeBytesEach": 35,
+    "sourceValueSatoshisEach": 1000,
+    "feeSatoshis": 5000,
+    "fixtureOutputSatoshis": 1000,
+    "perInputUnlockingBytes": [9853, 9848, 9877, 8893, 7452, 8538],
+    "readOnlyVmCorpus": {"honest": "6/6 accept", "extraValid": "18/18 accept", "worstCase": "6/6 accept", "offCurveA": "6/6 reject", "offCurveB": "6/6 reject", "nonCanonicalB": "genesis rejects", "offSubgroupB": "terminal rejects"},
+    "cleanReproduction": {"result": "FAIL", "falsifier": "After rebuilding omitted vendored CashC dist outputs, clean npm-ci layout reaches ECIP generation then fails: Error: ProjectivePoint expected."}
+  },
+  "tests": [
+    {"name": "pinned commit present and clean", "expected": "26468ae29004d2401619032de2a6ec8de269a4d6 and no dirty paths", "observed": "matched", "pass": true},
+    {"name": "archived clean build", "expected": "gateOk=true", "observed": "ProjectivePoint expected", "pass": false},
+    {"name": "read-only result hash", "expected": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca", "observed": "matched", "pass": true}
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "This is not a G1 PASS and does not establish production, ceremony, relay, or release readiness.",
+    "The observed 54,949/54,739 values are a read-only existing-run observation, not an independently regenerated result in this worktree.",
+    "The fixture has fixed/hardcoded verifier material: candidate capability declares vkBinding=fixed and deploymentBinding=fixed.",
+    "The fixture spends six 1,000-satoshi outputs to one 1,000-satoshi OP_RETURN output and encodes only a 5,000-satoshi fee.",
+    "No complete shield.cash relation, verifier-profile bundle, setup provenance, ceremony transcript, peer relay test, or two-peer BCHN reproduction is supplied here.",
+    "The vendored CashC source has a yarn.lock but no root package-manager declaration; the committed tree omits built CashC dist outputs required by the runner."
+  ]
+}

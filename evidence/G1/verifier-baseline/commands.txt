@@ -1,0 +1,19 @@
+# All source and existing-run paths below were read-only.
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash status --short --branch
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash rev-parse HEAD
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash cat-file -e 26468ae29004d2401619032de2a6ec8de269a4d6^{commit}
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash archive --format=tar 26468ae29004d2401619032de2a6ec8de269a4d6 | tar -x -C <clean-temp>
+cd <clean-temp> && npm ci --no-audit --no-fund
+cd <clean-temp>/harness && corepack pnpm install --frozen-lockfile
+cd <clean-temp> && npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf6-a3-r1.json --run-id shield-g1-repro
+# First clean failure: spawnSync <clean-temp>/harness/node_modules/.bin/tsx ENOENT.
+# After harness install: ERR_MODULE_NOT_FOUND vendor/cashc-resched/packages/cashc/dist/index.js.
+# After rebuilding CashC 1c707c1d from its vendored yarn.lock in a separate temp tree:
+# BN254 one-tx build is not real-gate green: Error: ProjectivePoint expected.
+
+# Read-only artifact verification.
+sha256sum <source-run>/build/result.json <source-run>/build/c7_candidate_tx.hex <source-run>/build/c7_candidate_srcouts.hex
+node --input-type=module <decode-c7-candidate-tx-and-source-outputs>
+jq '{wire,score,sigmaLock,sigmaUnlock,manual,perInput}' <source-run>/build/result.json
+jq '.checks' <source-run>/input-redteam/input-redteam.json
+npm test
