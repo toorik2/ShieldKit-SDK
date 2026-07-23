@@ -116,11 +116,12 @@ export async function generateFreshWitnessInputs(input) {
   const profileId = idHex(bundle.profileId, 'bundle profileId'); const instanceId = idHex(bundle.instanceId, 'bundle instanceId'); const maximumReserve = bundle.manifest.genesis.reserveCapSatoshis;
   const maximumLiveNotes = BigInt(maximumReserve) / DENOMINATION_SATS;
   const reference = await createShieldedTransitionReference(); const seed = Buffer.from(input.witnessSeed, 'hex');
-  // The self-transfer chain intentionally follows the same public-recipient
-  // path as a cross-wallet sender. Output notes never contain recipient sk.
-  const walletSeed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/v1\\0', 'utf8'), seed);
-  const recipient1 = await deriveRecipientWallet({ seed: walletSeed, profileId, instanceId, addressIndex: 0 });
-  const recipient2 = await deriveRecipientWallet({ seed: walletSeed, profileId, instanceId, addressIndex: 1 });
+  // The deterministic chain uses two separately domain-derived local wallets,
+  // exercising the same public-recipient path as a cross-wallet sender.
+  const recipient1Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/deposit/v1\\0', 'utf8'), seed);
+  const recipient2Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/transfer/v1\\0', 'utf8'), seed);
+  const recipient1 = await deriveRecipientWallet({ seed: recipient1Seed, profileId, instanceId });
+  const recipient2 = await deriveRecipientWallet({ seed: recipient2Seed, profileId, instanceId });
   const depositOutput = await constructRecipientOutput({ address: recipient1.address, kind: 'deposit', slot: 0, rng: deterministicRng(seed, 'deposit') });
   const transferOutput = await constructRecipientOutput({ address: recipient2.address, kind: 'transfer', slot: 0, rng: deterministicRng(seed, 'transfer') });
   const note1 = { sk: recipient1.spendSecret, rho: depositOutput.output.rho, r: depositOutput.output.r };

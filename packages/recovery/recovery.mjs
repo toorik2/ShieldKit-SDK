@@ -54,10 +54,6 @@ const field = (value, label, nonzero = true) => {
     fail(error.message);
   }
 };
-const index = (value) => {
-  if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) fail('addressIndex must be a u32');
-  return value;
-};
 const seed32 = (value) => {
   if (!Buffer.isBuffer(value) || value.length !== 32) fail('wallet seed must contain exactly 32 bytes');
   return value;
@@ -70,7 +66,6 @@ const slot = (value) => {
   if (!Number.isInteger(value) || value < 0 || value > 0xff) fail('record slot must be a byte');
   return value;
 };
-const u32be = (value) => { const bytes = Buffer.alloc(4); bytes.writeUInt32BE(value); return bytes; };
 const rawPrivateKey = (bytes) => {
   if (!Buffer.isBuffer(bytes) || bytes.length !== 32) fail('X25519 private material must contain exactly 32 bytes');
   return createPrivateKey({ key: Buffer.concat([X25519_PKCS8_PREFIX, bytes]), format: 'der', type: 'pkcs8' });
@@ -112,18 +107,18 @@ function aad({ kind: recordKind, slot: recordSlot, profileId, instanceId, output
   ]);
 }
 
-function deriveScalar(seed, label, profileId, instanceId, addressIndex) {
-  const digest = sha256(Buffer.from(label, 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'), u32be(addressIndex));
+function deriveScalar(seed, label, profileId, instanceId) {
+  const digest = sha256(Buffer.from(label, 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'));
   return frToHex((BigInt(`0x${digest.toString('hex')}`) % (FR_MODULUS - 1n)) + 1n);
 }
 
 /** Derive profile- and instance-separated private wallet material from a seed. */
 export async function deriveRecipientWallet(input) {
-  exactKeys(input, 'wallet derivation input', ['addressIndex', 'instanceId', 'profileId', 'seed']);
+  exactKeys(input, 'wallet derivation input', ['instanceId', 'profileId', 'seed']);
   const profileId = hex32(input.profileId, 'wallet profileId'); const instanceId = hex32(input.instanceId, 'wallet instanceId');
-  const addressIndex = index(input.addressIndex); const seed = seed32(input.seed);
-  const spendSecret = deriveScalar(seed, 'shield.cash/wallet-spend/v1\0', profileId, instanceId, addressIndex);
-  const recoveryPrivateKey = sha256(Buffer.from('shield.cash/wallet-recovery-x25519/v1\0', 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'), u32be(addressIndex));
+  const seed = seed32(input.seed);
+  const spendSecret = deriveScalar(seed, 'shield.cash/wallet-spend/v1\0', profileId, instanceId);
+  const recoveryPrivateKey = sha256(Buffer.from('shield.cash/wallet-recovery-x25519/v1\0', 'utf8'), seed, Buffer.from(profileId, 'hex'), Buffer.from(instanceId, 'hex'));
   const reference = await createShieldedTransitionReference();
   const authority = reference.deriveNote({ profileId, instanceId, sk: spendSecret, rho: frToHex(1n), r: frToHex(1n) }).ak;
   field(authority, 'derived recipient authority key');
@@ -133,7 +128,7 @@ export async function deriveRecipientWallet(input) {
 
 /** Derive the public recipient address without exposing spend or scan material. */
 export async function deriveRecipientAddress(input) {
-  exactKeys(input, 'address derivation input', ['addressIndex', 'instanceId', 'profileId', 'seed']);
+  exactKeys(input, 'address derivation input', ['instanceId', 'profileId', 'seed']);
   return (await deriveRecipientWallet(input)).address;
 }
 
@@ -184,22 +179,20 @@ function decryptRecord({ recoveryPrivateKey, kind: recordKind, slot: recordSlot,
   return decoded;
 }
 
-/** Decrypt, recompute, and validate a record using only local seed/index material. */
+/** Decrypt, recompute, and validate a record from local seed and serialized chain fields. */
 export async function recoverRecipientOutput(input) {
-  exactKeys(input, 'recovery input', ['addressIndex', 'instanceId', 'kind', 'output', 'profileId', 'record', 'seed', 'slot']);
+  exactKeys(input, 'recovery input', ['instanceId', 'kind', 'outputCommitment', 'profileId', 'record', 'seed', 'slot']);
   const profileId = hex32(input.profileId, 'recovery profileId'); const instanceId = hex32(input.instanceId, 'recovery instanceId');
-  const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const addressIndex = index(input.addressIndex); const seed = seed32(input.seed);
-  exactKeys(input.output, 'recovery output', ['ak', 'cm', 'r', 'rho']);
-  const supplied = Object.freeze({ ak: field(input.output.ak, 'recovery output ak'), cm: field(input.output.cm, 'recovery output cm'), rho: field(input.output.rho, 'recovery output rho'), r: field(input.output.r, 'recovery output r') });
-  const wallet = await deriveRecipientWallet({ seed, addressIndex, profileId, instanceId });
-  if (wallet.address.ak !== supplied.ak) fail('output authority key does not match recipient address');
-  const decoded = decryptRecord({ recoveryPrivateKey: wallet.recoveryPrivateKey, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: supplied.cm, record: input.record });
+  const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const seed = seed32(input.seed);
+  const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
+  const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
+  const decoded = decryptRecord({ recoveryPrivateKey: wallet.recoveryPrivateKey, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, record: input.record });
   field(decoded.rho, 'record rho'); field(decoded.r, 'record r');
   const reference = await createShieldedTransitionReference();
   const output = reference.deriveOutputNote({ profileId, instanceId, ak: wallet.address.ak, rho: decoded.rho, r: decoded.r });
-  if (output.cm !== supplied.cm || output.rho !== supplied.rho || output.r !== supplied.r) fail('record plaintext does not match public output');
+  if (output.cm !== outputCommitment) fail('record plaintext does not match output commitment');
   const note = reference.deriveNote({ profileId, instanceId, sk: wallet.spendSecret, rho: decoded.rho, r: decoded.r });
-  if (note.ak !== supplied.ak || note.cm !== supplied.cm) fail('recomputed spendable note does not match public output');
+  if (note.ak !== wallet.address.ak || note.cm !== outputCommitment) fail('recomputed spendable note does not match output commitment');
   return Object.freeze(note);
 }
 

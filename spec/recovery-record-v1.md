@@ -22,14 +22,14 @@ accepts a discovered note.
 
 ## 2. Wallet derivation and public address
 
-Given a private 32-byte seed `S`, `profileId` `P`, `instanceId` `I`, and an
-unsigned big-endian u32 `j`, derive:
+Given a private 32-byte seed `S`, `profileId` `P`, and `instanceId` `I`, derive
+the one account-static V1 recipient keypair:
 
 ```
-sk_j = 1 + OS2IP(SHA256("shield.cash/wallet-spend/v1\\0" || S || P || I || u32be(j))) mod (Fr - 1)
-rk_j = SHA256("shield.cash/wallet-recovery-x25519/v1\\0" || S || P || I || u32be(j))
-ak_j = Poseidon(1001, limbs(P), limbs(I), sk_j)
-R_j  = X25519Public(rk_j)
+sk = 1 + OS2IP(SHA256("shield.cash/wallet-spend/v1\\0" || S || P || I)) mod (Fr - 1)
+rk = SHA256("shield.cash/wallet-recovery-x25519/v1\\0" || S || P || I)
+ak = Poseidon(1001, limbs(P), limbs(I), sk)
+R  = X25519Public(rk)
 ```
 
 The public recipient address object is exactly:
@@ -39,21 +39,17 @@ The public recipient address object is exactly:
   schema: "shield.cash/recipient-address/v1",
   profileId: P,
   instanceId: I,
-  ak: ak_j,
-  recoveryPublicKey: R_j
+  ak: ak,
+  recoveryPublicKey: R
 }
 ```
 
-It MUST NOT contain `S`, `sk_j`, `rk_j`, an address index, or any other scan
-secret. The address's profile and instance binding prevents cross-profile or
-cross-instance output construction.
-
-An index is intentionally absent from the fixed record plaintext. Consequently
-seed recovery is bounded: a wallet MUST retain its issued-index set or scan a
-locally configured finite index interval and attempt authenticated recovery for
-each candidate. This draft does not define, imply, or claim unbounded seed-only
-discovery. Wallets SHOULD issue index `0` as their account-static V1 address
-until a profile change specifies an interoperable gap-limit policy.
+It MUST NOT contain `S`, `sk`, `rk`, or any scan secret. The address's profile
+and instance binding prevents cross-profile or cross-instance output
+construction. V1 has exactly one recipient address per `(S,P,I)`, so recovery
+from seed, profile, instance, and chain history requires no address-gap scan.
+A multi-address hierarchy is outside this V1 profile and requires a new address
+version and profile definition.
 
 ## 3. Sender output construction
 
@@ -62,11 +58,13 @@ address and randomness. It samples canonical nonzero `rho` and `r` by rejection
 sampling CSPRNG 32-byte values below `Fr`, then calculates:
 
 ```
-cm = Poseidon(1002, limbs(P), limbs(I), 10000000, ak_j, rho, r)
+cm = Poseidon(1002, limbs(P), limbs(I), 10000000, ak, rho, r)
 ```
 
-The public output is exactly `{ak, rho, r, cm}`. A sender MUST NOT require or
-derive a recipient spend secret to construct it. Test-only deterministic RNG
+The sender-local output witness material is exactly `{ak, rho, r, cm}`. A
+sender MUST NOT require or derive a recipient spend secret to construct it.
+Only `cm` is serialized in the action packet; `ak`, `rho`, and `r` are private
+witness material and are not chain output fields. Test-only deterministic RNG
 injection is permitted only through an explicit `bytes(length)` interface;
 ordinary operation MUST use a CSPRNG and fail closed on RNG failure.
 
@@ -86,7 +84,7 @@ slot `s`, the record is:
 | 190 | 2 | zero padding `00 00` |
 
 The sender samples a fresh X25519 private input `e` and nonce `N` from the same
-CSPRNG interface, computes `E = X25519Public(e)` and `Z = X25519(e, R_j)`, and
+CSPRNG interface, computes `E = X25519Public(e)` and `Z = X25519(e, R)`, and
 uses:
 
 ```
@@ -105,16 +103,16 @@ an attempt to construct a withdrawal recipient record.
 
 ## 5. Recipient recovery
 
-For each configured candidate index `j`, the recipient derives `(sk_j,rk_j,ak_j)`
-from its local seed, validates the public output and record syntax, then opens
-the record with `X25519(rk_j,E)`, the exact AAD above, and `cm` from the public
-output. It MUST reject unless all of the following hold:
+From seed, `P`, and `I`, the recipient derives `(sk,rk,ak)`, reads only the
+serialized packet `outputCommitment` and 192-byte record, then opens the record
+with `X25519(rk,E)` and the exact AAD containing `outputCommitment`. It MUST
+reject unless all of the following hold:
 
 1. the tag verifies and `M` contains the expected `P` and `I`;
 2. decoded `rho` and `r` are canonical nonzero field values;
-3. public `ak` equals `ak_j`;
-4. recomputed `cm` equals the public `cm`; and
-5. `deriveNote(P,I,sk_j,rho,r)` has the same `ak` and `cm`.
+3. `Poseidon(1002, limbs(P), limbs(I), 10000000, ak, rho, r)` equals the
+   serialized `outputCommitment`; and
+4. `deriveNote(P,I,sk,rho,r)` has the same `ak` and `outputCommitment`.
 
 Failure at any step produces no accepted note. The resulting note may be used
 only after the separate chain/state/membership checks required by the protocol.
