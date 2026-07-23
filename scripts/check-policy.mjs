@@ -36,6 +36,20 @@ if (lock.status !== gates.gates.G0.status) fail('G0 lock and gate statuses diffe
 if (lock.baseline.scoreBytes !== 54949 || lock.baseline.wireBytes !== 54739) {
   fail('verifier baseline drifted');
 }
+if (
+  lock.selectedVerifier.candidate !== 'bn254-onetx-pf7-sub62-r1'
+  || lock.selectedVerifier.commit !== '26468ae29004d2401619032de2a6ec8de269a4d6'
+  || lock.selectedVerifier.inputs !== 7
+  || lock.selectedVerifier.measuredReferenceWireBytes !== 54296
+  || lock.selectedVerifier.measuredReferenceScoreBytes !== 54541
+  || lock.selectedVerifier.measuredMaxUnlockingBytes !== 9176
+  || lock.selectedVerifier.perInputUnlockingLimitBytes !== 10000
+  || lock.selectedVerifier.completeTransactionWireLimitBytes !== 59000
+  || lock.selectedVerifier.percentageHeadroomRequired !== false
+  || lock.selectedVerifier.largerGenericFallbackAllowed !== false
+) {
+  fail('selected seven-input verifier boundary drifted');
+}
 if (lock.feeModel.type !== 'transparent-input-with-change') {
   fail('fee model drifted');
 }

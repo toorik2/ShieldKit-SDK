@@ -1,6 +1,6 @@
 # Open decisions
 
-Document version: 0.2
+Document version: 0.3
 
 Status: Gate G0 decision register
 
@@ -33,6 +33,7 @@ Status: Gate G0 decision register
 | D-013 | LOCKED | Every V1 action uses one transparent fee input and one canonical change output; the pool reserve never subsidizes miner fees |
 | D-014 | LOCKED | The engineering target is a working end-to-end protocol instance on BCH Chipnet; mainnet deployment is not authorized |
 | D-015 | LOCKED | Verifier material is supplied through a versioned profile bundle: local setup is development-only; a multi-party-ceremony replacement creates a new immutable profile and instance |
+| D-016 | LOCKED | Use the exact seven-input `bn254-onetx-pf7-sub62-r1` topology under actual BCH limits: 10,000 bytes per unlock, no percentage-margin requirement, and no approximately 82-kilobyte generic fallback |
 
 ## 3. G0 defaults requiring ratification
 
@@ -47,7 +48,7 @@ Status: Gate G0 decision register
 | Q-007 | LOCKED | Immutable profiles; changes create a new profile | Prevents hidden upgrades | A charter revision |
 | Q-008 | LOCKED | Desktop, browser, and Android are required local targets | Wallet integration should not imply a desktop-only service | A charter revision |
 | Q-009 | LOCKED | Profile artifacts at most 512 MiB compressed | Larger downloads materially damage wallet integration | A charter revision with stricter or explicitly re-ratified budgets |
-| Q-010 | LOCKED | At least five percent BCH envelope headroom | Avoids qualifying a boundary-only construction | A charter revision with stricter headroom |
+| Q-010 | LOCKED | Pass actual BCH limits; each unlock is at most 10,000 bytes and no project-local percentage margin is required | Keeps the proven verifier unchanged while enforcing deterministic node rules | A charter revision |
 
 ## 4. Open product decisions
 
@@ -96,11 +97,13 @@ to the frozen V1 relation by implementation drift.
 
 ### Q-016 — proof system
 
-**Status:** MEASURED, owner: Gate G1
+**Status:** LOCKED topology; qualification owner: Gate G1
 
-Default candidate: BN254 Groth16 because it is the only locally evidenced
-standard-transaction verifier family. It is not selected until current,
-reproducible, full-byte evidence establishes the remaining pool budget.
+V1 selects BN254 Groth16 and the exact seven-input verifier.cash candidate
+`bn254-onetx-pf7-sub62-r1` at commit
+`26468ae29004d2401619032de2a6ec8de269a4d6`. Selection does not qualify the
+profile: G1 must still reproduce it from typed setup material, execute real
+proofs, and establish the complete transaction budget.
 
 The initial fee and envelope baseline is verifier.cash research candidate
 `bn254-onetx-pf6-a3-r1` at commit
@@ -123,6 +126,19 @@ source outputs to one 1,000-sat output, encoding only a 5,000-sat fee. It is not
 evidence of default-fee peer relay, a complete protocol action, or a qualified
 verifier release.
 
+The selected seven-input candidate was independently reproduced at 54,296
+serialized bytes and 54,541 all-bytes score. All seven verifier inputs accepted;
+the unlocking bytecodes measured 8,177, 6,654, 7,066, 7,066, 8,393, 7,443, and
+9,176 bytes. Its measured operation cost was 5,667,649 against a 5,987,200
+budget. The remaining margin is reported evidence, not a percentage gate.
+
+The candidate's hardcoded verification material is not a conforming profile.
+G1 must generate the same seven-input partition from the typed
+`development-only` bundle. It may not substitute the approximately
+82-kilobyte generic adapter. Complete transactions must be no larger than
+59,000 serialized bytes; the 54,739-byte PF6 figure remains the fee-sizing
+baseline rather than a complete-transaction hard ceiling.
+
 The initial Chipnet profile may use a freshly generated local Groth16 setup, but
 only through the standard verifier-bundle interface and only with
 `setupMode: development-only`. Its manifest must bind the relation, constraint
@@ -136,10 +152,10 @@ evidence. It necessarily has a new profile identifier and genesis. Compatibility
 means wallet and conformance semantics do not require a rewrite; it does not
 permit mutation of an existing instance.
 
-Required comparison dimensions:
+Required qualification dimensions:
 
 - complete transaction bytes;
-- operation-density headroom;
+- operation-density use and remaining margin;
 - number and type of setup assumptions;
 - proving-key size;
 - target-device proving time and memory;

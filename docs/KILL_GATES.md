@@ -1,8 +1,8 @@
 # Protocol kill-gate specification
 
-Document version: 0.2
+Document version: 0.3
 
-Status: binding; Gate G0 passed under `g0-v2`
+Status: binding; Gate G0 passed under `g0-v3`
 
 Applies to: every shield.cash standard, profile, implementation, and release claim
 
@@ -147,13 +147,20 @@ measurement. G0 fixes the required platforms and pass budgets.
 Can current BCH policy and VM behavior support any credible proof-verification
 profile without relying on stale or synthetic assumptions?
 
-The starting research baseline is verifier.cash candidate
+The starting fee-sizing baseline is verifier.cash candidate
 `bn254-onetx-pf6-a3-r1` at commit
 `26468ae29004d2401619032de2a6ec8de269a4d6`: 54,949 scored bytes and an
 implied 54,739-byte serialized transaction. This fixes the initial fee-sizing
 reference; it does not pass G1 or reserve any bytes for the protocol envelope.
 The research fixture encodes only a 5,000-satoshi fee and is not itself evidence
 of default-fee peer relay.
+
+The selected implementation topology is the seven-input
+`bn254-onetx-pf7-sub62-r1` candidate at the same commit. Its reproduced
+reference transaction is 54,296 serialized bytes, its all-bytes score is
+54,541, and its largest unlocking bytecode is 9,176 bytes. G1 must reproduce
+this exact partition from the typed development verifier bundle. It must not
+substitute the approximately 82-kilobyte generic adapter.
 
 Its fixed, hardcoded verifier material is a development sizing reference only.
 The build must generate and authenticate verifier material through the
@@ -186,9 +193,10 @@ versioned profile-bundle interface.
 
 ### Kill criteria
 
-G1 fails if no verifier profile leaves a credible measured budget for state,
-action data, encryption data, reserve enforcement, and transaction binding
-under the current standard transaction envelope.
+G1 fails if the selected seven-input topology cannot be generated from the
+typed verifier bundle, execute its real corpus within actual BCH limits, or
+leave enough measured space for a complete transaction at or below 59,000
+serialized bytes. There is no project-local percentage-margin requirement.
 
 A fixed-VK verifier passing G1 does not establish a pool profile.
 
@@ -197,7 +205,7 @@ A fixed-VK verifier passing G1 does not establish a pool profile.
 ### Question
 
 Does one exact, cryptographically complete protocol action fit and execute as a
-standard BCH transaction with engineering margin?
+standard BCH transaction within the selected measured envelope?
 
 ### Candidate freeze
 
@@ -225,14 +233,14 @@ profile identifier and genesis and cannot affect any existing instance.
    real proofs and their real public inputs.
 2. Every required preparation transaction and settlement transaction is
    included in the evidence package.
-3. Each transaction is at most 95,000 serialized bytes.
-4. The project’s all-bytes evidence score for each transaction is at most
-   95,000 bytes.
-5. Each unlocking bytecode is at most 9,500 bytes.
+3. Each transaction is at most 59,000 serialized bytes.
+4. The project’s all-bytes evidence score is complete and reported for each
+   transaction; no source locking bytecode or other scored byte is omitted.
+5. Each unlocking bytecode is at most 10,000 bytes.
 6. Each P2S locking bytecode is at most 190 bytes.
 7. Each state NFT commitment is at most 120 bytes.
-8. Every applicable operation-density and stack budget retains at least five
-   percent measured headroom.
+8. Every applicable operation-density and stack limit passes. Actual use and
+   remaining margin are recorded, but no percentage headroom is required.
 9. Two unmodified BCHN v29 peers accept the transactions as standard.
 10. An unmodified Chipnet peer relays them and a miner includes them.
 11. Libauth’s standard and consensus VMs agree with node verdicts.
@@ -517,8 +525,8 @@ legally compliant.
 
 | Gate | Status | Reason |
 | --- | --- | --- |
-| G0 | OPEN | RFC-0002 reopens the verifier input-limit and project-margin boundary |
-| G1 | NOT ENTERED | G0 prerequisite |
+| G0 | PASS | Direction frozen by `g0-v3`; actual BCH verifier limits and change control are machine-checked |
+| G1 | OPEN | Reproduce the selected seven-input topology from typed development bundles |
 | G2 | NOT ENTERED | G1 prerequisite |
 | G3 | NOT ENTERED | G2 prerequisite |
 | G4 | NOT ENTERED | G2 prerequisite |

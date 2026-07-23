@@ -2,7 +2,7 @@
 
 Document version: 0.1
 
-Status: Gate G0 baseline
+Status: ratified under `g0-v3`
 
 ## 1. Claim
 

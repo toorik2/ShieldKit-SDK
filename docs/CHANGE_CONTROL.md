@@ -2,7 +2,7 @@
 
 Document version: 1.1
 
-Status: binding under `g0-v2`
+Status: binding under `g0-v3`
 
 ## Rule
 

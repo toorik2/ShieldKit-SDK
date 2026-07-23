@@ -1,8 +1,8 @@
 # shield.cash protocol charter
 
-Document version: 0.2
+Document version: 0.3
 
-Status: ratified under `g0-v2`
+Status: ratified under `g0-v3`
 
 Scope: product and protocol authority, not an implementation specification
 

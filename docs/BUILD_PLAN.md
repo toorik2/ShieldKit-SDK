@@ -1,8 +1,8 @@
 # Executable build plan
 
-Document version: 1.1
+Document version: 1.2
 
-Status: active under the `g0-v2` freeze
+Status: active under the `g0-v3` freeze
 
 ## Outcome
 
@@ -34,6 +34,13 @@ acceptance, or isolated script success do not count.
   verifier-carrier values may also fund the miner fee.
 - Initial verifier sizing baseline: 54,949 all-bytes score and 54,739 serialized
   settlement bytes from verifier.cash candidate `bn254-onetx-pf6-a3-r1`.
+- Selected verifier topology: the exact seven-input
+  `bn254-onetx-pf7-sub62-r1` partition from the same pinned verifier.cash
+  commit. The reproduced reference is 54,296 serialized bytes with a
+  9,176-byte largest unlock. Each unlock must remain at most 10,000 bytes; no
+  percentage headroom is required; complete transactions must remain at most
+  59,000 serialized bytes. The approximately 82-kilobyte generic adapter is not
+  a fallback.
 - Verifier material: one typed, versioned profile bundle. The initial Chipnet
   build may use freshly generated local setup only as `development-only`; a
   later multi-party-ceremony bundle uses the same interface but creates a new
@@ -77,12 +84,15 @@ Run these workstreams in parallel where they do not share write ownership:
 
 4. **Envelope budget**
    - Allocate every byte and operation to verifier, state, action data,
-     encryption, fees, change, and safety margin.
-   - Reject any candidate that cannot retain the G2 headroom.
+     encryption, fees, and change.
+   - Reject the candidate if any actual BCH limit or the 59,000-byte complete
+     transaction ceiling is crossed. Report remaining margins without imposing
+     a percentage threshold or changing the verifier to manufacture margin.
 
 G1 ends with a reproducible PASS package or an explicit proof that the selected
-profile is infeasible. A failed candidate triggers a bounded alternative, not a
-weakened evidence bar.
+profile is infeasible. A failed selected topology does not authorize an
+approximately 82-kilobyte fallback; replacing it requires frozen-direction
+change control.
 
 ### B2 — freeze one exact G2 candidate
 

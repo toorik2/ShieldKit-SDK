@@ -1,8 +1,8 @@
 {
   "schema": "shield.cash/g0-lock/v1",
-  "freezeId": "g0-v2",
-  "freezeTag": "g0-v2",
-  "status": "OPEN",
+  "freezeId": "g0-v3",
+  "freezeTag": "g0-v3",
+  "status": "PASS",
   "frozenAt": "2026-07-23",
   "baseline": {
     "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
@@ -10,6 +10,18 @@
     "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
     "scoreBytes": 54949,
     "wireBytes": 54739
+  },
+  "selectedVerifier": {
+    "candidate": "bn254-onetx-pf7-sub62-r1",
+    "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "inputs": 7,
+    "measuredReferenceWireBytes": 54296,
+    "measuredReferenceScoreBytes": 54541,
+    "measuredMaxUnlockingBytes": 9176,
+    "perInputUnlockingLimitBytes": 10000,
+    "completeTransactionWireLimitBytes": 59000,
+    "percentageHeadroomRequired": false,
+    "largerGenericFallbackAllowed": false
   },
   "feeModel": {
     "type": "transparent-input-with-change",
@@ -60,40 +72,41 @@
     "D-012",
     "D-013",
     "D-014",
-    "D-015"
+    "D-015",
+    "D-016"
   ],
   "documents": [
     {
       "path": "AGENTS.md",
-      "sha256": "8221bef2da9740c20fef58531b151d68bb3e5ded0a69afeb3a9b75b8a51747cf"
+      "sha256": "ebe4542f304c8ba511bc7ddb32fa964eabda46cc4a8fae142ca71b538fe79bb9"
     },
     {
       "path": "docs/CHARTER.md",
-      "sha256": "22f694c89b9ffb7df8649a968b11a53b2893ed69d87c8930e80393602c2af5ae"
+      "sha256": "c956ae1b66b7d5d6bbb0d1159d76193bc88f3624b575a93d704abfcef011e24f"
     },
     {
       "path": "docs/KILL_GATES.md",
-      "sha256": "0f5fb356cbb0f8d3440b1af8cf30d5d7f78cb604c6320c1e88b4acd85847e694"
+      "sha256": "d2e3dd2a2947fe3cf2032e9e03d62155041134daeee9776b6d94ac815233374f"
     },
     {
       "path": "docs/OPEN_QUESTIONS.md",
-      "sha256": "8ddb17a917634355601a1a5228cb98a19db7b39ba5e24e0b4721df9abb3392c2"
+      "sha256": "2bbc12e645383c6b2c0d62ed531769bbad9a3f998096cae027c963c76a6c203e"
     },
     {
       "path": "docs/PRIVACY.md",
-      "sha256": "6e441896ef3f5242476c70be6498eb8ea7d793057403860b31b271ff5fccbf5f"
+      "sha256": "018c7919822a5edf8a16a517da6419ad09debe3aeac9a75b5a06e10e5a2a35f2"
     },
     {
       "path": "docs/BUILD_PLAN.md",
-      "sha256": "063019982b0dd968c213cfc45cb9a1f52dd6de65c588c65e07f8f9dff7831dbd"
+      "sha256": "af75a60790fdc403bda00715b1866062faa6b8fe4fbd9287764a1d36c05cafe8"
     },
     {
       "path": "docs/CHANGE_CONTROL.md",
-      "sha256": "229a505c21f23f051748413cde81d9bc2633a5cce9e75ebee0cb3881e4b870d0"
+      "sha256": "215e08f00af673633b8814b00bcf94ce89b77bca7ebc720a42e9e39d335408ef"
     },
     {
       "path": "scripts/check-policy.mjs",
-      "sha256": "2588b74f986a5e9828b9cb82a170e65a950fe4978ed389c3916b1036397c24bc"
+      "sha256": "1d81f45985a7dd25b45ab1bd564cb4e652b9da87e34a5612a4321917010b5a4b"
     },
     {
       "path": ".github/workflows/policy.yml",

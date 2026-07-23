@@ -100,7 +100,10 @@ This phase creates evidence experiments, not a protocol implementation.
 
 - reproduce verifier.cash candidate `bn254-onetx-pf6-a3-r1` from pinned commit
   `26468ae29004d2401619032de2a6ec8de269a4d6` as the initial 54,949-byte
-  score baseline;
+  score and 54,739-byte wire fee baseline;
+- reproduce the selected seven-input `bn254-onetx-pf7-sub62-r1` topology from
+  typed development setup material, retaining at most 10,000 bytes per unlock
+  and rejecting the approximately 82-kilobyte generic fallback;
 - define the versioned verifier-bundle interface and authenticated manifest;
 - generate two independently initialized `development-only` bundles and prove
   that they create distinct profile identifiers and genesis data without
@@ -380,7 +383,8 @@ G0 is frozen. The current work sequence is:
 2. independently reproduce and qualify the pinned 54,949-byte verifier score
    baseline;
 3. specify and measure the complete preparation-plus-action fee envelope;
-4. allocate the 95,000-byte complete-action budget;
+4. allocate the 59,000-byte complete-transaction budget without a
+   project-local percentage-margin requirement;
 5. benchmark a representative full-relation local prover; and
 6. pass or fail G1 before freezing a G2 candidate.
 

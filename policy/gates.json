@@ -3,13 +3,13 @@
   "updated": "2026-07-23",
   "gates": {
     "G0": {
-      "status": "OPEN",
-      "freeze": "g0-v2",
-      "reason": "RFC-0002 reopens the verifier input-limit and project-margin boundary."
+      "status": "PASS",
+      "freeze": "g0-v3",
+      "reason": "Direction frozen by g0-v3; actual BCH verifier limits and change control are machine-checked."
     },
     "G1": {
-      "status": "NOT ENTERED",
-      "reason": "G0 prerequisite."
+      "status": "OPEN",
+      "reason": "Reproduce the selected seven-input topology from typed development bundles."
     },
     "G2": {
       "status": "NOT ENTERED",
