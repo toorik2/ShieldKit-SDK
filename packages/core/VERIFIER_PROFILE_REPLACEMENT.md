@@ -9,8 +9,9 @@ output exists.
 
 The only accepted inputs are the two bundle directories. Caller-supplied
 profile, instance, network, or hash overrides are rejected. Both bundles must
-be `development-only` with `local-initialization` provenance. They must retain
-the same standard, Chipnet network, Groth16/BN254 relation and constraint
+be `development-only` with `local-initialization` provenance on exactly
+Chipnet. They must retain the same standard, Phase-1 ptau source and hash,
+compiler and generator toolchain records, Groth16/BN254 relation and constraint
 material, public-input ABI, witness-generator hash, and fixed-note-reserve
 genesis semantics, while changing setup commitments, final zkey, verification
 key, BCH verifier-set, profile ID, instance ID, and category input outpoint.

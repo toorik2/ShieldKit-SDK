@@ -397,6 +397,7 @@ export async function compareDevelopmentVerifierProfileBundles(input) {
 
   const leftManifest = left.manifest; const rightManifest = right.manifest;
   for (const [label, manifest] of [['left', leftManifest], ['right', rightManifest]]) {
+    if (manifest.network.name !== 'chipnet') fail(`replacement comparison requires ${label} Chipnet network`);
     if (manifest.setup.mode !== 'development-only') fail(`replacement comparison requires ${label} development-only setup`);
     if (manifest.setup.provenance.method !== 'local-initialization') fail(`replacement comparison requires ${label} local-initialization provenance`);
   }
@@ -412,6 +413,10 @@ export async function compareDevelopmentVerifierProfileBundles(input) {
   requireEqual(leftManifest.profile.publicInputAbi.id, rightManifest.profile.publicInputAbi.id, 'public-input ABI id');
   requireEqual(leftManifest.profile.publicInputAbi.sha256, rightManifest.profile.publicInputAbi.sha256, 'public-input ABI hash');
   requireEqual(artifactHashByKind(leftManifest, 'witness-generator'), artifactHashByKind(rightManifest, 'witness-generator'), 'witness-generator hash');
+  requireEqual(leftManifest.setup.material.phase1.ptauSource, rightManifest.setup.material.phase1.ptauSource, 'Phase-1 ptau source');
+  requireEqual(leftManifest.setup.material.phase1.ptauSha256, rightManifest.setup.material.phase1.ptauSha256, 'Phase-1 ptau hash');
+  requireEqual(canonicalJson(leftManifest.toolchain.compiler), canonicalJson(rightManifest.toolchain.compiler), 'compiler toolchain record');
+  requireEqual(canonicalJson(leftManifest.toolchain.generator), canonicalJson(rightManifest.toolchain.generator), 'generator toolchain record');
   requireEqual(leftManifest.genesis.reserveCapSatoshis, rightManifest.genesis.reserveCapSatoshis, 'denomination-relevant reserve-cap semantics');
 
   requireDistinct(leftManifest.setup.provenance.initializerCommitment, rightManifest.setup.provenance.initializerCommitment, 'initializer commitments');
@@ -436,6 +441,8 @@ export async function compareDevelopmentVerifierProfileBundles(input) {
       constraintSystemHash: leftManifest.profile.constraintSystemHash,
       publicInputAbi: leftManifest.profile.publicInputAbi,
       witnessGeneratorHash: artifactHashByKind(leftManifest, 'witness-generator'),
+      setupPhase1: leftManifest.setup.material.phase1,
+      toolchain: leftManifest.toolchain,
       genesis: { reserveCapSatoshis: leftManifest.genesis.reserveCapSatoshis },
     },
     replacements: {

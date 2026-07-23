@@ -95,6 +95,10 @@ async function makeReplacementBundle(seed) {
   return makeDevelopmentBundle(seed, (manifest, files) => {
     files['artifacts/witness-generator.bin'] = fixtureBytes('witness-generator', 'shared-replacement-interface');
     manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator').sha256 = digest(files['artifacts/witness-generator.bin']);
+    manifest.setup.material.phase1 = {
+      ptauSource: 'shared-noncryptographic-replacement-ptau',
+      ptauSha256: digest('shared-noncryptographic-replacement-ptau'),
+    };
   });
 }
 
@@ -172,6 +176,8 @@ test('replacement comparator proves only the local-development interface propert
   assert.equal(comparison.scope, 'interface-replacement-only');
   assert.equal(comparison.replacementProperty, 'satisfied');
   assert.equal(comparison.shared.witnessGeneratorHash, first.manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator').sha256);
+  assert.deepEqual(comparison.shared.setupPhase1, first.manifest.setup.material.phase1);
+  assert.deepEqual(comparison.shared.toolchain, first.manifest.toolchain);
   assert.notEqual(comparison.replacements.left.profileId, comparison.replacements.right.profileId);
   assert.notDeepEqual(comparison.replacements.left.categoryInputOutpoint, comparison.replacements.right.categoryInputOutpoint);
 
@@ -194,6 +200,44 @@ test('replacement comparator proves only the local-development interface propert
   await assert.rejects(
     () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: changedReserve.directory }),
     /requires equal denomination-relevant reserve-cap semantics/,
+  );
+  const phaseSourceDrift = await makeReplacementBundle('replacement-phase-source');
+  phaseSourceDrift.manifest.setup.material.phase1.ptauSource = 'different-phase1-source';
+  await writeBoundManifest(phaseSourceDrift);
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: phaseSourceDrift.directory }),
+    /requires equal Phase-1 ptau source/,
+  );
+  const phaseHashDrift = await makeReplacementBundle('replacement-phase-hash');
+  phaseHashDrift.manifest.setup.material.phase1.ptauSha256 = digest('different-phase1-hash');
+  await writeBoundManifest(phaseHashDrift);
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: phaseHashDrift.directory }),
+    /requires equal Phase-1 ptau hash/,
+  );
+  const compilerDrift = await makeReplacementBundle('replacement-compiler');
+  compilerDrift.manifest.toolchain.compiler.version = 'different-compiler';
+  await writeBoundManifest(compilerDrift);
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: compilerDrift.directory }),
+    /requires equal compiler toolchain record/,
+  );
+  const generatorDrift = await makeReplacementBundle('replacement-generator');
+  generatorDrift.manifest.toolchain.generator.sha256 = digest('different-generator');
+  await writeBoundManifest(generatorDrift);
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: first.directory, rightDirectory: generatorDrift.directory }),
+    /requires equal generator toolchain record/,
+  );
+  const nonChipnetLeft = await makeReplacementBundle('replacement-mainnet-left');
+  const nonChipnetRight = await makeReplacementBundle('replacement-mainnet-right');
+  for (const bundle of [nonChipnetLeft, nonChipnetRight]) {
+    bundle.manifest.network.name = 'mainnet'; bundle.manifest.genesis.network = 'mainnet';
+    await writeBoundManifest(bundle);
+  }
+  await assert.rejects(
+    () => compareDevelopmentVerifierProfileBundles({ leftDirectory: nonChipnetLeft.directory, rightDirectory: nonChipnetRight.directory }),
+    /only chipnet is authorized/,
   );
 
   const alias = path.join(first.directory, 'bundle-alias');
