@@ -18,7 +18,9 @@ const instanceId = hex(0x22, 32);
 const category = hex(0x33, 32);
 const verifierLock = (index) => `aa20${hex(index + 1, 32)}87`;
 const p2s = (opcode) => opcode.toString(16).padStart(2, '0');
-const outpoint = (index) => hex(index + 10, 32);
+const outpoint = (index) => Buffer.from(
+  Array.from({ length: 32 }, (_, offset) => (index * 37 + offset * 11 + 3) & 0xff),
+).toString('hex');
 const state = (sequence, reserve, commitment) => ({
   profileId,
   instanceId,

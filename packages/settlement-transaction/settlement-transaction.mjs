@@ -112,11 +112,14 @@ function parseInput(value, label) {
     'unlockingBytecode',
   ]);
   return {
+    // Libauth transaction objects use display/hash order and reverse this
+    // field during wire serialization. SCCT deliberately stores serialized
+    // wire order, so convert exactly once at this boundary.
     outpointTransactionHash: hexBytes(
       value.outpointTransactionHashWire,
       32,
       `${label}.outpointTransactionHashWire`,
-    ),
+    ).reverse(),
     outpointIndex: Number(decimal(value.outpointIndex, MAX_U32, `${label}.outpointIndex`)),
     sequenceNumber: Number(decimal(value.sequenceNumber, MAX_U32, `${label}.sequenceNumber`)),
     unlockingBytecode: hexBytes(value.unlockingBytecode, undefined, `${label}.unlockingBytecode`),
