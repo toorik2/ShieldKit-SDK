@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateStructuralRoles } from './real-deposit-leanbch-fixture.mjs';
+import { actionFixturePaths, evaluateStructuralRoles } from './real-deposit-leanbch-fixture.mjs';
 
 test('public real deposit fixture canonically replays structural inputs 7 and 8 in Libauth', async () => {
   const result = await evaluateStructuralRoles();
@@ -18,4 +18,11 @@ test('public real deposit fixture canonically replays structural inputs 7 and 8 
   ]);
   assert.equal(Object.hasOwn(result.fixture, 'proof'), false);
   assert.equal(Object.hasOwn(result.fixture, 'wallet'), false);
+});
+
+test('public real transfer and withdrawal fixtures canonically replay structural inputs 7 and 8 in Libauth', async () => {
+  for (const path of actionFixturePaths.slice(1)) {
+    const result = await evaluateStructuralRoles(path);
+    assert.deepEqual(result.libauth.map((row) => [row.inputIndex, row.accepted]), [[7, true], [8, true]]);
+  }
 });

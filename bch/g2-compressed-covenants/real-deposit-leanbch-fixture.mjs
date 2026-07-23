@@ -19,6 +19,7 @@ const accepts = (result) => result.error === undefined
   && result.stack.length === 1 && result.stack[0].some((byte) => byte !== 0);
 
 export const fixturePath = new URL('./fixtures/deposit-complete-real-v1.json', import.meta.url);
+export const actionFixturePaths = Object.freeze(['deposit', 'transfer', 'withdrawal'].map((action) => new URL(`./fixtures/${action}-complete-real-v1.json`, import.meta.url)));
 
 function sourceOutputFromFixture(output, index) {
   if (typeof output?.valueSatoshis !== 'string' || !/^[0-9]+$/.test(output.valueSatoshis)) {
