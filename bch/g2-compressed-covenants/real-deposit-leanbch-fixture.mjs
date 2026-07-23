@@ -42,7 +42,7 @@ function sourceOutputFromFixture(output, index) {
 export async function loadRealDepositFixture(path = fixturePath) {
   const fixtureBytes = await readFile(path);
   const fixture = JSON.parse(fixtureBytes);
-  if (fixture.schema !== 'shield.cash/g2-real-deposit-leanbch-fixture/v1') {
+  if (fixture.schema !== 'shield.cash/g2-real-action-leanbch-fixture/v1' && fixture.schema !== 'shield.cash/g2-real-deposit-leanbch-fixture/v1') {
     throw new Error(`unexpected fixture schema: ${fixture.schema}`);
   }
   if (!Array.isArray(fixture.sourceOutputs) || fixture.sourceOutputs.length !== 10) {

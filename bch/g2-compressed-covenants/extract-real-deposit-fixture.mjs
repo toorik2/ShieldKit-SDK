@@ -38,7 +38,7 @@ const sourceOutputForWire = (output) => ({
   }),
 });
 
-if (source.schema !== 'shield.cash/chipnet-complete-deposit/v1') {
+if (!/^shield\.cash\/chipnet-complete-(deposit|transfer|withdrawal)\/v1$/.test(source.schema)) {
   throw new Error(`unexpected source schema: ${source.schema}`);
 }
 if (!Array.isArray(source.sourceOutputs) || source.sourceOutputs.length !== 10) {
@@ -59,7 +59,7 @@ const sourceOutputsWire = Buffer.concat([
 ]);
 
 const fixture = {
-  schema: 'shield.cash/g2-real-deposit-leanbch-fixture/v1',
+  schema: 'shield.cash/g2-real-action-leanbch-fixture/v1',
   qualification: [
     'Public structural LeanBCH fixture for real complete deposit transaction.',
     'It evaluates only input 7 binding and input 8 state helper.',

@@ -1,5 +1,5 @@
 {
-  "schema": "shield.cash/g2-real-deposit-leanbch-fixture/v1",
+  "schema": "shield.cash/g2-real-action-leanbch-fixture/v1",
   "qualification": "Public structural LeanBCH fixture for real complete deposit transaction. It evaluates only input 7 binding and input 8 state helper. It does not LeanBCH-verify PF7 roles 0 through 6, the fee signature, standardness, BCHN relay, or Chipnet inclusion.",
   "provenance": {
     "sourceArtifactFilename": "deposit-complete.json",
