@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:key",
+    "test": "npm run test:key && node --test scripts/*.test.mjs",
     "test:key": "node scripts/nullifier-key-crosscheck.mjs",
     "generate:deposit": "node scripts/generate-deposit-input.mjs",
     "generate:core-vectors": "node scripts/generate-core-vectors.mjs",
