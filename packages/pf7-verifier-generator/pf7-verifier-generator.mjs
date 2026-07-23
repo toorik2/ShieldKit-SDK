@@ -30,6 +30,7 @@ const HASH = /^[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(packageDirectory, '../..');
 const provenanceFile = path.join(repositoryRoot, 'provenance/verifier.cash-pf7-sub62/series.json');
+const seamProvenanceFile = path.join(repositoryRoot, 'provenance/verifier.cash-pf7-sub62/seam-series.json');
 const referenceMatrixFile = path.join(repositoryRoot, 'evidence/G1/pf7-verifier-generator/reference-matrix.json');
 const ACTION_KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 
@@ -128,27 +129,47 @@ async function validateHarnessRuntime(checkout) {
   const packages = await validateRuntimePackageVersions(path.join(harness.path, 'node_modules'), HARNESS_RUNTIME_PACKAGES, 'verifier harness');
   return { packageManifestSha256: HARNESS_PACKAGE_SHA256, lockfileSha256: HARNESS_LOCK_SHA256, packages };
 }
+async function validatePatches(source, filename, expectedLength) {
+  if (!Array.isArray(source.patches) || source.patches.length !== expectedLength) fail('retained PF7 provenance patch count mismatch');
+  for (const patch of source.patches) { exactKeys(patch, 'PF7 provenance patch', ['commit', 'path', 'sha256', 'tree']); if (!HASH.test(patch.sha256) || !/^[0-9a-f]{40}$/.test(patch.commit) || !/^[0-9a-f]{40}$/.test(patch.tree) || !/^patches\/[0-9]{4}-[A-Za-z0-9._-]+\.patch$/.test(patch.path)) fail('PF7 provenance patch is malformed'); const file = await regularAbsolute(path.join(path.dirname(filename), patch.path), 'PF7 provenance patch'); if (digest(await readFile(file.path)) !== patch.sha256) fail(`retained patch hash mismatch: ${patch.path}`); }
+}
 export async function validateProvenance() {
-  const bytes = await readFile(provenanceFile); const source = parseStrictJson(bytes, 'PF7 provenance');
-  exactKeys(source, 'PF7 provenance', ['base', 'patches', 'referenceTerminal', 'schema', 'terminal']);
-  exactKeys(source.base, 'PF7 provenance base', ['commit']);
-  exactKeys(source.referenceTerminal, 'PF7 provenance reference terminal', ['commit', 'tree']);
-  exactKeys(source.terminal, 'PF7 provenance terminal', ['commit', 'tree']);
+  const source = parseStrictJson(await readFile(provenanceFile), 'PF7 reference provenance');
+  exactKeys(source, 'PF7 reference provenance', ['base', 'patches', 'schema', 'terminal']);
+  exactKeys(source.base, 'PF7 reference provenance base', ['commit']);
+  exactKeys(source.terminal, 'PF7 reference provenance terminal', ['commit', 'tree']);
+  if (!Array.isArray(source.patches)) fail('PF7 reference provenance patches must be an array');
   if (
-    source.schema !== 'shield.cash/verifier.cash-pf7-provenance/v2'
+    source.schema !== 'shield.cash/verifier.cash-pf7-provenance/v1'
+    || source.base.commit !== BASE
+    || source.terminal.commit !== REFERENCE_TERMINAL
+    || source.terminal.tree !== REFERENCE_TREE
+    || source.patches[6]?.commit !== REFERENCE_TERMINAL
+    || source.patches[6]?.tree !== REFERENCE_TREE
+  ) fail('retained PF7 reference provenance is not the approved historical chain');
+  await validatePatches(source, provenanceFile, 7);
+  return source;
+}
+export async function validateSeamProvenance() {
+  const source = parseStrictJson(await readFile(seamProvenanceFile), 'PF7 seam provenance');
+  exactKeys(source, 'PF7 seam provenance', ['base', 'patches', 'referenceTerminal', 'schema', 'terminal']);
+  exactKeys(source.base, 'PF7 seam provenance base', ['commit']);
+  exactKeys(source.referenceTerminal, 'PF7 seam provenance reference terminal', ['commit', 'tree']);
+  exactKeys(source.terminal, 'PF7 seam provenance terminal', ['commit', 'tree']);
+  if (!Array.isArray(source.patches)) fail('PF7 seam provenance patches must be an array');
+  if (
+    source.schema !== 'shield.cash/verifier.cash-pf7-seam-provenance/v1'
     || source.base.commit !== BASE
     || source.referenceTerminal.commit !== REFERENCE_TERMINAL
     || source.referenceTerminal.tree !== REFERENCE_TREE
     || source.terminal.commit !== SEAM_TERMINAL
     || source.terminal.tree !== SEAM_TREE
-    || !Array.isArray(source.patches)
-    || source.patches.length !== 8
     || source.patches[6]?.commit !== REFERENCE_TERMINAL
     || source.patches[6]?.tree !== REFERENCE_TREE
     || source.patches[7]?.commit !== SEAM_TERMINAL
     || source.patches[7]?.tree !== SEAM_TREE
   ) fail('retained PF7 provenance is not the approved reference-plus-seam chain');
-  for (const patch of source.patches) { exactKeys(patch, 'PF7 provenance patch', ['commit', 'path', 'sha256', 'tree']); if (!HASH.test(patch.sha256) || !/^[0-9a-f]{40}$/.test(patch.commit) || !/^[0-9a-f]{40}$/.test(patch.tree) || !/^patches\/[0-9]{4}-[A-Za-z0-9._-]+\.patch$/.test(patch.path)) fail('PF7 provenance patch is malformed'); const file = await regularAbsolute(path.join(path.dirname(provenanceFile), patch.path), 'PF7 provenance patch'); if (digest(await readFile(file.path)) !== patch.sha256) fail(`retained patch hash mismatch: ${patch.path}`); }
+  await validatePatches(source, seamProvenanceFile, 8);
   return source;
 }
 async function referenceRowForAdapter(adapterSha256) {
@@ -228,7 +249,7 @@ function validateVerifierShape(verifier) {
   for (const key of ['cashcRoot', 'checkout', 'leanBchRoot']) if (!path.isAbsolute(string(verifier[key], `verifier.${key}`))) fail(`verifier.${key} must be absolute`);
   return verifier;
 }
-async function prepareVerifier(input, { commit, tree, label }) {
+async function prepareVerifier(input, { commit, tree, label, provenance }) {
   const verifierRoot = await regularAbsolute(input.checkout, 'verifier.checkout', { directory: true });
   const cashcRoot = await regularAbsolute(input.cashcRoot, 'verifier.cashcRoot', { directory: true });
   const leanRoot = await regularAbsolute(input.leanBchRoot, 'verifier.leanBchRoot', { directory: true });
@@ -239,7 +260,9 @@ async function prepareVerifier(input, { commit, tree, label }) {
   const harnessRuntime = await validateHarnessRuntime(verifierRoot.path);
   const leanOptimizerRuntime = await validateLeanOptimizerRuntime(leanRoot.path);
   const verifier = { ...input, checkout: verifierRoot.path, cashcRoot: cashcRoot.path, leanBchRoot: leanRoot.path };
-  await validateProvenance();
+  if (provenance === 'reference') await validateProvenance();
+  else if (provenance === 'seam') await validateSeamProvenance();
+  else fail('unknown PF7 provenance selection');
   if (
     await git(verifier.checkout, ['rev-parse', 'HEAD']) !== commit
     || await git(verifier.checkout, ['rev-parse', 'HEAD^{tree}']) !== tree
@@ -354,7 +377,7 @@ export async function generatePf7VerifierSet(input) {
   inputValidation(input); const adapter = await pinnedFile(input.adapter, 'adapter'); const adapterValue = validateAdapter(adapter.bytes); await validateAdapterSources(adapterValue);
   const expectedForAdapter = await expectedSourceSetForAdapter(adapter.sha256);
   if (input.expectedSourceSetSha256 !== expectedForAdapter) fail('caller source-lock set is not the adapter action-invariant set');
-  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: REFERENCE_TERMINAL, tree: REFERENCE_TREE, label: 'reference' });
+  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: REFERENCE_TERMINAL, tree: REFERENCE_TREE, label: 'reference', provenance: 'reference' });
   const { destination, parent } = await reserveDestination(input.destination);
   const stage = await mkdtemp(path.join(parent.path, '.pf7-generator-')); let reservation; let published = false;
   try {
@@ -408,7 +431,7 @@ export async function generatePf7ActionSeamCorpus(input) {
   if (new Set(actions.map((action) => action.reference.row.setup)).size !== 1) fail('all seam adapters must belong to one reference setup');
   if (new Set(actions.map((action) => action.reference.sourceSetSha256)).size !== 1) fail('reference adapters do not have action-invariant source locks');
 
-  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: SEAM_TERMINAL, tree: SEAM_TREE, label: 'seam' });
+  const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: SEAM_TERMINAL, tree: SEAM_TREE, label: 'seam', provenance: 'seam' });
   const { destination } = await reserveDestination(input.destination);
   const scratch = await regularAbsolute(input.scratchDirectory, 'scratchDirectory', { directory: true });
   const stage = await mkdtemp(path.join(scratch.path, '.pf7-seam-corpus-')); let reservation; let published = false;

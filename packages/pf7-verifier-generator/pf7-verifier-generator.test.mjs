@@ -17,6 +17,7 @@ import {
   validateAdapter,
   validateProvenance,
   validateRuntimePackageVersions,
+  validateSeamProvenance,
 } from './pf7-verifier-generator.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -26,12 +27,15 @@ const push = (bytes) => Buffer.concat([Buffer.from([bytes.length]), bytes]).toSt
 const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
 
 test('retained PF7 format-patch chain is hash-pinned and complete', async () => {
-  const provenance = await validateProvenance();
-  assert.equal(provenance.patches.length, 8);
-  assert.equal(provenance.referenceTerminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');
-  assert.equal(provenance.terminal.commit, '1d543756602edfd92081a0b58dba62d33d0aea34');
-  assert.equal(provenance.terminal.tree, '1c1efb23e95bf51a715f8ab29f3cf698a359303d');
-  assert.equal(provenance.patches[7].sha256, 'c40db1abc1cb54fca82c5754f985d6ede22d236f8bf1404771ae105ab438bd83');
+  const reference = await validateProvenance();
+  assert.equal(reference.patches.length, 7);
+  assert.equal(reference.terminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');
+  const seam = await validateSeamProvenance();
+  assert.equal(seam.patches.length, 8);
+  assert.equal(seam.referenceTerminal.commit, reference.terminal.commit);
+  assert.equal(seam.terminal.commit, '1d543756602edfd92081a0b58dba62d33d0aea34');
+  assert.equal(seam.terminal.tree, '1c1efb23e95bf51a715f8ab29f3cf698a359303d');
+  assert.equal(seam.patches[7].sha256, 'c40db1abc1cb54fca82c5754f985d6ede22d236f8bf1404771ae105ab438bd83');
 });
 
 test('seven exact P2SH32 source/redeem pairs are canonicalized in role order', () => {

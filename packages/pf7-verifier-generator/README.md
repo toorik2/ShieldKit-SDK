@@ -72,7 +72,8 @@ settlement, G2 artifact, node/relay result, Chipnet result, profile, ceremony,
 or release claim.
 
 The retained verifier source chain is in
-`provenance/verifier.cash-pf7-sub62/series.json` and `patches/`. It is part of
-the reproducible authority. The v2 record keeps the historical reference
-terminal distinct from the later digest-seam terminal; temporary worktrees are
-not authority.
+`provenance/verifier.cash-pf7-sub62/series.json`,
+`provenance/verifier.cash-pf7-sub62/seam-series.json`, and `patches/`. The
+historical seven-patch reference manifest remains byte-identical at its
+original path; the eight-patch seam manifest is a distinct authority record.
+Temporary worktrees are not authority.
