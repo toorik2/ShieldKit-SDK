@@ -34,16 +34,6 @@
   ],
   "artifacts": [
     {
-      "path": "circuits/g1-relation/src/g1_relation.circom",
-      "sha256": "b4ac0cc622a0551df3220fa042be29ddf36b427e2f9bf48a247d38f0ef7e4f03",
-      "bytes": 22872
-    },
-    {
-      "path": "circuits/g1-relation/CIRCUIT_SCOPE.md",
-      "sha256": "a073bb794faee4d132a4c9540416d516fe29dc8e20d9dbeb7533fde8ede5e823",
-      "bytes": 2673
-    },
-    {
       "path": "evidence/G1/relation-circuit/2026-07-23-circom-subset.json",
       "sha256": "6943bead16ae7b1f5c894bde68d3b0688fac171db90350094356997b39f21b08",
       "bytes": 2087
