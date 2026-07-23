@@ -6,19 +6,14 @@
   "claim": "A Circom relation compilation SHA-binds the complete 752-byte core action packet and accepts the three checked-in core transition vectors while rejecting targeted invalid inputs.",
   "source": {
     "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
-    "commit": "bfd5594734cf07541180480d19e30c97c0db38a1",
+    "commit": "f02b3627766e6ea0627c2dcfb3e491e64f05951c",
     "dirtyPaths": [
-      "circuits/g1-relation/CIRCUIT_SCOPE.md",
-      "circuits/g1-relation/package.json",
-      "circuits/g1-relation/scripts/generate-core-vectors.mjs",
-      "circuits/g1-relation/scripts/make-invalid-core-vector.mjs",
-      "circuits/g1-relation/src/g1_relation.circom",
       "evidence/G1/relation-circuit/full/core-vector-summary.json",
       "evidence/G1/relation-circuit/full/observation.json"
     ]
   },
   "environment": {
-    "observedAt": "2026-07-23T13:53:15Z",
+    "observedAt": "2026-07-23T14:11:18Z",
     "hardware": {
       "architecture": "x86_64"
     },
@@ -33,32 +28,35 @@
   "commands": [
     "npm ci --prefix circuits/g1-relation --no-audit --no-fund",
     "npm ci --prefix packages/core --no-audit --no-fund",
-    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym -o /tmp/g1-full-build-NzoA3z",
-    "npm --prefix circuits/g1-relation run generate:core-vectors -- /tmp/g1-core-vectors-Fr4JU0",
-    "node /tmp/g1-full-build-NzoA3z/g1_relation_js/generate_witness.js /tmp/g1-full-build-NzoA3z/g1_relation_js/g1_relation.wasm /tmp/g1-core-vectors-Fr4JU0/{deposit,transfer,withdrawal}.json /tmp/g1-full-build-NzoA3z/{deposit,transfer,withdrawal}.wtns",
-    "circuits/g1-relation/node_modules/.bin/snarkjs wtns check /tmp/g1-full-build-NzoA3z/g1_relation.r1cs /tmp/g1-full-build-NzoA3z/{deposit,transfer,withdrawal}.wtns",
-    "npm --prefix circuits/g1-relation run make:invalid-core-vector -- SOURCE.json TARGET.json digest|membership|nullifier|reserve|inactive-record"
+    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym --inspect -o /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0",
+    "npm --prefix circuits/g1-relation run generate:core-vectors -- /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors",
+    "node /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/g1_relation_js/generate_witness.js /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/g1_relation_js/g1_relation.wasm /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors/{deposit,transfer,withdrawal}.json /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors/{deposit,transfer,withdrawal}.wtns",
+    "circuits/g1-relation/node_modules/.bin/snarkjs wtns check /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/g1_relation.r1cs /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors/{deposit,transfer,withdrawal}.wtns",
+    "npm --prefix circuits/g1-relation run make:invalid-core-vector -- SOURCE.json TARGET.json digest|membership|nullifier|reserve|inactive-record; witness generation rejected all five generated invalid inputs"
   ],
   "artifacts": [
     {
       "path": "evidence/G1/relation-circuit/full/core-vector-summary.json",
-      "sha256": "10255356b7914dc488205027344248236f9196b89d5b3747fe3a0ed8c6c0a958",
+      "sha256": "1443567cce317e7bfa759bc7e2b5c6bcdd4f5523bc5cbf73ec0c3caab4a738f9",
       "bytes": 974
     }
   ],
   "measurements": {
     "packetBytes": 752,
     "shaInputBits": 6016,
-    "nonlinearConstraints": 469863,
-    "linearConstraints": 138636,
+    "nonlinearConstraints": 469871,
+    "linearConstraints": 138628,
     "r1csConstraints": 608499,
     "wires": 603165,
     "publicInputs": 2,
     "privateInputs": 1768,
-    "circuitSourceSha256": "8a8785de2aab103d9dd775c68553ffbe8fb1004c71b65b29c3608d5679872fac",
-    "vectorGeneratorSha256": "11baaa144b5c1f40d155b5f911bd0c0a3b670e015c8a6a6740a25e9a2aee172d",
-    "r1csBytes": 118084384,
-    "wasmBytes": 9977135,
+    "circuitSourceSha256": "fe654ca6b5e38b6e06623c803a21e6e687455bef178023f79c785b06684f0af2",
+    "vectorGeneratorSha256": "eddea24f46c5ced930be8165ae88408dc46c1c32a79aa67da5030b0517c251f8",
+    "r1csSha256": "46e109afbd2e1b129bcd9a5661b4a98e268cf6753144349686829f139c4f5d3a",
+    "wasmSha256": "1332f89bf4287fc51d7a6f4fd86acb45511a3aaf4ccd4859c6aecda4dd4b3b57",
+    "symSha256": "0f12925718c93d3067e345df783bc90ca104ded6645053ca1807109f89c802ed",
+    "r1csBytes": 118085248,
+    "wasmBytes": 9977099,
     "minimumPtauPowerForConstraintCount": 20,
     "minimumPtauCapacity": 1048576,
     "ptauPower19Capacity": 524288

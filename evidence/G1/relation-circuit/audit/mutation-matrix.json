@@ -16,27 +16,27 @@
     },
     "transfer": {
       "packetBytes": 752,
-      "digest": "bd6df7eeff6521677fcb831c8c8fac1085c8fd4bbd48be9fda752666ae3447d7",
+      "digest": "db6eb2e27eb60f95ddf4d74414b6598e5562e9870489f9ced0794325e8e384ad",
       "expectedLimbs": [
-        "bd6df7eeff6521677fcb831c8c8fac10",
-        "85c8fd4bbd48be9fda752666ae3447d7"
+        "db6eb2e27eb60f95ddf4d74414b6598e",
+        "5562e9870489f9ced0794325e8e384ad"
       ],
       "observedLimbs": [
-        "bd6df7eeff6521677fcb831c8c8fac10",
-        "85c8fd4bbd48be9fda752666ae3447d7"
+        "db6eb2e27eb60f95ddf4d74414b6598e",
+        "5562e9870489f9ced0794325e8e384ad"
       ],
       "pass": true
     },
     "withdrawal": {
       "packetBytes": 752,
-      "digest": "9509f08e76a788c5ec47b9fe016a35ff9ea77197c1b31c8d7fea29070a97f3d1",
+      "digest": "3c13e43dfeea20e18a81bef417fb90be56030686fe39e914f420631b00937887",
       "expectedLimbs": [
-        "9509f08e76a788c5ec47b9fe016a35ff",
-        "9ea77197c1b31c8d7fea29070a97f3d1"
+        "3c13e43dfeea20e18a81bef417fb90be",
+        "56030686fe39e914f420631b00937887"
       ],
       "observedLimbs": [
-        "9509f08e76a788c5ec47b9fe016a35ff",
-        "9ea77197c1b31c8d7fea29070a97f3d1"
+        "3c13e43dfeea20e18a81bef417fb90be",
+        "56030686fe39e914f420631b00937887"
       ],
       "pass": true
     }

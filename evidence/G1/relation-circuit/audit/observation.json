@@ -6,17 +6,14 @@
   "claim": "A local pre-setup audit checks the full packet relation's R1CS input incidence, public-limb parity, and systematic adversarial mutation behavior.",
   "source": {
     "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
-    "commit": "944c5f743328b5261f94e879f32251bcc0b6a222",
+    "commit": "f02b3627766e6ea0627c2dcfb3e491e64f05951c",
     "dirtyPaths": [
-      "circuits/g1-relation/AUDIT.md",
-      "circuits/g1-relation/package.json",
-      "circuits/g1-relation/scripts/audit-g1-relation.mjs",
       "evidence/G1/relation-circuit/audit/mutation-matrix.json",
       "evidence/G1/relation-circuit/audit/observation.json"
     ]
   },
   "environment": {
-    "observedAt": "2026-07-23T14:03:05Z",
+    "observedAt": "2026-07-23T14:11:18Z",
     "hardware": {
       "architecture": "x86_64"
     },
@@ -31,15 +28,15 @@
   "commands": [
     "npm ci --prefix circuits/g1-relation --no-audit --no-fund",
     "npm ci --prefix packages/core --no-audit --no-fund",
-    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym --inspect -o /tmp/g1-audit-build-HMbByW",
-    "circuits/g1-relation/node_modules/.bin/snarkjs r1cs info /tmp/g1-audit-build-HMbByW/g1_relation.r1cs",
-    "npm --prefix circuits/g1-relation run generate:core-vectors -- /tmp/g1-audit-vectors-08IMkV",
-    "npm --prefix circuits/g1-relation run audit:constraints -- /tmp/g1-audit-build-HMbByW /tmp/g1-audit-vectors-08IMkV /tmp/g1-audit-summary.json"
+    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym --inspect -o /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0",
+    "circuits/g1-relation/node_modules/.bin/snarkjs r1cs info /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/g1_relation.r1cs",
+    "npm --prefix circuits/g1-relation run generate:core-vectors -- /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors",
+    "npm --prefix circuits/g1-relation run audit:constraints -- /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0 /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/vectors /home/toorik/Projects/ZK-Proofs/shield-g1-artifacts/relation-low128-v0/audit.json"
   ],
   "artifacts": [
     {
       "path": "evidence/G1/relation-circuit/audit/mutation-matrix.json",
-      "sha256": "02959a24ac5ed49d6fdb42d797e27b2df92843fbae74aca887c24c72fa1589ae",
+      "sha256": "db569ffd4b20d44fb183e7b7459089fb306ad1dd50426b8e07c96dbd98f7e434",
       "bytes": 18118
     },
     {
