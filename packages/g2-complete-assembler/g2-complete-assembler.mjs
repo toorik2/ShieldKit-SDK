@@ -85,7 +85,7 @@ async function manifestGenesis(value) {
   });
 }
 
-async function profilePf7Locks(profile) {
+async function profilePf7Roles(profile) {
   const artifact = profile.bundle.manifest.artifacts.find((entry) => entry.kind === 'bch-verifier-set');
   if (artifact === undefined) fail('authenticated profile has no bch-verifier-set artifact');
   const filename = path.resolve(profile.bundle.root, ...artifact.path.split('/'));
@@ -96,11 +96,11 @@ async function profilePf7Locks(profile) {
   let record;
   try { record = parseStrictJson(source); }
   catch { fail('authenticated profile bch-verifier-set artifact is invalid JSON'); }
-  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || !Array.isArray(record.scripts) || record.scripts.length !== 7) fail('authenticated profile bch-verifier-set script topology is invalid');
+  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || !Array.isArray(record.scripts) || record.scripts.length !== 7 || record.sourceSet?.encoding !== 'libauth-transaction-outputs-hex-v1' || record.sourceSet?.carrierCount !== 7 || typeof record.sourceSet?.sha256 !== 'string') fail('authenticated profile bch-verifier-set carrier authority is invalid');
   const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
   return record.scripts.map((script, index) => {
-    if (script === null || typeof script !== 'object' || script.name !== names[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex)) fail(`authenticated profile verifier role ${index} is invalid`);
-    return Buffer.from(script.lockingBytecodeHex, 'hex');
+    if (script === null || typeof script !== 'object' || script.name !== names[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex) || typeof script.sourceValueSatoshis !== 'string' || !/^[1-9][0-9]*$/.test(script.sourceValueSatoshis)) fail(`authenticated profile verifier role ${index} is invalid`);
+    return Object.freeze({ lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'), valueSatoshis: BigInt(script.sourceValueSatoshis) });
   });
 }
 
@@ -136,19 +136,21 @@ function inputMetadata(input) {
   };
 }
 
-async function requirePf7(value, expectedLocks) {
+async function requirePf7(value, expectedRoles) {
   if (!Array.isArray(value) || value.length !== 7) fail('pf7 must contain exactly the seven retained verifier roles');
   return value.map((row, index) => {
     if (row === null || typeof row !== 'object') fail(`pf7[${index}] must be an object`);
     const lock = bytes(row.lockingBytecode, 35, `pf7[${index}].lockingBytecode`);
     if (lock[0] !== 0xaa || lock[1] !== 0x20 || lock[34] !== 0x87) fail(`pf7[${index}] is not P2SH32`);
-    if (!lock.equals(expectedLocks[index])) fail(`pf7[${index}] locking bytecode does not match authenticated profile verifier role`);
+    if (!lock.equals(expectedRoles[index].lockingBytecode)) fail(`pf7[${index}] locking bytecode does not match authenticated profile verifier role`);
     const unlockingBytecode = Buffer.from(row.unlockingBytecode);
     if (unlockingBytecode.length === 0 || unlockingBytecode.length > INPUT_UNLOCKING_LIMIT_BYTES) fail(`pf7[${index}] unlocking bytecode is outside the 1..10000 byte limit`);
+    const valueSatoshis = decimal(row.valueSatoshis, `pf7[${index}].valueSatoshis`);
+    if (valueSatoshis !== expectedRoles[index].valueSatoshis) fail(`pf7[${index}] value does not match authenticated profile verifier carrier`);
     return {
       lockingBytecode: lock, unlockingBytecode,
       outpointTransactionHash: wireHash(row.outpointTransactionHashWire, `pf7[${index}].outpointTransactionHashWire`).reverse(),
-      outpointIndex: u32(row.outpointIndex, `pf7[${index}].outpointIndex`), sequenceNumber: 0, valueSatoshis: decimal(row.valueSatoshis, `pf7[${index}].valueSatoshis`),
+      outpointIndex: u32(row.outpointIndex, `pf7[${index}].outpointIndex`), sequenceNumber: 0, valueSatoshis,
     };
   });
 }
@@ -193,7 +195,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const profile = await manifestGenesis(value);
   const { profileId, instanceId, stateCategory } = profile;
   const privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
-  const pf7 = await requirePf7(value.pf7, await profilePf7Locks(profile));
+  const pf7 = await requirePf7(value.pf7, await profilePf7Roles(profile));
   const { packet, decoded } = checkedPacket(value.actionPacket, profileId, instanceId);
   if (decoded.kind !== kind) fail('action packet kind differs from assembler kind');
   const bindingCarrierBaseSatoshis = decimal(value.bindingCarrierBaseSatoshis, 'bindingCarrierBaseSatoshis');
