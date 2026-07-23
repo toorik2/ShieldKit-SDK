@@ -1,0 +1,13 @@
+# Node v25.9.0 and Node v20.20.2 match for these primary generated artifacts.
+98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca  build/result.json
+6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a  build/c7_candidate_tx.hex
+04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02  build/c7_candidate_srcouts.hex
+084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c  build/boundary_parts.json
+3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77  build/c7_opmargin.json
+13510546fde38591f94db025098b48f5569d245e9a827ef0718ecddf6d6bb7c3  offsubgroup/result.json
+62842f9ce26271ef495bc038a5f7fbc6edfebadcc0495464c96361fe4557ffe4  input-redteam/vectors.json
+
+# Run-scoped manifests and red-team JSON/log hashes differ only because their
+# emitted absolute temporary paths and run identifiers differ.
+82369a2ea95df92df53c6b95103bb713bf3059cd0a573819dbb165629eb5774c  node25/bundle.json
+d4955b4966685e7647dcb24c01cc8c97047cbd50df0a7d2b6c7d4a8ebd61f644  node20/bundle.json

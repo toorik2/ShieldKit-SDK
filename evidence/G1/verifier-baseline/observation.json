@@ -30,15 +30,21 @@
     "npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf6-a3-r1.json --run-id shield-g1-repro-final-2"
   ],
   "artifacts": [
-    {"path": "read-only-source-run/build/result.json", "sha256": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca", "bytes": 1781},
-    {"path": "read-only-source-run/build/c7_candidate_srcouts.hex", "sha256": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02", "bytes": 530},
-    {"path": "read-only-source-run/build/boundary_parts.json", "sha256": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c", "bytes": 665},
-    {"path": "read-only-source-run/build/c7_opmargin.json", "sha256": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77", "bytes": 53}
+    {"path": "evidence/G1/verifier-baseline/build-result.json", "sha256": "43fbef885d430e9261216bc65eb21f9b831bcd5e84894ff55a08c37ddb1b8d20", "bytes": 1350},
+    {"path": "evidence/G1/verifier-baseline/source-locking-bytecodes.hex", "sha256": "3325af8393cd39137d1b607134242720a459db98cfdafb717f765d7a490b397d", "bytes": 531},
+    {"path": "evidence/G1/verifier-baseline/boundary-parts.json", "sha256": "8ebb84c89853aadcda52c8abc06817daa36ab64265a90e645292c6a81d809a6f", "bytes": 478},
+    {"path": "evidence/G1/verifier-baseline/op-margin.json", "sha256": "895d6f20c175e4ee76fbdb5c3f07ba322334fa203a457c74d98a1fa50a4be5df", "bytes": 54}
   ],
   "measurements": {
     "observedReadOnlyRun": "20260723t123647234z-bn254-onetx-pf6-a3-r1-ab74b984c9-12d9febd",
     "observedResultSha256": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca",
     "transactionHexSha256": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+    "authoritativeReadOnlyArtifactHashes": {
+      "buildResult": {"sha256": "98436d26947015206f28f9dca870422f8a60391382fa8c501b9856f947baffca", "bytes": 1781},
+      "sourceOutputs": {"sha256": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02", "bytes": 530},
+      "boundaryParts": {"sha256": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c", "bytes": 665},
+      "opMargin": {"sha256": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77", "bytes": 53}
+    },
     "allBytesScore": 54949,
     "wireBytes": 54739,
     "scriptBytes": 54671,

@@ -1,0 +1,23 @@
+# All checkouts were disposable archives; the live verifier.cash checkout was read-only.
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash archive --format=tar 26468ae29004d2401619032de2a6ec8de269a4d6 | tar -xf - -C <verifier-temp>
+cd <verifier-temp> && git init -q
+git -C <verifier-temp> -c protocol.file.allow=always fetch -q --depth=1 /home/toorik/Projects/ZK-Proofs/verifier.cash 26468ae29004d2401619032de2a6ec8de269a4d6
+git -C <verifier-temp> update-ref HEAD FETCH_HEAD
+cd <verifier-temp> && npm ci --no-audit --no-fund
+cd <verifier-temp>/harness && corepack pnpm install --frozen-lockfile
+cd <verifier-temp>/build && corepack pnpm install --frozen-lockfile
+
+# Vendor was staged outside the verifier temporary tree because Yarn classic
+# otherwise inherits the root npm package-manager declaration.
+git -C /home/toorik/Projects/ZK-Proofs/verifier.cash archive --format=tar 26468ae29004d2401619032de2a6ec8de269a4d6 vendor/cashc-resched | tar -xf - -C <cashc-stage> --strip-components=2
+cd <cashc-stage> && npx --yes --package yarn@1.22.22 yarn install --frozen-lockfile
+tar -C <cashc-stage> -cf - node_modules packages/cashc/dist packages/cashscript/dist packages/utils/dist | tar -xf - -C <verifier-temp>/vendor/cashc-resched
+
+git -C /home/toorik/Projects/ZK-Proofs/LeanBCH archive --format=tar 51201015fdaef4562debf2a2b1cab4013a45e8b4 | tar -xf - -C <leanbch-temp>
+cd <leanbch-temp>/optimizer && npm ci --no-audit --no-fund
+
+cd <verifier-temp> && LEANBCH_ROOT=<leanbch-temp> npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf6-a3-r1.json --run-id g1-diag-current-pinnedlean-deps
+cd <verifier-temp> && PATH=/home/toorik/.local/share/mise/installs/node/20.20.2/bin:$PATH LEANBCH_ROOT=<leanbch-temp> npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf6-a3-r1.json --run-id g1-diag-node20-pinneddeps
+
+# Exact failure without the build/ PNPM install:
+# Error: ProjectivePoint expected at gen_vkx_ecip.mjs:128 -> c7/build.ts:1119 -> buildGenesisMerged.
