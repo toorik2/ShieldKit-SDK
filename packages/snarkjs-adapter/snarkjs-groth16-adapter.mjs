@@ -225,7 +225,7 @@ export async function adaptSnarkjsGroth16(records) {
   });
   return Object.freeze({
     schema: 'shield.cash/snarkjs-groth16-pf7-adapter/v1',
-    qualification: 'local conversion only; not a verifier bundle, profile, setup, standardness, or deployment result; canonical infinity IC0 is valid source material but PF7-incompatible and rejected downstream without substitution',
+    qualification: 'local conversion only; not a verifier bundle, profile, setup, standardness, or deployment result; canonical infinity IC0 is valid source material but PF7-incompatible and rejected downstream without substitution; current PF7 builder rejects all adapter input because its gb3/SZ/FIXED_G2 trajectories are static',
     source: Object.freeze({ verificationKey: vkInput.artifact, proof: proofInput.artifact, publicSignals: publicInput.artifact }),
     byteOrder: Object.freeze({
       scalars: 'canonical unsigned base-10 JSON strings; PF7 converts to its existing VM-number representation',

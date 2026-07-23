@@ -54,6 +54,7 @@ test('adapts a real snarkjs-verified two-public BN254 Groth16 fixture into PF7 f
   });
   assert.equal('alphaBeta' in result.verifierCashVk, false);
   assert.match(result.qualification, /infinity IC0 is valid source material but PF7-incompatible/);
+  assert.match(result.qualification, /current PF7 builder rejects all adapter input/);
   assert.deepEqual(result.verifierCashFixture, {
     Ax: rawProof.pi_a[0], Ay: rawProof.pi_a[1],
     Bxa: rawProof.pi_b[0][0], Bxb: rawProof.pi_b[0][1],
