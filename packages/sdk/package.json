@@ -1,0 +1,33 @@
+{
+  "name": "@shield.cash/sdk",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./sdk.mjs"
+    },
+    "./browser": {
+      "types": "./browser.d.ts",
+      "import": "./browser.mjs"
+    },
+    "./android": {
+      "types": "./android.d.ts",
+      "import": "./android.mjs"
+    }
+  },
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
+    "@noble/ciphers": "2.1.1",
+    "@noble/curves": "2.2.0",
+    "@noble/hashes": "2.2.0",
+    "poseidon-lite": "0.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5"
+  }
+}
