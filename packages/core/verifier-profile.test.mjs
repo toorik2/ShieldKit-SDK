@@ -169,6 +169,22 @@ test('loader rejects unordered artifacts and unordered numeric ceremony contribu
 });
 
 test('loader rejects parent-directory symlink escapes plus BOM, noncanonical, and oversized manifests', async () => {
+  const internalSymlink = await makeDevelopmentBundle('internal-parent-symlink');
+  await symlink(
+    path.join(internalSymlink.directory, 'artifacts'),
+    path.join(internalSymlink.directory, 'alias'),
+    'dir',
+  );
+  const internalVerificationKey = internalSymlink.manifest.artifacts.find(
+    (artifact) => artifact.kind === 'verification-key',
+  );
+  internalVerificationKey.path = 'alias/vk.bin';
+  await writeBoundManifest(internalSymlink);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(internalSymlink.directory),
+    /artifact path contains a symlink/,
+  );
+
   const symlinked = await makeDevelopmentBundle('parent-symlink-escape');
   const outside = await mkdtemp(path.join(tmpdir(), 'shield-cash-outside-fixture-'));
   const outsideBytes = fixtureBytes('verification-key', 'outside-root');

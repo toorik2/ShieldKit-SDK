@@ -299,6 +299,7 @@ export async function loadVerifierProfileBundle(directory, expected = {}) {
     if (!stats.isFile() || stats.isSymbolicLink()) fail(`artifact must be a regular non-symlink file: ${artifact.path}`);
     const resolved = await realpath(candidate).catch(() => fail(`artifact cannot be resolved: ${artifact.path}`));
     if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) fail(`artifact resolves outside bundle root: ${artifact.path}`);
+    if (resolved !== candidate) fail(`artifact path contains a symlink: ${artifact.path}`);
     if (await hashFile(resolved) !== artifact.sha256) fail(`artifact hash mismatch: ${artifact.path}`);
   }
   exactKeys(expected, 'expected bundle binding', ['network', 'profileId', 'instanceId'].filter((key) => expected[key] !== undefined));
