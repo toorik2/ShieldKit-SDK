@@ -26,9 +26,22 @@ is established by the profile-bound PF7 and complete BCH VM execution gates.
 
 `./browser` bundles only portable recovery and profile-coordinate validation;
 it contains no Node built-ins. It has no browser proving claim. `./android`
-requires an explicit JavaScript runtime contract (BigInt, ESM, Uint8Array, and
-WebCrypto randomness) and is deliberately only a binding contract until device
-qualification is recorded.
+offers two deliberately distinct paths:
+
+- `createAndroidWalletSdk` accepts a typed embedding-runtime contract for
+  bridges that already perform their own checks.
+- `createDetectedAndroidWalletSdk` first runs `probeAndroidRuntime()` against
+  the active Android JavaScript engine. It exercises BigInt arithmetic,
+  Uint8Array allocation, and WebCrypto `getRandomValues`, and refuses a host
+  whose user agent is not Android. Successful import is the ESM check.
+
+The probe is an executable prerequisite check. Its result becomes
+portable-runtime evidence only when captured on an actual Android runtime; it
+is never a device model, Android app-RSS, proving-performance, p95, or G4
+qualification claim. A physical-device proof run remains the fail-closed
+`packages/android-prover-harness` workflow; it uses caller-pinned local files,
+USB `adb`, and no network service. This checkout currently has no `adb`
+executable, so no physical Android evidence is claimed here.
 
 ```js
 import { createDesktopWalletSdk } from '@shield.cash/sdk';

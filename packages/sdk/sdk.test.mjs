@@ -6,7 +6,12 @@ import {
   createProfileCoordinates,
   requireLocalProverCapability,
 } from './browser.mjs';
-import { assertAndroidRuntimeContract, createAndroidWalletSdk } from './android.mjs';
+import {
+  assertAndroidRuntimeContract,
+  createAndroidWalletSdk,
+  createDetectedAndroidWalletSdk,
+  probeAndroidRuntime,
+} from './android.mjs';
 import { createDesktopWalletSdk } from './sdk.mjs';
 
 const profile = Object.freeze({ network: 'chipnet', profileId: `sha256:${'11'.repeat(32)}`, instanceId: `sha256:${'22'.repeat(32)}` });
@@ -39,6 +44,23 @@ test('profile, local prover, and Android contracts fail closed', () => {
   assert.deepEqual(assertAndroidRuntimeContract(runtime), runtime);
   assert.equal(createAndroidWalletSdk({ profile, runtime }).schema, 'shield.cash/android-wallet-sdk/v1');
   assert.throws(() => assertAndroidRuntimeContract({ ...runtime, bigInt: false }), /requires BigInt/);
+});
+
+test('Android detected-runtime path actively probes capabilities and rejects a non-Android host', () => {
+  const random = { getRandomValues(bytes) { bytes.fill(9); return bytes; } };
+  const globals = {
+    navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 14; shield.cash qualification fixture)' },
+    BigInt,
+    Uint8Array,
+    crypto: random,
+  };
+  assert.deepEqual(probeAndroidRuntime(globals), {
+    platform: 'android', bigInt: true, esModules: true, uint8Array: true, webCryptoGetRandomValues: true,
+  });
+  assert.throws(() => probeAndroidRuntime({ ...globals, navigator: { userAgent: 'desktop' } }), /Android user agent/);
+  assert.throws(() => probeAndroidRuntime({ ...globals, crypto: {} }), /WebCrypto getRandomValues/);
+  assert.throws(() => probeAndroidRuntime({ ...globals, crypto: { getRandomValues() { return new Uint8Array(16); } } }), /invalid random buffer/);
+  assert.throws(() => createDetectedAndroidWalletSdk({ profile }), /Android user agent/);
 });
 
 test('desktop facade rejects unauthenticated profile paths before exposing planning methods', async () => {
