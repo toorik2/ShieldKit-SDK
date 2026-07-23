@@ -45,6 +45,31 @@ const decimal = (value, label) => {
   return value;
 };
 
+// The caller supplies the genesis object from its already-validated profile
+// manifest. The assembler deliberately derives every identity/cap fact below
+// from that object; it must not construct a parallel set of genesis facts.
+function manifestGenesis(value) {
+  const manifest = value.profileManifest;
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) fail('profileManifest must be an authenticated verifier-profile manifest object');
+  const genesis = manifest.genesis;
+  if (genesis === null || typeof genesis !== 'object' || Array.isArray(genesis)) fail('profileManifest.genesis is required');
+  const required = ['categoryInputOutpoint', 'instanceId', 'network', 'profileId', 'reserveCapSatoshis', 'stateNftCategory'];
+  const keys = Object.keys(genesis).sort();
+  if (keys.length !== required.length || keys.some((key, index) => key !== required[index])) fail('profileManifest.genesis has missing or unknown properties');
+  if (genesis.network !== 'chipnet' || manifest.network?.name !== 'chipnet') fail('profileManifest genesis must be a Chipnet binding');
+  if (typeof genesis.profileId !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(genesis.profileId)) fail('profileManifest.genesis.profileId is invalid');
+  if (typeof genesis.instanceId !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(genesis.instanceId)) fail('profileManifest.genesis.instanceId is invalid');
+  if (typeof genesis.stateNftCategory !== 'string' || !/^[0-9a-f]{64}$/.test(genesis.stateNftCategory)) fail('profileManifest.genesis.stateNftCategory is invalid');
+  if (manifest.identity?.profileId !== genesis.profileId) fail('profileManifest identity does not match genesis profile');
+  return Object.freeze({
+    genesis,
+    profileId: Buffer.from(genesis.profileId.slice('sha256:'.length), 'hex'),
+    instanceId: Buffer.from(genesis.instanceId.slice('sha256:'.length), 'hex'),
+    stateCategory: Buffer.from(genesis.stateNftCategory, 'hex'),
+    maximumReserveSatoshis: genesis.reserveCapSatoshis,
+  });
+}
+
 function stateToken(category, profileId, state) {
   return {
     category: Uint8Array.from(category), amount: 0n,
@@ -130,9 +155,8 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const { kind } = value;
   if (!['deposit', 'transfer', 'withdrawal'].includes(kind)) fail('unsupported action kind');
   if (value.minimumFeeRateSatoshisPerByte !== PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE) fail('protocol fee rate is fixed at exactly 1 satoshi per byte');
-  const profileId = bytes(value.profileId, 32, 'profileId');
-  const instanceId = bytes(value.instanceId, 32, 'instanceId');
-  const stateCategory = bytes(value.stateCategory, 32, 'stateCategory');
+  const profile = manifestGenesis(value);
+  const { profileId, instanceId, stateCategory } = profile;
   const privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
   const pf7 = requirePf7(value.pf7);
   const { packet, decoded } = checkedPacket(value.actionPacket, profileId, instanceId);
@@ -148,7 +172,13 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
 
   const bindingLock = Buffer.from(buildPacketOnlyBindingLock());
   if (bindingCarrierBaseSatoshis > BigInt(Number.MAX_SAFE_INTEGER)) fail('binding carrier base exceeds VM-number range');
-  const helper = Buffer.from(buildStateSettlementHelper({ bindingLock, pf7Locks: pf7.map((row) => row.lockingBytecode), profileId, instanceId, stateCategory, bindingCarrierBaseSatoshis: Number(bindingCarrierBaseSatoshis) }));
+  const helper = Buffer.from(buildStateSettlementHelper({
+    bindingLock, pf7Locks: pf7.map((row) => row.lockingBytecode),
+    profileId, instanceId, stateCategory,
+    maximumReserveSatoshis: profile.maximumReserveSatoshis,
+    genesis: profile.genesis,
+    bindingCarrierBaseSatoshis: Number(bindingCarrierBaseSatoshis),
+  }));
   const stateLock = Buffer.from(buildStateTrampolineLock({ helper, bindingLock }));
   const stateUnlock = Buffer.from(buildStateTrampolineUnlock(helper));
   if (bindingLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES || stateLock.length > PROJECT_P2S_LOCKING_LIMIT_BYTES) fail('P2S locking-bytecode limit exceeded');

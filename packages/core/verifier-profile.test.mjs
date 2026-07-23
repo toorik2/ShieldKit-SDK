@@ -371,7 +371,16 @@ test('production mode rejects an incomplete ceremony transcript rather than acce
 
 test('loader fails closed on duplicate JSON names, traversal, missing artifacts, hash drift, and pinned-instance hot swaps', async () => {
   const bundle = await makeDevelopmentBundle('rejection-cases');
-  await assert.rejects(() => loadVerifierProfileBundle(bundle.directory, { profileId: digest('different-profile') }), /refusing hot swap/);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(bundle.directory, { profileId: digest('different-profile') }),
+    /expected bundle binding must be empty or contain network, profileId, and instanceId/,
+  );
+  await assert.rejects(
+    () => loadVerifierProfileBundle(bundle.directory, {
+      network: 'chipnet', profileId: digest('different-profile'), instanceId: bundle.manifest.genesis.instanceId,
+    }),
+    /expected profile binding mismatch: refusing hot swap/,
+  );
   bundle.manifest.artifacts[0].path = '../escape';
   bundle.manifest.identity.profileId = deriveProfileId(bundle.manifest);
   bundle.manifest.genesis.profileId = bundle.manifest.identity.profileId;

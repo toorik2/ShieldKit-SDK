@@ -58,7 +58,7 @@ const output = (lockingBytecode, valueSatoshis, token = null) => ({
   token,
 });
 
-function fixture(kind = 'deposit') {
+function fixture(kind = 'deposit', feeDeltaSatoshis = 0n) {
   const pre = state('0', kind === 'withdrawal' ? '10000000' : '0', 0x66);
   const post = state('1', kind === 'deposit' ? '10000000' : '0', 0x77);
   if (kind === 'transfer') {
@@ -68,15 +68,17 @@ function fixture(kind = 'deposit') {
     post.liveNoteCount = '1';
   }
   const withdrawalLock = '76a914' + hex(0xaa, 20) + '88ac';
+  const exactChange = (kind === 'withdrawal' ? 106_522n : 106_556n)
+    - feeDeltaSatoshis;
   const outputs = kind === 'withdrawal'
     ? [
         output(p2s(0x51), '1000', stateToken(post)),
         output(withdrawalLock, '10000000'),
-        output(feeLock, '40000'),
+        output(feeLock, exactChange.toString()),
       ]
     : [
         output(p2s(0x51), kind === 'deposit' ? '10001000' : '10001000', stateToken(post)),
-        output(feeLock, '40000'),
+        output(feeLock, exactChange.toString()),
       ];
   const sourceOutputs = INPUT_ROLES.map((_, index) => {
     if (index < 7) return output(verifierLock(index), '1000');
@@ -145,6 +147,7 @@ test('constructs canonical deposit, transfer, and withdrawal transactions', () =
     assert.equal(result.transactionHex.slice(10, 74), outpoint(0));
     assert.ok(result.measurements.wireBytes < 59_000);
     assert.ok(result.measurements.maximumUnlockingBytes < 10_000);
+    assert.equal(result.measurements.feeSatoshis, String(result.measurements.wireBytes));
     assert.equal(result.measurements.stateHelperUnlockingLimitBytes, 3_286);
     assert.equal(result.measurements.percentageHeadroomRequired, false);
     assert.equal(result.context.digestHex, fixture(kind).actionPacket.slice(-64));
@@ -192,6 +195,14 @@ test('rejects context, packet, role, state, withdrawal, fee, and size mutations'
   assert.throws(
     () => buildSettlementTransaction(oversizedHelper),
     /state helper unlocking bytecode is 3287 bytes, exceeding 3286/,
+  );
+  assert.throws(
+    () => buildSettlementTransaction(fixture('deposit', -1n)),
+    /must equal the fixed one-satoshi-per-byte fee/,
+  );
+  assert.throws(
+    () => buildSettlementTransaction(fixture('deposit', 1n)),
+    /must equal the fixed one-satoshi-per-byte fee/,
   );
 });
 

@@ -122,7 +122,9 @@ test('expected binding rejection happens during staging and does not create a de
   const root = await testRoot(t);
   const destination = path.join(root, 'rejected-binding');
   const input = await makeInput(root, 'expected-binding', destination);
-  input.expected = { profileId: digest('unrelated-profile') };
+  input.expected = {
+    network: 'chipnet', profileId: digest('unrelated-profile'), instanceId: digest('unrelated-instance'),
+  };
   await assert.rejects(() => buildVerifierProfileBundle(input), /expected profile binding mismatch: refusing hot swap/);
   await assert.rejects(() => lstat(destination));
 });

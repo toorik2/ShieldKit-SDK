@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import {
@@ -96,4 +96,22 @@ test('rejects a PASS record containing a failing test', async () => {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('validates immutable source artifacts at their recorded commit after the workspace advances', async () => {
+  const filename = path.join(
+    repositoryRoot,
+    'evidence/G2/preparation-review/observation.json',
+  );
+  const record = JSON.parse(await readFile(filename, 'utf8'));
+  const historical = record.artifacts.find(
+    (artifact) => artifact.path
+      === 'packages/settlement-transaction/settlement-transaction.mjs',
+  );
+  assert.notEqual(historical, undefined);
+  const current = await readFile(path.join(repositoryRoot, historical.path));
+  assert.notEqual(digest(current), historical.sha256);
+  const validateSchema = await createEvidenceValidator();
+  const validated = await validateEvidenceFile(filename, validateSchema);
+  assert.equal(validated.source.commit, record.source.commit);
 });

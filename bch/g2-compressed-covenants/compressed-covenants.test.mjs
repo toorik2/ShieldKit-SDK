@@ -16,16 +16,27 @@ import {
   buildStateTrampolineLock,
   buildStateTrampolineUnlock,
 } from './compressed-covenants.mjs';
+import { deriveInstanceId } from '../../packages/core/verifier-profile.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const pf7 = JSON.parse(readFileSync(
   new URL('./pf7-seam-v0-locks.json', import.meta.url),
 ));
 const profileId = sha256(Buffer.from('g2-loop-profile'));
-const instanceId = sha256(Buffer.from('g2-loop-instance'));
 const stateCategory = sha256(Buffer.from('g2-loop-state-category'));
 const stateCarrierBase = 1_000n;
 const denomination = 10_000_000n;
+const maximumReserve = 30_000_000n;
+const genesis = {
+  categoryInputOutpoint: { txid: stateCategory.toString('hex'), vout: '0' },
+  instanceId: '',
+  network: 'chipnet',
+  profileId: `sha256:${profileId.toString('hex')}`,
+  reserveCapSatoshis: maximumReserve.toString(),
+  stateNftCategory: stateCategory.toString('hex'),
+};
+genesis.instanceId = deriveInstanceId(genesis);
+const instanceId = Buffer.from(genesis.instanceId.slice('sha256:'.length), 'hex');
 const feePubkey = Buffer.concat([Buffer.of(0x02), Buffer.alloc(32, 0x19)]);
 const hash160 = (bytes) => createHash('ripemd160').update(sha256(bytes)).digest();
 const p2pkh = Buffer.concat([
@@ -102,11 +113,13 @@ function packetFor(kind, contextDigest) {
   instanceId.copy(packet, 40);
   u64le(preSequence).copy(packet, 140);
   u64le(preReserve).copy(packet, 152);
+  u64le(maximumReserve).copy(packet, 160);
   preStateCommitment.copy(packet, 168);
   profileId.copy(packet, 200);
   instanceId.copy(packet, 232);
   u64le(postSequence).copy(packet, 332);
   u64le(postReserve).copy(packet, 344);
+  u64le(maximumReserve).copy(packet, 352);
   postStateCommitment.copy(packet, 360);
   u64le(kind === 'transfer' ? 0n : denomination).copy(packet, 680);
   if (kind === 'withdrawal') sha256(Buffer.of(0x51)).copy(packet, 688);
@@ -251,6 +264,41 @@ function resolveExactFee(kind, program) {
   assert.fail(`${kind} exact-fee fixture did not converge`);
 }
 
+// Use the authentic state category in every negative case. This ensures a
+// token cannot be smuggled into another role merely by reusing the state
+// category with a different CashToken form.
+function nonStateToken(form, discriminator) {
+  switch (form) {
+    case 'fungible':
+      return { category: Uint8Array.from(stateCategory), amount: 1n };
+    case 'immutable-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: { capability: 'none', commitment: Uint8Array.of(discriminator) },
+      };
+    case 'mutable-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: {
+          capability: 'mutable',
+          commitment: Uint8Array.from({ length: 80 }, (_, index) => (
+            (discriminator + index) & 0xff
+          )),
+        },
+      };
+    case 'minting-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: { capability: 'minting', commitment: Uint8Array.of(discriminator) },
+      };
+    default:
+      throw new Error(`unknown non-state token form: ${form}`);
+  }
+}
+
 function evaluate(lock, program, inputIndex, standard) {
   return createVirtualMachineBch2026(standard).evaluate({
     inputIndex,
@@ -258,6 +306,104 @@ function evaluate(lock, program, inputIndex, standard) {
     transaction: program.transaction,
   });
 }
+
+test('full helper rejects every CashToken form at every non-state input and output with refreshed SCCT', () => {
+  const bindingLock = buildPacketOnlyBindingLock();
+  const helper = buildStateSettlementHelper({
+    bindingLock,
+    pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    profileId,
+    instanceId,
+    stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
+    bindingCarrierBaseSatoshis: Number(stateCarrierBase),
+  });
+  const stateLock = buildStateTrampolineLock({ helper, bindingLock });
+  const stateUnlock = buildStateTrampolineUnlock(helper);
+  const forms = ['fungible', 'immutable-nft', 'mutable-nft', 'minting-nft'];
+  const actionLayouts = {
+    deposit: [1],
+    transfer: [1],
+    withdrawal: [1, 2],
+  };
+  const counts = { inputCases: 0, outputCases: 0, evaluations: 0 };
+
+  for (const [kind, nonStateOutputIndexes] of Object.entries(actionLayouts)) {
+    const baseline = programFor(kind, bindingLock, stateLock);
+    baseline.transaction.inputs[8].unlockingBytecode = stateUnlock;
+    resolveExactFee(kind, baseline);
+    for (const standard of [false, true]) {
+      assert.equal(
+        accepts(evaluate(stateLock, baseline, 8, standard)),
+        true,
+        `${kind} baseline standard=${standard}`,
+      );
+    }
+
+    for (const inputIndex of [0, 1, 2, 3, 4, 5, 6, 7, 9]) {
+      for (const form of forms) {
+        const program = structuredClone(baseline);
+        program.sourceOutputs[inputIndex].token = nonStateToken(
+          form,
+          0x10 + inputIndex,
+        );
+        refreshContextDigest(kind, program);
+        for (const standard of [false, true]) {
+          assert.equal(
+            accepts(evaluate(stateLock, program, 8, standard)),
+            false,
+            `${kind} input ${inputIndex} ${form} standard=${standard}`,
+          );
+          counts.evaluations += 1;
+        }
+        counts.inputCases += 1;
+      }
+    }
+
+    for (const outputIndex of nonStateOutputIndexes) {
+      for (const form of forms) {
+        const program = structuredClone(baseline);
+        program.transaction.outputs[outputIndex].token = nonStateToken(
+          form,
+          0x80 + outputIndex,
+        );
+        refreshContextDigest(kind, program);
+        for (const standard of [false, true]) {
+          assert.equal(
+            accepts(evaluate(stateLock, program, 8, standard)),
+            false,
+            `${kind} output ${outputIndex} ${form} standard=${standard}`,
+          );
+          counts.evaluations += 1;
+        }
+        counts.outputCases += 1;
+      }
+    }
+  }
+
+  assert.deepEqual(counts, {
+    inputCases: 108,
+    outputCases: 16,
+    evaluations: 248,
+  });
+  console.log(JSON.stringify({
+    tokenExclusionMatrix: {
+      actions: Object.keys(actionLayouts),
+      nonStateInputsPerAction: 9,
+      tokenForms: forms,
+      inputCases: counts.inputCases,
+      outputCases: counts.outputCases,
+      refreshedContextDigest: true,
+      normalAndStandardEvaluations: counts.evaluations,
+      includesFeeInput9: true,
+      includesWithdrawalOutput2: true,
+    },
+    helperBytes: helper.length,
+    stateTrampolineBytes: stateLock.length,
+    stateHelperUnlockBytes: stateUnlock.length,
+  }, null, 2));
+});
 
 test('loop reconstruction byte-matches exact SCCT for all actions and asymmetric wire-order outpoints', () => {
   const rawLock = buildLoopScctLock({ raw: true, tokenFunction: true });
@@ -414,6 +560,43 @@ test('minimal state continuity lock is <=190, executes in both VMs, and rejects 
   }, null, 2));
 });
 
+test('state helper construction fails closed unless its cap, profile, instance, and state category agree with canonical genesis', () => {
+  const bindingLock = buildPacketOnlyBindingLock();
+  const input = {
+    bindingLock,
+    pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    profileId,
+    instanceId,
+    stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
+    bindingCarrierBaseSatoshis: Number(stateCarrierBase),
+  };
+  assert.doesNotThrow(() => buildStateSettlementHelper(input));
+  assert.throws(
+    () => buildStateSettlementHelper({ ...input, maximumReserveSatoshis: '20000000' }),
+    /genesis reserve cap does not match helper maximumReserveSatoshis/,
+  );
+  assert.throws(
+    () => buildStateSettlementHelper({
+      ...input,
+      genesis: { ...genesis, reserveCapSatoshis: '20000000' },
+      maximumReserveSatoshis: '20000000',
+    }),
+    /genesis instanceId derivation mismatch/,
+  );
+  assert.throws(
+    () => buildStateSettlementHelper({
+      ...input,
+      genesis: {
+        ...genesis,
+        categoryInputOutpoint: { ...genesis.categoryInputOutpoint, txid: '11'.repeat(32) },
+      },
+    }),
+    /genesis state category does not match helper stateCategory/,
+  );
+});
+
 test('hash-authenticated state trampoline executes the full helper and rejects helper, PF7, state, and category substitutions', () => {
   const bindingLock = buildPacketOnlyBindingLock();
   const helper = buildStateSettlementHelper({
@@ -422,6 +605,8 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     profileId,
     instanceId,
     stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   });
   const stateLock = buildStateTrampolineLock({ helper, bindingLock });
@@ -510,6 +695,14 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     }],
     ['one-satoshi-underfee-with-refreshed-context', (p) => {
       p.transaction.outputs.at(-1).valueSatoshis += 1n;
+      refreshContextDigest('deposit', p);
+    }],
+    ['pre-state-cap-with-refreshed-context', (p) => {
+      p.transaction.inputs[7].unlockingBytecode[3 + 160] ^= 1;
+      refreshContextDigest('deposit', p);
+    }],
+    ['post-state-cap-with-refreshed-context', (p) => {
+      p.transaction.inputs[7].unlockingBytecode[3 + 352] ^= 1;
       refreshContextDigest('deposit', p);
     }],
     ['same-category-fungible-input-with-refreshed-context', (p) => {
