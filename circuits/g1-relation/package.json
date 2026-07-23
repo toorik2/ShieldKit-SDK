@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "npm run test:key",
     "test:key": "node scripts/nullifier-key-crosscheck.mjs",
     "generate:deposit": "node scripts/generate-deposit-input.mjs",
     "make:invalid-boundary": "node scripts/make-invalid-boundary.mjs"
