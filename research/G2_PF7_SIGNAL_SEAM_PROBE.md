@@ -46,25 +46,55 @@ failed.
 
 ## Cause and boundary
 
-The current PF7 composed grammar has no fixed authenticated public-signal
-carrier. Adding a final genesis argument changes the witness grammar committed
-by the composed executor plan, so a terminal/genesis-only patch is not a valid
-extension.
+The rejection was traced to a specific positional error rather than an
+inherent 64-byte-carrier limit. The selected composed PF7 plan requires the
+genesis unlocking bytecode to begin with:
 
-The existing public-input pushes are also unsuitable as terminal fixed-offset
-carriers. In this deposit fixture their observed genesis-unlock positions were
-2,876 and 2,859, and their positions vary with action witness shape. Baking
-those offsets into the terminal would break the required action-invariant
-source locking bytecodes.
+```
+PUSHDATA2(448) || projectionContext
+```
+
+All five executors and the terminal read that projection at raw offset 3. The
+failed experiment instead emitted:
+
+```
+PUSHDATA(64) || carrier || PUSHDATA2(448) || projectionContext
+```
+
+They therefore parsed carrier bytes as the projection. Genesis accepted
+because its newly generated parameter declaration matched that altered stack
+layout; the other roles retained the fixed projection offset.
+
+The current PF7 still has no valid authenticated public-signal carrier. The
+existing public-input pushes are unsuitable as terminal fixed-offset carriers:
+in this deposit fixture their observed genesis-unlock positions were 2,876 and
+2,859, and their positions vary with action witness shape. Baking those offsets
+into the terminal would break the required action-invariant source locking
+bytecodes.
 
 ## Required next step
 
 Add a first-class, fixed-layout public-signal seam to the composed PF7
-generator, rebuild every affected executor/genesis/terminal commitment, and
-qualify the full deposit/transfer/withdrawal action corpus. No G2 integration
-or size claim is permitted before all seven verifier roles pass the normal and
-standard BCH-2026 VMs and the new seam survives substitution, truncation,
-non-minimal encoding, carrier, limb, packet, and cross-action attacks.
+generator while preserving the existing projection prefix:
+
+```
+PUSHDATA2(448) || projectionContext ||
+PUSHDATA(64) || paddedPublicSignalCarrier || existing arguments
+```
+
+This places the canonical 65-byte carrier push at raw offset 451 without
+changing the projection offsets consumed by the executors. The terminal can
+then parse that fixed carrier and authenticate an exact
+`PUSHDATA2(752) || actionPacket` at input 7.
+
+The existing action-specific packet equality guard must be replaced: retaining
+it would bake one action packet into the terminal source lock and violate
+action invariance. Generate the verifier source locks only after the static
+carrier grammar is fixed, then qualify the complete
+deposit/transfer/withdrawal corpus. No G2 integration or size claim is
+permitted before all seven verifier roles pass the normal and standard
+BCH-2026 VMs and the new seam survives substitution, truncation, non-minimal
+encoding, carrier, limb, packet, high-bit-limb, and cross-action attacks.
 
 The experimental worktree was restored to its pre-probe clean state. No failed
 candidate patch was retained as verifier authority.
