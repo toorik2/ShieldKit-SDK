@@ -1,0 +1,33 @@
+{
+  "schema": "shield.cash/g2-compressed-covenants/pf7-seam-lock-fixture/v1",
+  "qualification": "development-only bounded probe fixture; not verifier-bundle or G2 authority",
+  "verifierCashCommit": "1d543756602edfd92081a0b58dba62d33d0aea34",
+  "sourceResultSha256": "1d41304f3ae8b471617f89884548a363a6c84137a0155eff0fa3891975364554",
+  "sourceInputsDumpSha256": "e927c99487b76c3fc47bf382630034c3f456f68f96493c19e8694206fcfff97c",
+  "actionSources": {
+    "deposit": {
+      "wireBytes": 55311,
+      "resultSha256": "1d41304f3ae8b471617f89884548a363a6c84137a0155eff0fa3891975364554",
+      "inputsDumpSha256": "e927c99487b76c3fc47bf382630034c3f456f68f96493c19e8694206fcfff97c"
+    },
+    "transfer": {
+      "wireBytes": 55376,
+      "resultSha256": "3642088260cdfa4827c1e81decd67a2fc0a30eeab6a07423fe5e6c9d46d83dcc",
+      "inputsDumpSha256": "a0e3ed0c9b93c61a3b423b21560562cccf37ed3d8cae5d93c0b45f75983e0210"
+    },
+    "withdrawal": {
+      "wireBytes": 55247,
+      "resultSha256": "ce55a6306d7632f7a1bc3c13e893c9dfea478522317a0697cc3650f214ff4280",
+      "inputsDumpSha256": "ee01cf59d741c883d91aa2d2197c63508cfc5b446caea3baf96bbdd648e074bb"
+    }
+  },
+  "locks": [
+    "aa202915bf2bbce45bcef664a45350ef1be887246ed3e5098a37de9b316292e78a0b87",
+    "aa202915bf2bbce45bcef664a45350ef1be887246ed3e5098a37de9b316292e78a0b87",
+    "aa202915bf2bbce45bcef664a45350ef1be887246ed3e5098a37de9b316292e78a0b87",
+    "aa202915bf2bbce45bcef664a45350ef1be887246ed3e5098a37de9b316292e78a0b87",
+    "aa202915bf2bbce45bcef664a45350ef1be887246ed3e5098a37de9b316292e78a0b87",
+    "aa200ea04ccbca3f222ea0d7cb52ea27ab39f7f6b410b7b903d4a45b65655859617287",
+    "aa2032e6389933d2e6f11645d3be0b9c98d363617ed7722d779d04f0f664c2a127f287"
+  ]
+}
