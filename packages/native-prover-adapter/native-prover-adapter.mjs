@@ -5,6 +5,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { loadLocalProverProfileBinding, parseLocalProverProfileBinding } from '../core/local-prover-profile.mjs';
 
 const kinds = new Set(['deposit', 'transfer', 'withdrawal']);
 const scalarModulus = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
@@ -84,14 +85,29 @@ const bounded = (stream) => {
   stream.on('data', (chunk) => { const remaining = outputLimitBytes - bytes; if (remaining > 0) value += chunk.subarray(0, remaining).toString('utf8'); bytes += chunk.length; if (bytes > outputLimitBytes) truncated = true; });
   return () => ({ value, truncated });
 };
+// Sum a local prover's live process tree. This catches a launcher that forks
+// the actual prover; sampling only the launcher would under-report RSS.
+const processTreeRss = async (rootPid) => {
+  const pending = [rootPid]; const seen = new Set(); let rssKiB = 0;
+  while (pending.length) {
+    const pid = pending.pop(); if (!Number.isInteger(pid) || pid < 1 || seen.has(pid)) continue; seen.add(pid);
+    try {
+      const status = await readFile(`/proc/${pid}/status`, 'utf8');
+      const match = /^VmRSS:\s+(\d+)\s+kB$/m.exec(status); if (match) rssKiB += Number(match[1]);
+      const children = await readFile(`/proc/${pid}/task/${pid}/children`, 'utf8');
+      for (const child of children.trim().split(/\s+/)) if (/^[1-9][0-9]*$/.test(child)) pending.push(Number(child));
+    } catch {}
+  }
+  return { rssKiB, processes: seen.size };
+};
 const run = (command, args, label, { measure = false, allowedExitCodes = new Set([0]) } = {}) => new Promise((resolveRun, rejectRun) => {
   const child = spawn(command, args, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
-  const stdout = bounded(child.stdout); const stderr = bounded(child.stderr); let peakHwm = 0; let peakRss = 0; let samples = 0;
+  const stdout = bounded(child.stdout); const stderr = bounded(child.stderr); let peakRss = 0; let peakProcesses = 0; let samples = 0;
   const start = process.hrtime.bigint();
-  const sample = async () => { if (!measure || !child.pid) return; try { samples += 1; for (const line of (await readFile(`/proc/${child.pid}/status`, 'utf8')).split('\n')) { const match = /^(VmHWM|VmRSS):\s+(\d+)\s+kB$/.exec(line); if (!match) continue; if (match[1] === 'VmHWM') peakHwm = Math.max(peakHwm, Number(match[2])); else peakRss = Math.max(peakRss, Number(match[2])); } } catch {} };
+  const sample = async () => { if (!measure || !child.pid) return; const usage = await processTreeRss(child.pid); samples += 1; peakRss = Math.max(peakRss, usage.rssKiB); peakProcesses = Math.max(peakProcesses, usage.processes); };
   void sample(); const timer = setInterval(() => void sample(), 10);
   child.once('error', (error) => { clearInterval(timer); rejectRun(new NativeProverAdapterError(`${label} could not start: ${clipped(error.message)}`)); });
-  child.once('close', async (code, signal) => { clearInterval(timer); await sample(); const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6; const capturedOut = stdout(); const capturedErr = stderr(); if (!allowedExitCodes.has(code)) return rejectRun(new NativeProverAdapterError(`${label} failed: exit=${code} signal=${signal ?? 'none'} stderr=${clipped(capturedErr.value)}${capturedErr.truncated ? ' [output truncated]' : ''}`)); resolveRun({ elapsedMs, stdout: capturedOut.value, stderr: capturedErr.value, stdoutTruncated: capturedOut.truncated, stderrTruncated: capturedErr.truncated, memory: measure ? { peakRssKiB: peakHwm || peakRss, method: peakHwm ? 'linux-proc-status-vmhwm' : 'linux-proc-status-vmrss-sampled', scope: 'direct native prover process; OpenMP workers are threads in this process', sampleIntervalMs: 10, samples } : undefined }); });
+  child.once('close', async (code, signal) => { clearInterval(timer); await sample(); const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6; const capturedOut = stdout(); const capturedErr = stderr(); if (!allowedExitCodes.has(code)) return rejectRun(new NativeProverAdapterError(`${label} failed: exit=${code} signal=${signal ?? 'none'} stderr=${clipped(capturedErr.value)}${capturedErr.truncated ? ' [output truncated]' : ''}`)); resolveRun({ elapsedMs, stdout: capturedOut.value, stderr: capturedErr.value, stdoutTruncated: capturedOut.truncated, stderrTruncated: capturedErr.truncated, memory: measure ? { peakRssKiB: peakRss, peakProcesses, method: 'linux-proc-status-vmrss-process-tree-sampled', scope: 'local prover launcher and live descendants; excludes the adapter, verifier, and all unrelated processes', sampleIntervalMs: 10, samples } : undefined }); });
 });
 const absent = async (path, label) => { try { await lstat(path); fail(`${label} already exists`); } catch (error) { if (error instanceof NativeProverAdapterError) throw error; if (error?.code !== 'ENOENT') fail(`${label} cannot be inspected`); } };
 const safeOutputParent = async (output) => {
@@ -105,11 +121,11 @@ const assertDirectoryStable = async (record, label) => {
 };
 
 export function parseManifest(value) {
-  exactKeys(value, 'manifest', ['actions', 'artifacts', 'nativeProver', 'outputDirectory', 'repetitions', 'schema', 'snarkjs']);
+  exactKeys(value, 'manifest', ['actions', 'nativeProver', 'outputDirectory', 'profile', 'repetitions', 'schema', 'snarkjs']);
   if (value.schema !== 'shield.cash/native-prover-adapter/v1') fail('manifest schema mismatch');
   if (typeof value.outputDirectory !== 'string' || !isAbsolute(value.outputDirectory)) fail('outputDirectory must be an absolute path');
-  if (!Number.isInteger(value.repetitions) || value.repetitions < 1 || value.repetitions > 10) fail('repetitions must be 1..10');
-  exactKeys(value.artifacts, 'artifacts', ['verificationKey', 'zkey']); pinnedShape(value.nativeProver, 'nativeProver'); pinnedShape(value.artifacts.zkey, 'artifacts.zkey'); pinnedShape(value.artifacts.verificationKey, 'artifacts.verificationKey');
+  if (!Number.isInteger(value.repetitions) || value.repetitions < 1 || value.repetitions > 20) fail('repetitions must be 1..20');
+  try { parseLocalProverProfileBinding(value.profile); } catch (error) { fail(error.message); } exactKeys(value.nativeProver, 'nativeProver', ['backend', 'path', 'sha256']); if (value.nativeProver.backend !== 'rapidsnark') fail('nativeProver.backend must be rapidsnark'); pinnedShape(value.nativeProver, 'nativeProver', ['backend']);
   exactKeys(value.snarkjs, 'snarkjs', ['path', 'sha256', 'version']); if (typeof value.snarkjs.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(value.snarkjs.version)) fail('snarkjs version is malformed'); pinnedShape(value.snarkjs, 'snarkjs', ['version']);
   if (!Array.isArray(value.actions) || value.actions.length !== 3) fail('actions must contain exactly three entries'); const seen = new Set();
   for (const action of value.actions) { exactKeys(action, 'action', ['expectedPublicSignals', 'kind', 'witness']); if (!kinds.has(action.kind) || seen.has(action.kind)) fail('actions must be unique deposit, transfer, withdrawal'); seen.add(action.kind); canonicalSignals(action.expectedPublicSignals, `${action.kind}.expectedPublicSignals`); pinnedShape(action.witness, `${action.kind}.witness`); }
@@ -119,7 +135,7 @@ export function parseManifest(value) {
 export async function runNativeProverAdapter(manifestFilename, { stagingId = randomUUID() } = {}) {
   if (typeof stagingId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(stagingId)) fail('stagingId is malformed');
   const manifest = parseManifest(parseStrictJson(await readStrictUtf8(manifestFilename, 'manifest'), 'manifest'));
-  const nativeProver = await regular(manifest.nativeProver, 'nativeProver'); const snarkjs = await regular(manifest.snarkjs, 'snarkjs', ['version']); const zkey = await regular(manifest.artifacts.zkey, 'artifacts.zkey'); const verificationKey = await regular(manifest.artifacts.verificationKey, 'artifacts.verificationKey');
+  let profile; try { profile = await loadLocalProverProfileBinding(manifest.profile); } catch (error) { fail(error.message); } const nativeProver = Object.freeze({ ...await regular(manifest.nativeProver, 'nativeProver', ['backend']), backend: manifest.nativeProver.backend }); const snarkjs = await regular(manifest.snarkjs, 'snarkjs', ['version']); const zkey = await regular(profile.artifacts.zkey, 'profile.artifacts.zkey'); const verificationKey = await regular(profile.artifacts.verificationKey, 'profile.artifacts.verificationKey');
   const actions = []; for (const action of manifest.actions) actions.push({ ...action, witness: await regular(action.witness, `${action.kind}.witness`) });
   const inputs = [['nativeProver', nativeProver], ['snarkjs', snarkjs], ['artifacts.zkey', zkey], ['artifacts.verificationKey', verificationKey], ...actions.map((action) => [`${action.kind}.witness`, action.witness])];
   const output = resolve(manifest.outputDirectory); const parent = await safeOutputParent(output); const staging = join(parent.path, `.${basename(output)}.staging-${stagingId}`); let published = false; let stagingCreated = false; let stagingRecord;
@@ -127,7 +143,7 @@ export async function runNativeProverAdapter(manifestFilename, { stagingId = ran
     await mkdir(staging, { mode: 0o700 }); stagingCreated = true; const stagingStat = await lstat(staging); if (!stagingStat.isDirectory() || stagingStat.isSymbolicLink() || await realpath(staging) !== staging) fail('staging directory is unsafe'); stagingRecord = Object.freeze({ path: staging, dev: String(stagingStat.dev), ino: String(stagingStat.ino) });
     await assertAllStable(inputs); const version = await run(process.execPath, [snarkjs.path, '--version'], 'pinned snarkjs version', { allowedExitCodes: new Set([0, 99]) }); await assertAllStable(inputs);
     if (!version.stdout.includes(`snarkjs@${manifest.snarkjs.version}`)) fail('pinned snarkjs version mismatch');
-    const result = { schema: 'shield.cash/native-prover-adapter-result/v1', qualification: 'initial feasibility only; not p95 hardware qualification', nativeProver, snarkjs: { ...snarkjs, version: manifest.snarkjs.version }, artifacts: { zkey, verificationKey }, repetitions: manifest.repetitions, actions: [] };
+    const result = { schema: 'shield.cash/native-prover-adapter-result/v1', qualification: 'initial feasibility only; not p95 hardware qualification', profile: profile.identity, nativeProver, snarkjs: { ...snarkjs, version: manifest.snarkjs.version }, artifacts: { zkey, verificationKey }, repetitions: manifest.repetitions, actions: [] };
     for (const action of actions) {
       const runs = [];
       for (let index = 1; index <= manifest.repetitions; index += 1) {
