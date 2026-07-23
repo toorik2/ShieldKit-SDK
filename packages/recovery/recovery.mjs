@@ -169,4 +169,9 @@ export async function recoverRecipientOutput(input) {
 }
 
 export const RECOVERY_RECORD_LAYOUT = Object.freeze({ bytes: OUTPUT_RECORD_BYTES, version: RECORD_VERSION, ciphertextBytes: RECOVERY_RECORD_CIPHERTEXT_BYTES, paddingBytes: RECOVERY_RECORD_PADDING_BYTES });
+
+// Kept as a separate module so the packet codec can remain browser-safe while
+// history recovery reuses the exact V1 record-opening primitive above.
+export { CHAIN_HISTORY_LAYOUT, ChainHistoryRecoveryError, recoverAuthenticatedChainHistory, serializeChainHistoryActions } from './chain-history.mjs';
+export { decodePortableActionPacket, decodePortableActionState, encodePortableActionPacket, encodePortableActionState } from './portable-action-packet.mjs';
 export const RECIPIENT_ADDRESS_SCHEMA = ADDRESS_SCHEMA;

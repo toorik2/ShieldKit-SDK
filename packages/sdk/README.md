@@ -11,6 +11,10 @@ The safe order is:
    and `instanceId` coordinates.
 2. Derive a recipient address from a caller-held seed; scan serialized BCH
    outputs supplied by the application and recover matching 192-byte records.
+   For a contiguous caller-authenticated packet segment, call
+   `recoverAuthenticatedHistory` with a V1 account seed and exact initial and
+   terminal state anchors; it locally reconstructs owned notes and their
+   spent/unspent state without a service client.
 3. Require an explicit `local-only` prover capability, make witness-bound plans,
    and supply only profile-bound real PF7 unlocking material to settlement.
 4. Plan a complete preparation transaction, pass the emitted signing request to
@@ -60,3 +64,11 @@ const prepared = await sdk.finalizeCompletePreparation(funding, signatureHex);
 Development-only bundles remain development-only. Replacing setup material
 means a new profile and new genesis; the SDK will reject a bundle whose exact
 coordinates differ from the requested profile.
+
+The portable history helper does not obtain BCH history or authenticate a
+provider. The integrator supplies authenticated, ordered packets plus both
+state anchors; the helper detects malformed, duplicate, reordered, and
+truncated supplied history. It makes no raw-node synchronization, reorg,
+10,000-transition, archival-availability, or independent-implementation
+claim. Its `accountSeed` is the V1 seed defining one address for this profile
+and instance, not an SDK-defined master/root hierarchy.

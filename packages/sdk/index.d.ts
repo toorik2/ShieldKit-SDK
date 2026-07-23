@@ -14,6 +14,8 @@ export function createDesktopWalletSdk(value: { bundleDirectory: string; expecte
   qualification: string; deriveRecipientAddress: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['deriveRecipientAddress'];
   constructRecipientOutput: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['constructRecipientOutput'];
   recoverChainOutput: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['recoverChainOutput'];
+  recoverAuthenticatedHistory: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['recoverAuthenticatedHistory'];
+  serializeHistoryActions: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['serializeHistoryActions'];
   requireLocalProver(value: import('./browser.mjs').LocalProverCapability): import('./browser.mjs').LocalProverCapability;
   planCompletePreparation(request: FundingRequest): Promise<unknown>;
   preparationSigningRequest(request: FundingRequest): Promise<SchnorrSignatureRequest>;

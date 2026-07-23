@@ -6,6 +6,7 @@ import {
   deriveRecipientAddress,
   recoverRecipientOutput,
 } from '../recovery/recovery.mjs';
+import { recoverAuthenticatedChainHistory, serializeChainHistoryActions } from '../recovery/chain-history.mjs';
 
 const HEX_32 = /^[0-9a-f]{64}$/;
 const HASH_ID = /^sha256:[0-9a-f]{64}$/;
@@ -57,6 +58,11 @@ export function createBrowserWalletSdk(value) {
       if (!HEX_32.test(outputCommitment)) fail('MALFORMED_CHAIN_OUTPUT', 'output commitment must be 32 lowercase hexadecimal bytes');
       return recoverRecipientOutput({ seed, kind, slot, outputCommitment, record, ...identity });
     },
+    async recoverAuthenticatedHistory(request) {
+      exactKeys(request, 'authenticated packet history', ['accountSeed', 'history']);
+      return recoverAuthenticatedChainHistory({ accountSeed: request.accountSeed, history: request.history, ...identity });
+    },
+    serializeHistoryActions: serializeChainHistoryActions,
   });
 }
 

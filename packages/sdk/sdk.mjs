@@ -84,6 +84,8 @@ export async function createDesktopWalletSdk(value) {
     deriveRecipientAddress: portable.deriveRecipientAddress,
     constructRecipientOutput: portable.constructRecipientOutput,
     recoverChainOutput: portable.recoverChainOutput,
+    recoverAuthenticatedHistory: portable.recoverAuthenticatedHistory,
+    serializeHistoryActions: portable.serializeHistoryActions,
     requireLocalProver: requireLocalProverCapability,
     async planCompletePreparation(request) {
       return (await preparationPrimitive()).planCompletePreparationTransaction(completePreparationInput(profile, request));

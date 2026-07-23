@@ -24,6 +24,26 @@ stable `code`; authentication failures deliberately do not expose plaintext.
 The record remains exactly 192 bytes: `version | slot | X25519 ephemeral public
 key | nonce | ChaCha20-Poly1305 ciphertext-and-tag | two zero bytes`.
 
+## Packet-only history recovery
+
+`recoverAuthenticatedChainHistory` accepts an explicit V1 `accountSeed`,
+profile/instance IDs, and caller-authenticated contiguous action-packet bytes
+anchored by exact initial and terminal serialized states. It reconstructs owned
+notes, derives their nullifiers, and returns spent/unspent status. The companion
+`serializeChainHistoryActions` is the strict exact-field-to-packet codec.
+
+It performs no node, indexer, service, storage, or network access. The caller
+remains responsible for BCH provenance, ordering, and state-anchor
+authentication. A terminal anchor detects a truncated prefix; continuity and
+packet fingerprints detect reordered and duplicate packets. This is not a
+raw-node sync, reorg, 10,000-history, archive-availability, or independent
+implementation claim.
+
+The seed is a V1 account seed, not a root-seed hierarchy. V1 retains exactly
+one recipient address for `(accountSeed, profileId, instanceId)`; applications
+with a master seed must supply their own versioned account derivation and scan
+each account seed separately.
+
 ## Cryptographic and portability boundary
 
 V1 derivation, domains, record layout, X25519, HKDF-SHA256,
