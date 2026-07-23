@@ -21,6 +21,7 @@ The manifest is strict (all paths resolve from the runner's working directory):
 ```json
 {
   "schema": "shield.cash/proof-corpus/v1",
+  "snarkjs": {"path": "/immutable/snarkjs-cli.cjs", "sha256": "...", "version": "0.7.6"},
   "artifacts": {
     "r1cs": {"path": "/immutable/relation.r1cs", "sha256": "..."},
     "wasm": {"path": "/immutable/relation.wasm", "sha256": "..."},

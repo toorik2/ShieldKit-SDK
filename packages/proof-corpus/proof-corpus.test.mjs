@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { ProofCorpusError, runProofCorpus } from './proof-corpus.mjs';
+import { ProofCorpusError, parseStrictJson, runProofCorpus, sha256File } from './proof-corpus.mjs';
 
-const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), 'node_modules', 'circom_runtime', 'test', 'circuit');
-const digest = async (filename) => createHash('sha256').update(await (await import('node:fs/promises')).readFile(filename)).digest('hex');
+const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
+const fixture = path.join(packageDirectory, 'node_modules', 'circom_runtime', 'test', 'circuit');
+const snarkjsCli = path.join(packageDirectory, 'node_modules', 'snarkjs', 'build', 'cli.cjs');
+const digest = async (filename) => createHash('sha256').update(await readFile(filename)).digest('hex');
 const artifact = async (filename) => ({ path: filename, sha256: await digest(filename) });
 
 async function manifestAt(directory, changes = {}) {
@@ -15,6 +17,7 @@ async function manifestAt(directory, changes = {}) {
   const input = path.join(fixture, 'input.json');
   const manifest = {
     schema: 'shield.cash/proof-corpus/v1',
+    snarkjs: { path: snarkjsCli, sha256: await digest(snarkjsCli), version: '0.7.6' },
     artifacts: {
       r1cs: await artifact(path.join(fixture, 'circuit.r1cs')),
       wasm: await artifact(wasm),
@@ -31,16 +34,18 @@ async function manifestAt(directory, changes = {}) {
   await writeFile(filename, `${JSON.stringify(manifest)}\n`);
   return { filename, manifest };
 }
+async function assertNoStage(directory, outputDirectory) {
+  const prefix = `.${path.basename(outputDirectory)}.staging-`;
+  assert.equal((await readdir(directory)).some((name) => name.startsWith(prefix)), false);
+}
 
-test('tiny real circuit is rejected after proof verification when public arity is not two', async () => {
+test('tiny real circuit verifies then leaves no published or staged output on incompatible public arity', async () => {
   const directory = await mkdtemp(path.join(process.cwd(), '.tmp-proof-corpus-'));
   try {
     const { filename, manifest } = await manifestAt(directory);
     await assert.rejects(() => runProofCorpus(filename), /public signals must contain exactly two packet-digest limbs/);
-    await lstat(path.join(manifest.outputDirectory, 'deposit.wtns'));
-    await lstat(path.join(manifest.outputDirectory, 'deposit.proof.json'));
-    await lstat(path.join(manifest.outputDirectory, 'deposit.public.json'));
-    await assert.rejects(() => lstat(path.join(manifest.outputDirectory, 'result.json')));
+    await assert.rejects(() => lstat(manifest.outputDirectory));
+    await assertNoStage(directory, manifest.outputDirectory);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -61,12 +66,59 @@ test('rejects a symlinked caller artifact before creating output', async () => {
   }
 });
 
-test('refuses a pre-existing output directory without touching supplied artifacts', async () => {
+test('rejects a duplicate manifest key before artifact execution', () => {
+  assert.throws(() => parseStrictJson('{"schema":"shield.cash/proof-corpus/v1","schema":"drift"}', 'manifest'), /duplicate key/);
+});
+
+test('rejects caller-pinned snarkjs hash drift', async () => {
   const directory = await mkdtemp(path.join(process.cwd(), '.tmp-proof-corpus-'));
   try {
     const { filename, manifest } = await manifestAt(directory);
-    await mkdir(manifest.outputDirectory);
-    await assert.rejects(() => runProofCorpus(filename), /refusing to overwrite output directory/);
+    manifest.snarkjs.sha256 = '0'.repeat(64);
+    await writeFile(filename, `${JSON.stringify(manifest)}\n`);
+    await assert.rejects(() => runProofCorpus(filename), /snarkjs SHA-256 mismatch/);
+    await assert.rejects(() => lstat(manifest.outputDirectory));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('rejects caller-pinned snarkjs version drift', async () => {
+  const directory = await mkdtemp(path.join(process.cwd(), '.tmp-proof-corpus-'));
+  try {
+    const { filename, manifest } = await manifestAt(directory);
+    manifest.snarkjs.version = '0.0.0';
+    await writeFile(filename, `${JSON.stringify(manifest)}\n`);
+    await assert.rejects(() => runProofCorpus(filename), /pinned snarkjs version mismatch/);
+    await assert.rejects(() => lstat(manifest.outputDirectory));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('rejects a destination with a symlinked parent', async () => {
+  const directory = await mkdtemp(path.join(process.cwd(), '.tmp-proof-corpus-'));
+  try {
+    const { filename, manifest } = await manifestAt(directory);
+    const actualParent = path.join(directory, 'actual'); const linkedParent = path.join(directory, 'linked');
+    await mkdir(actualParent); await symlink(actualParent, linkedParent);
+    manifest.outputDirectory = path.join(linkedParent, 'output');
+    await writeFile(filename, `${JSON.stringify(manifest)}\n`);
+    await assert.rejects(() => runProofCorpus(filename), /output parent must be a direct non-symlink directory/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('streams SHA-256 rather than buffering a large artifact', async () => {
+  const directory = await mkdtemp(path.join(process.cwd(), '.tmp-proof-corpus-'));
+  try {
+    const filename = path.join(directory, 'large.r1cs'); const bytes = Buffer.alloc(8 * 1024 * 1024, 0xa5);
+    await writeFile(filename, bytes);
+    assert.equal(await sha256File(filename), createHash('sha256').update(bytes).digest('hex'));
+    const source = await readFile(path.join(packageDirectory, 'proof-corpus.mjs'), 'utf8');
+    assert.match(source, /for await \(const chunk of createReadStream\(filename\)\)/);
+    assert.doesNotMatch(source.match(/export async function sha256File[\s\S]*?\n}\n/)?.[0] ?? '', /readFile\(/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
