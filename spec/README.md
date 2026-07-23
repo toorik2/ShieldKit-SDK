@@ -15,3 +15,7 @@ The standard is deliberately narrow: fixed 0.1 BCH notes, deposit, one-note
 private transfer, withdrawal, local proving, one transparent fee input, one
 canonical change output, and immutable profile-bound verifier material.
 
+The candidate verifier-bundle boundary is specified in
+[verifier-profile/manifest-v1.md](verifier-profile/manifest-v1.md); its
+non-upgrade lifecycle and future ceremony-adapter contract are in
+[verifier-profile/lifecycle-v1.md](verifier-profile/lifecycle-v1.md).

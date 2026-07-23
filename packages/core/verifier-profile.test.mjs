@@ -83,7 +83,7 @@ async function writeBoundManifest(bundle) {
   await writeFile(path.join(bundle.directory, 'manifest.json'), canonicalJson(bundle.manifest));
 }
 
-test('two independently initialized development bundles keep ABI semantics but derive distinct profile and genesis identities', async () => {
+test('same relation and ABI with different local setup/key material derives a new profile and loads as a new instance', async () => {
   const first = await makeDevelopmentBundle('independent-a');
   const second = await makeDevelopmentBundle('independent-b');
   const left = await loadVerifierProfileBundle(first.directory);
@@ -91,10 +91,52 @@ test('two independently initialized development bundles keep ABI semantics but d
   assert.equal(left.manifest.profile.relation.sha256, right.manifest.profile.relation.sha256);
   assert.equal(left.manifest.profile.constraintSystemHash, right.manifest.profile.constraintSystemHash);
   assert.equal(left.manifest.profile.publicInputAbi.sha256, right.manifest.profile.publicInputAbi.sha256);
+  assert.notEqual(
+    left.manifest.artifacts.find((artifact) => artifact.kind === 'verification-key').sha256,
+    right.manifest.artifacts.find((artifact) => artifact.kind === 'verification-key').sha256,
+  );
+  assert.notEqual(
+    left.manifest.setup.provenance.initializerCommitment,
+    right.manifest.setup.provenance.initializerCommitment,
+  );
   assert.notEqual(left.profileId, right.profileId);
   assert.notEqual(left.instanceId, right.instanceId);
   assert.equal(left.manifest.setup.mode, 'development-only');
   assert.equal(Object.isFrozen(left.manifest), true);
+
+  await assert.rejects(
+    () => loadVerifierProfileBundle(second.directory, {
+      network: left.manifest.network.name,
+      profileId: left.profileId,
+      instanceId: left.instanceId,
+    }),
+    /expected profile binding mismatch: refusing hot swap/,
+  );
+  const newInstance = await loadVerifierProfileBundle(second.directory, {
+    network: right.manifest.network.name,
+    profileId: right.profileId,
+    instanceId: right.instanceId,
+  });
+  assert.equal(newInstance.profileId, right.profileId);
+  assert.equal(newInstance.instanceId, right.instanceId);
+});
+
+test('setup mode and setup provenance cannot be relabeled in place', async () => {
+  const modeRelabeled = await makeDevelopmentBundle('mode-relabel');
+  modeRelabeled.manifest.setup.mode = 'ceremony-production';
+  await writeBoundManifest(modeRelabeled);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(modeRelabeled.directory),
+    /ceremony setup requires multi-party-randomness provenance/,
+  );
+
+  const provenanceRelabeled = await makeDevelopmentBundle('provenance-relabel');
+  provenanceRelabeled.manifest.setup.provenance.method = 'multi-party-randomness';
+  await writeBoundManifest(provenanceRelabeled);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(provenanceRelabeled.directory),
+    /development setup requires local-initialization provenance/,
+  );
 });
 
 test('state NFT category is a circularity-free CashToken category binding from the pre-existing output-0 input', async () => {
