@@ -1,0 +1,29 @@
+{
+  "schema": "shield.cash/pf7-reference-matrix/v1",
+  "qualification": "development-only verifier reference transactions; not complete shield.cash settlement, node relay, Chipnet, ceremony, or release evidence",
+  "candidate": {
+    "id": "bn254-onetx-pf7-sub62-r1",
+    "baseCommit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "terminalCommit": "17c6b9552c48b0fc5271be626a1578fb0065df09",
+    "terminalTree": "d9673df5a3f5358df6aaff9c4042a029bc26a521",
+    "topologyInputs": 7,
+    "genericFallback": "forbidden",
+    "wireLimit": 59000,
+    "unlockLimit": 10000
+  },
+  "runs": [
+    {"setup":"v0","action":"deposit","adapterSha256":"d895e004e163ed8c07f08b0ed98d339d9e0ac22a56f6c76d00b81436bca64637","resultSha256":"e727ffa822293afece541c681d20f547c818b7db42d0110e27b6d2afe520936a","inputsSha256":"b9451143fe04b4b025cf949b195e80858a2e4b049ff7ee4ed96c8d8ec41ba06f","sourceSetSha256":"7c99dcd57f501f96c2246581fb506d704a7aa515874c93e85b9fadc22793ac4a","standardnessSha256":"14b0d4cd4510e92d9577ea74e23913f8075948e67c0c06ed1c108bf38e181935","wireBytes":54329,"scoreBytes":54574,"maxUnlockingBytes":9241,"normalVm":"7/7","standardVm":"7/7"},
+    {"setup":"v0","action":"transfer","adapterSha256":"7bcfe5b5f0d2a0c6edc72871f30fd2bcdb2dfc6a3aa5734a9a4c7e0aa2673687","resultSha256":"349b587f6eae619eb01368e7018477258f7d70bedc40e45b915edc1285f500d7","inputsSha256":"ac336f734e1ac0df6a3cd64a0a466f661cd766d66a30ebe089a518c9650fe186","sourceSetSha256":"7c99dcd57f501f96c2246581fb506d704a7aa515874c93e85b9fadc22793ac4a","standardnessSha256":"adf8a15903172909dad1920d1b397caaa0231e7f8b73efe8179e22eeacd4728e","wireBytes":54394,"scoreBytes":54639,"maxUnlockingBytes":9241,"normalVm":"7/7","standardVm":"7/7"},
+    {"setup":"v0","action":"withdrawal","adapterSha256":"7adc81d6365bfffdb98c2ae82f144a998e78b2fba215b84f784262ef31a9eb0c","resultSha256":"0666e983c4fd8ebc41aee4468e0098ca8c132158faa06029da39fbf7aec7602a","inputsSha256":"9600b52a832dffdf1b5ff35e2ce3ef2dfffde65f72fa05c28ade9a0a937e7944","sourceSetSha256":"7c99dcd57f501f96c2246581fb506d704a7aa515874c93e85b9fadc22793ac4a","standardnessSha256":"c1ad8f8a5c992491bd9c195db652c4d4ca9c744ccdfa6b8b2d5c75b65c1dab9f","wireBytes":54265,"scoreBytes":54510,"maxUnlockingBytes":9177,"normalVm":"7/7","standardVm":"7/7"},
+    {"setup":"v1","action":"deposit","adapterSha256":"ece0c4f3406c8395fde96f22dc0c1b534d17eda71d793626f00b9dcf1aed4f8e","resultSha256":"9d70a9827b7cdbed334582974de2da3a5f1d8714c566ef3937f98e5dbf920060","inputsSha256":"306487d0fa5df0419653ca9c8403a0026144424b4923a1fa9c6d026aee8fbc13","sourceSetSha256":"d8a526c5477a85e42242d337273e1e34b560ddb2ae47b20b860c7c0c2c0e9055","standardnessSha256":"c0eff2e2bae647404ba5c21d9fd17d4de2a3f0c2d02b27b6884e642594cceb75","wireBytes":54327,"scoreBytes":54572,"maxUnlockingBytes":9240,"normalVm":"7/7","standardVm":"7/7"},
+    {"setup":"v1","action":"transfer","adapterSha256":"0de06f5aa0f12963f88bc8c7ad0dc943eeb9addd5c2425754053209537ff8f0b","resultSha256":"e4d9219c49e250b6f130793049a958dbb24c3c0579fd16ffb5a0eb00b3232c4b","inputsSha256":"02de4d18e401e7d1c55308976e5ba3156626409a7c1e05bb79ab46820c139fe0","sourceSetSha256":"d8a526c5477a85e42242d337273e1e34b560ddb2ae47b20b860c7c0c2c0e9055","standardnessSha256":"0a8141a648b8dafc26b656491c4627121583f7b532d77ae7a1fd5763923d26b5","wireBytes":54329,"scoreBytes":54574,"maxUnlockingBytes":9177,"normalVm":"7/7","standardVm":"7/7"},
+    {"setup":"v1","action":"withdrawal","adapterSha256":"21774260877a05f24d77d6f9a507b768d7c9d9fc8de695aeacd98e1c23bb42fc","resultSha256":"6356371ac2c0670b1208b3fdba4949542824e5c4b59a008892b543b882078f6d","inputsSha256":"ed154ba2fdaa121fbb101cb01a233bef2996f75d727dab03bdef5651678b6588","sourceSetSha256":"d8a526c5477a85e42242d337273e1e34b560ddb2ae47b20b860c7c0c2c0e9055","standardnessSha256":"a4782b0ef5e93bc9abe34dc36ccd75285fa77cf2083216612ac5bafb01327871","wireBytes":54263,"scoreBytes":54508,"maxUnlockingBytes":9176,"normalVm":"7/7","standardVm":"7/7"}
+  ],
+  "invariants": {
+    "actionIndependentLocks": {"v0":"7c99dcd57f501f96c2246581fb506d704a7aa515874c93e85b9fadc22793ac4a","v1":"d8a526c5477a85e42242d337273e1e34b560ddb2ae47b20b860c7c0c2c0e9055"},
+    "setupReplacementChangesLocks": true,
+    "standardChecks":"six reports, each 7/7",
+    "rawTamper": {"v0Deposit":{"rejected":18,"falseAccepts":0,"setupErrors":0,"sha256":"c7f006e0dc40ee2fe1f7a74caf544fa554b513d74c9f4279d0c1da9fc83fd9ca"},"v1Deposit":{"rejected":18,"falseAccepts":0,"setupErrors":0,"sha256":"6f5a325fd3a9b15af1b6ed4f6f257b92a634e9274caed869eaf585482895b0f3"}}
+  },
+  "generatorReplay": {"adapterSha256":"d895e004e163ed8c07f08b0ed98d339d9e0ac22a56f6c76d00b81436bca64637","bchVerifierSetSha256":"aba0161429c437bacfd83527e30fda4e3835b946d28bf306de4de60ad218d2b9","note":"reproducible external output; not imported as profile authority"}
+}

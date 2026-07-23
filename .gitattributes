@@ -1,0 +1,3 @@
+# Retained git-format-patch files are byte-identical provenance artifacts.
+# Their diff payload deliberately preserves source trailing whitespace.
+provenance/verifier.cash-pf7-sub62/patches/*.patch -whitespace

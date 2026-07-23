@@ -41,13 +41,15 @@ adapter preserves that valid source material. Current verifier.cash PF7 cannot
 consume an infinite IC point in its ECIP/MSM path, so its pinned importer must
 reject it; it must never substitute an affine point or an identity surrogate.
 
-More broadly, the current PF7 build entrypoint rejects every
-`C7_SHIELD_ADAPTER_*` request before generator imports. Its gb3/SZ and
-fixed-G2 emitters still derive chunks, alpha-beta folds, gamma/delta lines,
-transcripts, and state from a static pairing-vector trajectory. Accepting an
-arbitrary adapter result there would mix sources. The adapter is therefore an
-interoperability conversion artifact only until an end-to-end parameterized PF7
-generator exists.
+The retained selected PF7 source chain has a narrow end-to-end parameterized
+path: it accepts one complete SHA-pinned adapter result, derives the live
+gamma/delta static-line material from that adapter's VK, and rejects all legacy
+ELIG selectors in the same invocation. This does not make arbitrary PF7
+configuration safe: shield.cash consumes it only through
+`packages/pf7-verifier-generator`, which pins the exact verifier.cash base and
+patch series, forces the seven-input PF7-sub62 profile, and rejects generic or
+ten-role fallback modes. The adapter remains development-only material until a
+new profile has complete setup, settlement, node, and release qualification.
 
 `test-fixtures/two-public` is a local development-only two-public-signal
 snarkjs fixture. The test first asks pinned snarkjs to verify it, then adapts

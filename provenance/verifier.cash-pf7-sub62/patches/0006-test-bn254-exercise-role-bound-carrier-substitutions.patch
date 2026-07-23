@@ -1,0 +1,41 @@
+From c9a0c1653709ae360d69611a997ac114bf9a4c8f Mon Sep 17 00:00:00 2001
+From: Margus Kokk <margus.kokk@gmail.com>
+Date: Thu, 23 Jul 2026 18:18:17 +0300
+Subject: [PATCH 6/7] test(bn254): exercise role-bound carrier substitutions
+
+---
+ .../src/c7/measure-terminal-raw-attacks.ts     | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/lanes/bn254-onetx/src/c7/measure-terminal-raw-attacks.ts b/lanes/bn254-onetx/src/c7/measure-terminal-raw-attacks.ts
+index 167b5ab..362e4a0 100644
+--- a/lanes/bn254-onetx/src/c7/measure-terminal-raw-attacks.ts
++++ b/lanes/bn254-onetx/src/c7/measure-terminal-raw-attacks.ts
+@@ -51,15 +51,15 @@ const terminalLoader = (items: Item[]) => {
+ };
+ const attacks: Array<{ name: string; apply: (items: Item[]) => void }> = [];
+ for (let i = 0; i < 7; i++) attacks.push({ name: `role-byte-${i}`, apply: (x) => { x[i].lock[10] ^= 1; } });
+-for (let i = 0; i < 7; i++) attacks.push({ name: `role-index-${i}`, apply: (x) => {
+-  const l = terminalLoader(x);
+-  let seen = 0;
+-  for (let j = 0; j + 3 < l.bytes.length; j++) {
+-    if (l.bytes[j] === 0x76 && l.bytes[j + 2] === 0xc7 && l.bytes[j + 3] === 0x88) {
+-      if (seen++ === i) { const at = l.offset + j + 1; x[8].unlock[at] = x[8].unlock[at] === 0x51 ? 0x52 : 0x51; return; }
+-    }
+-  }
+-  throw new Error(`role index pattern ${i} unavailable`);
++// The current terminal authenticates the shared executor implementation from
++// one P2SH32 locking bytecode, so swapping executor locks is a no-op: there is
++// no historical per-role INPUTINDEX selector in the terminal unlocking data to
++// mutate. Substitute each *role-bound carrier witness* with an adjacent role
++// instead. Every source slot remains present, but its state/record/fragment
++// assignment is wrong and must reject in the closed sibling context.
++for (let i = 0; i < 7; i++) attacks.push({ name: `role-witness-substitute-${i}`, apply: (x) => {
++  const next = (i + 1) % 7;
++  [x[i].unlock, x[next].unlock] = [x[next].unlock, x[i].unlock];
+ } });
+ attacks.push({ name: 'source-lock-permutation', apply: (x) => { [x[0].lock, x[7].lock] = [x[7].lock, x[0].lock]; } });
+ attacks.push({ name: 'witness-permutation', apply: (x) => { [x[0].unlock, x[1].unlock] = [x[1].unlock, x[0].unlock]; } });
+-- 
+2.55.0
+

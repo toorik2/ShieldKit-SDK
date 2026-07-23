@@ -1,0 +1,382 @@
+From aa12905c0f4928b20e2b66475a438eb9c7dcb613 Mon Sep 17 00:00:00 2001
+From: Margus Kokk <margus.kokk@gmail.com>
+Date: Thu, 23 Jul 2026 17:11:16 +0300
+Subject: [PATCH 1/7] feat(bn254): add bounded PF7 ten-role verifier context
+
+---
+ lanes/bn254-onetx/src/build-adapter.mjs       |  12 +-
+ lanes/bn254-onetx/src/c7/build.ts             | 104 ++++++++++++++----
+ lanes/bn254-onetx/src/c7/run-input-redteam.ts |  42 +++++--
+ 3 files changed, 126 insertions(+), 32 deletions(-)
+
+diff --git a/lanes/bn254-onetx/src/build-adapter.mjs b/lanes/bn254-onetx/src/build-adapter.mjs
+index 756f5b8..0df790c 100644
+--- a/lanes/bn254-onetx/src/build-adapter.mjs
++++ b/lanes/bn254-onetx/src/build-adapter.mjs
+@@ -22,6 +22,9 @@ export const validateBuild = (build) => {
+     && build.pairfoldTopology !== 8) {
+     throw new Error('BN254 one-tx build.pairfoldTopology must be 6, 7, or 8 when supplied');
+   }
++  if (build.structuralRoleCount !== undefined && build.structuralRoleCount !== 3) {
++    throw new Error('BN254 one-tx build.structuralRoleCount must be exactly 3 when supplied');
++  }
+   if (build.terminal !== undefined) {
+     if (build.terminal === null || typeof build.terminal !== 'object' || Array.isArray(build.terminal)) {
+       throw new Error('BN254 one-tx build.terminal must be an object when supplied');
+@@ -134,6 +137,7 @@ export const buildCandidate = ({ candidate, candidatePath, runId, outDir, repoRo
+       C7_COMPOSED_P2SH: '1',
+       C7_COMPOSED_DIRECT_TERMINAL: '1',
+       C7_PAIRFOLD_TOPOLOGY: String(candidate.build.pairfoldTopology ?? 7),
++      ...(candidate.build.structuralRoleCount === 3 ? { C7_STRUCTURAL_ROLE_COUNT: '3' } : {}),
+       ...(candidate.build.idealVariant ? { C7_IDEAL_VARIANT: String(candidate.build.idealVariant) } : {}),
+       ...(candidate.build.scalarEndpoint === true ? { C7_SCALAR_ENDPOINT: '1' } : {}),
+       // dens-rich: densFuel DROP dens-positive when densFuel remains after dens knife
+@@ -183,6 +187,9 @@ export const buildCandidate = ({ candidate, candidatePath, runId, outDir, repoRo
+   if (buildResult.built !== true || buildResult.gateOk !== true) {
+     throw new Error(`BN254 one-tx build is not real-gate green: ${JSON.stringify(buildResult)}`);
+   }
++  if (candidate.build.structuralRoleCount === 3) {
++    throw new Error('bounded ten-role verifier-context output has unevaluated packet/state/fee roles and must not produce a CandidateBundle');
++  }
+   let vectorPaths = {};
+   if (fixedG2Static) {
+     const offsubDir = resolve(outDir, 'offsubgroup');
+@@ -217,9 +224,8 @@ export const buildCandidate = ({ candidate, candidatePath, runId, outDir, repoRo
+     const offsubResultPath = resolve(offsubDir, 'result.json');
+     if (!existsSync(offsubResultPath)) throw new Error(`fixed-G2 off-subgroup build did not emit ${offsubResultPath}`);
+     const offsubBuild = JSON.parse(readFileSync(offsubResultPath, 'utf8'));
+-    // Terminal is the last input: index 6 for PairFold-7, index 5 for PairFold-6.
+-    const terminalIndex = (offsubBuild.manual?.length ?? 0) - 1;
+-    if (offsubBuild.gateOk !== false || terminalIndex < 0 || offsubBuild.manual?.[terminalIndex]?.accepts !== false) {
++    const terminalRow = offsubBuild.manual?.find((row) => row.name === 'terminal');
++    if (offsubBuild.gateOk !== false || terminalRow?.accepts !== false) {
+       throw new Error(`fixed-G2 off-subgroup vector did not reject at the terminal: ${JSON.stringify(offsubBuild.manual)}`);
+     }
+     const primaryInputs = JSON.parse(readFileSync(resolve(buildDir, 'inputs_dump.json'), 'utf8'));
+diff --git a/lanes/bn254-onetx/src/c7/build.ts b/lanes/bn254-onetx/src/c7/build.ts
+index 90d1859..a5eb379 100644
+--- a/lanes/bn254-onetx/src/c7/build.ts
++++ b/lanes/bn254-onetx/src/c7/build.ts
+@@ -178,6 +178,20 @@ function eligInstanceLocal(): { pf: any; inputs: bigint[] } {
+ }
+ const ELIG = eligInstanceLocal();
+ console.log('=== ELIG_INSTANCE (c7_merge) ===', JSON.stringify({ sel: CONFIG.proofSelection.instance ?? '(base)', idx: CONFIG.proofSelection.rawIndex ?? null, inputs: ELIG.inputs.map(String) }));
++// Bounded shield.cash verifier-context experiment. These bytes are not an
++// action covenant: they let the verifier authenticate the public statement in
++// an exact ten-input transaction while binding/state/fee remain unevaluated.
++// The canonical packet is deliberately proof/public-input specific.
++const STRUCTURAL_ROLE_COUNT = Number(process.env.C7_STRUCTURAL_ROLE_COUNT ?? '0');
++if (STRUCTURAL_ROLE_COUNT !== 0 && STRUCTURAL_ROLE_COUNT !== 3) {
++  throw new Error(`C7_STRUCTURAL_ROLE_COUNT must be 0 or 3, got ${STRUCTURAL_ROLE_COUNT}`);
++}
++const publicLimbBe = (value: bigint) => Uint8Array.from(jsBe32(value));
++const packetBytes = STRUCTURAL_ROLE_COUNT === 3
++  ? cat(Uint8Array.from([0x53, 0x48, 0x50, 0x31]), publicLimbBe(ELIG.inputs[0]), publicLimbBe(ELIG.inputs[1]))
++  : new Uint8Array();
++const packetUnlock = STRUCTURAL_ROLE_COUNT === 3 ? encodeDataPush(packetBytes) : new Uint8Array();
++if (STRUCTURAL_ROLE_COUNT === 3 && packetBytes.length !== 68) throw new Error('canonical SHP1 packet must be 68 bytes');
+ const SGB_WIDTHS = Array.from({ length: 32 }, (_, p) => (gb3 as any).stateW(p));
+ const le40 = (v: any) => { const o = new Uint8Array(40); let x = BigInt(v); for (let i = 0; i < 40; i++) { o[i] = Number(x & 0xffn); x >>= 8n; } return o; };
+ const P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+@@ -267,8 +281,10 @@ const WIN: [number, number][] = COMPOSED_P2SH && composedRoute?.roles
+     const lo = 1 + i * KWIN;
+     return [lo, Math.min(64, lo + KWIN)] as [number, number];
+   });
+-const EXPECTED_INPUTS = (COMPOSED_P2SH ? COMPOSED_EXECUTOR_COUNT : WIN.length)
++const VERIFIER_INPUTS = (COMPOSED_P2SH ? COMPOSED_EXECUTOR_COUNT : WIN.length)
+   + (TERMINAL_FUSION9 ? 2 : (STRIPED ? 3 : 4));
++const EXPECTED_INPUTS = VERIFIER_INPUTS + STRUCTURAL_ROLE_COUNT;
++const PACKET_INPUT_INDEX = STRUCTURAL_ROLE_COUNT === 3 ? VERIFIER_INPUTS : -1;
+ // Bind every executor to the complete transaction topology used by its sibling reads.
+ // The second check ties the source outpoint to the current transaction position.
+ const txTopologyGuard = cat(
+@@ -648,11 +664,12 @@ function buildTerminal(opts?: { bqShards?: ScalarBqShard[]; bqResidual?: Uint8Ar
+       });
+       return lines;
+     };
+-    // Genesis is the penultimate input (EXPECTED_INPUTS-2): index 5 on PairFold-7,
+-    // index 4 on PairFold-6. Hardcoding 5 made the six-input terminal read itself.
++    // Genesis is a verifier-role index, not the penultimate transaction input:
++    // bounded envelope roles may follow the terminal. Hardcoding the old
++    // EXPECTED_INPUTS-2 formula made a ten-input terminal read the state slot.
+     const projectedParser = [
+       // seamFront.length: fixed split chain binds width (a2-term-noseamlen).
+-      `        bytes contextBlob = tx.inputs[${EXPECTED_INPUTS - 2}].unlockingBytecode.split(3)[1].split(448)[0];`,
++      `        bytes contextBlob = tx.inputs[${genesisIndex}].unlockingBytecode.split(3)[1].split(448)[0];`,
+       ...parse(context, 'contextBlob', Array(context.length).fill(32)),
+       ...(FIXED_G2_TABLE
+         ? [
+@@ -952,7 +969,7 @@ function buildTerminal(opts?: { bqShards?: ScalarBqShard[]; bqResidual?: Uint8Ar
+   if (terminalWSelector) {
+     // The projected route prefixes genesis unlocking bytecode with a canonical
+     // PUSHDATA2(448) context blob. Its selector is the next opcode.
+-    const genesisSelector = `tx.inputs[${EXPECTED_INPUTS - 2}].unlockingBytecode.split(451)[1].split(1)[0]`;
++    const genesisSelector = `tx.inputs[${genesisIndex}].unlockingBytecode.split(451)[1].split(1)[0]`;
+     L.push(`        bytes wselPush = ${genesisSelector};`);
+     L.push('        require(wselPush == 0x00 || wselPush == 0x51 || wselPush == 0x52);');
+   } else if (TERMINAL_BIND_WSEL) {
+@@ -960,8 +977,8 @@ function buildTerminal(opts?: { bqShards?: ScalarBqShard[]; bqResidual?: Uint8Ar
+     // PUSHDATA2(448) context blob.  Its selector is therefore the first byte
+     // immediately after that encoded push, not unlocking byte zero.
+     const genesisSelector = PROJECTED_BQ_7
+-      ? `tx.inputs[${EXPECTED_INPUTS - 2}].unlockingBytecode.split(451)[1].split(1)[0]`
+-      : `tx.inputs[${EXPECTED_INPUTS - 2}].unlockingBytecode.split(1)[0]`;
++      ? `tx.inputs[${genesisIndex}].unlockingBytecode.split(451)[1].split(1)[0]`
++      : `tx.inputs[${genesisIndex}].unlockingBytecode.split(1)[0]`;
+     L.push(`        bytes wselPush = ${genesisSelector};`);
+     L.push(`        require((${wOne} && wselPush == 0x00) || (${wRoot} && wselPush == 0x51) || (${wRoot2} && wselPush == 0x52));`);
+   } else {
+@@ -2263,6 +2280,17 @@ const boundaryRoleGuard = (inputIndex: number, roles: Array<[number, Uint8Array]
+     })() : roles.map(([i, lock]) => sourceLockGuard(i, lock))),
+   );
+ };
++// The terminal is the final Groth16 equation check. In the bounded ten-role
++// context it additionally authenticates the exact canonical packet carried in
++// input 7. The packet encodes the two public limbs consumed when constructing
++// the unchanged ECIP/Groth16 statement. This is intentionally not a binding
++// covenant: input 7's source lock is structural-only until G2 work supplies a
++// complete action/state/fee relation.
++const packetPublicInputGuard = () => STRUCTURAL_ROLE_COUNT === 3
++  ? cat(
++    pushInt(PACKET_INPUT_INDEX), b(OP.INPUTBYTECODE), push(packetUnlock), b(OP.EQUALVERIFY),
++  )
++  : new Uint8Array();
+ // Boundary loaders consume fixed byte ranges from executor unlockings. Pin the complete
+ // unlocking length in the final loader as well, otherwise bytes appended after the last
+ // consumed range remain invisible to every check and create a malleable witness encoding.
+@@ -3266,7 +3294,7 @@ if (COMPOSED_P2SH) {
+       ...Array.from({ length: COMPOSED_EXECUTOR_COUNT }, (_, i) => [i, new Uint8Array(35)] as [number, Uint8Array]),
+       [genesisIndex, genesis.lock],
+     ];
+-    const provisionalRoleGuard = boundaryRoleGuard(terminalIndex, dummyRoles);
++    const provisionalRoleGuard = cat(boundaryRoleGuard(terminalIndex, dummyRoles), packetPublicInputGuard());
+     const provisionalTerminal = COMPOSED_DIRECT_TERMINAL
+       ? (SELF_CARRIED_TERMINAL
+         ? selfCarriedBoundaryBody(terminalBody, terminalIndex, 1536, provisionalRoleGuard)
+@@ -3297,7 +3325,7 @@ if (COMPOSED_P2SH) {
+       ...execLocks.map((lock, i) => [i, lock] as [number, Uint8Array]),
+       [genesisIndex, genesis.lock],
+     ];
+-    const roleGuard = boundaryRoleGuard(terminalIndex, upstreamRoles);
++    const roleGuard = cat(boundaryRoleGuard(terminalIndex, upstreamRoles), packetPublicInputGuard());
+     terminal = COMPOSED_DIRECT_TERMINAL
+       ? (SELF_CARRIED_TERMINAL
+         ? selfCarriedBoundaryBody(finalTerminalBody, terminalIndex, 1536, roleGuard)
+@@ -3398,7 +3426,7 @@ if (COMPOSED_P2SH) {
+         [genesisIndex, genesis.lock],
+       ];
+       if (DIRECT_LOCKS || DIRECT_TERMINAL_LOCK) {
+-        const roleGuard = boundaryRoleGuard(terminalIndex, upstreamRoles);
++        const roleGuard = cat(boundaryRoleGuard(terminalIndex, upstreamRoles), packetPublicInputGuard());
+         terminal = SELF_CARRIED_TERMINAL
+           ? selfCarriedBoundaryBody(terminalBody, terminalIndex, 1536, roleGuard)
+           : directBoundaryBody(terminalBody, roleGuard);
+@@ -3549,7 +3577,18 @@ const boundaryMeta = TERMINAL_FUSION9
+       { name: 'finalize', lock: finalize.lock, unlock: finalize.unlock },
+       { name: 'fused', lock: fused.lock, unlock: fused.unlock },
+     ];
+-const allMeta = [...intInputs, ...boundaryMeta];
++const structuralP2pkh = (tag: string) => cat(
++  b(0x76, 0xa9), push(hash160(Uint8Array.from(Buffer.from(tag, 'utf8')))), b(0x88, 0xac),
++);
++const structuralMeta = STRUCTURAL_ROLE_COUNT === 3
++  ? [
++      { name: 'packet', lock: structuralP2pkh('shield.cash/g1-10role/packet'), unlock: packetUnlock },
++      { name: 'state', lock: structuralP2pkh('shield.cash/g1-10role/state'), unlock: new Uint8Array() },
++      { name: 'fee', lock: structuralP2pkh('shield.cash/g1-10role/fee'), unlock: new Uint8Array() },
++    ]
++  : [];
++const allMeta = [...intInputs, ...boundaryMeta, ...structuralMeta];
++if (allMeta.length !== EXPECTED_INPUTS) throw new Error(`assembled ${allMeta.length} inputs, expected ${EXPECTED_INPUTS}`);
+ // ---- token wiring (mission: pass real incoming token per covenant boundary input) ----
+ const mkTok = (com: Uint8Array) => ({ category: CATEGORY, capability: 'mutable' as const, commitment: com });
+ // consistency of the covenant seam (predecessor covOut forward-pin == successor covIn)
+@@ -3614,9 +3653,9 @@ const { createRealVm, evaluatePair } = await import('../../../../harness/src/har
+ const vmManual = createRealVm();
+ const siblingsManual = gateInputs.map((i) => ({ lockingBytecode: i.lockingBytecode, unlockingBytecode: i.unlockingBytecode, valueSatoshis: i.valueSatoshis, sequenceNumber: i.sequenceNumber, ...((i as any).token ? { token: (i as any).token } : {}) }));
+ const manual = gateInputs.map((inp, index) => {
+-  if (CONFIG.diagnostics.debug && index !== genesisIndex) return { i: index, name: allMeta[index].name, accepts: true, error: '(skipped under C7_DBG)', unlockLen: inp.unlockingBytecode.length };
++  if (CONFIG.diagnostics.debug && index !== genesisIndex) return { i: index, name: allMeta[index].name, accepts: true, error: '(skipped under C7_DBG)', unlockLen: inp.unlockingBytecode.length, operationCost: null };
+   const out = evaluatePair(vmManual, inp.lockingBytecode, inp.unlockingBytecode, undefined, { index, inputs: siblingsManual, outputValueSatoshis: SPEND_OUTPUT_VALUE_SATS });
+-  return { i: index, name: allMeta[index].name, accepts: out.accepted, error: out.accepted ? '' : (out.error ?? 'bad final stack'), unlockLen: inp.unlockingBytecode.length };
++  return { i: index, name: allMeta[index].name, accepts: out.accepted, error: out.accepted ? '' : (out.error ?? 'bad final stack'), unlockLen: inp.unlockingBytecode.length, operationCost: out.operationCost };
+ });
+ console.log('\n=== MANUAL per-input (with tokens) ===');
+ console.log(JSON.stringify(manual, null, 2));
+@@ -3716,12 +3755,28 @@ if (CONFIG.diagnostics.debug && !manual[genesisIndex].accepts) {
+ }
+ 
+ // ★★★ THE MANDATORY REALITY GATE ★★★
++// Structural roles are deliberately unevaluated in the narrowly-scoped
++// shield.cash ten-role experiment. Every verifier role is nevertheless
++// evaluated by the normal BCH-2026 VM against the complete ten-input context.
+ let gateOk = false; let gateThrow = ''; let report: any = null;
+-try {
+-  report = assertAllInputsReal(gateInputs, { label: `c7 vkx-into-genesis (${EXPECTED_INPUTS}, MERGED${TERMINAL_FUSION9 ? '+terminal-fusion' : ''})`, outputValueSatoshis: SPEND_OUTPUT_VALUE_SATS });
+-  gateOk = report.ok;
+-} catch (e: any) {
+-  gateThrow = String(e?.message ?? e);
++if (STRUCTURAL_ROLE_COUNT === 3) {
++  const verifierManual = manual.slice(0, VERIFIER_INPUTS);
++  gateOk = verifierManual.every((row) => row.accepts);
++  report = {
++    ok: gateOk,
++    scope: 'seven verifier roles in complete ten-input context; packet/state/fee structural roles unevaluated',
++    inputCount: EXPECTED_INPUTS,
++    evaluatedInputCount: VERIFIER_INPUTS,
++    perInput: verifierManual.map((row) => ({ index: row.i, accepts: row.accepts, reason: row.error || 'real BCH-2026 VM accepts', unlockingLen: row.unlockLen })),
++  };
++  if (!gateOk) gateThrow = `verifier-context gate rejected: ${JSON.stringify(verifierManual)}`;
++} else {
++  try {
++    report = assertAllInputsReal(gateInputs, { label: `c7 vkx-into-genesis (${EXPECTED_INPUTS}, MERGED${TERMINAL_FUSION9 ? '+terminal-fusion' : ''})`, outputValueSatoshis: SPEND_OUTPUT_VALUE_SATS });
++    gateOk = report.ok;
++  } catch (e: any) {
++    gateThrow = String(e?.message ?? e);
++  }
+ }
+ 
+ console.log(`\n=== CLOSED ${EXPECTED_INPUTS}-input serialization ===`);
+@@ -3729,9 +3784,11 @@ console.log(JSON.stringify({
+   nIn: allMeta.length, sigmaLock, sigmaUnlock, wire, score,
+   scoreUnder100k: score < 100000, wireUnder100k: wire < 100000, bothUnder: score < 100000 && wire < 100000,
+ }, null, 2));
+-console.log('\n=== ★ REALITY GATE (assertAllInputsReal) ★ ===');
++console.log(`\n=== ★ ${STRUCTURAL_ROLE_COUNT === 3 ? 'VERIFIER-CONTEXT REALITY GATE' : 'REALITY GATE (assertAllInputsReal)'} ★ ===`);
+ if (gateOk) {
+-  console.log('PASSED — all ' + allMeta.length + ' inputs real + VM-accept. perInput:');
++  console.log(STRUCTURAL_ROLE_COUNT === 3
++    ? 'PASSED — seven verifier inputs VM-accept in the complete ten-input context; structural roles intentionally unevaluated. perInput:'
++    : 'PASSED — all ' + allMeta.length + ' inputs real + VM-accept. perInput:');
+   console.log(JSON.stringify(report.perInput.map((p: any) => ({ i: p.index, accepts: p.accepts, reason: p.reason, len: p.unlockingLen })), null, 2));
+ } else {
+   console.log('THREW / FAILED:');
+@@ -3741,4 +3798,11 @@ writeFileSync(TMP + '/result.json', JSON.stringify({
+   built: true, gateOk, wire, score, sigmaLock, sigmaUnlock, seamChains,
+   bothUnder: score < 100000 && wire < 100000,
+   gateThrow, manual, perInput: report ? report.perInput : null,
++  verifierInputCount: VERIFIER_INPUTS,
++  structuralRoleCount: STRUCTURAL_ROLE_COUNT,
++  ...(STRUCTURAL_ROLE_COUNT === 3 ? {
++    structuralRoleNames: structuralMeta.map((role) => role.name),
++    structuralRolesUnevaluated: true,
++    packet: { index: PACKET_INPUT_INDEX, bytes: packetBytes.length, unlockBytes: packetUnlock.length, sha256: createHash('sha256').update(packetBytes).digest('hex') },
++  } : {}),
+ }, null, 2));
+diff --git a/lanes/bn254-onetx/src/c7/run-input-redteam.ts b/lanes/bn254-onetx/src/c7/run-input-redteam.ts
+index 376627f..0715a7f 100644
+--- a/lanes/bn254-onetx/src/c7/run-input-redteam.ts
++++ b/lanes/bn254-onetx/src/c7/run-input-redteam.ts
+@@ -1,6 +1,7 @@
+ // Closed-transaction EIP-197 input-validation battery for the six/seven-input
+-// fixed-G2 route.  This is deliberately intratx-aware: every altered witness
+-// is installed in the shared input list before each input is evaluated.
++// fixed-G2 route and its bounded ten-input shield.cash verifier context. This
++// is deliberately intratx-aware: every altered witness is installed in the
++// shared input list before each verifier role is evaluated.
+ //
+ // Inputs are real C7 build directories (the `c7/` directories emitted by
+ // `npm run vc -- exec -- … build.ts`):
+@@ -50,9 +51,10 @@ mkdirSync(outDir, { recursive: true });
+ 
+ const TOPO_6 = ['exec0', 'exec1', 'exec2', 'exec3', 'genesis', 'terminal'] as const;
+ const TOPO_7 = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'] as const;
++const TOPO_10 = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal', 'packet', 'state', 'fee'] as const;
+ const readRun = (dir: string): Item[] => {
+   const raw = JSON.parse(readFileSync(resolve(dir, 'inputs_dump.json'), 'utf8')) as RawInput[];
+-  assert.ok(raw.length === 6 || raw.length === 7, `${dir}: expected six or seven input records, got ${raw.length}`);
++  assert.ok(raw.length === 6 || raw.length === 7 || raw.length === 10, `${dir}: expected six, seven, or bounded ten input records, got ${raw.length}`);
+   return raw.map((row) => ({ name: row.name, lock: hexToBin(row.lock), unlock: hexToBin(row.unlock) }));
+ };
+ const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as Record<string, string>;
+@@ -60,10 +62,13 @@ const honest = readRun(honestDir);
+ const offsub = readRun(offsubDir);
+ const extraValid = extraDirs.map(readRun);
+ const worstCase = worstDir === undefined ? undefined : readRun(resolve(worstDir));
+-const expectedNames = honest.length === 6 ? [...TOPO_6] : [...TOPO_7];
++const expectedNames = honest.length === 6 ? [...TOPO_6] : honest.length === 7 ? [...TOPO_7] : [...TOPO_10];
+ const genesisIndex = honest.findIndex((item) => item.name === 'genesis');
+ const terminalIndex = honest.findIndex((item) => item.name === 'terminal');
++const packetIndex = honest.findIndex((item) => item.name === 'packet');
++const verifierRoleCount = packetIndex >= 0 ? packetIndex : honest.length;
+ assert.ok(genesisIndex >= 0 && terminalIndex >= 0, 'missing genesis/terminal roles');
++if (honest.length === 10) assert.equal(packetIndex, 7, 'bounded ten-role packet must be input 7');
+ 
+ assert.deepEqual(honest.map((x) => x.name), expectedNames);
+ const assertSameLockings = (run: Item[], label: string) => {
+@@ -160,7 +165,7 @@ const evaluate = (items: Item[]): Row[] => {
+     valueSatoshis: 1000n,
+     sequenceNumber: 0,
+   }));
+-  return items.map((item, index) => {
++  return items.slice(0, verifierRoleCount).map((item, index) => {
+     const result = evaluatePair(vm, item.lock, item.unlock, undefined, {
+       index,
+       inputs,
+@@ -216,6 +221,23 @@ assertAnyReject('noncanonical-B', nonCanonicalBRows);
+ const offsubRows = evaluate(offsub);
+ assertFirstReject('off-subgroup-B', offsubRows, terminalIndex);
+ 
++const honestRows = evaluate(honest);
++assert.equal(honestRows.every((row) => row.accepts), true, 'honest verifier role rejected');
++
++const publicLimbMutation = clone(honest);
++const in0 = BigInt(fixture.in0);
++replaceGenesisArgument(publicLimbMutation, in0, in0 + 1n);
++const publicLimbMutationRows = evaluate(publicLimbMutation);
++assertAnyReject('public-limb', publicLimbMutationRows);
++
++const packetMutationRows = packetIndex < 0 ? undefined : (() => {
++  const run = clone(honest);
++  tamperLargestPush(run, packetIndex);
++  const rows = evaluate(run);
++  assertFirstReject('packet', rows, terminalIndex);
++  return rows;
++})();
++
+ const extraValidRows = extraValid.map((run, index) => {
+   assert.notEqual(
+     binToHex(run[genesisIndex]!.unlock),
+@@ -233,7 +255,7 @@ const worstCaseRows = worstCase === undefined ? undefined : (() => {
+   return rows;
+ })();
+ 
+-const witnessTampers = honest.map((_, index) => {
++const witnessTampers = honest.slice(0, verifierRoleCount).map((_, index) => {
+   const run = clone(honest);
+   tamperLargestPush(run, index);
+   const rows = evaluate(run);
+@@ -274,7 +296,7 @@ const vectors = {
+   extraValidProofs: extraValid.map(toRaw),
+   ...(worstCase === undefined ? {} : { worstCaseProof: toRaw(worstCase) }),
+   invalid: witnessTampers.map(({ run }) => toRaw(run)),
+-  invalidInputs: [toRaw(offCurveA), toRaw(offCurveB), toRaw(nonCanonicalB), toRaw(offsub)],
++  invalidInputs: [toRaw(offCurveA), toRaw(offCurveB), toRaw(nonCanonicalB), toRaw(offsub), toRaw(publicLimbMutation), ...(packetIndex < 0 ? [] : [toRaw((() => { const run = clone(honest); tamperLargestPush(run, packetIndex); return run; })())])],
+ };
+ const report = {
+   schema: 'verifier.cash/bn254-onetx-input-redteam/v1',
+@@ -284,17 +306,19 @@ const report = {
+   checks: {
+     sourceCanonicalG2BeforeTwist: true,
+     sourceT5FoldPresent: true,
+-    honest: evaluate(honest),
++    honest: honestRows,
+     offCurveA: offCurveARows,
+     offCurveB: offCurveBRows,
+     nonCanonicalB: nonCanonicalBRows,
+     offSubgroupB: offsubRows,
++    publicLimbMutation: publicLimbMutationRows,
++    ...(packetMutationRows === undefined ? {} : { packetMutation: packetMutationRows }),
+     extraValidProofs: extraValidRows,
+     ...(worstCaseRows === undefined ? {} : { worstCase: worstCaseRows }),
+     witnessTampers: witnessTampers.map(({ rows }) => rows),
+   },
+   verdict: 'pass',
+-  note: 'The off-subgroup trajectory is rebuilt from the on-curve off-torsion B fixture. Its first rejection is the terminal containing the explicit R_end == -psi^3(B) T5-1 fold. The accompanying T5-1 cofactor-kernel gate establishes that this fold has no twist-cofactor kernel.',
++  note: 'The off-subgroup trajectory is rebuilt from the on-curve off-torsion B fixture. Its first rejection is the terminal containing the explicit R_end == -psi^3(B) T5-1 fold. The accompanying T5-1 cofactor-kernel gate establishes that this fold has no twist-cofactor kernel. In the bounded ten-input context, only inputs 0..6 are verifier roles; packet/state/fee remain structural and unevaluated.',
+ };
+ writeFileSync(resolve(outDir, 'vectors.json'), `${JSON.stringify(vectors, null, 2)}\n`);
+ writeFileSync(resolve(outDir, 'input-redteam.json'), `${JSON.stringify(report, null, 2)}\n`);
+-- 
+2.55.0
+

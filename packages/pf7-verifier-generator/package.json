@@ -1,0 +1,8 @@
+{
+  "name": "@shield.cash/pf7-verifier-generator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test pf7-verifier-generator.test.mjs"
+  }
+}
