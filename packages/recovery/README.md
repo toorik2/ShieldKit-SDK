@@ -39,6 +39,20 @@ packet fingerprints detect reordered and duplicate packets. This is not a
 raw-node sync, reorg, 10,000-history, archive-availability, or independent
 implementation claim.
 
+## Deterministic scale conformance
+
+`scale-history-conformance.mjs` writes public deterministic test vectors outside
+the repository and compares the Node/circomlibjs transition reference against
+portable packet recovery:
+
+```sh
+node scale-history-conformance.mjs /absolute/artifact/output 10000
+```
+
+It covers at least 384 valid deposit/transfer/withdrawal transitions and runs
+the requested 10,000-transition recovery workload. It does not claim Groth16,
+BCH VM, BCHN, relay, miner, raw-block-provenance, or production qualification.
+
 The seed is a V1 account seed, not a root-seed hierarchy. V1 retains exactly
 one recipient address for `(accountSeed, profileId, instanceId)`; applications
 with a master seed must supply their own versioned account derivation and scan

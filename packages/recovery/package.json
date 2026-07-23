@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "run:scale-history": "node scale-history-conformance.mjs"
   },
   "exports": {
     ".": "./recovery.mjs",
