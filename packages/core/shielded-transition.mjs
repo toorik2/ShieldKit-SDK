@@ -2,6 +2,7 @@
 // and rejects malformed transitions; it neither generates nor accepts proofs.
 import { createHash } from 'node:crypto';
 import { buildPoseidon } from 'circomlibjs';
+import { encodeActionPacket } from '../action-packet/action-packet.mjs';
 
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const DENOMINATION_SATS = 10_000_000n;
@@ -238,22 +239,20 @@ export async function createShieldedTransitionReference() {
     return { note, postNullifierRoot: frToHex(postNullifierRoot) };
   };
 
-  const serializeState = (state) => Buffer.concat([
-    Buffer.from(state.profileId, 'hex'), Buffer.from(state.instanceId, 'hex'), Buffer.from(state.noteRoot, 'hex'), Buffer.from(state.nullifierRoot, 'hex'),
-    u32le(BigInt(state.nextLeafIndex)), u64le(BigInt(state.actionSequence)), u32le(BigInt(state.liveNoteCount)), u64le(BigInt(state.reserveSats)), u64le(BigInt(state.maximumReserve)), Buffer.from(state.stateCommitment, 'hex'),
-  ]);
-
   const serializeActionPacket = ({ kind, networkId, preState, postState, inputCm, inputNf, outputCm, outputRecord, boundaryAmount, withdrawalScriptHash, transactionContextDigest }) => {
-    const kindByte = { deposit: 1, transfer: 2, withdrawal: 3 }[kind];
-    if (!kindByte) fail('unknown action kind');
-    if (networkId !== NETWORK_CHIPNET) fail('wrong network identifier');
-    const context = parseIdentifier(transactionContextDigest, 'transaction context digest');
-    const script = parseIdentifier(withdrawalScriptHash, 'withdrawal script hash');
-    return Buffer.concat([
-      Buffer.from('SCAR', 'ascii'), Buffer.from([1, networkId, kindByte, 0]), serializeState(preState), serializeState(postState),
-      Buffer.from(inputCm, 'hex'), Buffer.from(inputNf, 'hex'), Buffer.from(outputCm, 'hex'), outputRecord,
-      u64le(boundaryAmount), Buffer.from(script, 'hex'), Buffer.from(context, 'hex'),
-    ]);
+    return encodeActionPacket({
+      kind,
+      networkId,
+      preState,
+      postState,
+      inputCommitment: inputCm,
+      inputNullifier: inputNf,
+      outputCommitment: outputCm,
+      outputRecord,
+      boundaryAmount: boundaryAmount.toString(),
+      withdrawalScriptHash,
+      transactionContextDigest,
+    });
   };
 
   const checkPublicInputs = (packet, supplied) => {
