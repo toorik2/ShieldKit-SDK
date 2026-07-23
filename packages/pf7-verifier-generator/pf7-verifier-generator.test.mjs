@@ -181,6 +181,23 @@ test('seam redteam requires thirteen local and four cross-action rejections', ()
 
 const freshHash = 'a'.repeat(64);
 const freshRecord = (name) => ({ path: `/fresh/${name}`, sha256: freshHash });
+const freshCarrierSources = (scripts, values = Array(7).fill(1000n)) => {
+  assert.equal(scripts.length, 7);
+  assert.equal(values.length, 7);
+  const outputs = scripts.map((script, index) => {
+    const value = Buffer.alloc(8);
+    value.writeBigUInt64LE(values[index]);
+    return Buffer.concat([
+      value,
+      Buffer.of(35),
+      Buffer.from(script.lockingBytecodeHex, 'hex'),
+    ]);
+  });
+  return Buffer.from(
+    Buffer.concat([Buffer.of(7), ...outputs]).toString('hex'),
+    'ascii',
+  );
+};
 const freshInput = (mode = 'discovery') => {
   const value = {
     mode,
@@ -280,13 +297,53 @@ test('fresh path rejects verification-key and final-profile swaps at schema boun
 test('stable verifier-set identity excludes action proof and packet material but rejects script changes', () => {
   const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
   const setup = 'a'.repeat(64);
+  const sourceOutputsHex = freshCarrierSources(scripts);
   // Discovery and final replay can legitimately exercise distinct raw proofs
   // and packets. Neither enters the profile-import verifier-set identity.
-  const discovery = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'b'.repeat(64), actionPacketSha256: 'c'.repeat(64) });
-  const replay = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'd'.repeat(64), actionPacketSha256: 'e'.repeat(64) });
+  const discovery = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, sourceOutputsHex, actionProofSha256: 'b'.repeat(64), actionPacketSha256: 'c'.repeat(64) });
+  const replay = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, sourceOutputsHex, actionProofSha256: 'd'.repeat(64), actionPacketSha256: 'e'.repeat(64) });
   assert.equal(discovery.sha256, replay.sha256);
   const altered = structuredClone(scripts); altered[6].redeemBytecodeHex = '52';
-  assert.notEqual(derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts: altered }).sha256, discovery.sha256);
+  assert.notEqual(derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts: altered, sourceOutputsHex }).sha256, discovery.sha256);
+  const changedValues = [...Array(7).fill(1000n)]; changedValues[6] = 1001n;
+  assert.notEqual(
+    derivePf7FreshVerifierSet({
+      verificationKeySha256: setup,
+      scripts,
+      sourceOutputsHex: freshCarrierSources(scripts, changedValues),
+    }).sha256,
+    discovery.sha256,
+  );
+  assert.deepEqual(
+    discovery.artifact.scripts.map((script) => script.sourceValueSatoshis),
+    Array(7).fill('1000'),
+  );
+  assert.equal(
+    discovery.artifact.sourceSet.sha256,
+    `sha256:${createHash('sha256').update(sourceOutputsHex).digest('hex')}`,
+  );
+});
+
+test('stable verifier-set rejects malformed, substituted, and extra carrier sources', () => {
+  const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
+  const setup = 'a'.repeat(64);
+  const valid = freshCarrierSources(scripts);
+  const cases = [
+    ['uppercase', Buffer.from(valid.toString('ascii').toUpperCase(), 'ascii')],
+    ['whitespace', Buffer.concat([valid, Buffer.from('\n')])],
+    ['wrong count', Buffer.from(`06${valid.toString('ascii').slice(2)}`, 'ascii')],
+    ['zero value', Buffer.from(`${valid.toString('ascii').slice(0, 2)}${'0'.repeat(16)}${valid.toString('ascii').slice(18)}`, 'ascii')],
+    ['wrong lock length', Buffer.from(`${valid.toString('ascii').slice(0, 18)}24${valid.toString('ascii').slice(20)}`, 'ascii')],
+    ['script substitution', Buffer.from(`${valid.toString('ascii').slice(0, 20)}00${valid.toString('ascii').slice(22)}`, 'ascii')],
+    ['trailing byte', Buffer.from(`${valid.toString('ascii')}00`, 'ascii')],
+  ];
+  for (const [name, sourceOutputsHex] of cases) {
+    assert.throws(
+      () => derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, sourceOutputsHex }),
+      Pf7VerifierGeneratorError,
+      name,
+    );
+  }
 });
 
 test('final replay bundle must bind exact development setup, R1CS, VK, and stable verifier set', () => {
@@ -325,7 +382,11 @@ test('final replay rejects a bundle file whose bytes differ despite claimed stab
   const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-bundle-artifact-'));
   try {
     const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
-    const stable = derivePf7FreshVerifierSet({ verificationKeySha256: 'b'.repeat(64), scripts });
+    const stable = derivePf7FreshVerifierSet({
+      verificationKeySha256: 'b'.repeat(64),
+      scripts,
+      sourceOutputsHex: freshCarrierSources(scripts),
+    });
     const setup = { r1cs: { sha256: 'a'.repeat(64) }, verificationKey: { sha256: 'b'.repeat(64) } };
     const expected = { sourceSetSha256: 'c'.repeat(64), verifierSetSha256: stable.sha256 };
     const artifactDirectory = path.join(directory, 'artifacts'); await mkdir(artifactDirectory);

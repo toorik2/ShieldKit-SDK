@@ -698,16 +698,71 @@ function freshVerifierScripts(scripts) {
     return { name: script.name, lockingBytecodeHex: script.lockingBytecodeHex, redeemBytecodeHex: script.redeemBytecodeHex };
   });
 }
+
+/**
+ * Decode the exact verifier.cash `c7_candidate_srcouts.hex` artifact without
+ * importing a second transaction codec. The selected PF7 profile has exactly
+ * seven tokenless P2SH32 source outputs, so its canonical serialization is:
+ *
+ *   CompactSize(7) || (u64le(value) || CompactSize(35) || P2SH32[35]) * 7
+ *
+ * Values are profile material because a verifier script may introspect its
+ * source value. Preparation must reproduce these outputs rather than inventing
+ * carrier amounts from a historical fixture.
+ */
+export function bindPf7FreshCarrierSources(sourceOutputsHex, scripts) {
+  const ordered = freshVerifierScripts(scripts);
+  if (!(sourceOutputsHex instanceof Uint8Array)) fail('fresh verifier source outputs must be the pinned hexadecimal file bytes');
+  const fileBytes = Buffer.from(sourceOutputsHex);
+  const text = fileBytes.toString('ascii');
+  if (text.length === 0 || text.length % 2 !== 0 || !/^[0-9a-f]+$/.test(text)) {
+    fail('fresh verifier source outputs must be canonical lowercase hexadecimal without whitespace');
+  }
+  const encoded = Buffer.from(text, 'hex');
+  let offset = 0;
+  if (encoded[offset] !== ordered.length) fail('fresh verifier source outputs must contain exactly seven outputs with canonical CompactSize');
+  offset += 1;
+  const boundScripts = ordered.map((script, index) => {
+    if (offset + 9 > encoded.length) fail(`fresh verifier source output ${index} is truncated`);
+    const valueSatoshis = encoded.readBigUInt64LE(offset);
+    offset += 8;
+    if (valueSatoshis === 0n) fail(`fresh verifier source output ${index} value must be positive`);
+    if (encoded[offset] !== 35) fail(`fresh verifier source output ${index} must use canonical CompactSize(35)`);
+    offset += 1;
+    if (offset + 35 > encoded.length) fail(`fresh verifier source output ${index} locking bytecode is truncated`);
+    const lockingBytecodeHex = encoded.subarray(offset, offset + 35).toString('hex');
+    offset += 35;
+    if (lockingBytecodeHex !== script.lockingBytecodeHex) {
+      fail(`fresh verifier source output ${index} does not match ordered verifier script`);
+    }
+    return {
+      ...script,
+      sourceValueSatoshis: valueSatoshis.toString(),
+    };
+  });
+  if (offset !== encoded.length) fail('fresh verifier source outputs contain trailing or extra output bytes');
+  return Object.freeze({
+    sourceSet: Object.freeze({
+      encoding: 'libauth-transaction-outputs-hex-v1',
+      carrierCount: ordered.length,
+      sha256: `sha256:${digest(fileBytes)}`,
+    }),
+    scripts: Object.freeze(boundScripts.map(Object.freeze)),
+  });
+}
+
 /** Stable profile-import artifact. It deliberately excludes action proofs,
  * public signals, packets, source-output serializations, and replay metadata. */
-export function derivePf7FreshVerifierSet({ verificationKeySha256, scripts }) {
+export function derivePf7FreshVerifierSet({ verificationKeySha256, scripts, sourceOutputsHex }) {
   if (!HASH.test(verificationKeySha256)) fail('fresh verifier set verification key hash must be lowercase SHA-256');
+  const carriers = bindPf7FreshCarrierSources(sourceOutputsHex, scripts);
   const artifact = {
     schema: 'shield.cash/bch-verifier-set/v1',
     qualification: 'development-only PF7 verifier material; not a complete shield.cash settlement, G2 artifact, node-relay result, Chipnet result, ceremony, profile, or release claim',
     candidate: { id: CANDIDATE, baseCommit: BASE, referenceTerminalCommit: REFERENCE_TERMINAL, referenceTerminalTree: REFERENCE_TREE, seamTerminalCommit: SEAM_TERMINAL, seamTerminalTree: SEAM_TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' },
     setup: { mode: 'development-only', verificationKeySha256: `sha256:${verificationKeySha256}` },
-    scripts: freshVerifierScripts(scripts),
+    sourceSet: carriers.sourceSet,
+    scripts: carriers.scripts,
   };
   const serialized = `${canonicalJson(artifact)}\n`;
   return { artifact, serialized, sha256: digest(Buffer.from(serialized)) };
@@ -772,7 +827,14 @@ export async function generatePf7FreshDevelopmentCorpus(input) {
     const sourceLocks = exactSourceLockHashes(builds[0].second.inputs); const sourceLockIdentity = canonicalJson(sourceLocks);
     for (const build of builds.slice(1)) if (canonicalJson(exactSourceLockHashes(build.second.inputs)) !== sourceLockIdentity) fail('fresh PF7 source locking bytecode changes across actions');
     const scripts = extractVerifierSet(builds[0].second.inputs.slice(0, 7));
-    const verifierSet = derivePf7FreshVerifierSet({ verificationKeySha256: setup.verificationKey.sha256, scripts });
+    const verifierSet = derivePf7FreshVerifierSet({
+      verificationKeySha256: setup.verificationKey.sha256,
+      scripts,
+      sourceOutputsHex: builds[0].second.files['c7_candidate_srcouts.hex'].bytes,
+    });
+    if (verifierSet.artifact.sourceSet.sha256 !== `sha256:${sourceSetSha256}`) {
+      fail('fresh verifier-set carrier authority does not bind the measured source-output set');
+    }
     if (input.mode === 'final-replay') assertPf7FreshReplayAuthority(input.expected, { sourceSetSha256, verifierSetSha256: verifierSet.sha256 });
     if (bundle !== undefined) await assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...verifierSet, setup }, input.expected);
     for (const build of builds) {
