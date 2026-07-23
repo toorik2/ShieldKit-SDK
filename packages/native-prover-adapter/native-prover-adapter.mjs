@@ -3,7 +3,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const kinds = new Set(['deposit', 'transfer', 'withdrawal']);
@@ -63,7 +63,7 @@ const canonicalSignals = (value, label) => {
 };
 const pinnedShape = (record, label, extraKeys = []) => {
   exactKeys(record, label, ['path', 'sha256', ...extraKeys]);
-  if (typeof record.path !== 'string' || record.path.length === 0 || !/^[0-9a-f]{64}$/.test(record.sha256)) fail(`${label} is malformed`);
+  if (typeof record.path !== 'string' || !isAbsolute(record.path) || !/^[0-9a-f]{64}$/.test(record.sha256)) fail(`${label} must use an absolute path and lowercase SHA-256`);
 };
 const regular = async (record, label, extraKeys = []) => {
   pinnedShape(record, label, extraKeys); const path = resolve(record.path);
@@ -107,7 +107,7 @@ const assertDirectoryStable = async (record, label) => {
 export function parseManifest(value) {
   exactKeys(value, 'manifest', ['actions', 'artifacts', 'nativeProver', 'outputDirectory', 'repetitions', 'schema', 'snarkjs']);
   if (value.schema !== 'shield.cash/native-prover-adapter/v1') fail('manifest schema mismatch');
-  if (typeof value.outputDirectory !== 'string' || value.outputDirectory.length === 0) fail('outputDirectory is required');
+  if (typeof value.outputDirectory !== 'string' || !isAbsolute(value.outputDirectory)) fail('outputDirectory must be an absolute path');
   if (!Number.isInteger(value.repetitions) || value.repetitions < 1 || value.repetitions > 10) fail('repetitions must be 1..10');
   exactKeys(value.artifacts, 'artifacts', ['verificationKey', 'zkey']); pinnedShape(value.nativeProver, 'nativeProver'); pinnedShape(value.artifacts.zkey, 'artifacts.zkey'); pinnedShape(value.artifacts.verificationKey, 'artifacts.verificationKey');
   exactKeys(value.snarkjs, 'snarkjs', ['path', 'sha256', 'version']); if (typeof value.snarkjs.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(value.snarkjs.version)) fail('snarkjs version is malformed'); pinnedShape(value.snarkjs, 'snarkjs', ['version']);
@@ -116,14 +116,15 @@ export function parseManifest(value) {
   return value;
 }
 
-export async function runNativeProverAdapter(manifestFilename) {
+export async function runNativeProverAdapter(manifestFilename, { stagingId = randomUUID() } = {}) {
+  if (typeof stagingId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(stagingId)) fail('stagingId is malformed');
   const manifest = parseManifest(parseStrictJson(await readStrictUtf8(manifestFilename, 'manifest'), 'manifest'));
   const nativeProver = await regular(manifest.nativeProver, 'nativeProver'); const snarkjs = await regular(manifest.snarkjs, 'snarkjs', ['version']); const zkey = await regular(manifest.artifacts.zkey, 'artifacts.zkey'); const verificationKey = await regular(manifest.artifacts.verificationKey, 'artifacts.verificationKey');
   const actions = []; for (const action of manifest.actions) actions.push({ ...action, witness: await regular(action.witness, `${action.kind}.witness`) });
   const inputs = [['nativeProver', nativeProver], ['snarkjs', snarkjs], ['artifacts.zkey', zkey], ['artifacts.verificationKey', verificationKey], ...actions.map((action) => [`${action.kind}.witness`, action.witness])];
-  const output = resolve(manifest.outputDirectory); const parent = await safeOutputParent(output); const staging = join(parent.path, `.${output.split('/').at(-1)}.staging-${randomUUID()}`); let published = false;
+  const output = resolve(manifest.outputDirectory); const parent = await safeOutputParent(output); const staging = join(parent.path, `.${basename(output)}.staging-${stagingId}`); let published = false; let stagingCreated = false; let stagingRecord;
   try {
-    await mkdir(staging, { mode: 0o700 }); const stagingStat = await lstat(staging); if (!stagingStat.isDirectory() || stagingStat.isSymbolicLink() || await realpath(staging) !== staging) fail('staging directory is unsafe'); const stagingRecord = Object.freeze({ path: staging, dev: String(stagingStat.dev), ino: String(stagingStat.ino) });
+    await mkdir(staging, { mode: 0o700 }); stagingCreated = true; const stagingStat = await lstat(staging); if (!stagingStat.isDirectory() || stagingStat.isSymbolicLink() || await realpath(staging) !== staging) fail('staging directory is unsafe'); stagingRecord = Object.freeze({ path: staging, dev: String(stagingStat.dev), ino: String(stagingStat.ino) });
     await assertAllStable(inputs); const version = await run(process.execPath, [snarkjs.path, '--version'], 'pinned snarkjs version', { allowedExitCodes: new Set([0, 99]) }); await assertAllStable(inputs);
     if (!version.stdout.includes(`snarkjs@${manifest.snarkjs.version}`)) fail('pinned snarkjs version mismatch');
     const result = { schema: 'shield.cash/native-prover-adapter-result/v1', qualification: 'initial feasibility only; not p95 hardware qualification', nativeProver, snarkjs: { ...snarkjs, version: manifest.snarkjs.version }, artifacts: { zkey, verificationKey }, repetitions: manifest.repetitions, actions: [] };
@@ -142,7 +143,11 @@ export async function runNativeProverAdapter(manifestFilename) {
       result.actions.push({ kind: action.kind, witness: action.witness, expectedPublicSignals: action.expectedPublicSignals, runs });
     }
     await assertAllStable(inputs); await assertDirectoryStable(parent, 'output parent'); await assertDirectoryStable(stagingRecord, 'staging directory'); const resultPath = join(staging, 'result.json'); await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`, { flag: 'wx', mode: 0o600 }); const resultStat = await lstat(resultPath); if (!resultStat.isFile() || resultStat.isSymbolicLink() || await realpath(resultPath).catch(() => '') !== resultPath) fail('result output is unsafe'); await assertDirectoryStable(parent, 'output parent'); await assertDirectoryStable(stagingRecord, 'staging directory'); await absent(output, 'output directory'); await rename(staging, output); published = true; return result;
-  } catch (error) { if (error instanceof NativeProverAdapterError) throw error; fail(`native prover adapter failed: ${clipped(error?.message ?? error)}`); } finally { if (!published) await rm(staging, { recursive: true, force: true }); }
+  } catch (error) { if (error instanceof NativeProverAdapterError) throw error; fail(`native prover adapter failed: ${clipped(error?.message ?? error)}`); } finally {
+    if (!published && stagingCreated && stagingRecord) {
+      try { await assertDirectoryStable(stagingRecord, 'staging directory'); await rm(staging, { recursive: true, force: true }); } catch {}
+    }
+  }
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {

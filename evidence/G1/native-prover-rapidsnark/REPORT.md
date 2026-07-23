@@ -17,12 +17,26 @@ proof for the exact v0 `final.zkey` and the deposit, transfer, and withdrawal
 witnesses. Every generated public-signal array exactly matched its corpus
 counterpart.
 
-Nine warm proofs (three per action) measured 2.546–3.362 seconds and
-562,484–566,628 KiB peak RSS. The initial distribution median is 2.745 seconds
-and 566,564 KiB; its maximum is below the frozen 30-second / 4-GiB desktop
-budget. The result is feasibility evidence only: three warm samples per action
-on one non-isolated Linux laptop do not establish p95 target-hardware
-qualification.
+The earlier nine-proof warm sample is retained in `raw/warm-summary.json` as
+exploratory build-feasibility context only. It predates the hardened adapter and
+is not the adapter-execution record.
+
+The hardened adapter then ran the same exact v0 corpus three times per action
+(nine proofs total) with absolute caller paths, duplicate-key-safe UTF-8
+manifest parsing, pin revalidation around every subprocess, bounded child
+output, and atomic no-clobber publication. Its external full result is
+`/tmp/shield-g1-rapidsnark-hardened-final-20260723-FZTJTq/adapter-output/result.json`
+(`fd7b8d44b1dc63f9ab6b344943a45bf9d710c1281f41e4a98cf9b21fce1b4bbb`,
+14,064 bytes). The committed structurally identical bounded transcription is
+`raw/hardened-adapter-result.json`; it lists all nine proof and public-signal
+hashes and is bound by this observation.
+
+The hardened runs measured 4.033–4.537 seconds and 562,548–566,640 KiB peak
+RSS (median 4.143 seconds and 566,564 KiB). Every native proof was
+pinned-`snarkjs@0.7.6` verified and every exact two-scalar public-signal array
+matched its corpus counterpart. This remains feasibility evidence only: one
+non-isolated Linux laptop and three samples per action do not establish p95
+target-hardware qualification.
 
 The source-default ASM build failed before compilation because `nasm` was not
 installed. The supported `USE_ASM=OFF` configuration then exposed GCC 16 source
@@ -43,8 +57,11 @@ language mode.
 | exact verification key | `d4b6b4e0a6c371a019ffa7457a7c2a265b7e3a90ae2a12619424a249903c9a59` |
 | pinned `snarkjs` CLI | `6d787e37a4d1a2c6dd6032dadca09c0b3b007d4d4578bb6232a98136555d051a` |
 
-The committed adapter is fail-closed: it hash-pins native binary, `snarkjs`,
-zkey, VK, and witnesses; measures the direct native process with Linux
-`VmHWM`; verifies every proof through pinned `snarkjs`; and rejects public
-signal drift. Binaries and generated proofs remain outside Git; only their
-identities, hashes, and measured summaries appear here.
+The committed adapter is fail-closed: it requires lexical absolute manifest
+paths; hash-pins direct regular non-symlink binary, `snarkjs`, zkey, VK, and
+witnesses with device/inode/size/hash revalidation before and after each
+relevant subprocess; bounds child output; validates exactly two canonical
+BN254 scalar public signals; and publishes only an absent destination from an
+identity-checked staging directory. Binaries and generated proofs remain
+outside Git; the bounded result records their identities, hashes, and measured
+summaries here.
