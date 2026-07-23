@@ -2,5 +2,5 @@
   "name": "@shield-cash/android-prover-harness",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --test android-prover-harness.test.mjs"}
+  "scripts": {"test": "node --test *.test.mjs", "check:android-library": "node verify-android-library.mjs", "probe:environment": "node probe-android-environment.mjs", "run:device": "node run-android-prover-harness.mjs"}
 }

@@ -1,13 +1,33 @@
 # Android G4 real-device gate
 
-This repository does not currently contain an Android application package and
-this host has neither `adb` nor an attached Android device. Therefore no Android
-proof, APK, memory number, timing number, or G4 Android result is claimed.
+This repository contains Android-library source under
+`android/shieldcash-prover-sdk`, but no APK has been built and this host has
+neither an Android SDK/NDK, Gradle, `adb`, emulator, nor attached Android
+device. The library deliberately requires a separately pinned
+`libshield_pf7.so`; no Android ABI-native PF7 binary is included. Therefore no
+Android proof, APK, memory number, timing number, or G4 Android result is
+claimed.
 
 The existing USB-only harness is deliberately not an Android-package substitute:
 it is only a fail-closed way to stage profile-derived artifacts to a physical
 device and validate a native-prover feasibility run. It must never be used to
 claim the G4 production-packaging requirement.
+
+Run the reproducible read-only inventory before attempting the package build:
+
+```sh
+npm --prefix packages/android-prover-harness run probe:environment -- /absolute/output.json
+```
+
+Once a USB-connected physical device, an authenticated profile-bound
+Android-native PF7 prover, and the pinned manifest exist, the feasibility
+harness entry point is:
+
+```sh
+npm --prefix packages/android-prover-harness run run:device -- /absolute/manifest.json
+```
+
+It remains feasibility-only telemetry, not the package qualification below.
 
 ## Required package measurement
 

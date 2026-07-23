@@ -17,7 +17,13 @@ the package tests locally with `npm --prefix packages/android-prover-harness tes
 For a measurement, create an absolute-path manifest from the authenticated
 profile bundle plus the known local executable hashes,
 ensure an Android-native prover and Node/snarkjs are already installed locally
-on the USB-attached device, then call `runAndroidProverHarness`. Its RSS result
+on the USB-attached device, then invoke the reproducible entry point:
+
+```sh
+npm --prefix packages/android-prover-harness run run:device -- /absolute/manifest.json
+```
+
+Its RSS result
 is only direct native-prover `VmRSS` sampled by an `adb` shell: it is feasibility
 telemetry, not frozen Android app/process-tree RSS. An instrumented Android app
 on a fixed fixture is still required for G4's 120-second, 1.5-GiB, and p95 gates.
