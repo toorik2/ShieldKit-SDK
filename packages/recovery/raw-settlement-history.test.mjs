@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { decodeTransactionBch, encodeTransaction } from '@bitauth/libauth';
 import { createRawSettlementJournal, extractRawSettlementHistory, RawSettlementHistoryError } from './raw-settlement-history.mjs';
 
 const fixture = new URL('./fixtures/', import.meta.url);
@@ -12,16 +13,24 @@ test('extracts exact authenticated anchors and packet chain from public raw gene
   const history = extractRawSettlementHistory(input); assert.equal(history.packets.length, 3); assert.equal(history.initialState.length, 192); assert.equal(history.terminalState.length, 192); assert.equal(history.transactionIds.length, 4); assert.deepEqual(history.transactionIds, input.rawTransactions.map((_, index) => [input.genesisTransactionId, '56563c2c3a81857216853b53293c0cedc8f4baaa15b2430553be57a0d57a6cf1', 'ffa7fe6cb706546368a4f2dd14243a5c73a7d0dcc90d570f1238592387baa38b', '14f6363290f73fdd7e723491110c458de8efa8e90b7e7dfa6675381e1175c2e0'][index]));
 });
 
-test('rejects transaction, packet, state-category, ancestry, ordering, truncation, and equivocation mutations', async () => {
+const mutateTransaction = (wire, mutate) => { const tx = decodeTransactionBch(wire); mutate(tx); return Uint8Array.from(encodeTransaction(tx)); };
+const expectCode = (input, code) => assert.throws(() => extractRawSettlementHistory(input), (error) => error instanceof RawSettlementHistoryError && error.code === code);
+
+test('targeted raw transaction mutations reach packet, state-output, ancestry, genesis, and decode gates', async () => {
   const { input } = await load(); const { createHash } = await import('node:crypto'); input.stateLockSha256 = createHash('sha256').update(input.stateLockingBytecode).digest('hex');
-  const cases = [
-    { ...input, rawTransactions: [input.rawTransactions[0]] },
-    { ...input, rawTransactions: [input.rawTransactions[1], input.rawTransactions[0]] },
-    { ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[1], input.rawTransactions[1]] },
-    { ...input, stateNftCategory: '00'.repeat(32) },
-    { ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[1].subarray(0, -1)] },
-  ];
-  for (const value of cases) assert.throws(() => extractRawSettlementHistory(value), RawSettlementHistoryError);
+  const replace = (index, wire) => ({ ...input, rawTransactions: input.rawTransactions.map((entry, at) => at === index ? wire : entry) });
+  expectCode(replace(1, mutateTransaction(input.rawTransactions[1], (tx) => { tx.inputs[7].unlockingBytecode[0] = 0x4c; })), 'PACKET_PUSH');
+  expectCode(replace(1, mutateTransaction(input.rawTransactions[1], (tx) => { tx.outputs[0].lockingBytecode[0] ^= 1; })), 'STATE_LOCK');
+  expectCode(replace(1, mutateTransaction(input.rawTransactions[1], (tx) => { tx.outputs[0].token.category[0] ^= 1; })), 'STATE_CATEGORY');
+  expectCode(replace(1, mutateTransaction(input.rawTransactions[1], (tx) => { tx.outputs[0].token.nft.commitment[0] ^= 1; })), 'STATE_COMMITMENT');
+  expectCode(replace(1, mutateTransaction(input.rawTransactions[1], (tx) => { tx.outputs[0].valueSatoshis += 1n; })), 'STATE_VALUE');
+  expectCode(replace(2, mutateTransaction(input.rawTransactions[2], (tx) => { tx.inputs[8].outpointTransactionHash[0] ^= 1; })), 'STATE_ANCESTRY');
+  expectCode({ ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[2], input.rawTransactions[3]] }, 'STATE_ANCESTRY');
+  expectCode({ ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[1], input.rawTransactions[3], input.rawTransactions[2]] }, 'STATE_ANCESTRY');
+  expectCode({ ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[1], input.rawTransactions[1]] }, 'DUPLICATE_TRANSACTION');
+  expectCode({ ...input, genesisTransactionId: '00'.repeat(32) }, 'GENESIS_ID');
+  expectCode({ ...input, rawTransactions: [input.rawTransactions[0]] }, 'TRUNCATED_HISTORY');
+  expectCode({ ...input, rawTransactions: [input.rawTransactions[0], input.rawTransactions[1].subarray(0, -1)] }, 'TX_DECODE');
 });
 
 test('raw journal rolls back and replays deterministic caller supplied branches', async () => {
