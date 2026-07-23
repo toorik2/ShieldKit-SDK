@@ -601,8 +601,8 @@ export function validatePf7FreshDevelopmentInput(input) {
   input.actions.forEach(freshActionValidation);
   if (input.actions.some((action) => action.verificationKey.sha256 !== input.preProfile.verificationKey.sha256)) fail('fresh actions must pin the pre-profile verification key');
   if (input.mode === 'final-replay') {
-    exactKeys(input.expected, 'fresh final replay expected', ['outputSha256', 'sourceSetSha256']);
-    if (!HASH.test(input.expected.outputSha256) || !HASH.test(input.expected.sourceSetSha256)) fail('fresh final replay expected hashes must be lowercase SHA-256');
+    exactKeys(input.expected, 'fresh final replay expected', ['sourceSetSha256', 'verifierSetSha256']);
+    if (!HASH.test(input.expected.verifierSetSha256) || !HASH.test(input.expected.sourceSetSha256)) fail('fresh final replay expected hashes must be lowercase SHA-256');
     exactKeys(input.finalProfile, 'fresh final replay profile', ['bundleDirectory', 'instanceId', 'profileId']);
     freshAbsolutePath(input.finalProfile.bundleDirectory, 'fresh final replay bundleDirectory');
     hashIdentifier(input.finalProfile.profileId, 'fresh final replay profileId');
@@ -689,6 +689,53 @@ function freshActionRow(build) {
     dependencies: artifactDependencies(build.second.files),
   };
 }
+function freshVerifierScripts(scripts) {
+  const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
+  if (!Array.isArray(scripts) || scripts.length !== names.length) fail('fresh verifier set must contain seven ordered scripts');
+  return scripts.map((script, index) => {
+    exactKeys(script, `fresh verifier set script ${index}`, ['lockingBytecodeHex', 'name', 'redeemBytecodeHex']);
+    if (script.name !== names[index] || !/^[0-9a-f]+$/.test(script.lockingBytecodeHex) || !/^[0-9a-f]+$/.test(script.redeemBytecodeHex)) fail('fresh verifier set script is malformed');
+    return { name: script.name, lockingBytecodeHex: script.lockingBytecodeHex, redeemBytecodeHex: script.redeemBytecodeHex };
+  });
+}
+/** Stable profile-import artifact. It deliberately excludes action proofs,
+ * public signals, packets, source-output serializations, and replay metadata. */
+export function derivePf7FreshVerifierSet({ verificationKeySha256, scripts }) {
+  if (!HASH.test(verificationKeySha256)) fail('fresh verifier set verification key hash must be lowercase SHA-256');
+  const artifact = {
+    schema: 'shield.cash/bch-verifier-set/v1',
+    qualification: 'development-only PF7 verifier material; not a complete shield.cash settlement, G2 artifact, node-relay result, Chipnet result, ceremony, profile, or release claim',
+    candidate: { id: CANDIDATE, baseCommit: BASE, referenceTerminalCommit: REFERENCE_TERMINAL, referenceTerminalTree: REFERENCE_TREE, seamTerminalCommit: SEAM_TERMINAL, seamTerminalTree: SEAM_TREE, manifestSha256: CANDIDATE_SHA256, topologyInputs: 7, genericFallback: 'forbidden' },
+    setup: { mode: 'development-only', verificationKeySha256: `sha256:${verificationKeySha256}` },
+    scripts: freshVerifierScripts(scripts),
+  };
+  const serialized = `${canonicalJson(artifact)}\n`;
+  return { artifact, serialized, sha256: digest(Buffer.from(serialized)) };
+}
+export function validatePf7FreshFinalBundle(bundle, setup, expected) {
+  object(bundle, 'fresh final replay bundle'); object(bundle.manifest, 'fresh final replay bundle manifest');
+  if (bundle.manifest.setup?.mode !== 'development-only') fail('fresh final replay bundle setup mode does not match the local development pre-profile');
+  if (bundle.manifest.profile?.constraintSystemHash !== `sha256:${setup.r1cs.sha256}`) fail('fresh final replay bundle R1CS does not match the pre-profile');
+  if (!Array.isArray(bundle.manifest.artifacts)) fail('fresh final replay bundle artifacts are malformed');
+  const verificationKeys = bundle.manifest.artifacts.filter((artifact) => artifact?.kind === 'verification-key');
+  if (verificationKeys.length !== 1 || verificationKeys[0].sha256 !== `sha256:${setup.verificationKey.sha256}`) fail('fresh final replay bundle verification key does not match the pre-profile');
+  const verifierSets = bundle.manifest.artifacts.filter((artifact) => artifact?.kind === 'bch-verifier-set');
+  if (verifierSets.length !== 1 || verifierSets[0].sha256 !== `sha256:${expected.verifierSetSha256}` || bundle.manifest.profile?.bchVerifierSetHash !== `sha256:${expected.verifierSetSha256}`) fail('fresh final replay bundle verifier-set hash does not match expected stable verifier set');
+  return verifierSets[0];
+}
+export function assertPf7FreshReplayAuthority(expected, observed) {
+  exactKeys(expected, 'fresh replay expected authority', ['sourceSetSha256', 'verifierSetSha256']);
+  exactKeys(observed, 'fresh replay observed authority', ['sourceSetSha256', 'verifierSetSha256']);
+  if (expected.verifierSetSha256 !== observed.verifierSetSha256) fail('fresh final replay does not match caller-pinned stable verifier-set hash');
+  if (expected.sourceSetSha256 !== observed.sourceSetSha256) fail('fresh final replay does not match caller-pinned source-set hash');
+  return true;
+}
+export async function assertExactPf7FreshFinalVerifierSetArtifact(bundle, verifierSet, expected) {
+  const artifact = validatePf7FreshFinalBundle(bundle, verifierSet.setup, expected);
+  const filename = path.resolve(bundle.root, ...artifact.path.split('/'));
+  const bytes = await readFile(filename);
+  if (digest(bytes) !== expected.verifierSetSha256 || !bytes.equals(Buffer.from(verifierSet.serialized))) fail('fresh final replay bundle does not import the exact stable verifier-set artifact');
+}
 
 /**
  * Build a distinct, fresh local-development PF7 seam corpus. Discovery is
@@ -697,11 +744,11 @@ function freshActionRow(build) {
  */
 export async function generatePf7FreshDevelopmentCorpus(input) {
   validatePf7FreshDevelopmentInput(input);
-  if (input.mode === 'final-replay') {
-    const bundle = await loadVerifierProfileBundle(input.finalProfile.bundleDirectory, { network: 'chipnet', profileId: input.finalProfile.profileId, instanceId: input.finalProfile.instanceId });
-    if (bundle.profileId !== input.finalProfile.profileId || bundle.instanceId !== input.finalProfile.instanceId) fail('fresh final replay profile bundle identity mismatch');
-  }
   const setup = await freshSetup(input.preProfile);
+  const bundle = input.mode === 'final-replay'
+    ? await loadVerifierProfileBundle(input.finalProfile.bundleDirectory, { network: 'chipnet', profileId: input.finalProfile.profileId, instanceId: input.finalProfile.instanceId })
+    : undefined;
+  if (bundle !== undefined) validatePf7FreshFinalBundle(bundle, setup, input.expected);
   const actions = await deriveFreshDevelopmentActions(input, setup);
   const { verifier, toolchain } = await prepareVerifier(input.verifier, { commit: SEAM_TERMINAL, tree: SEAM_TREE, label: 'seam', provenance: 'seam' });
   const { destination } = await reserveDestination(input.destination);
@@ -725,6 +772,9 @@ export async function generatePf7FreshDevelopmentCorpus(input) {
     const sourceLocks = exactSourceLockHashes(builds[0].second.inputs); const sourceLockIdentity = canonicalJson(sourceLocks);
     for (const build of builds.slice(1)) if (canonicalJson(exactSourceLockHashes(build.second.inputs)) !== sourceLockIdentity) fail('fresh PF7 source locking bytecode changes across actions');
     const scripts = extractVerifierSet(builds[0].second.inputs.slice(0, 7));
+    const verifierSet = derivePf7FreshVerifierSet({ verificationKeySha256: setup.verificationKey.sha256, scripts });
+    if (input.mode === 'final-replay') assertPf7FreshReplayAuthority(input.expected, { sourceSetSha256, verifierSetSha256: verifierSet.sha256 });
+    if (bundle !== undefined) await assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...verifierSet, setup }, input.expected);
     for (const build of builds) {
       const output = path.join(stage, `${build.action.kind}-seam-redteam.json`); const crosses = builds.filter((other) => other !== build);
       await run(path.join(verifier.checkout, 'harness/node_modules/.bin/tsx'), ['lanes/bn254-onetx/src/c7/run-shield-action-seam-redteam.ts', '--honest', build.directory, '--fixture', build.action.adapter.path, '--out', output, ...crosses.flatMap((other) => ['--cross', other.directory])], { cwd: verifier.checkout, env: exactEnvironment({ actionPacket: build.action.packet, adapter: build.action.adapter, stage: path.join(stage, 'redteam-environment'), verifier }) });
@@ -738,12 +788,9 @@ export async function generatePf7FreshDevelopmentCorpus(input) {
       scope: { evaluatedRoles: ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'], unevaluatedStructuralRoles: ['packet', 'state', 'fee'], structuralRoleWarning: 'inputs 7 through 9 are present in transaction context but are not evaluated as settlement covenants', packetAbi: 'input7 exactly PUSHDATA2(752); terminal single-SHA256; genesis first push PUSHDATA2(480)=projection[448]||digest[32]' },
       reproducibility: { buildsPerAction: 2, identityStableFiles, sourceLocksIdenticalAcrossActions: true },
       preProfile: { setupMetadataSha256: setup.metadata.sha256, r1csSha256: setup.r1cs.sha256, verificationKeySha256: setup.verificationKey.sha256, setupMode: 'development-only' },
-      sourceSetSha256, sourceLocks, scripts, toolchain, actions: builds.map(freshActionRow),
+      verifierSetSha256: verifierSet.sha256, sourceSetSha256, sourceLocks, scripts, toolchain, actions: builds.map(freshActionRow),
     };
-    // Corpus identity deliberately excludes replay-only profile linkage so a
-    // final replay can pin and reproduce the exact discovery corpus hash.
     const serialized = `${canonicalJson(artifact)}\n`; const outputSha256 = digest(Buffer.from(serialized));
-    if (input.mode === 'final-replay' && (input.expected.sourceSetSha256 !== sourceSetSha256 || input.expected.outputSha256 !== outputSha256)) fail('fresh final replay does not match caller-pinned source-set/output hash');
     await mkdir(destination, { mode: 0o700 }); reservation = await lstat(destination);
     const outputFiles = {};
     for (const build of builds) {
@@ -752,10 +799,12 @@ export async function generatePf7FreshDevelopmentCorpus(input) {
         await writeFile(path.join(destination, name), contents, { flag: 'wx', mode: 0o600 }); outputFiles[name] = { sha256: digest(Buffer.from(contents)), bytes: Buffer.byteLength(contents) };
       }
     }
+    await writeFile(path.join(destination, 'bch-verifier-set.json'), verifierSet.serialized, { flag: 'wx', mode: 0o600 });
+    outputFiles['bch-verifier-set.json'] = { sha256: verifierSet.sha256, bytes: Buffer.byteLength(verifierSet.serialized) };
     await writeFile(path.join(destination, 'pf7-fresh-development-corpus.json'), serialized, { flag: 'wx', mode: 0o600 });
     outputFiles['pf7-fresh-development-corpus.json'] = { sha256: outputSha256, bytes: Buffer.byteLength(serialized) };
-    await writeFile(path.join(destination, 'manifest.json'), `${canonicalJson({ schema: 'shield.cash/pf7-fresh-development-output/v1', mode: input.mode, corpusSha256: outputSha256, sourceSetSha256, ...(input.mode === 'final-replay' ? { finalProfile: input.finalProfile } : {}), files: outputFiles })}\n`, { flag: 'wx', mode: 0o600 });
-    published = true; return { destination, sha256: outputSha256, sourceSetSha256, artifact };
+    await writeFile(path.join(destination, 'manifest.json'), `${canonicalJson({ schema: 'shield.cash/pf7-fresh-development-output/v1', mode: input.mode, corpusSha256: outputSha256, verifierSetSha256: verifierSet.sha256, sourceSetSha256, ...(input.mode === 'final-replay' ? { finalProfile: input.finalProfile } : {}), files: outputFiles })}\n`, { flag: 'wx', mode: 0o600 });
+    published = true; return { destination, sha256: outputSha256, verifierSetSha256: verifierSet.sha256, sourceSetSha256, artifact };
   } finally {
     await rm(stage, { recursive: true, force: true });
     if (!published && reservation !== undefined) {

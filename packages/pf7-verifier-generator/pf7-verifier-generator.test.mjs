@@ -10,14 +10,18 @@ import { loadCliConfig } from './cli.mjs';
 import { encodeActionPacket, OUTPUT_RECORD_BYTES } from '../action-packet/action-packet.mjs';
 import {
   assertBuildComplete,
+  assertExactPf7FreshFinalVerifierSetArtifact,
+  assertPf7FreshReplayAuthority,
   assertCleanGitRepository,
   assertSeamMeasured,
   assertSeamRedteam,
   deriveFreshDevelopmentActions,
+  derivePf7FreshVerifierSet,
   extractVerifierSet,
   generatePf7FreshDevelopmentCorpus,
   Pf7VerifierGeneratorError,
   validatePf7FreshDevelopmentInput,
+  validatePf7FreshFinalBundle,
   validateAdapter,
   validateProvenance,
   validateRuntimePackageVersions,
@@ -190,7 +194,7 @@ const freshInput = (mode = 'discovery') => {
     verifier: { checkout: '/fresh/verifier', cashcRoot: '/fresh/cashc', cashcCommit: '1'.repeat(40), leanBchRoot: '/fresh/lean', leanBchCommit: '2'.repeat(40) },
   };
   if (mode === 'final-replay') {
-    value.expected = { sourceSetSha256: 'b'.repeat(64), outputSha256: 'c'.repeat(64) };
+    value.expected = { sourceSetSha256: 'b'.repeat(64), verifierSetSha256: 'c'.repeat(64) };
     value.finalProfile = { profileId: `sha256:${'d'.repeat(64)}`, instanceId: `sha256:${'e'.repeat(64)}`, bundleDirectory: '/fresh/profile-bundle' };
   }
   return value;
@@ -271,4 +275,68 @@ test('fresh path rejects verification-key and final-profile swaps at schema boun
   // A different profile identity is syntactically allowed only as a separately
   // caller-pinned final replay; it can never be inferred from discovery.
   assert.throws(() => validatePf7FreshDevelopmentInput({ ...freshInput(), finalProfile: profileSwap.finalProfile }), /missing or unknown properties/);
+});
+
+test('stable verifier-set identity excludes action proof and packet material but rejects script changes', () => {
+  const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
+  const setup = 'a'.repeat(64);
+  // Discovery and final replay can legitimately exercise distinct raw proofs
+  // and packets. Neither enters the profile-import verifier-set identity.
+  const discovery = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'b'.repeat(64), actionPacketSha256: 'c'.repeat(64) });
+  const replay = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, actionProofSha256: 'd'.repeat(64), actionPacketSha256: 'e'.repeat(64) });
+  assert.equal(discovery.sha256, replay.sha256);
+  const altered = structuredClone(scripts); altered[6].redeemBytecodeHex = '52';
+  assert.notEqual(derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts: altered }).sha256, discovery.sha256);
+});
+
+test('final replay bundle must bind exact development setup, R1CS, VK, and stable verifier set', () => {
+  const setup = { r1cs: { sha256: 'a'.repeat(64) }, verificationKey: { sha256: 'b'.repeat(64) } };
+  const expected = { sourceSetSha256: 'c'.repeat(64), verifierSetSha256: 'd'.repeat(64) };
+  const bundle = { manifest: {
+    setup: { mode: 'development-only' },
+    profile: { constraintSystemHash: `sha256:${setup.r1cs.sha256}`, bchVerifierSetHash: `sha256:${expected.verifierSetSha256}` },
+    artifacts: [
+      { kind: 'verification-key', sha256: `sha256:${setup.verificationKey.sha256}` },
+      { kind: 'bch-verifier-set', sha256: `sha256:${expected.verifierSetSha256}`, path: 'artifacts/bch-verifier-set.json' },
+    ],
+  } };
+  assert.equal(validatePf7FreshFinalBundle(bundle, setup, expected).kind, 'bch-verifier-set');
+  for (const mutate of [
+    (value) => { value.manifest.setup.mode = 'ceremony-production'; },
+    (value) => { value.manifest.profile.constraintSystemHash = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.manifest.artifacts[0].sha256 = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.manifest.profile.bchVerifierSetHash = `sha256:${'0'.repeat(64)}`; },
+  ]) {
+    const changed = structuredClone(bundle); mutate(changed);
+    assert.throws(() => validatePf7FreshFinalBundle(changed, setup, expected), Pf7VerifierGeneratorError);
+  }
+});
+
+test('replay authority accepts changed action material but rejects source-set or verifier-set changes', () => {
+  const expected = { sourceSetSha256: 'a'.repeat(64), verifierSetSha256: 'b'.repeat(64) };
+  // Packet/proof hashes do not occur in this authority. The independent
+  // packet/proof binding is exercised by the PF7 build and red-team gates.
+  assert.equal(assertPf7FreshReplayAuthority(expected, { ...expected }), true);
+  assert.throws(() => assertPf7FreshReplayAuthority(expected, { ...expected, sourceSetSha256: 'c'.repeat(64) }), /source-set/);
+  assert.throws(() => assertPf7FreshReplayAuthority(expected, { ...expected, verifierSetSha256: 'd'.repeat(64) }), /verifier-set/);
+});
+
+test('final replay rejects a bundle file whose bytes differ despite claimed stable verifier-set hash', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-bundle-artifact-'));
+  try {
+    const scripts = extractVerifierSet(names.map((name, index) => { const redeem = Buffer.from([0x51, index]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; }));
+    const stable = derivePf7FreshVerifierSet({ verificationKeySha256: 'b'.repeat(64), scripts });
+    const setup = { r1cs: { sha256: 'a'.repeat(64) }, verificationKey: { sha256: 'b'.repeat(64) } };
+    const expected = { sourceSetSha256: 'c'.repeat(64), verifierSetSha256: stable.sha256 };
+    const artifactDirectory = path.join(directory, 'artifacts'); await mkdir(artifactDirectory);
+    const artifactFile = path.join(artifactDirectory, 'bch-verifier-set.json'); await writeFile(artifactFile, stable.serialized);
+    const bundle = { root: directory, manifest: {
+      setup: { mode: 'development-only' },
+      profile: { constraintSystemHash: `sha256:${setup.r1cs.sha256}`, bchVerifierSetHash: `sha256:${stable.sha256}` },
+      artifacts: [{ kind: 'verification-key', sha256: `sha256:${setup.verificationKey.sha256}` }, { kind: 'bch-verifier-set', sha256: `sha256:${stable.sha256}`, path: 'artifacts/bch-verifier-set.json' }],
+    } };
+    await assert.doesNotReject(() => assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...stable, setup }, expected));
+    await writeFile(artifactFile, 'different bytes');
+    await assert.rejects(() => assertExactPf7FreshFinalVerifierSetArtifact(bundle, { ...stable, setup }, expected), /exact stable verifier-set artifact/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });

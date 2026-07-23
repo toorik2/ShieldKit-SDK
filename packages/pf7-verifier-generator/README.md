@@ -118,13 +118,20 @@ Discovery rebuilds each action twice, enforces the retained seam terminal
 `1d543756...`, clean pinned toolchains, 7/7 normal and BCH-2026 VM verdicts,
 18 raw attacks, 17 seam/cross-action rejections, 59,000-byte context, 10,000
 bytes per unlock, and identical source locks. It writes a **development-only,
-non-authoritative** source-set/output hash. Inputs 7--9 remain unevaluated.
+non-authoritative** source-set hash, corpus-output hash, and a dedicated
+`bch-verifier-set.json`. The stable verifier-set hash is derived only from the
+fixed PF7 candidate/provenance, the pre-profile verification-key hash, and the
+seven ordered source/redeem pairs; it deliberately excludes proofs, public
+signals, packets, and corpus-output metadata. Inputs 7--9 remain unevaluated.
 
-`final-replay` adds exactly `expected:{sourceSetSha256,outputSha256}` and
+`final-replay` adds exactly `expected:{sourceSetSha256,verifierSetSha256}` and
 `finalProfile:{bundleDirectory,profileId,instanceId}`. Both hashes and all
 bundle identity coordinates are caller-pinned; final replay loads and verifies
-the real local bundle and refuses any mismatch. The stable corpus hash is
-intentionally identical to discovery; replay-only identity linkage is in the
-output manifest. That linkage records a candidate for a later profile builder;
-it never makes discovery or replay a
+the real local bundle and refuses any mismatch. The bundle must be
+`development-only`, bind the same R1CS and verification-key artifact, and
+import the exact stable `bch-verifier-set.json` by hash and bytes. The final
+corpus-output hash may differ from discovery because action proof/packet data
+may differ; only the stable verifier-set/source-set authority is replayed.
+That linkage records a candidate for a later profile builder; it never makes
+discovery or replay a
 profile, G2, settlement, ceremony, node/relay, or Chipnet claim.

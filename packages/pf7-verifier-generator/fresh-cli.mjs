@@ -10,7 +10,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else {
     try {
       const result = await generatePf7FreshDevelopmentCorpus(await loadCliConfig(input));
-      console.log(JSON.stringify({ destination: result.destination, sha256: result.sha256, sourceSetSha256: result.sourceSetSha256 }));
+      console.log(JSON.stringify({ destination: result.destination, corpusSha256: result.sha256, verifierSetSha256: result.verifierSetSha256, sourceSetSha256: result.sourceSetSha256 }));
     } catch (error) {
       console.error(error.message);
       process.exitCode = 1;
