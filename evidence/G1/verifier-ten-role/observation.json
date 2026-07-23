@@ -59,7 +59,7 @@
   "verdict": "PASS",
   "limitations": [
     "Not a valid ten-input BCH transaction: packet/state/fee roles are structural and unevaluated.",
-    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck.",
+    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck; lake is unavailable on this host.",
     "Packet is authenticated against the fixture public limbs, not a complete runtime action-packet parser.",
     "The repository-wide architecture suite is not green in this linked worktree because historical candidate files are absent and arena lifecycle tests require a primary checkout."
   ]

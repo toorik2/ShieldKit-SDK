@@ -34,6 +34,10 @@ npm run check:architecture
 node --check lanes/bn254-onetx/src/build-adapter.mjs
 git diff --check
 
+# LeanBCH xcheck was investigated but is unavailable on this host:
+cd /tmp/shield-leanbch-51201015 && lake --version
+# observed: lake: command not found
+
 # shield.cash policy gate after importing evidence
 cd /tmp/shieldcash-g1-10role-evidence-019f8ed4
 npm test

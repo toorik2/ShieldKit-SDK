@@ -81,8 +81,8 @@ structural roles with real binding/state/fee covenants and canonical outputs;
 make public limbs runtime-derived from an authenticated packet rather than a
 fixture-specific terminal comparison; execute every input; run standardness on
 unmodified BCHN/Chipnet policy; add full action/state/fee mutation coverage;
-and cross-check the exact final scripts with LeanBCH. LeanBCH was pinned and
-used as the generator dependency at `51201015…`, but no independent LeanBCH
-xcheck was completed for this bounded topology.
+and cross-check the exact final scripts with LeanBCH. A pinned LeanBCH root at
+`51201015…` was supplied to the generator environment, but no independent
+LeanBCH xcheck was completed: this host has no `lake` executable.
 
 Raw build and red-team outputs are under [raw](raw).
