@@ -15,11 +15,11 @@ reproducible evidence for the exact candidate.
 | Current BCH consensus, standardness, activation, and VM limits | partial | v29 source, primary specs, and a genesis-only local runtime recorded in `evidence/G1/bch-surface/`; current synchronized behavior remains missing |
 | Two independent current BCHN v29 peers reproduce behavior | missing | two isolated local processes are not independent and their loopback handshake failed |
 | Pinned reproducible verifier toolchain | partial | exact PF6 rebuild passes on Node 20 and 25; PF7 sub62 also reproduces from the pinned source; bootstrap closure remains distributed |
-| Real valid and invalid proof corpus in complete standard transactions | missing | verifier reproduction and new profile build |
+| Real valid and invalid proof corpus in complete standard transactions | partial | the 608,499-constraint relation has three valid R1CS witnesses and five rejecting mutations; no zkey, proof, new verifier, or complete transaction exists |
 | Complete all-byte/source-script/per-input/VM accounting | partial | PF7 sub62 records 54,541 scored / 54,296 wire bytes and all seven unlocks below 9,500; the protocol envelope is absent |
 | Independent VM or formal cross-check | missing | libauth plus LeanBCH workstream |
 | Real Groth16 and alternative comparison | missing | no alternative may be compared by projection |
-| Explicit setup, upgrade, and failure model | partial | `g0-v2` and manifest v1 fix the boundary; no real development setup exists |
+| Explicit setup, upgrade, and failure model | partial | manifest/lifecycle v1 and the offline bundle builder fix the dev-versus-ceremony boundary; the real local initializer is in progress |
 | Hash-bound typed verifier-bundle manifest | implemented, unqualified | strict schema, loader, profile/genesis derivation, and adversarial parser tests pass |
 | Two independently initialized development bundles | missing | parser fixtures prove interface replacement only; real Groth16 setups are required |
 
@@ -30,6 +30,9 @@ and at least five percent measured standardness headroom.
 
 Current decisive results:
 
+- the candidate relation now SHA-binds the exact 752-byte reference action
+  packet and checks deposit, transfer, and withdrawal witnesses at 608,499
+  constraints; setup, proof, and BCH settlement evidence remain absent;
 - the verifier baseline is reproducible without source patches when every
   committed dependency closure is installed;
 - it remains research-only with fixed verifier/deployment binding;
