@@ -192,7 +192,28 @@ async function expectedSourceSetForAdapter(adapterSha256) {
 }
 function parseLastPush(hex) {
   const bytes = Buffer.from(hex, 'hex'); let offset = 0; let last;
-  while (offset < bytes.length) { const opcode = bytes[offset++]; let length; if (opcode <= 75) length = opcode; else if (opcode === 0x4c) length = bytes[offset++]; else if (opcode === 0x4d) { length = bytes[offset] | (bytes[offset + 1] << 8); offset += 2; } else if (opcode === 0x4e) { length = bytes.readUInt32LE(offset); offset += 4; } else fail('unlocking bytecode is not push-only'); if (!Number.isSafeInteger(length) || offset + length > bytes.length) fail('unlocking bytecode has a truncated push'); last = bytes.subarray(offset, offset + length); offset += length; }
+  while (offset < bytes.length) {
+    const opcode = bytes[offset++]; let length;
+    if (opcode <= 75) length = opcode;
+    else if (opcode === 0x4c) {
+      if (offset + 1 > bytes.length) fail('unlocking bytecode has a truncated push');
+      length = bytes[offset++];
+    } else if (opcode === 0x4d) {
+      if (offset + 2 > bytes.length) fail('unlocking bytecode has a truncated push');
+      length = bytes.readUInt16LE(offset); offset += 2;
+    } else if (opcode === 0x4e) {
+      if (offset + 4 > bytes.length) fail('unlocking bytecode has a truncated push');
+      length = bytes.readUInt32LE(offset); offset += 4;
+    } else if (opcode === 0x4f) {
+      // OP_1NEGATE and OP_1..OP_16 are push-only scriptSig operations. They
+      // can appear in proof-dependent arguments before the final redeem push.
+      last = Buffer.from([0x81]); continue;
+    } else if (opcode >= 0x51 && opcode <= 0x60) {
+      last = Buffer.from([opcode - 0x50]); continue;
+    } else fail('unlocking bytecode is not push-only');
+    if (!Number.isSafeInteger(length) || offset + length > bytes.length) fail('unlocking bytecode has a truncated push');
+    last = bytes.subarray(offset, offset + length); offset += length;
+  }
   if (last === undefined || last.length === 0) fail('unlocking bytecode lacks a redeem script'); return Buffer.from(last);
 }
 export function extractVerifierSet(inputs) {

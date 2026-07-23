@@ -54,6 +54,14 @@ test('seven exact P2SH32 source/redeem pairs are canonicalized in role order', (
   assert.equal(set[0].redeemBytecodeHex, '5100');
 });
 
+test('canonical small-integer argument pushes are accepted before the final redeem push', () => {
+  const inputs = names.map((name, index) => {
+    const redeem = Buffer.from([0x51, index]);
+    return { name, lock: lockFor(redeem), unlock: `00514f60${push(redeem)}` };
+  });
+  assert.deepEqual(extractVerifierSet(inputs).map(({ redeemBytecodeHex }) => redeemBytecodeHex), names.map((_, index) => `51${index.toString(16).padStart(2, '0')}`));
+});
+
 test('source/redeem tampering and generic topology are rejected before output', () => {
   const inputs = names.map((name) => { const redeem = Buffer.from([0x51]); return { name, lock: lockFor(redeem), unlock: push(redeem) }; });
   inputs[3].lock = `${inputs[3].lock.slice(0, -2)}86`;
