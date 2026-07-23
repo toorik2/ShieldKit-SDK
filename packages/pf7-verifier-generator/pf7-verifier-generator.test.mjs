@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
-import { assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance } from './pf7-verifier-generator.mjs';
+import { assertCleanGitRepository, extractVerifierSet, Pf7VerifierGeneratorError, validateAdapter, validateProvenance, validateRuntimePackageVersions } from './pf7-verifier-generator.mjs';
 
 const execFileAsync = promisify(execFile);
 const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').update(bytes).digest()).digest();
@@ -74,6 +74,25 @@ test('CLI accepts only direct strict-JSON configuration files', async () => {
     const linked = path.join(directory, 'linked.json');
     await symlink(valid, linked);
     await assert.rejects(loadCliConfig(linked), /regular non-symlink/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime package closure rejects a symlink boundary and version drift', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'pf7-runtime-'));
+  try {
+    const expected = { '@fixture/runtime': '1.2.3' };
+    const direct = path.join(directory, 'node_modules');
+    const packageDirectory = path.join(direct, '@fixture', 'runtime');
+    await mkdir(packageDirectory, { recursive: true });
+    await writeFile(path.join(packageDirectory, 'package.json'), '{"version":"1.2.3"}');
+    assert.deepEqual(await validateRuntimePackageVersions(direct, expected, 'fixture'), expected);
+    await writeFile(path.join(packageDirectory, 'package.json'), '{"version":"1.2.4"}');
+    await assert.rejects(validateRuntimePackageVersions(direct, expected, 'fixture'), Pf7VerifierGeneratorError);
+    const linked = path.join(directory, 'linked-node_modules');
+    await symlink(direct, linked);
+    await assert.rejects(validateRuntimePackageVersions(linked, expected, 'fixture'), Pf7VerifierGeneratorError);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
