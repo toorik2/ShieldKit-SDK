@@ -9,8 +9,9 @@ It binds a canonical 752-byte action packet to the independently reconstructed
 settlement-context digest, preserves the mutable state NFT and state script,
 checks fixed 0.1 BCH reserve transitions, keeps a profile-fixed state carrier
 above the reserve so an empty pool need not create a zero-satoshi state output,
-enforces transparent fee funding and positive change, and serializes the exact
-BCH transaction with libauth. Binding input 7 and fee input 9 must spend
+enforces transparent fee funding at exactly 1 satoshi per serialized byte and
+positive change, and serializes the exact BCH transaction with libauth.
+Underpayment and overpayment both fail. Binding input 7 and fee input 9 must spend
 outputs 0 and 1 of the same preparation transaction. Input 9 uses one exact
 100-byte Schnorr P2PKH `ALL|FORKID` unlock, and change preserves that P2PKH
 lock. This prevents a third party from taking a prepared deposit carrier
