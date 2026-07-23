@@ -445,8 +445,11 @@ export function buildSettlementTransaction(value) {
   if (inputValue <= outputValue) fail('settlement fee must be positive');
   const feeSatoshis = inputValue - outputValue;
   const minimumFeeSatoshis = BigInt(wireBytes) * PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE;
-  if (feeSatoshis < minimumFeeSatoshis) {
-    fail(`settlement fee ${feeSatoshis} is below ${minimumFeeSatoshis}`);
+  if (feeSatoshis !== minimumFeeSatoshis) {
+    fail(
+      `settlement fee ${feeSatoshis} must equal the fixed one-satoshi-per-byte fee`
+      + ` ${minimumFeeSatoshis}`,
+    );
   }
   const sourceLockingBytecodeBytes = sources
     .reduce((total, output) => total + output.lockingBytecode.length, 0);

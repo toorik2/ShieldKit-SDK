@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
@@ -25,6 +26,43 @@ async function sha256File(filename) {
   const digest = createHash('sha256');
   for await (const chunk of createReadStream(filename)) digest.update(chunk);
   return digest.digest('hex');
+}
+
+const sha256Bytes = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+function readGitBlob(commit, artifactPath, maximumBytes) {
+  return new Promise((resolve) => {
+    const child = spawn(
+      'git',
+      ['-C', repositoryRoot, 'show', `${commit}:${artifactPath}`],
+      {
+        env: { PATH: process.env.PATH ?? '' },
+        shell: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    const chunks = [];
+    let bytes = 0;
+    let exceeded = false;
+    child.stdout.on('data', (chunk) => {
+      bytes += chunk.length;
+      if (bytes > maximumBytes) {
+        exceeded = true;
+        child.kill();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    child.stderr.resume();
+    child.once('error', () => resolve(undefined));
+    child.once('close', (code, signal) => {
+      if (code !== 0 || signal !== null || exceeded) {
+        resolve(undefined);
+        return;
+      }
+      resolve(Buffer.concat(chunks));
+    });
+  });
 }
 
 async function findObservationFiles(directory) {
@@ -89,17 +127,29 @@ export async function validateEvidenceFile(filename, validateSchema) {
     if (!inside(repositoryRoot, resolved) || resolved !== candidate) {
       fail(`${relativeRecord}: artifact path resolves through a symlink: ${artifact.path}`);
     }
-    if (stats.size !== artifact.bytes) {
-      fail(
-        `${relativeRecord}: artifact byte length ${stats.size} != ${artifact.bytes}: `
-        + artifact.path,
+    const currentMatches = (
+      stats.size === artifact.bytes
+      && await sha256File(resolved) === artifact.sha256
+    );
+    if (!currentMatches) {
+      const sourceRepository = await realpath(
+        path.resolve(record.source.repository),
+      ).catch(() => undefined);
+      const sourceBlob = (
+        sourceRepository === repositoryRoot
+        && !record.source.dirtyPaths.includes(artifact.path)
+      )
+        ? await readGitBlob(record.source.commit, artifact.path, artifact.bytes)
+        : undefined;
+      const sourceMatches = (
+        sourceBlob !== undefined
+        && sourceBlob.length === artifact.bytes
+        && sha256Bytes(sourceBlob) === artifact.sha256
       );
-    }
-    const actualHash = await sha256File(resolved);
-    if (actualHash !== artifact.sha256) {
+      if (sourceMatches) continue;
       fail(
-        `${relativeRecord}: artifact SHA-256 ${actualHash} != ${artifact.sha256}: `
-        + artifact.path,
+        `${relativeRecord}: artifact does not match the workspace or source commit: `
+        + `${artifact.path}`,
       );
     }
   }
@@ -133,4 +183,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exitCode = 1;
   }
 }
-
