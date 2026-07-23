@@ -1,16 +1,15 @@
 // Fail-closed local Groth16 corpus executor. It consumes immutable caller
 // artifacts only; it never runs setup or fetches network material.
 import { createHash, randomUUID } from 'node:crypto';
-import { execFile as execFileCallback } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-
-const execFile = promisify(execFileCallback);
 const actionKinds = new Set(['deposit', 'transfer', 'withdrawal']);
 const decimal = /^(0|[1-9][0-9]*)$/;
+const STDERR_LIMIT_BYTES = 64 * 1024;
+const PROC_SAMPLE_INTERVAL_MS = 25;
 
 export class ProofCorpusError extends Error {
   constructor(message) { super(message); this.name = 'ProofCorpusError'; }
@@ -96,12 +95,8 @@ async function pinnedTool(record) {
   exactKeys(record, 'snarkjs', ['path', 'sha256', 'version']);
   const tool = await immutableFile({ path: record.path, sha256: record.sha256 }, 'snarkjs');
   if (typeof record.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(record.version)) fail('snarkjs.version must be an exact semver');
-  let stdout;
-  try { ({ stdout } = await execFile(process.execPath, [tool.path, '--version'], { maxBuffer: 1024 * 1024 })); } catch (error) {
-    // snarkjs 0.7.x prints its version then exits 99 after usage text.
-    stdout = typeof error.stdout === 'string' ? error.stdout : '';
-    if (!/snarkjs@\d+\.\d+\.\d+/.test(stdout)) fail(`pinned snarkjs --version failed: ${String(error.stderr ?? '').trim()}`);
-  }
+  const versionRun = await run(tool, ['--version'], 'pinned snarkjs --version', { allowedExitCodes: new Set([0, 99]), captureStdout: true });
+  const stdout = versionRun.stdout;
   const observed = stdout.match(/snarkjs@([0-9]+\.[0-9]+\.[0-9]+)/)?.[1];
   if (observed !== record.version) fail(`pinned snarkjs version mismatch: expected ${record.version}, got ${observed ?? 'unrecognized output'}`);
   return Object.freeze({ ...tool, version: observed });
@@ -112,13 +107,66 @@ async function stable(artifacts) {
     if (!stats.isFile() || stats.isSymbolicLink() || await realpath(artifact.path) !== artifact.path || await sha256File(artifact.path) !== artifact.sha256) fail(`input artifact changed during execution: ${artifact.path}`);
   }
 }
-async function run(tool, args, label) {
+export function parseLinuxProcStatus(status) {
+  const parse = (name) => {
+    const match = status.match(new RegExp(`^${name}:\\s+(\\d+)\\s+kB$`, 'm'));
+    return match ? Number(match[1]) : null;
+  };
+  return { vmHwmKiB: parse('VmHWM'), vmRssKiB: parse('VmRSS') };
+}
+export function memoryMeasurement({ sampleCount, peakVmHwmKiB, peakVmRssKiB, procfsAvailable }) {
+  if (process.platform !== 'linux' || !procfsAvailable) return {
+    peakRssKiB: null,
+    method: 'unavailable',
+    scope: 'direct snarkjs child process',
+    sampleIntervalMs: PROC_SAMPLE_INTERVAL_MS,
+    samples: sampleCount,
+  };
+  const peakRssKiB = peakVmHwmKiB ?? peakVmRssKiB;
+  return {
+    peakRssKiB,
+    method: peakVmHwmKiB !== null ? 'linux-proc-status-vmhwm' : peakVmRssKiB !== null ? 'linux-proc-status-vmrss-sampled' : 'unavailable',
+    scope: 'direct snarkjs child process; snarkjs workers are threads in this process',
+    sampleIntervalMs: PROC_SAMPLE_INTERVAL_MS,
+    samples: sampleCount,
+  };
+}
+function boundedCapture(stream, limit) {
+  const chunks = []; let bytes = 0; let truncated = false;
+  stream.on('data', (chunk) => {
+    if (bytes >= limit) { truncated = true; return; }
+    const remaining = limit - bytes; const kept = chunk.subarray(0, remaining);
+    chunks.push(kept); bytes += kept.length; if (kept.length !== chunk.length) truncated = true;
+  });
+  return () => ({ text: Buffer.concat(chunks).toString('utf8'), truncated });
+}
+async function run(tool, args, label, { allowedExitCodes = new Set([0]), captureStdout = false } = {}) {
   const started = now();
-  try { await execFile(process.execPath, [tool.path, ...args], { maxBuffer: 16 * 1024 * 1024 }); } catch (error) {
-    const stderr = typeof error.stderr === 'string' ? error.stderr.trim() : '';
-    fail(`${label} failed${stderr ? `: ${stderr}` : ''}`);
-  }
-  return { elapsedMs: elapsed(started), peakRssKiB: null, peakRssScope: 'unavailable for execFile child process' };
+  const child = spawn(process.execPath, [tool.path, ...args], { stdio: ['ignore', captureStdout ? 'pipe' : 'ignore', 'pipe'] });
+  const stderr = boundedCapture(child.stderr, STDERR_LIMIT_BYTES);
+  const stdout = captureStdout ? boundedCapture(child.stdout, STDERR_LIMIT_BYTES) : () => ({ text: '', truncated: false });
+  let samples = 0; let peakVmHwmKiB = null; let peakVmRssKiB = null; let procfsAvailable = process.platform === 'linux'; let sampling = false;
+  const sample = async () => {
+    if (!procfsAvailable || sampling || !child.pid) return;
+    sampling = true;
+    try {
+      const status = parseLinuxProcStatus(await readFile(`/proc/${child.pid}/status`, 'utf8'));
+      samples += 1;
+      if (status.vmHwmKiB !== null) peakVmHwmKiB = Math.max(peakVmHwmKiB ?? 0, status.vmHwmKiB);
+      if (status.vmRssKiB !== null) peakVmRssKiB = Math.max(peakVmRssKiB ?? 0, status.vmRssKiB);
+    } catch { if (samples === 0) procfsAvailable = false; } finally { sampling = false; }
+  };
+  await sample();
+  const interval = setInterval(() => { void sample(); }, PROC_SAMPLE_INTERVAL_MS);
+  const result = await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal }));
+  }).finally(() => clearInterval(interval));
+  await sample();
+  const measured = memoryMeasurement({ sampleCount: samples, peakVmHwmKiB, peakVmRssKiB, procfsAvailable });
+  const capturedStderr = stderr(); const capturedStdout = stdout();
+  if (!allowedExitCodes.has(result.code)) fail(`${label} failed (exit ${result.code}${result.signal ? `, signal ${result.signal}` : ''})${capturedStderr.text.trim() ? `: ${capturedStderr.text.trim()}` : ''}${capturedStderr.truncated ? ' [stderr truncated]' : ''}`);
+  return { elapsedMs: elapsed(started), memory: measured, stderrTruncated: capturedStderr.truncated, stdout: capturedStdout.text, stdoutTruncated: capturedStdout.truncated };
 }
 function digestLimbs(value, label) {
   if (!Array.isArray(value) || value.length !== 2) fail(`${label} must contain exactly two packet-digest limbs`);

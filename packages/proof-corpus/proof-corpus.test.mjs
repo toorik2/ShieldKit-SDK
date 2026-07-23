@@ -4,7 +4,7 @@ import { lstat, mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { ProofCorpusError, parseStrictJson, runProofCorpus, sha256File } from './proof-corpus.mjs';
+import { ProofCorpusError, memoryMeasurement, parseLinuxProcStatus, parseStrictJson, runProofCorpus, sha256File } from './proof-corpus.mjs';
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(packageDirectory, 'node_modules', 'circom_runtime', 'test', 'circuit');
@@ -122,4 +122,24 @@ test('streams SHA-256 rather than buffering a large artifact', async () => {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('Linux proc measurement records method, scope, and sampling shape', () => {
+  assert.deepEqual(parseLinuxProcStatus('Name:\tnode\nVmRSS:\t   123 kB\nVmHWM:\t   456 kB\n'), { vmHwmKiB: 456, vmRssKiB: 123 });
+  const measured = memoryMeasurement({ sampleCount: 7, peakVmHwmKiB: 456, peakVmRssKiB: 123, procfsAvailable: true });
+  assert.deepEqual(Object.keys(measured).sort(), ['method', 'peakRssKiB', 'sampleIntervalMs', 'samples', 'scope']);
+  if (process.platform === 'linux') {
+    assert.equal(measured.peakRssKiB, 456);
+    assert.equal(measured.method, 'linux-proc-status-vmhwm');
+    assert.equal(measured.samples, 7);
+    assert.match(measured.scope, /direct snarkjs child process/);
+    assert.equal(measured.sampleIntervalMs, 25);
+  }
+});
+
+test('unavailable procfs never receives a numeric memory fallback', () => {
+  const unavailable = memoryMeasurement({ sampleCount: 0, peakVmHwmKiB: 999, peakVmRssKiB: 888, procfsAvailable: false });
+  assert.equal(unavailable.peakRssKiB, null);
+  assert.equal(unavailable.method, 'unavailable');
+  assert.equal(unavailable.samples, 0);
 });

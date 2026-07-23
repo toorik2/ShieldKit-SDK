@@ -12,6 +12,11 @@ assigns a gate verdict. The packet digest is a supplied immutable corpus value;
 this runner checks the proof's exactly-two public signals against it but does
 not reconstruct the BCH context or packet itself.
 
+On Linux, each direct `snarkjs` child is sampled from `/proc/<pid>/status` at
+25 ms intervals. Results record `VmHWM` when available (otherwise sampled
+`VmRSS`), method, scope, and sample count. Other platforms or unavailable
+procfs record a null peak rather than a substituted process-wide value.
+
 The package test uses the pinned dependency's tiny real Groth16 fixture only to
 exercise fail-closed public-arity handling. It is not full-relation, setup,
 proof-corpus qualification, or G1 evidence.
