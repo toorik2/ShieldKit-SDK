@@ -23,11 +23,14 @@ The complete-candidate wire gate is **59,000 bytes** and the per-input gate is
 it is not a generator acceptance cap and no percentage-margin gate exists.
 
 The result is a canonical `shield.cash/bch-verifier-set/v1` JSON artifact. It
-contains all seven P2SH32 source locking bytecodes and their authenticated
-redeem scripts, setup/proof dependency hashes, exact toolchain commits, and
-the action-invariant source-set hash. It is permanently `development-only` and
-is a verifier reference transaction, not a complete shield.cash settlement
-transaction or a deployment/profile claim.
+contains all seven P2SH32 source locking bytecodes, their authenticated redeem
+scripts, each role's measured source-output value, setup/proof dependency
+hashes, exact toolchain commits, and the action-invariant source-set hash. The
+values are decoded from the reproducible verifier.cash
+`c7_candidate_srcouts.hex`; preparation builders must reproduce them exactly
+and must not substitute fixture or caller-selected carrier values. The artifact
+is permanently `development-only` and is a verifier reference transaction, not
+a complete shield.cash settlement transaction or a deployment/profile claim.
 
 `generatePf7ActionSeamCorpus` (or `npm run seam --
 ABSOLUTE_CONFIG.json`) is a distinct evidence-experiment entrypoint. Its strict
