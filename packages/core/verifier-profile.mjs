@@ -226,7 +226,10 @@ function validateSetup(setup, artifactByPath) {
 function validateSetupCommand(command, label) {
   exactKeys(command, label, ['argv']);
   if (!Array.isArray(command.argv) || command.argv.length === 0) fail(`${label} argv must be a non-empty array`);
-  for (const [index, argument] of command.argv.entries()) string(argument, `${label} argv ${index}`);
+  for (const [index, argument] of command.argv.entries()) {
+    string(argument, `${label} argv ${index}`);
+    if (argument.length === 0 || argument.includes('\0')) fail(`${label} argv ${index} must be a non-empty argument without NUL`);
+  }
 }
 
 /**
@@ -237,7 +240,10 @@ function validateSetupCommand(command, label) {
 function validateSetupMaterial(material, mode, artifactByPath, contributions = undefined) {
   exactKeys(material, 'setup material', ['phase1', 'phase2']);
   exactKeys(material.phase1, 'setup material phase1', ['ptauSource', 'ptauSha256']);
-  string(material.phase1.ptauSource, 'setup material ptau source');
+  const ptauSource = string(material.phase1.ptauSource, 'setup material ptau source');
+  if (ptauSource.length === 0 || ptauSource.length > 1024 || ptauSource.includes('\0')) {
+    fail('setup material ptau source must contain 1 to 1024 characters without NUL');
+  }
   hash(material.phase1.ptauSha256, 'setup material ptau hash');
   const finalZkeyHash = [...artifactByPath.values()].find((artifact) => artifact.kind === 'proving-key')?.sha256;
   if (!finalZkeyHash) fail('setup material requires proving-key artifact');

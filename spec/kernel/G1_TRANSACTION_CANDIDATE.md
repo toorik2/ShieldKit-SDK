@@ -37,17 +37,28 @@ for and execute against the exact nine-input topology.
 Scripts are instantiated in this directed order:
 
 ```
-six verifier locks -> binding lock -> state lock -> genesis
+profile artifacts and verifier locks
+    -> profileId
+    -> genesis inputs and instanceId
+    -> binding lock
+    -> state lock
+    -> genesis transaction
 ```
 
-1. Verifier locks are generated for roles 0–5 and the nine-input envelope. They
-   authenticate the packet/public-input derivation and profile/instance
-   constants, but do not depend on the later state locking bytecode.
-2. The binding covenant is instantiated with the exact six verifier locking
-   bytecodes and its own profile/instance constants.
-3. The state covenant is instantiated with the exact binding locking bytecode,
+1. Verifier locks are generated for roles 0–5 and the nine-input envelope.
+   Their exact bytes are included in the profile-hashed `bch-verifier-set`, so
+   they cannot embed the resulting `profileId` or any later `instanceId`
+   without an impossible hash fixed point. They bind the verification key and
+   topology and derive the public limbs from the input-6 packet, but do not
+   treat its identity fields as expected constants.
+2. The verifier bundle is finalized and derives `profileId`; the fresh category
+   input and reserve cap then derive `instanceId`.
+3. The binding covenant is instantiated with the exact six verifier locking
+   bytecodes and the derived profile/instance constants. It rejects a packet
+   whose identity fields differ.
+4. The state covenant is instantiated with the exact binding locking bytecode,
    profile, instance, state NFT category, denomination, and maximum reserve.
-4. Genesis creates the unique mutable state NFT under the exact state lock.
+5. Genesis creates the unique mutable state NFT under the exact state lock.
 
 The binding covenant does not embed the state lock. It authenticates input 7 by
 the unique instance NFT and requires output 0 to preserve that NFT and input
@@ -230,4 +241,3 @@ The candidate is rejected if:
   successor, or moved under another lock;
 - any prepared carrier requires a privileged supplier; or
 - any complete action is non-standard on an unmodified current Chipnet peer.
-

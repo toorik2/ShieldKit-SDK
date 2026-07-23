@@ -66,6 +66,9 @@ identifier and SHA-256, the complete argv arrays for Phase 2 initialization and
 local contribution commands, a commitment to the private contribution
 randomness, and a final zkey SHA-256 equal to the proving-key artifact hash.
 The ptau remains provenance metadata rather than a runtime bundle artifact.
+The manifest and command arrays are public: they MUST NOT contain raw
+contribution entropy, toxic waste, wallet seeds, credentials, or other secret
+material.
 
 ## 3. Future ceremony adapter
 

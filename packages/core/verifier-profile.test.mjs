@@ -163,6 +163,22 @@ test('setup material binds Phase 1 provenance and the final zkey to the proving-
     () => loadVerifierProfileBundle(missingPtau.directory),
     /setup material phase1 has missing or unknown properties/,
   );
+
+  const emptyPtauSource = await makeDevelopmentBundle('empty-ptau-source');
+  emptyPtauSource.manifest.setup.material.phase1.ptauSource = '';
+  await writeBoundManifest(emptyPtauSource);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(emptyPtauSource.directory),
+    /ptau source must contain 1 to 1024 characters without NUL/,
+  );
+
+  const emptyArgument = await makeDevelopmentBundle('empty-command-argument');
+  emptyArgument.manifest.setup.material.phase2.initializationCommand.argv[0] = '';
+  await writeBoundManifest(emptyArgument);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(emptyArgument.directory),
+    /argv 0 must be a non-empty argument without NUL/,
+  );
 });
 
 test('state NFT category is a circularity-free CashToken category binding from the pre-existing output-0 input', async () => {

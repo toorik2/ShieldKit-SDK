@@ -100,7 +100,10 @@ scripts are not artifacts in this pre-genesis manifest.
   source identifier and hash without packaging the ptau as a runtime artifact.
   Its phase-2 material binds exact initialization and contribution command
   argv arrays, a randomness commitment, and the final zkey hash, which must
-  equal the proving-key artifact hash.
+  equal the proving-key artifact hash. Command arrays are public provenance and
+  MUST NOT contain entropy, toxic waste, seeds, credentials, or other secrets;
+  secret contribution randomness is represented only by its one-way
+  commitment.
 - `ceremony-production`: multi-party randomness. A complete transcript artifact
   is required; its SHA-256, path, and verifier metadata must be bound, and each
   contribution must have a unique participant commitment, contribution hash,
