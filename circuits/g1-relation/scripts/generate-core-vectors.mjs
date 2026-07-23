@@ -39,7 +39,7 @@ const depositPost = reference.buildState({ ...initial, noteRoot: frToHex(root(le
 const deposit = { kind: 'deposit', networkId: 2, profileId, instanceId, preState: initial, postState: depositPost, depositSats: D, outputNote: note1, noteAppendPath: { siblings: notePathEmpty }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 1), transactionContextDigest: digest('deposit-context') };
 const appendIndex1 = [frToHex(leaf1), ...notePathEmpty.slice(1)];
 const leaf2 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived2.cm}`));
-const nf1 = BigInt(`0x${derived1.nf}`); const key1 = BigInt(`0x${Buffer.from(derived1.nf, 'hex').subarray(0, 16).toString('hex')}`);
+const nf1 = BigInt(`0x${derived1.nf}`); const key1 = BigInt(`0x${Buffer.from(derived1.nf, 'hex').subarray(16, 32).toString('hex')}`);
 const nullLeaf1 = reference.poseidon(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, nf1);
 const transferPost = reference.buildState({ ...depositPost, noteRoot: frToHex(root(leaf2, 1n, appendIndex1, DOMAIN_TAGS.NOTE_TREE_NODE)), nullifierRoot: frToHex(root(nullLeaf1, key1, nullifierPathEmpty, DOMAIN_TAGS.NULLIFIER_TREE_NODE)), nextLeafIndex: '2', actionSequence: '2' });
 const transfer = { kind: 'transfer', networkId: 2, profileId, instanceId, preState: depositPost, postState: transferPost, spend: { note: note1, noteIndex: '0', noteSiblings: notePathEmpty, nullifierSiblings: nullifierPathEmpty }, outputNote: note2, noteAppendPath: { siblings: appendIndex1 }, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 2), transactionContextDigest: digest('transfer-context') };

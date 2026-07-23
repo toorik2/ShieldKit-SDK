@@ -40,8 +40,10 @@ The final profile must pin source closure, versions, parameters, domain tags,
 byte encodings, generated vectors, and artifact hashes. A library name alone is
 not a primitive specification.
 
-The 128-level nullifier tree is a feasibility candidate, not a claim of
-128-bit collision resistance for an unbounded population. A truncated-key
+The 128-level nullifier tree indexes the least-significant 128 bits of the
+canonical nullifier field encoding. This avoids the two structurally zero high
+bits of BN254 field encodings, but remains a feasibility candidate rather than
+a claim of 128-bit collision resistance for an unbounded population. A truncated-key
 collision must reject without value creation. G1/G2 must publish its lifetime
 liveness bound or select a deeper tree.
 

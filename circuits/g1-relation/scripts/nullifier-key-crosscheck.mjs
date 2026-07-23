@@ -11,10 +11,8 @@ const note = reference.deriveNote({
   r: '000000000000000000000000000000000000000000000000000000000000000d',
 });
 const nf = BigInt(`0x${note.nf}`);
-const expected = BigInt(`0x${frToBytes(nf).subarray(0, 16).toString('hex')}`);
+const expected = BigInt(`0x${frToBytes(nf).subarray(16, 32).toString('hex')}`);
 let circuitKey = 0n;
-for (let bit = 0; bit < 126; bit += 1) circuitKey |= ((nf >> BigInt(128 + bit)) & 1n) << BigInt(bit);
-// Bits 126 and 127 are zero because canonical BN254 Fr values use <=254 bits.
+for (let bit = 0; bit < 128; bit += 1) circuitKey |= ((nf >> BigInt(bit)) & 1n) << BigInt(bit);
 assert.equal(circuitKey, expected);
-assert.equal((circuitKey >> 126n) & 3n, 0n);
 console.log(JSON.stringify({ nullifier: note.nf, key: circuitKey.toString(16).padStart(32, '0') }));

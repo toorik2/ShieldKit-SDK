@@ -37,7 +37,7 @@ and serialize little-endian in action packets.
 
 The note tree is append-only at depth 32 and consumes append-index bits from
 least significant to most significant. The sparse nullifier tree is depth 128,
-indexes the most-significant 128 bits of the canonical nullifier Fr encoding,
+indexes the least-significant 128 bits of the canonical nullifier Fr encoding,
 and likewise consumes that unsigned integer's bits least-significant first. A
 spend proves the selected sparse leaf is the canonical empty leaf; an occupied
 leaf therefore rejects both a duplicate and a truncated-key collision without

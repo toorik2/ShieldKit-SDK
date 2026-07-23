@@ -62,7 +62,7 @@ async function fixture() {
   const appendForIndex1 = [leaf1, ...notePathEmpty.slice(1)];
   const leaf2 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived2.cm}`));
   const rootAfterTransfer = frToHex(rootFromPath(reference, leaf2, 1n, appendForIndex1, DOMAIN_TAGS.NOTE_TREE_NODE));
-  const nf1 = BigInt(`0x${derived1.nf}`); const key1 = BigInt(`0x${Buffer.from(derived1.nf, 'hex').subarray(0, 16).toString('hex')}`);
+  const nf1 = BigInt(`0x${derived1.nf}`); const key1 = BigInt(`0x${Buffer.from(derived1.nf, 'hex').subarray(16, 32).toString('hex')}`);
   const nfLeaf1 = reference.poseidon(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, nf1);
   const nullRootAfterFirstSpend = frToHex(rootFromPath(reference, nfLeaf1, key1, nullifierPathEmpty, DOMAIN_TAGS.NULLIFIER_TREE_NODE));
   const transferPost = reference.buildState({ ...depositPost, noteRoot: rootAfterTransfer, nullifierRoot: nullRootAfterFirstSpend, nextLeafIndex: '2', actionSequence: '2' });

@@ -228,7 +228,10 @@ export async function createShieldedTransitionReference() {
     const noteIndex = BigInt(parseIndex(spend.noteIndex, 'spend noteIndex'));
     const noteSiblings = assertArray(spend.noteSiblings, NOTE_TREE_DEPTH, 'note membership path');
     if (rootFromPath(hash(DOMAIN_TAGS.NOTE_TREE_LEAF, frFromHex(note.cm, 'input note commitment')), noteIndex, noteSiblings, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_NODE, 'note membership path') !== frFromHex(pre.noteRoot, 'pre-state note root')) fail('input note membership path is invalid');
-    const key = BigInt(`0x${frToBytes(frFromHex(note.nf, 'input nullifier')).subarray(0, 16).toString('hex')}`);
+    // Use the least-significant 128 bits. The two most-significant bits of a
+    // canonical BN254 Fr encoding are structurally zero, so taking the first
+    // 16 bytes would provide only 126 variable index bits.
+    const key = BigInt(`0x${frToBytes(frFromHex(note.nf, 'input nullifier')).subarray(16, 32).toString('hex')}`);
     const nullifierSiblings = assertArray(spend.nullifierSiblings, NULLIFIER_TREE_DEPTH, 'nullifier path');
     if (rootFromPath(nullifierEmpty[0], key, nullifierSiblings, NULLIFIER_TREE_DEPTH, DOMAIN_TAGS.NULLIFIER_TREE_NODE, 'nullifier path') !== frFromHex(pre.nullifierRoot, 'pre-state nullifier root')) fail('nullifier is duplicate or collides with an occupied sparse leaf');
     const postNullifierRoot = rootFromPath(hash(DOMAIN_TAGS.NULLIFIER_TREE_LEAF, frFromHex(note.nf, 'input nullifier')), key, nullifierSiblings, NULLIFIER_TREE_DEPTH, DOMAIN_TAGS.NULLIFIER_TREE_NODE, 'nullifier path');

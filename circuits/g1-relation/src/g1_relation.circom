@@ -277,11 +277,11 @@ template G1Relation() {
     component nullSelectLeftInsert[NULLIFIER_DEPTH]; component nullSelectRightInsert[NULLIFIER_DEPTH];
     nullifierEmptyCurrent[0] <== nullifierEmpty.out; nullifierInsertCurrent[0] <== nullifierLeaf.out;
     signal nullifierKeyBits[NULLIFIER_DEPTH];
-    for (var key = 0; key < 126; key++) { nullifierKeyBits[key] <== inputNfBits.out[128 + key]; }
-    nullifierKeyBits[126] <== 0; nullifierKeyBits[127] <== 0;
+    for (var key = 0; key < NULLIFIER_DEPTH; key++) { nullifierKeyBits[key] <== inputNfBits.out[key]; }
     for (var k = 0; k < NULLIFIER_DEPTH; k++) {
-        // bytes[0..16] as BE u128, traversed least-significant bit first:
-        // Num2Bits(254)[128..253], followed by the two canonical zero MSBs.
+        // bytes[16..32] as BE u128, traversed least-significant bit first:
+        // Num2Bits(254)[0..127]. Using the low half avoids the two structurally
+        // zero most-significant bits of canonical BN254 Fr encodings.
         nullSelectLeftEmpty[k] = Select(); nullSelectLeftEmpty[k].whenZero <== nullifierEmptyCurrent[k]; nullSelectLeftEmpty[k].whenOne <== nullifierSiblings[k]; nullSelectLeftEmpty[k].select <== nullifierKeyBits[k]; nullLeftEmpty[k] <== nullSelectLeftEmpty[k].out;
         nullSelectRightEmpty[k] = Select(); nullSelectRightEmpty[k].whenZero <== nullifierSiblings[k]; nullSelectRightEmpty[k].whenOne <== nullifierEmptyCurrent[k]; nullSelectRightEmpty[k].select <== nullifierKeyBits[k]; nullRightEmpty[k] <== nullSelectRightEmpty[k].out;
         nullSelectLeftInsert[k] = Select(); nullSelectLeftInsert[k].whenZero <== nullifierInsertCurrent[k]; nullSelectLeftInsert[k].whenOne <== nullifierSiblings[k]; nullSelectLeftInsert[k].select <== nullifierKeyBits[k]; nullLeftInsert[k] <== nullSelectLeftInsert[k].out;
