@@ -30,10 +30,12 @@ bytes. It:
 3. requires output 0 locking bytecode to equal `OP_ACTIVEBYTECODE`; and
 4. executes the authenticated helper with `OP_DEFINE` and `OP_INVOKE`.
 
-The action-invariant helper is part of the profile's authenticated verifier set
-and must fit in a complete input-8 unlock no larger than 3,317 bytes while the
-complete transaction remains at most 59,000 bytes. The 65,000-byte contingency
-is not an allocation.
+The action-invariant helper is part of the profile's authenticated verifier set.
+With the current measured 88-byte trampoline, the conservative common
+input-8-unlock cap is 3,286 bytes while the complete transaction remains at
+most 59,000 bytes. This cap must be recomputed from the integrated transaction
+if the trampoline or any other serialized field changes. The 65,000-byte
+contingency is not an allocation.
 
 The helper contains the profile ID, instance ID, state category, reserve cap,
 state and binding carrier values, exact input-7 lock, and the complete
@@ -104,7 +106,7 @@ the proof-to-packet-to-`SCCT` transaction binding.
 This split is rejected or redesigned if any of these occurs:
 
 - trampoline lock above 190 bytes;
-- input-8 helper unlock above 3,317 bytes;
+- input-8 helper unlock above the current 3,286-byte derived cap;
 - any unlock above 10,000 bytes;
 - any complete action above 59,000 serialized bytes;
 - honest standard BCH-2026 VM rejection or operation-limit failure;
