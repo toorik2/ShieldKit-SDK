@@ -2,6 +2,8 @@
 // deliberately consumes already-proved PF7 unlocks; it never substitutes a
 // digest-only proof or fabricates a verifier acceptance.
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
   createVirtualMachineBch2026,
   encodeTransaction,
@@ -11,6 +13,8 @@ import {
   SigningSerializationTypeBch,
 } from '@bitauth/libauth';
 import { ACTION_PACKET_BYTES, CHIPNET_NETWORK_ID, decodeActionPacket } from '../action-packet/action-packet.mjs';
+import { generateFreshWitnessInputs } from '../fresh-witness-inputs/fresh-witness-inputs.mjs';
+import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
 import { encodeSettlementContext } from '../settlement-context/settlement-context.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
 import {
@@ -44,13 +48,21 @@ const decimal = (value, label) => {
   if (typeof value !== 'bigint' || value < 0n) fail(`${label} must be a nonnegative bigint`);
   return value;
 };
+const u32 = (value, label) => {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 0xffff_ffff) fail(`${label} must be a canonical u32 number`);
+  return value;
+};
 
-// The caller supplies the genesis object from its already-validated profile
-// manifest. The assembler deliberately derives every identity/cap fact below
-// from that object; it must not construct a parallel set of genesis facts.
-function manifestGenesis(value) {
-  const manifest = value.profileManifest;
-  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) fail('profileManifest must be an authenticated verifier-profile manifest object');
+// Load the complete hash-verified bundle at the public API boundary. Raw
+// manifests are intentionally not accepted: they could be forged while
+// preserving plausible-looking profile/genesis strings.
+async function manifestGenesis(value) {
+  if (typeof value.bundleDirectory !== 'string' || value.bundleDirectory.length === 0) fail('bundleDirectory must name an authenticated verifier-profile bundle');
+  if (value.expectedProfile === null || typeof value.expectedProfile !== 'object' || Array.isArray(value.expectedProfile)) fail('expectedProfile must be an exact profile binding');
+  let loaded;
+  try { loaded = await loadVerifierProfileBundle(value.bundleDirectory, value.expectedProfile); }
+  catch (error) { fail(`authenticated profile bundle rejected: ${error.message}`); }
+  const manifest = loaded.manifest;
   const genesis = manifest.genesis;
   if (genesis === null || typeof genesis !== 'object' || Array.isArray(genesis)) fail('profileManifest.genesis is required');
   const required = ['categoryInputOutpoint', 'instanceId', 'network', 'profileId', 'reserveCapSatoshis', 'stateNftCategory'];
@@ -63,12 +75,32 @@ function manifestGenesis(value) {
   if (manifest.identity?.profileId !== genesis.profileId) fail('profileManifest identity does not match genesis profile');
   if (!['development-only', 'ceremony-production'].includes(manifest.setup?.mode)) fail('profileManifest setup mode is unsupported');
   return Object.freeze({
+    bundle: loaded,
     genesis,
     profileId: Buffer.from(genesis.profileId.slice('sha256:'.length), 'hex'),
     instanceId: Buffer.from(genesis.instanceId.slice('sha256:'.length), 'hex'),
     stateCategory: Buffer.from(genesis.stateNftCategory, 'hex'),
     maximumReserveSatoshis: genesis.reserveCapSatoshis,
     setupMode: manifest.setup.mode,
+  });
+}
+
+async function profilePf7Locks(profile) {
+  const artifact = profile.bundle.manifest.artifacts.find((entry) => entry.kind === 'bch-verifier-set');
+  if (artifact === undefined) fail('authenticated profile has no bch-verifier-set artifact');
+  const filename = path.resolve(profile.bundle.root, ...artifact.path.split('/'));
+  let source;
+  try { source = Buffer.from(await readFile(filename)); }
+  catch { fail('authenticated profile bch-verifier-set artifact cannot be read'); }
+  if (`sha256:${sha256(source).toString('hex')}` !== artifact.sha256) fail('authenticated profile bch-verifier-set artifact hash drifted');
+  let record;
+  try { record = parseStrictJson(source); }
+  catch { fail('authenticated profile bch-verifier-set artifact is invalid JSON'); }
+  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || !Array.isArray(record.scripts) || record.scripts.length !== 7) fail('authenticated profile bch-verifier-set script topology is invalid');
+  const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
+  return record.scripts.map((script, index) => {
+    if (script === null || typeof script !== 'object' || script.name !== names[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex)) fail(`authenticated profile verifier role ${index} is invalid`);
+    return Buffer.from(script.lockingBytecodeHex, 'hex');
   });
 }
 
@@ -104,18 +136,19 @@ function inputMetadata(input) {
   };
 }
 
-function requirePf7(value) {
+async function requirePf7(value, expectedLocks) {
   if (!Array.isArray(value) || value.length !== 7) fail('pf7 must contain exactly the seven retained verifier roles');
   return value.map((row, index) => {
     if (row === null || typeof row !== 'object') fail(`pf7[${index}] must be an object`);
     const lock = bytes(row.lockingBytecode, 35, `pf7[${index}].lockingBytecode`);
     if (lock[0] !== 0xaa || lock[1] !== 0x20 || lock[34] !== 0x87) fail(`pf7[${index}] is not P2SH32`);
+    if (!lock.equals(expectedLocks[index])) fail(`pf7[${index}] locking bytecode does not match authenticated profile verifier role`);
     const unlockingBytecode = Buffer.from(row.unlockingBytecode);
     if (unlockingBytecode.length === 0 || unlockingBytecode.length > INPUT_UNLOCKING_LIMIT_BYTES) fail(`pf7[${index}] unlocking bytecode is outside the 1..10000 byte limit`);
     return {
       lockingBytecode: lock, unlockingBytecode,
       outpointTransactionHash: wireHash(row.outpointTransactionHashWire, `pf7[${index}].outpointTransactionHashWire`).reverse(),
-      outpointIndex: Number(row.outpointIndex), sequenceNumber: 0, valueSatoshis: decimal(row.valueSatoshis, `pf7[${index}].valueSatoshis`),
+      outpointIndex: u32(row.outpointIndex, `pf7[${index}].outpointIndex`), sequenceNumber: 0, valueSatoshis: decimal(row.valueSatoshis, `pf7[${index}].valueSatoshis`),
     };
   });
 }
@@ -157,17 +190,17 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const { kind } = value;
   if (!['deposit', 'transfer', 'withdrawal'].includes(kind)) fail('unsupported action kind');
   if (value.minimumFeeRateSatoshisPerByte !== PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE) fail('protocol fee rate is fixed at exactly 1 satoshi per byte');
-  const profile = manifestGenesis(value);
+  const profile = await manifestGenesis(value);
   const { profileId, instanceId, stateCategory } = profile;
   const privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
-  const pf7 = requirePf7(value.pf7);
+  const pf7 = await requirePf7(value.pf7, await profilePf7Locks(profile));
   const { packet, decoded } = checkedPacket(value.actionPacket, profileId, instanceId);
   if (decoded.kind !== kind) fail('action packet kind differs from assembler kind');
   const bindingCarrierBaseSatoshis = decimal(value.bindingCarrierBaseSatoshis, 'bindingCarrierBaseSatoshis');
   const stateCarrierBaseSatoshis = decimal(value.stateCarrierBaseSatoshis, 'stateCarrierBaseSatoshis');
   const feeSourceValueSatoshis = decimal(value.feeSourceValueSatoshis, 'feeSourceValueSatoshis');
   const stateOutpointTransactionHash = wireHash(value.stateOutpointTransactionHashWire, 'stateOutpointTransactionHashWire').reverse();
-  const stateOutpointIndex = Number(value.stateOutpointIndex);
+  const stateOutpointIndex = u32(value.stateOutpointIndex, 'stateOutpointIndex');
   const prepHash = wireHash(value.preparationTransactionHashWire, 'preparationTransactionHashWire');
   const withdrawalLock = kind === 'withdrawal' ? bytes(value.withdrawalLockingBytecode, undefined, 'withdrawalLockingBytecode') : undefined;
   if (kind === 'withdrawal' && hex(sha256(withdrawalLock)) !== decoded.withdrawalScriptHash) fail('withdrawal lock does not match packet hash');
@@ -254,6 +287,54 @@ export async function planCompleteG2Settlement(value) {
 
 export async function assembleCompleteG2Settlement(value) {
   return constructCompleteG2Settlement(value, true);
+}
+
+/**
+ * Bind fixed-point settlement contexts to the authenticated fresh-witness
+ * pipeline without fabricating a proof. The first witness pass has zero
+ * context digests solely to obtain the immutable action state fields; SCCT
+ * intentionally excludes unlocking bytecode, so its derived digest is
+ * independent of that temporary packet field. The second pass receives the
+ * derived digests and yields the only packets eligible for real proving/PF7.
+ *
+ * `settlements[kind]` must contain real seven-role PF7 material from the
+ * current profile-bound corpus. This routine does not substitute it and does
+ * not claim a complete transaction until `assemble...` succeeds afterwards.
+ */
+export async function generateWitnessBoundSettlementPlans(value) {
+  if (value === null || typeof value !== 'object') fail('witness-bound plan input must be an object');
+  const keys = Object.keys(value).sort();
+  if (keys.length !== 2 || keys[0] !== 'settlements' || keys[1] !== 'witness') fail('witness-bound plan input must contain only settlements and witness');
+  if (value.settlements === null || typeof value.settlements !== 'object' || Array.isArray(value.settlements)) fail('settlements must be an object');
+  const kinds = ['deposit', 'transfer', 'withdrawal'];
+  if (Object.keys(value.settlements).sort().join(',') !== kinds.join(',')) fail('settlements must contain deposit, transfer, and withdrawal');
+  const zeroContexts = Object.freeze(Object.fromEntries(kinds.map((kind) => [kind, '00'.repeat(32)])));
+  const seed = await generateFreshWitnessInputs({ ...value.witness, transactionContextDigests: zeroContexts });
+  const planFor = async (kind, packet) => {
+    const supplied = value.settlements[kind];
+    if (supplied === null || typeof supplied !== 'object' || Array.isArray(supplied)) fail(`settlements.${kind} must be an object`);
+    if (supplied.kind !== kind) fail(`settlements.${kind}.kind mismatch`);
+    return planCompleteG2Settlement({
+      ...supplied,
+      bundleDirectory: value.witness.bundleDirectory,
+      expectedProfile: value.witness.expectedProfile,
+      actionPacket: packet,
+    });
+  };
+  const initialPlans = Object.fromEntries(await Promise.all(kinds.map(async (kind) => [kind, await planFor(kind, seed.actions[kind].actionPacket)])));
+  const exactContexts = Object.freeze(Object.fromEntries(kinds.map((kind) => [kind, initialPlans[kind].context.digestHex])));
+  const witness = await generateFreshWitnessInputs({ ...value.witness, transactionContextDigests: exactContexts });
+  const plans = Object.fromEntries(await Promise.all(kinds.map(async (kind) => [kind, await planFor(kind, witness.actions[kind].actionPacket)])));
+  for (const kind of kinds) {
+    if (plans[kind].context.digestHex !== exactContexts[kind]) fail(`${kind} SCCT digest changed across witness fixed point`);
+  }
+  return Object.freeze({
+    schema: 'shield.cash/g2-witness-bound-settlement-plans/v1',
+    qualification: 'development-only fixed-point planning; requires fresh real proof/PF7 corpus and complete VM verification',
+    profile: seed.profile,
+    witness,
+    plans: Object.freeze(plans),
+  });
 }
 
 /** Execute every role separately in the unmodified Libauth BCH-2026 VM. */
