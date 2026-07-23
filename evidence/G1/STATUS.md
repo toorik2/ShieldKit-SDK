@@ -21,7 +21,7 @@ reproducible evidence for the exact candidate.
 | Real Groth16 and alternative comparison | missing | no alternative may be compared by projection |
 | Explicit setup, upgrade, and failure model | partial | manifest/lifecycle v1 and the offline bundle builder fix the dev-versus-ceremony boundary; the real local initializer is in progress |
 | Hash-bound typed verifier-bundle manifest | implemented, unqualified | strict schema, loader, profile/genesis derivation, and adversarial parser tests pass |
-| Two independently initialized development bundles | missing | parser fixtures prove interface replacement only; real Groth16 setups are required |
+| Two independently initialized development bundles | partial | `development-v1-setup-replacement/` packages two real local setups with distinct setup/key/generated-PF7 verifier material and passes the strict pre-genesis interface comparator; it does not establish settlement closure, BCHN policy, or deployable genesis transactions |
 
 G1 cannot pass from the 54,949-byte verifier alone. The remaining budget must
 include the complete relation, state and binding covenants, encrypted recovery
@@ -59,3 +59,10 @@ Current decisive results:
   direct proving peaks at 6.83--7.09 GiB RSS. This is development-only,
   bounded local evidence, not BCHN standardness, Chipnet, full settlement, or
   LeanBCH qualification.
+- `development-v1-setup-replacement/` records the second local setup through a
+  real v1 PF7 three-action VM check (deposit, transfer, withdrawal: 10/10 each;
+  every role's lock bytecode is invariant across those witnesses; deposit
+  mutations 18/18 reject) and a strict two-bundle pre-genesis replacement
+  comparison. Both bundles remain development-only; `exec0` remains 9,596 B,
+  and neither bundle or deterministic comparison outpoint is a deployable
+  genesis, BCHN, or Chipnet claim.

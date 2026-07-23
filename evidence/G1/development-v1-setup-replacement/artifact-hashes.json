@@ -1,0 +1,22 @@
+{
+  "schema": "shield.cash/external-artifact-hashes/v1",
+  "external": [
+    {"role": "v1 adapter input", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/v1-deposit-adapter-input.json", "sha256": "60ed65d7ae8c802506e3dc5a5243992331dce6ec99f372339cef7d928a817505", "bytes": 654},
+    {"role": "v1 PF7 adapter", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/v1-deposit-pf7-adapter.json", "sha256": "ece0c4f3406c8395fde96f22dc0c1b534d17eda71d793626f00b9dcf1aed4f8e", "bytes": 4424},
+    {"role": "v1 PF7 result", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/result.json", "sha256": "20b6e8aa35001b38cbc7ac0bea55787f9b31649bca06ed4cea519dee2626f71d", "bytes": 3198},
+    {"role": "v1 raw attacks", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/raw-attacks-v1.json", "sha256": "3fe69479fd1711900490de4166b9329ac5420af92c491faf9aabb03eddc540be", "bytes": 25995},
+    {"role": "v1 input dump", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/inputs_dump.json", "sha256": "b27ab0a0779aff47058e14b2db55332b549657c8b44c0b5e37bcef9a221f26dd", "bytes": 165217},
+    {"role": "v1 candidate transaction", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/c7_candidate_tx.hex", "sha256": "c32001b8bf17b652f1a886f45ba24ec0fde1a7cd97cf5172c9302dd53ba1c441", "bytes": 163128},
+    {"role": "v1 generated verifier set", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/c7_candidate_srcouts.hex", "sha256": "118cd514b23bb5249452262b7ae351d6e623d4d5998473adb297be4a42258372", "bytes": 2534},
+    {"role": "v1 transfer adapter input", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/transfer-adapter-input.json", "sha256": "68c992a19d5bda420a2be93be472df3436c4c0b3ca4a43dc80b210e59510f21e", "bytes": 620},
+    {"role": "v1 transfer PF7 adapter", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/v1-transfer-pf7-adapter.json", "sha256": "0de06f5aa0f12963f88bc8c7ad0dc943eeb9addd5c2425754053209537ff8f0b", "bytes": 4429},
+    {"role": "v1 transfer PF7 input dump", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-transfer-v1-k9/tmp/inputs_dump.json", "sha256": "22ae8383e5b67e239fc77b327ee27a40cdf706d9a9c9ace72748cbb8c2e8c4ab", "bytes": 165219},
+    {"role": "v1 transfer generated verifier set", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-transfer-v1-k9/tmp/c7_candidate_srcouts.hex", "sha256": "118cd514b23bb5249452262b7ae351d6e623d4d5998473adb297be4a42258372", "bytes": 2534},
+    {"role": "v1 withdrawal adapter input", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/withdrawal-adapter-input.json", "sha256": "abca2ea168b2922bc675367d8574989637746430cb1b8cd0bf184bd227b1b7e5", "bytes": 624},
+    {"role": "v1 withdrawal PF7 adapter", "path": "/tmp/shield-g1-v1-replacement-019f8ed4/v1-withdrawal-pf7-adapter.json", "sha256": "21774260877a05f24d77d6f9a507b768d7c9d9fc8de695aeacd98e1c23bb42fc", "bytes": 4431},
+    {"role": "v1 withdrawal PF7 input dump", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-withdrawal-v1-k9/tmp/inputs_dump.json", "sha256": "6ba23cf34b848ebd5bb629fdc822ff0523fa2460175feabedee1a75a38e249d4", "bytes": 165085},
+    {"role": "v1 withdrawal generated verifier set", "path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-withdrawal-v1-k9/tmp/c7_candidate_srcouts.hex", "sha256": "118cd514b23bb5249452262b7ae351d6e623d4d5998473adb297be4a42258372", "bytes": 2534},
+    {"role": "v0 pre-genesis bundle manifest", "path": "/home/toorik/Projects/ZK-Proofs/shield-g1-bundles-019f8ed4/bundle-v0-pre-genesis/manifest.json", "sha256": "6fe94ae06ad23a7955be63bb0527536e2d2d746c29c56a2070aab5ed6b5e526b", "bytes": 4204},
+    {"role": "v1 pre-genesis bundle manifest", "path": "/home/toorik/Projects/ZK-Proofs/shield-g1-bundles-019f8ed4/bundle-v1-pre-genesis/manifest.json", "sha256": "09a58c5abf9015b3068e0550f92a2ee3771407d217f5de27ee77ffbb2c92d9fc", "bytes": 4204}
+  ]
+}

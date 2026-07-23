@@ -1,0 +1,18 @@
+{
+  "schema": "shield.cash/pf7-development-v1-measurements/v1",
+  "sourceResult": {"path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit-v1-k9/tmp/result.json", "sha256": "20b6e8aa35001b38cbc7ac0bea55787f9b31649bca06ed4cea519dee2626f71d", "bytes": 3198},
+  "adapter": {"path": "/tmp/shield-g1-v1-replacement-019f8ed4/v1-deposit-pf7-adapter.json", "sha256": "ece0c4f3406c8395fde96f22dc0c1b534d17eda71d793626f00b9dcf1aed4f8e", "bytes": 4424},
+  "totals": {"inputCount": 10, "vmAccepts": "10/10", "sigmaLock": 1176, "sigmaUnlock": 81114, "wire": 81564, "score": 82740, "seamChains": true, "allInputsReal": true},
+  "roles": [
+    {"index": 0, "name": "exec0", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "c41979c679440b5007f1d5fb7ce24e85ea644624e5ccf8696ab7b888906c213d", "unlockBytes": 9596, "operationCost": 7665538},
+    {"index": 1, "name": "exec1", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "60a51243f813340cd1250e9dd80008d01cceea147c0d20206c7be90cbcaa4b68", "unlockBytes": 8872, "operationCost": 7057485},
+    {"index": 2, "name": "exec2", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "8ebda36164bc5a57e5f25ee4acb8bfe43ccb8f5fb56c617648f7a88ba11ef8e6", "unlockBytes": 8249, "operationCost": 6473869},
+    {"index": 3, "name": "exec3", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "28e81cfb94abf4af9cb2f22832693b14dafb9ba0da14aa1ea14b6dd0bcc17023", "unlockBytes": 8892, "operationCost": 7075903},
+    {"index": 4, "name": "exec4", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "4a4238a6b1041397d7112d77a50cc7504be76fa6da7b7459643330847e849b34", "unlockBytes": 9289, "operationCost": 7063558},
+    {"index": 5, "name": "exec5", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "9db4f6cd846db033c048a90b5176914fa370a9d5d6eb0b514c41af5ec92f1472", "unlockBytes": 8872, "operationCost": 7066062},
+    {"index": 6, "name": "exec6", "lockSha256": "27abf92bf757ea92051de426874b06ff14ffdf1b9195e0c2bfc07af5c947ed4f", "unlockSha256": "a6e018373fb0da2634bbd2d313b06972197e55469743172af743e3f7fbc347cd", "unlockBytes": 8795, "operationCost": 7043590},
+    {"index": 7, "name": "genesis", "lockSha256": "19d7f08de6f5a8b70d7013df3f15b79c318c64e68427135109a9131da4422a03", "unlockSha256": "cb55cb7f634bb42188c85840c9f60e4c5fc4f629d2f2c1915884d5e6a0dc320b", "unlockBytes": 8257, "operationCost": 5104838},
+    {"index": 8, "name": "finalize", "lockSha256": "406d695aa46ed0b221a32facd34cc69626464d3944060834f0d213156fd20adb", "unlockSha256": "57b5291bdf4a228f68ddb658ef68e35818362ecffd84d5f70a6c7aaaf6e55257", "unlockBytes": 3768, "operationCost": 1406375},
+    {"index": 9, "name": "fused", "lockSha256": "36dde3fee4ad635a22adb0f5c078720081307399925dc189d43241ebc6b4e2cb", "unlockSha256": "830050625ffbf6b53b01a7c8bef37cfda461307b313d3e7ef1a080f5a4c8e3d4", "unlockBytes": 6524, "operationCost": 4130765}
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.development-v1.setup-replacement.pf7.20260723",
+  "gate": "G1",
+  "candidate": "g1-bn254-groth16-single-note-v0 local-setup replacement v0 to v1",
+  "claim": "Real v1 deposit, transfer, and withdrawal proofs execute in the ten-input BCH-2026 VM context with proof/public-input-invariant per-role locking bytecode; two complete external development-only bundles satisfy the strict pre-genesis interface-replacement comparator.",
+  "source": {"repository": "/tmp/verifiercash-shield-10role-019f8ed4", "commit": "c9a0c1653709ae360d69611a997ac114bf9a4c8f", "dirtyPaths": []},
+  "environment": {"observedAt": "2026-07-23T18:40:00+03:00", "hardware": {"architecture": "x86_64", "cpuThreads": 20, "memory": "46GiB"}, "software": {"node": "v25.9.0", "snarkjs": "0.7.6", "vm": "@bitauth/libauth 3.1.0-next.8 BCH-2026", "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4"}},
+  "commands": [
+    "See commands.md: hash-pinned snarkjs adapter, full K=9 PF7 build, and 18-attack battery.",
+    "See action-lock-invariance.json: independent full PF7 deposit/transfer/withdrawal builds and exact per-role lock comparison.",
+    "node packages/setup-profile-bridge/cli.mjs --input <bridge-v0-or-v1.json>",
+    "node packages/core/compare-development-profiles.mjs --left <v0-bundle> --right <v1-bundle>"
+  ],
+  "artifacts": [
+    {"path": "evidence/G1/development-v1-setup-replacement/pf7-v1-measurements.json", "sha256": "c29dee550237c2f9d002d20934db149912f4062d5342889102df1b2de2eed176", "bytes": 3134},
+    {"path": "evidence/G1/development-v1-setup-replacement/raw-attacks-summary.json", "sha256": "3d431fef5c29befb5c59ad516d60dbc7c79c34b1cf43fb6bcfec9f4e0d3070f2", "bytes": 778},
+    {"path": "evidence/G1/development-v1-setup-replacement/bundle-comparison.json", "sha256": "4c52260c898cb4744f5248a665a9c2648508c5ff1ab1bcf491aaeabc9dded750", "bytes": 2704},
+    {"path": "evidence/G1/development-v1-setup-replacement/artifact-hashes.json", "sha256": "b8ac086560aef12646fdc9c0d8bf84cda1fecccffead5b564b489eee97b257cf", "bytes": 4031},
+    {"path": "evidence/G1/development-v1-setup-replacement/action-lock-invariance.json", "sha256": "fbc894df73fa7795f14a2a8375b069903f22f28649498cc47f5d64d058c7128c", "bytes": 4066}
+  ],
+  "measurements": {"v1VmAccepts": "deposit 10/10, transfer 10/10, withdrawal 10/10", "v1WireBytes": 81564, "v1ScoreBytes": 82740, "maxUnlockBytes": 9596, "attacks": {"total": 18, "rejected": 18, "falseAccepts": 0, "setupErrors": 0}, "proofPublicLockInvariance": "satisfied across all 10 roles and source-output verifier set", "replacementComparator": "satisfied"},
+  "tests": [
+    {"name": "v1 Groth16 deposit verification", "expected": "OK", "observed": "OK", "pass": true},
+    {"name": "v1 PF7 BCH-2026 VM", "expected": "10/10 accepts", "observed": "10/10 accepts", "pass": true},
+    {"name": "v1 proof/public locking-bytecode invariance", "expected": "each setup's ten role locks invariant across deposit, transfer, withdrawal", "observed": "all ten role hashes and source-output set hash identical across all three", "pass": true},
+    {"name": "v1 raw mutations", "expected": "zero false accepts and setup errors", "observed": "18 rejects, 0 false accepts, 0 setup errors", "pass": true},
+    {"name": "development-only replacement comparator", "expected": "satisfied", "observed": "satisfied", "pass": true},
+    {"name": "G1 unlock component target", "expected": "each unlock <= 9500 B", "observed": "exec0 = 9596 B", "pass": false}
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "FAIL keeps G1 open: exec0 remains 96 B above the 9500-B component target.",
+    "The generated source-output verifier set is a PF7 context artifact, not a complete settlement covenant or BCHN standardness result.",
+    "The comparator is read-only and pre-genesis only; its deterministic outpoints are not funded, deployable, or constructed genesis transactions.",
+    "Both bundles are permanently development-only local setups, not ceremony or production evidence.",
+    "The K=13 composed closure failed cashc compilation (unused ec0), so only the measured non-composed K=9 topology is recorded."
+  ]
+}
