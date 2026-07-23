@@ -1,8 +1,8 @@
 # Protocol kill-gate specification
 
-Document version: 0.1
+Document version: 0.2
 
-Status: binding draft; Gate G0 open
+Status: binding; Gate G0 passed under `g0-v2`
 
 Applies to: every shield.cash standard, profile, implementation, and release claim
 
@@ -155,6 +155,10 @@ reference; it does not pass G1 or reserve any bytes for the protocol envelope.
 The research fixture encodes only a 5,000-satoshi fee and is not itself evidence
 of default-fee peer relay.
 
+Its fixed, hardcoded verifier material is a development sizing reference only.
+The build must generate and authenticate verifier material through the
+versioned profile-bundle interface.
+
 ### Pass requirements
 
 1. Current mainnet and Chipnet activation rules, standardness, VM limits, P2S,
@@ -173,6 +177,12 @@ of default-fee peer relay.
 7. Groth16/BN254 and any claimed alternative are compared using real artifacts,
    not proof-size or opcode-count projections.
 8. The selected proof system has an explicit setup, upgrade, and failure model.
+9. One verifier-bundle manifest binds the relation, public-input ABI, circuit,
+   setup provenance, verification key, proving artifacts, BCH verifier scripts,
+   and toolchain by hash.
+10. A second independently generated development bundle replaces the first
+    through the typed profile build without changing wallet or conformance
+    semantics, and produces a distinct profile identifier and genesis.
 
 ### Kill criteria
 
@@ -196,6 +206,7 @@ G2 evidence must use one exact set of:
 - circuit relation and compiler output;
 - verifying and proving keys;
 - setup parameters;
+- verifier-bundle manifest and setup mode;
 - action encoding;
 - profile and instance parameters;
 - state, verifier, binding, and preparation scripts;
@@ -204,7 +215,9 @@ G2 evidence must use one exact set of:
 - transaction builder; and
 - node and VM versions.
 
-Changing any item invalidates G2 and every downstream gate.
+Changing any item invalidates G2 and every downstream gate. Changing setup,
+keys, circuit, public-input ABI, or verifier scripts also requires a distinct
+profile identifier and genesis and cannot affect any existing instance.
 
 ### Pass requirements
 
@@ -461,8 +474,10 @@ Has one exact profile earned a narrowly scoped public qualification?
 1. G0 through G8 remain PASS for the exact frozen profile.
 2. Normative specification, manifest, source, generated artifacts, setup
    transcript, vectors, and conformance release are mutually hash-consistent.
-3. The circuit-specific setup ceremony is publicly reproducible and verified;
-   no coordinator’s deletion claim is treated as security evidence.
+3. The profile uses a `ceremony-production` verifier bundle; its
+   circuit-specific multi-party-randomness ceremony is publicly reproducible
+   and verified, and no coordinator’s deletion claim is treated as security
+   evidence.
 4. One independent audit covers the circuit and cryptographic protocol.
 5. A separate independent audit covers BCH scripts, transaction construction,
    wallet recovery, and provider boundaries.
@@ -502,8 +517,8 @@ legally compliant.
 
 | Gate | Status | Reason |
 | --- | --- | --- |
-| G0 | OPEN | RFC-0001 reopens the verifier setup and profile-replacement boundary |
-| G1 | NOT ENTERED | G0 prerequisite |
+| G0 | PASS | Direction frozen by `g0-v2`; verifier setup/profile boundary and change control machine-checked |
+| G1 | OPEN | Reproduce current BCH behavior and qualify the verifier-bundle envelope |
 | G2 | NOT ENTERED | G1 prerequisite |
 | G3 | NOT ENTERED | G2 prerequisite |
 | G4 | NOT ENTERED | G2 prerequisite |

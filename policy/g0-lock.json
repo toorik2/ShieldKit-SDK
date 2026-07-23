@@ -1,8 +1,8 @@
 {
   "schema": "shield.cash/g0-lock/v1",
-  "freezeId": "g0-v1",
-  "freezeTag": "g0-v1",
-  "status": "OPEN",
+  "freezeId": "g0-v2",
+  "freezeTag": "g0-v2",
+  "status": "PASS",
   "frozenAt": "2026-07-23",
   "baseline": {
     "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
@@ -18,6 +18,26 @@
     "carrierValuesMayContribute": true,
     "poolReserveSubsidy": false,
     "relayerRequired": false
+  },
+  "verifierProfile": {
+    "interface": "shield.cash/verifier-profile/v1",
+    "selection": "profile-bound-at-genesis",
+    "developmentSetup": {
+      "allowed": true,
+      "mode": "development-only",
+      "initializer": "local"
+    },
+    "productionSetup": {
+      "required": true,
+      "mode": "ceremony-production",
+      "multiPartyRandomness": true,
+      "transcriptRequired": true
+    },
+    "replacement": {
+      "newProfileRequired": true,
+      "newGenesisRequired": true,
+      "hotSwapExistingInstance": false
+    }
   },
   "deploymentTarget": {
     "network": "chipnet",
@@ -39,24 +59,25 @@
     "D-011",
     "D-012",
     "D-013",
-    "D-014"
+    "D-014",
+    "D-015"
   ],
   "documents": [
     {
       "path": "AGENTS.md",
-      "sha256": "695de398554a7458047dee6f484a74785cd8a2e51e30af23b64ff991c3dbd5d6"
+      "sha256": "8221bef2da9740c20fef58531b151d68bb3e5ded0a69afeb3a9b75b8a51747cf"
     },
     {
       "path": "docs/CHARTER.md",
-      "sha256": "a0c6f7c50067e027984841af3c5c5b582855666a6339dcfa2008f9178fb5a122"
+      "sha256": "22f694c89b9ffb7df8649a968b11a53b2893ed69d87c8930e80393602c2af5ae"
     },
     {
       "path": "docs/KILL_GATES.md",
-      "sha256": "104802c9c268de58cab36ddb2392b6c2621e315814600e9075334e7c540cbad7"
+      "sha256": "317181139a6d7171f08aa8b47388eeedccb29d992cdc60dece24f6efa8bb658e"
     },
     {
       "path": "docs/OPEN_QUESTIONS.md",
-      "sha256": "1d1c0c1bb8273e27cd74635162af42a8947843d55a2c43bb746ad115274f2912"
+      "sha256": "8ddb17a917634355601a1a5228cb98a19db7b39ba5e24e0b4721df9abb3392c2"
     },
     {
       "path": "docs/PRIVACY.md",
@@ -64,15 +85,15 @@
     },
     {
       "path": "docs/BUILD_PLAN.md",
-      "sha256": "2a5dab1759261690e5285330cf800f57696ecf71c8533c65123d86c6b44e980f"
+      "sha256": "063019982b0dd968c213cfc45cb9a1f52dd6de65c588c65e07f8f9dff7831dbd"
     },
     {
       "path": "docs/CHANGE_CONTROL.md",
-      "sha256": "dbf5badc5396e7591aa1a1b1693569bb64cf933659a141106be7be872bc17853"
+      "sha256": "229a505c21f23f051748413cde81d9bc2633a5cce9e75ebee0cb3881e4b870d0"
     },
     {
       "path": "scripts/check-policy.mjs",
-      "sha256": "a9f60ac251cc030414eff654ef6153a7a1c1c8fc3a8f4ac15d9a1f58bb3e2102"
+      "sha256": "2588b74f986a5e9828b9cb82a170e65a950fe4978ed389c3916b1036397c24bc"
     },
     {
       "path": ".github/workflows/policy.yml",

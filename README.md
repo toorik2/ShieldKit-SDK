@@ -10,6 +10,8 @@ and applications integrate into, backed by:
 
 - a local wallet and prover SDK;
 - deterministic BCH transaction construction;
+- a versioned verifier-bundle interface separating development setup from
+  ceremony-backed profiles;
 - independently verifiable protocol profiles;
 - a rigorous conformance and adversarial-testing lab; and
 - optional, replaceable infrastructure with no protocol authority.
@@ -79,4 +81,9 @@ incomplete ceremonies, or locally patched harnesses cannot satisfy a gate.
 Execute Phase B: reproduce the BCH and verifier envelope, define the exact
 protocol kernel, and kill or promote one complete candidate using real evidence.
 The engineering target is a working end-to-end protocol instance on BCH
-Chipnet. Mainnet deployment is outside the current authorization.
+Chipnet. Its first profile may use a locally generated Groth16 setup only when
+the complete bundle is marked `development-only`. Wallet and protocol logic
+must load authenticated, profile-bound verifier material rather than hardcode
+keys or scripts. A later multi-party-ceremony bundle uses the same interface but
+creates a new profile and genesis; it cannot alter the development instance.
+Mainnet deployment is outside the current authorization.

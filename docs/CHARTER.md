@@ -1,8 +1,8 @@
 # shield.cash protocol charter
 
-Document version: 0.1
+Document version: 0.2
 
-Status: draft for Gate G0 ratification
+Status: ratified under `g0-v2`
 
 Scope: product and protocol authority, not an implementation specification
 
@@ -64,6 +64,9 @@ The following terms are distinct:
 - **Protocol profile**: one immutable selection of cryptographic primitives,
   circuit relation, verifying key, BCH scripts, action encoding, limits, and
   artifact hashes.
+- **Verifier bundle**: one versioned, profile-bound package containing relation
+  and public-input ABI identities, setup provenance, verification key, proving
+  artifacts, BCH verifier scripts, pinned toolchain, and hashes.
 - **Pool instance**: one on-chain state machine created from a profile, with a
   unique genesis outpoint and state identity.
 - **Integration**: wallet or application support for a profile and one or more
@@ -154,6 +157,23 @@ maintainer authority over the instance. Any successor design is a distinct
 profile and instance; participation in it is user-authorized rather than an
 upgrade applied to the old instance.
 
+### P12. Verifier material is replaceable only between profiles
+
+Wallet, prover, transaction, and conformance code consume one typed, versioned
+verifier-bundle interface. They must not contain unversioned embedded
+verification keys, proving keys, circuit artifacts, or verifier scripts.
+
+A local setup may initialize a Chipnet development bundle, but that bundle and
+every instance created from it remain permanently labeled `development-only`.
+Any profile intended for production qualification requires a documented,
+verified multi-party-randomness ceremony and its complete transcript.
+
+Changing the setup, relation, public-input ABI, circuit artifacts, verification
+key, proving artifacts, or verifier scripts creates a new profile identifier
+and new genesis. “Plug-and-play” means rebuilding and requalifying a new profile
+through the stable interface; it never means hot-swapping consensus material in
+an existing instance.
+
 ## 5. V1 scope
 
 V1 is intentionally narrow:
@@ -166,6 +186,7 @@ V1 is intentionally narrow:
 - deposits, shielded-to-shielded transfers, and withdrawals;
 - a fixed action shape selected by measured transaction and proving budgets;
 - locally generated proofs in the required flow;
+- a versioned, authenticated verifier bundle selected at profile genesis;
 - chain-available encrypted note records;
 - deterministic transaction construction;
 - replaceable provider interfaces;
@@ -195,6 +216,8 @@ V1 does not provide:
 - hidden administrator, pause, recovery, or upgrade keys;
 - cross-chain shielding or bridging;
 - private delegated proving unless separately specified and audited; or
+- treating a locally generated development setup as ceremony-backed or
+  production evidence; or
 - backward-compatible mutation of a deployed profile.
 
 Removing a non-goal requires a new charter version and re-entry through the
@@ -223,6 +246,8 @@ Any profile must enforce all of the following.
   non-canonical values.
 - Network, profile, instance, action type, version, and artifact identity are
   domain-separated.
+- Relation, public-input ABI, circuit, setup transcript, verification key,
+  proving artifacts, and verifier scripts are bound to the profile identity.
 - All inactive or dummy fields have one constrained canonical form.
 
 ### 7.3 BCH settlement safety
@@ -250,6 +275,8 @@ Any profile must enforce all of the following.
 - Provider disappearance cannot transfer authority or invalidate ownership.
 - Provider equivocation is detected by local verification.
 - Artifact integrity is content-addressed and reproducible.
+- A wallet fails closed if any verifier-bundle identity, hash, setup mode, or
+  profile binding disagrees.
 - No maintainer-controlled runtime key is required for a valid spend.
 
 ## 8. Roles and trust boundaries

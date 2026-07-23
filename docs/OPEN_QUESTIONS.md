@@ -1,6 +1,6 @@
 # Open decisions
 
-Document version: 0.1
+Document version: 0.2
 
 Status: Gate G0 decision register
 
@@ -32,6 +32,7 @@ Status: Gate G0 decision register
 | D-012 | LOCKED | “Can’t do evil”: after authenticated genesis, no maintainer, key, service, or governance process can pause, rescue, upgrade, reorder, censor, or otherwise authorize protocol transitions |
 | D-013 | LOCKED | Every V1 action uses one transparent fee input and one canonical change output; the pool reserve never subsidizes miner fees |
 | D-014 | LOCKED | The engineering target is a working end-to-end protocol instance on BCH Chipnet; mainnet deployment is not authorized |
+| D-015 | LOCKED | Verifier material is supplied through a versioned profile bundle: local setup is development-only; a multi-party-ceremony replacement creates a new immutable profile and instance |
 
 ## 3. G0 defaults requiring ratification
 
@@ -121,6 +122,19 @@ The manifest labels the candidate `research`. Its fixture spends six 1,000-sat
 source outputs to one 1,000-sat output, encoding only a 5,000-sat fee. It is not
 evidence of default-fee peer relay, a complete protocol action, or a qualified
 verifier release.
+
+The initial Chipnet profile may use a freshly generated local Groth16 setup, but
+only through the standard verifier-bundle interface and only with
+`setupMode: development-only`. Its manifest must bind the relation, constraint
+system, public-input ABI, verification key, proving artifacts, and BCH verifier
+scripts by hash; record the exact generation command and pinned toolchain; and
+prohibit ceremony-backed or production claims.
+
+A later `ceremony-production` bundle must implement the same interface and add
+the complete multi-party-randomness transcript and contribution-verification
+evidence. It necessarily has a new profile identifier and genesis. Compatibility
+means wallet and conformance semantics do not require a rewrite; it does not
+permit mutation of an existing instance.
 
 Required comparison dimensions:
 
@@ -268,7 +282,8 @@ The implementation must show:
 
 - canonical byte behavior;
 - secure randomness;
-- artifact verification before use;
+- verifier-bundle loading, profile selection, and hash verification without
+  hardcoded keys;
 - browser/mobile packaging;
 - memory cleanup limitations;
 - reproducible native and WASM builds; and

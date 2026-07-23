@@ -1,8 +1,8 @@
 # Executable build plan
 
-Document version: 1.0
+Document version: 1.1
 
-Status: active under the `g0-v1` freeze
+Status: active under the `g0-v2` freeze
 
 ## Outcome
 
@@ -34,6 +34,10 @@ acceptance, or isolated script success do not count.
   verifier-carrier values may also fund the miner fee.
 - Initial verifier sizing baseline: 54,949 all-bytes score and 54,739 serialized
   settlement bytes from verifier.cash candidate `bn254-onetx-pf6-a3-r1`.
+- Verifier material: one typed, versioned profile bundle. The initial Chipnet
+  build may use freshly generated local setup only as `development-only`; a
+  later multi-party-ceremony bundle uses the same interface but creates a new
+  profile and genesis.
 - Operational model: publisher-only and completely hands-off after genesis.
 - Evidence boundary: the archived prior repository is read-only research input,
   never protocol authority.
@@ -52,6 +56,11 @@ Run these workstreams in parallel where they do not share write ownership:
 
 2. **Verifier and fee envelope**
    - Rebuild the pinned verifier candidate byte-for-byte.
+   - Specify the versioned verifier-bundle manifest and loader interface.
+   - Generate a fresh `development-only` setup, verification key, proving
+     artifacts, and BCH verifier scripts from pinned tools.
+   - Prove that a second independently initialized bundle changes the profile
+     identifier and genesis without changing wallet or conformance semantics.
    - Decode and score the complete settlement wire and every source output.
    - Build the permissionless carrier-preparation transaction.
    - Add the transparent fee input and canonical change output.
@@ -84,6 +93,7 @@ Create one internally consistent candidate containing:
 - independent reference transition logic;
 - real deposit, transfer, and withdrawal relations;
 - proving and verifying keys with setup provenance;
+- a typed verifier-bundle manifest with an explicit setup mode;
 - immutable genesis/profile/instance manifests and maximum reserve;
 - exact BCH preparation and settlement transaction templates;
 - proof-to-transaction, source-script, value, token, fee, and successor binding;
@@ -94,6 +104,11 @@ Create one internally consistent candidate containing:
 Then execute the complete candidate in standard BCH transactions. G2 requires
 the full valid corpus, negative mutation matrix, zero unscored bytes, and the
 quantitative limits in [KILL_GATES.md](KILL_GATES.md).
+
+The first Chipnet candidate may be built from a `development-only` bundle. A
+later `ceremony-production` bundle must pass through the same interface, receive
+a new profile identifier and genesis, and rerun every artifact-dependent gate;
+it is not an upgrade to the development instance.
 
 ### B3 — close G3 through G6 in parallel
 
@@ -125,7 +140,8 @@ Close G7 and G8 with:
 - mutually compatible wallet/application integrations;
 - measured privacy leakage for exact transaction behavior;
 - replaceable chain-provider interfaces and fault injection;
-- offline, reproducible artifact bundles; and
+- offline, reproducible verifier bundles with setup-transcript verification;
+  and
 - authenticated, content-addressed release inputs with no runtime authority.
 
 ### B5 — live Chipnet target and qualification boundary

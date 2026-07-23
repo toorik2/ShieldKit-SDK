@@ -1,6 +1,6 @@
 # Direction-change RFCs
 
-This directory is empty under `g0-v1`. Any semantic change to a locked decision
-must add `RFC-NNNN.md` and a matching machine-readable change record conforming
-to `policy/change.schema.json`, then follow
+`RFC-0001` records the transition from `g0-v1` to `g0-v2`. Any semantic change
+to a locked decision must add `RFC-NNNN.md` and a matching machine-readable
+change record conforming to `policy/change.schema.json`, then follow
 [CHANGE_CONTROL.md](../CHANGE_CONTROL.md).

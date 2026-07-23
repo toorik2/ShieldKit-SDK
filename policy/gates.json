@@ -3,13 +3,13 @@
   "updated": "2026-07-23",
   "gates": {
     "G0": {
-      "status": "OPEN",
-      "freeze": "g0-v1",
-      "reason": "RFC-0001 reopens the verifier setup and profile-replacement boundary."
+      "status": "PASS",
+      "freeze": "g0-v2",
+      "reason": "Direction frozen by g0-v2; verifier setup/profile boundary and change control machine-checked."
     },
     "G1": {
-      "status": "NOT ENTERED",
-      "reason": "G0 prerequisite."
+      "status": "OPEN",
+      "reason": "Reproduce current BCH behavior and qualify the verifier-bundle envelope."
     },
     "G2": {
       "status": "NOT ENTERED",

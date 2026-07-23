@@ -1,23 +1,22 @@
 # Frozen-direction change control
 
-Document version: 1.0
+Document version: 1.1
 
-Status: binding under `g0-v1`
+Status: binding under `g0-v2`
 
 ## Rule
 
 Files and decisions hashed by `policy/g0-lock.json` are frozen. Editing prose is
 not a harmless cleanup when it changes a locked meaning.
 
-No locked change is valid unless one commit contains all of:
+No locked change is valid unless the history contains:
 
-1. a numbered RFC under `docs/rfcs/`;
-2. the old and proposed decisions;
-3. the reason current evidence cannot answer the need without a change;
-4. every invalidated gate and artifact;
-5. `policy/gates.json` reopening G0 and all affected downstream gates;
-6. updated normative documents and a new lock manifest; and
-7. a new annotated freeze tag after the revised G0 passes.
+1. one reopening commit containing a numbered RFC under `docs/rfcs/`, the old
+   and proposed decisions, the reason for the change, every invalidated gate and
+   artifact, and `policy/gates.json` reopening G0 and affected downstream gates;
+2. one freeze commit containing the revised normative documents, gate states,
+   and new lock manifest after the revised G0 requirements pass; and
+3. a new annotated freeze tag pointing to that freeze commit.
 
 The RFC must use a new charter version. Existing profiles and instances are
 never mutated; a semantic change creates a new profile.
@@ -35,6 +34,12 @@ never mutated; a semantic change creates a new profile.
 
 CI runs the same command. An agent must not bypass, weaken, skip, or patch this
 check to make unrelated work pass.
+
+Before creating a new freeze tag, run
+`SHIELD_FREEZE_CANDIDATE=<freeze-id> npm test` on the intended freeze commit.
+This permits only the not-yet-created matching tag to be absent; every document
+hash, decision, invariant, and human/machine gate state must already pass.
+After creating the annotated tag, plain `npm test` must pass.
 
 ## What may change without reopening G0
 

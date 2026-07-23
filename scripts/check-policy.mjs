@@ -39,6 +39,22 @@ if (lock.baseline.scoreBytes !== 54949 || lock.baseline.wireBytes !== 54739) {
 if (lock.feeModel.type !== 'transparent-input-with-change') {
   fail('fee model drifted');
 }
+if (
+  lock.verifierProfile.interface !== 'shield.cash/verifier-profile/v1'
+  || lock.verifierProfile.selection !== 'profile-bound-at-genesis'
+  || lock.verifierProfile.developmentSetup.allowed !== true
+  || lock.verifierProfile.developmentSetup.mode !== 'development-only'
+  || lock.verifierProfile.developmentSetup.initializer !== 'local'
+  || lock.verifierProfile.productionSetup.required !== true
+  || lock.verifierProfile.productionSetup.mode !== 'ceremony-production'
+  || lock.verifierProfile.productionSetup.multiPartyRandomness !== true
+  || lock.verifierProfile.productionSetup.transcriptRequired !== true
+  || lock.verifierProfile.replacement.newProfileRequired !== true
+  || lock.verifierProfile.replacement.newGenesisRequired !== true
+  || lock.verifierProfile.replacement.hotSwapExistingInstance !== false
+) {
+  fail('verifier profile boundary drifted');
+}
 
 for (const id of lock.lockedDecisions) {
   if (!decisions.includes(`| ${id} | LOCKED`)) fail(`missing locked decision ${id}`);
@@ -59,7 +75,8 @@ for (const [gate, record] of Object.entries(gates.gates)) {
 if (gates.gates.G0.status === 'PASS') {
   const head = git('rev-parse', '--verify', 'HEAD');
   const tagged = git('rev-parse', '--verify', `refs/tags/${lock.freezeTag}`);
-  if (head && !tagged) {
+  const candidateFreeze = process.env.SHIELD_FREEZE_CANDIDATE === lock.freezeId;
+  if (head && !tagged && !candidateFreeze) {
     fail(`G0 is PASS but freeze tag ${lock.freezeTag} is missing`);
   }
   if (tagged) {

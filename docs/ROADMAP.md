@@ -1,6 +1,6 @@
 # Gate-driven roadmap
 
-Document version: 0.1
+Document version: 0.2
 
 Status: active planning map
 
@@ -101,6 +101,10 @@ This phase creates evidence experiments, not a protocol implementation.
 - reproduce verifier.cash candidate `bn254-onetx-pf6-a3-r1` from pinned commit
   `26468ae29004d2401619032de2a6ec8de269a4d6` as the initial 54,949-byte
   score baseline;
+- define the versioned verifier-bundle interface and authenticated manifest;
+- generate two independently initialized `development-only` bundles and prove
+  that they create distinct profile identifiers and genesis data without
+  changing wallet or conformance semantics;
 - distinguish public-bench, fixed-context, and research-only evidence;
 - measure complete proof and public-input variation;
 - compare any alternative only through real standard transactions;

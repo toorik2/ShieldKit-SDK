@@ -8,9 +8,14 @@ Read `policy/g0-lock.json`, `docs/CHARTER.md`, `docs/KILL_GATES.md`, and
   a projection as measured evidence.
 - Treat `/home/toorik/Projects/ZK-Proofs/shield.cash-evidence-20260723T121421Z`
   as read-only evidence. Import only through a provenance record.
-- Preserve the `g0-v1` direction: wallet-first, 0.1 BCH, shared instances, local
+- Preserve the `g0-v2` direction: wallet-first, 0.1 BCH, shared instances, local
   proving, transparent fee funding, publisher-only operations, and no
   post-genesis authority.
+- Keep verifier material profile-pluggable. A locally initialized setup is
+  allowed only in a bundle permanently labeled `development-only`. A later
+  multi-party-randomness ceremony must emit the same typed bundle interface and
+  create a new profile and genesis. Never hot-swap an existing instance or
+  present development setup as ceremony or production evidence.
 - The target is a working end-to-end BCH Chipnet instance. Ask the user for
   Chipnet funding only after a fresh local address, exact amount, and transaction
   plan are ready. Never expose wallet secrets. Mainnet is not authorized.
