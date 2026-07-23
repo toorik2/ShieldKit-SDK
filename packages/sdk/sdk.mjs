@@ -72,7 +72,9 @@ export async function createDesktopWalletSdk(value) {
   try { bundle = await loadVerifierProfileBundle(value.bundleDirectory, expected); }
   catch (error) { fail('PROFILE_AUTHENTICATION_FAILED', `profile bundle rejected: ${error.message}`); }
   const profile = Object.freeze({ ...expected, bundleDirectory: value.bundleDirectory, setupMode: bundle.manifest.setup.mode, stateNftCategory: bundle.manifest.genesis.stateNftCategory });
-  const portable = createBrowserWalletSdk({ profile });
+  // The portable facade intentionally accepts only the immutable public
+  // profile coordinates, not desktop-only bundle metadata.
+  const portable = createBrowserWalletSdk({ profile: expected });
   return Object.freeze({
     schema: 'shield.cash/desktop-wallet-sdk/v1',
     profile,

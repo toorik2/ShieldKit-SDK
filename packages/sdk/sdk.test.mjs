@@ -47,3 +47,20 @@ test('desktop facade rejects unauthenticated profile paths before exposing plann
     (error) => error instanceof WalletSdkError && error.code === 'PROFILE_AUTHENTICATION_FAILED',
   );
 });
+
+test('desktop facade composes portable methods from an authenticated profile bundle', {
+  skip: process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE === undefined,
+}, async () => {
+  const sdk = await createDesktopWalletSdk({
+    bundleDirectory: process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE,
+    expectedProfile: {
+      network: 'chipnet',
+      profileId: process.env.SHIELD_CASH_TEST_PROFILE_ID,
+      instanceId: process.env.SHIELD_CASH_TEST_INSTANCE_ID,
+    },
+  });
+  assert.equal(sdk.schema, 'shield.cash/desktop-wallet-sdk/v1');
+  assert.equal(sdk.profile.bundleDirectory, process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE);
+  assert.equal(typeof sdk.deriveRecipientAddress, 'function');
+  assert.equal(typeof sdk.planCompletePreparation, 'function');
+});
