@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createVirtualMachineBch2026, encodeTransaction } from '@bitauth/libauth';
 import { DENOMINATION_SATS } from '../action-packet/action-packet.mjs';
 import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
+import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 
 export const PREPARATION_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
@@ -321,12 +322,14 @@ async function authenticatedPf7Carriers(bundleDirectory, expectedProfile) {
   if (`sha256:${createHash('sha256').update(source).digest('hex')}` !== artifact.sha256) fail('bch-verifier-set hash drifted after profile load');
   let record;
   try { record = parseStrictJson(source); } catch { fail('bch-verifier-set is not strict JSON'); }
-  const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
-  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || record.sourceSet?.encoding !== 'libauth-transaction-outputs-hex-v1' || record.sourceSet?.carrierCount !== 7 || !Array.isArray(record.scripts) || record.scripts.length !== 7) fail('bch-verifier-set carrier authority is invalid');
-  const carriers = record.scripts.map((script, index) => {
-    if (script === null || typeof script !== 'object' || script.name !== names[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex) || typeof script.sourceValueSatoshis !== 'string' || !/^[1-9][0-9]*$/.test(script.sourceValueSatoshis)) fail(`bch-verifier-set carrier ${index} is invalid`);
-    return Object.freeze({ role: script.name, lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'), valueSatoshis: BigInt(script.sourceValueSatoshis) });
-  });
+  let authority;
+  try { authority = parsePf7CarrierAuthority(record); }
+  catch (error) { fail(`bch-verifier-set carrier authority is invalid: ${error.message}`); }
+  const carriers = authority.carriers.map((carrier) => Object.freeze({
+    role: carrier.role,
+    lockingBytecode: Buffer.from(carrier.lockingBytecode),
+    valueSatoshis: carrier.valueSatoshis,
+  }));
   return Object.freeze({ bundle, carriers: Object.freeze(carriers) });
 }
 

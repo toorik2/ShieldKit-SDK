@@ -308,8 +308,17 @@ test('stable verifier-set identity binds only canonical seven-carrier authority,
   const discovery = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, contextSourceOutputsHex, actionProofSha256: 'b'.repeat(64), actionPacketSha256: 'c'.repeat(64) });
   const replay = derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts, contextSourceOutputsHex, actionProofSha256: 'd'.repeat(64), actionPacketSha256: 'e'.repeat(64) });
   assert.equal(discovery.sha256, replay.sha256);
-  const altered = structuredClone(scripts); altered[6].redeemBytecodeHex = '52';
-  assert.notEqual(derivePf7FreshVerifierSet({ verificationKeySha256: setup, scripts: altered, contextSourceOutputsHex }).sha256, discovery.sha256);
+  const altered = structuredClone(scripts);
+  altered[6].redeemBytecodeHex = '52';
+  altered[6].lockingBytecodeHex = lockFor(Buffer.from([0x52]));
+  assert.notEqual(
+    derivePf7FreshVerifierSet({
+      verificationKeySha256: setup,
+      scripts: altered,
+      contextSourceOutputsHex: freshContextSources(altered),
+    }).sha256,
+    discovery.sha256,
+  );
   const changedValues = [...Array(7).fill(1000n)]; changedValues[6] = 1001n;
   assert.notEqual(
     derivePf7FreshVerifierSet({

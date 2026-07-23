@@ -661,6 +661,7 @@ function appendExactOneSatPerByteFee(out) {
 export function buildStateSettlementHelper({
   bindingLock,
   pf7Locks,
+  pf7Values,
   profileId,
   instanceId,
   stateCategory,
@@ -670,6 +671,17 @@ export function buildStateSettlementHelper({
 }) {
   if (!Array.isArray(pf7Locks) || pf7Locks.length !== 7) {
     throw new Error('pf7Locks must contain exactly seven locking bytecodes');
+  }
+  if (
+    !Array.isArray(pf7Values)
+    || pf7Values.length !== 7
+    || pf7Values.some((value) => (
+      typeof value !== 'bigint'
+      || value <= 0n
+      || value > BigInt(Number.MAX_SAFE_INTEGER)
+    ))
+  ) {
+    throw new Error('pf7Values must contain exactly seven positive VM-safe bigints');
   }
   const profile = assertBytes(profileId, 32, 'profileId');
   const instance = assertBytes(instanceId, 32, 'instanceId');
@@ -704,22 +716,37 @@ export function buildStateSettlementHelper({
   requirePacketSlice(out, 163, 8, maximumReserve);
   requirePacketSlice(out, 355, 8, maximumReserve);
 
-  // Pin every PF7 source lock by its exact SHA-256. These checks are separate
-  // from SCCT reconstruction because the context digest is proof-bound but
-  // otherwise caller-selectable.
+  // Pin every PF7 source lock and value. These checks are separate from SCCT
+  // reconstruction because the context digest is proof-bound but otherwise
+  // caller-selectable: a new proof must not authorize alternate carrier
+  // funding.
   for (let index = 0; index < pf7Locks.length; index += 1) {
     emitNumber(out, index);
     emit(out, op.UTXOBYTECODE, op.SHA256);
     emitData(out, sha256(pf7Locks[index]));
     emit(out, op.EQUALVERIFY);
+    emitNumber(out, index);
+    emit(out, op.UTXOVALUE);
+    emitNumber(out, Number(pf7Values[index]));
+    emit(out, op.NUMEQUALVERIFY);
   }
 
-  // Inputs 7 and 9 must be the binding and fee outputs (vouts 7 and 8) of one
-  // permissionless complete preparation transaction. Vouts 0..6 fund the
-  // seven retained PF7 verifier carriers in their fixed role order.
-  // preparation transaction. Input 9's signature remains consensus-verified
-  // by its P2PKH lock; the helper authenticates its canonical structure,
-  // SIGHASH_ALL|FORKID byte, pubkey-derived source lock, and same-key change.
+  // Inputs 0..7 and 9 must be vouts 0..8 of one permissionless complete
+  // preparation transaction. This prevents a valid proof from selecting or
+  // subsidizing itself with another wallet's prepared PF7 carriers. Input 9's
+  // signature remains consensus-verified by its P2PKH lock; the helper
+  // authenticates its canonical structure, SIGHASH_ALL|FORKID byte,
+  // pubkey-derived source lock, and same-key change.
+  for (let index = 0; index < 7; index += 1) {
+    emitNumber(out, index);
+    emit(out, op.OUTPOINTTXHASH);
+    emitNumber(out, 7);
+    emit(out, op.OUTPOINTTXHASH, op.EQUALVERIFY);
+    emitNumber(out, index);
+    emit(out, op.OUTPOINTINDEX);
+    emitNumber(out, index);
+    emit(out, op.NUMEQUALVERIFY);
+  }
   emitNumber(out, 7);
   emit(out, op.OUTPOINTTXHASH);
   emitNumber(out, 9);

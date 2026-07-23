@@ -12,6 +12,7 @@ import {
   SigningSerializationTypeBch,
 } from '@bitauth/libauth';
 import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
+import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 import { createShieldedTransitionReference } from '../core/shielded-transition.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
 import {
@@ -29,7 +30,6 @@ export const MINIMUM_STATE_CARRIER_SATOSHIS = 1_080n;
 const HEX = /^[0-9a-f]*$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const MAX_U64 = 0xffff_ffff_ffff_ffffn;
-const PF7_ROLES = Object.freeze(['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal']);
 
 export class ChipnetGenesisError extends Error {
   constructor(message) { super(message); this.name = 'ChipnetGenesisError'; }
@@ -95,10 +95,12 @@ async function loadPf7Locks(profile) {
   if (`sha256:${sha256(source).toString('hex')}` !== artifact.sha256) fail('bch-verifier-set hash drifted after profile load');
   let record;
   try { record = parseStrictJson(source); } catch { fail('bch-verifier-set is not strict JSON'); }
-  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || record.sourceSet?.encoding !== 'libauth-transaction-outputs-hex-v1' || record.sourceSet?.carrierCount !== 7 || !Array.isArray(record.scripts) || record.scripts.length !== 7) fail('bch-verifier-set carrier authority is invalid');
-  return record.scripts.map((script, index) => {
-    if (script === null || typeof script !== 'object' || script.name !== PF7_ROLES[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex) || typeof script.sourceValueSatoshis !== 'string' || !/^[1-9][0-9]*$/.test(script.sourceValueSatoshis)) fail(`bch-verifier-set carrier ${index} is invalid`);
-    return Buffer.from(script.lockingBytecodeHex, 'hex');
+  let authority;
+  try { authority = parsePf7CarrierAuthority(record); }
+  catch (error) { fail(`bch-verifier-set carrier authority is invalid: ${error.message}`); }
+  return Object.freeze({
+    locks: Object.freeze(authority.carriers.map((carrier) => Buffer.from(carrier.lockingBytecode))),
+    values: Object.freeze(authority.carriers.map((carrier) => carrier.valueSatoshis)),
   });
 }
 
@@ -147,10 +149,11 @@ function transactionFor(parsed, stateLock, stateToken, signature, changeValue) {
 
 async function derive(value) {
   const parsed = parseRequest(value); const profile = await loadProfile(value); categoryInputForProfile(parsed, profile);
-  const pf7Locks = await loadPf7Locks(profile);
+  const pf7 = await loadPf7Locks(profile);
   const bindingLock = Buffer.from(buildPacketOnlyBindingLock());
   const helper = Buffer.from(buildStateSettlementHelper({
-    bindingLock, pf7Locks, profileId: profile.profileId, instanceId: profile.instanceId,
+    bindingLock, pf7Locks: pf7.locks, pf7Values: pf7.values,
+    profileId: profile.profileId, instanceId: profile.instanceId,
     stateCategory: profile.stateCategory, maximumReserveSatoshis: profile.reserveCapSatoshis,
     genesis: profile.bundle.manifest.genesis, bindingCarrierBaseSatoshis: Number(parsed.bindingCarrier),
   }));

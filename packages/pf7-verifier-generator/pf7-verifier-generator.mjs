@@ -4,6 +4,7 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:f
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson, loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
+import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 import {
   ACTION_PACKET_BYTES,
   actionPacketPublicLimbs,
@@ -805,6 +806,8 @@ export function derivePf7FreshVerifierSet({ verificationKeySha256, scripts, cont
     sourceSet: carriers.sourceSet,
     scripts: carriers.scripts,
   };
+  try { parsePf7CarrierAuthority(artifact); }
+  catch (error) { fail(`fresh verifier-set carrier authority is invalid: ${error.message}`); }
   const serialized = `${canonicalJson(artifact)}\n`;
   return { artifact, serialized, sha256: digest(Buffer.from(serialized)), contextSourceOutputsFile: carriers.contextSourceOutputsFile };
 }

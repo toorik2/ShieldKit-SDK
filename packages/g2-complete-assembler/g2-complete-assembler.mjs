@@ -15,6 +15,7 @@ import {
 import { ACTION_PACKET_BYTES, CHIPNET_NETWORK_ID, decodeActionPacket } from '../action-packet/action-packet.mjs';
 import { generateFreshWitnessInputs } from '../fresh-witness-inputs/fresh-witness-inputs.mjs';
 import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
+import { parsePf7CarrierAuthority } from '../core/pf7-authority.mjs';
 import { encodeSettlementContext } from '../settlement-context/settlement-context.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
 import {
@@ -96,12 +97,13 @@ async function profilePf7Roles(profile) {
   let record;
   try { record = parseStrictJson(source); }
   catch { fail('authenticated profile bch-verifier-set artifact is invalid JSON'); }
-  if (record?.schema !== 'shield.cash/bch-verifier-set/v1' || !Array.isArray(record.scripts) || record.scripts.length !== 7 || record.sourceSet?.encoding !== 'libauth-transaction-outputs-hex-v1' || record.sourceSet?.carrierCount !== 7 || typeof record.sourceSet?.sha256 !== 'string') fail('authenticated profile bch-verifier-set carrier authority is invalid');
-  const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
-  return record.scripts.map((script, index) => {
-    if (script === null || typeof script !== 'object' || script.name !== names[index] || typeof script.lockingBytecodeHex !== 'string' || !/^[0-9a-f]{70}$/.test(script.lockingBytecodeHex) || typeof script.sourceValueSatoshis !== 'string' || !/^[1-9][0-9]*$/.test(script.sourceValueSatoshis)) fail(`authenticated profile verifier role ${index} is invalid`);
-    return Object.freeze({ lockingBytecode: Buffer.from(script.lockingBytecodeHex, 'hex'), valueSatoshis: BigInt(script.sourceValueSatoshis) });
-  });
+  let authority;
+  try { authority = parsePf7CarrierAuthority(record); }
+  catch (error) { fail(`authenticated profile bch-verifier-set carrier authority is invalid: ${error.message}`); }
+  return authority.carriers.map((carrier) => Object.freeze({
+    lockingBytecode: Buffer.from(carrier.lockingBytecode),
+    valueSatoshis: carrier.valueSatoshis,
+  }));
 }
 
 function stateToken(category, profileId, state) {
@@ -204,6 +206,15 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const stateOutpointTransactionHash = wireHash(value.stateOutpointTransactionHashWire, 'stateOutpointTransactionHashWire').reverse();
   const stateOutpointIndex = u32(value.stateOutpointIndex, 'stateOutpointIndex');
   const prepHash = wireHash(value.preparationTransactionHashWire, 'preparationTransactionHashWire');
+  const preparationParent = Buffer.from(prepHash).reverse();
+  for (let index = 0; index < pf7.length; index += 1) {
+    if (
+      !Buffer.from(pf7[index].outpointTransactionHash).equals(preparationParent)
+      || pf7[index].outpointIndex !== index
+    ) {
+      fail(`pf7[${index}] must spend preparation output ${index}`);
+    }
+  }
   const withdrawalLock = kind === 'withdrawal' ? bytes(value.withdrawalLockingBytecode, undefined, 'withdrawalLockingBytecode') : undefined;
   if (kind === 'withdrawal' && hex(sha256(withdrawalLock)) !== decoded.withdrawalScriptHash) fail('withdrawal lock does not match packet hash');
 
@@ -211,6 +222,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   if (bindingCarrierBaseSatoshis > BigInt(Number.MAX_SAFE_INTEGER)) fail('binding carrier base exceeds VM-number range');
   const helper = Buffer.from(buildStateSettlementHelper({
     bindingLock, pf7Locks: pf7.map((row) => row.lockingBytecode),
+    pf7Values: pf7.map((row) => row.valueSatoshis),
     profileId, instanceId, stateCategory,
     maximumReserveSatoshis: profile.maximumReserveSatoshis,
     genesis: profile.genesis,
@@ -233,9 +245,9 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   ];
   const inputs = [
     ...pf7.map((row) => ({ ...row })),
-    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 7, sequenceNumber: 0, unlockingBytecode: packetUnlock(packet) },
+    { outpointTransactionHash: preparationParent, outpointIndex: 7, sequenceNumber: 0, unlockingBytecode: packetUnlock(packet) },
     { outpointTransactionHash: stateOutpointTransactionHash, outpointIndex: stateOutpointIndex, sequenceNumber: 0, unlockingBytecode: stateUnlock },
-    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 8, sequenceNumber: 0, unlockingBytecode: schnorrUnlock(Buffer.alloc(64), publicKey) },
+    { outpointTransactionHash: preparationParent, outpointIndex: 8, sequenceNumber: 0, unlockingBytecode: schnorrUnlock(Buffer.alloc(64), publicKey) },
   ];
   const totalInputValue = sources.reduce((sum, source) => sum + source.valueSatoshis, 0n);
   const { transaction: unsignedTransaction, wireBytes: unsignedWireBytes } = fixedPointTransaction({

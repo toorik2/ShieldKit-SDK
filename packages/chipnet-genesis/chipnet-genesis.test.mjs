@@ -10,6 +10,9 @@ import {
 } from '@bitauth/libauth';
 import { buildVerifierProfileBundle } from '../profile-builder/profile-builder.mjs';
 import {
+  encodeCanonicalPf7CarrierSourceSet,
+} from '../core/pf7-authority.mjs';
+import {
   ChipnetGenesisError,
   finalizeChipnetGenesisTransaction,
   planChipnetGenesisTransaction,
@@ -22,12 +25,14 @@ const hex = (value) => Buffer.from(value).toString('hex');
 function verifierSet() {
   const scripts = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'].map((name, index) => ({
     name,
-    lockingBytecodeHex: `aa20${sha256(`test-only-pf7-${name}`)}87`,
+    redeemBytecodeHex: Buffer.from([0x51, index + 1]).toString('hex'),
+    lockingBytecodeHex: `aa20${sha256(createHash('sha256').update(Buffer.from([0x51, index + 1])).digest())}87`,
     sourceValueSatoshis: String(1_000 + index),
   }));
+  const sourceSet = encodeCanonicalPf7CarrierSourceSet(scripts);
   return Buffer.from(JSON.stringify({
     schema: 'shield.cash/bch-verifier-set/v1',
-    sourceSet: { encoding: 'libauth-transaction-outputs-hex-v1', carrierCount: 7, sha256: digest('test-only-source-set') },
+    sourceSet: { encoding: 'libauth-transaction-outputs-v1', carrierCount: 7, sha256: digest(sourceSet) },
     scripts,
   }));
 }

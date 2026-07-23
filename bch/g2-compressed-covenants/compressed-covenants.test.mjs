@@ -22,6 +22,7 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const pf7 = JSON.parse(readFileSync(
   new URL('./pf7-seam-v0-locks.json', import.meta.url),
 ));
+const pf7Values = Object.freeze(pf7.locks.map(() => 1_000n));
 const profileId = sha256(Buffer.from('g2-loop-profile'));
 const stateCategory = sha256(Buffer.from('g2-loop-state-category'));
 const stateCarrierBase = 1_000n;
@@ -171,7 +172,7 @@ function encodeScct(kind, transaction, sourceOutputs) {
 function programFor(kind, bindingLock, stateLock, digest = undefined) {
   const initial = packetFor(kind);
   const sourceOutputs = Array.from({ length: 10 }, (_, index) => ({
-    valueSatoshis: 2_000n + BigInt(index),
+    valueSatoshis: index < 7 ? pf7Values[index] : 2_000n + BigInt(index),
     lockingBytecode: index < 7
       ? Buffer.from(pf7.locks[index], 'hex')
       : index === 7
@@ -214,9 +215,14 @@ function programFor(kind, bindingLock, stateLock, digest = undefined) {
     })),
     outputs,
   };
-  transaction.inputs[7].outpointTransactionHash = Uint8Array.from(
-    transaction.inputs[9].outpointTransactionHash,
-  );
+  for (let index = 0; index < 8; index += 1) {
+    transaction.inputs[index].outpointTransactionHash = Uint8Array.from(
+      transaction.inputs[9].outpointTransactionHash,
+    );
+  }
+  for (let index = 0; index < 7; index += 1) {
+    transaction.inputs[index].outpointIndex = index;
+  }
   transaction.inputs[7].outpointIndex = 7;
   transaction.inputs[9].outpointIndex = 8;
   const preimage = encodeScct(kind, transaction, sourceOutputs);
@@ -312,6 +318,7 @@ test('full helper rejects every CashToken form at every non-state input and outp
   const helper = buildStateSettlementHelper({
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    pf7Values,
     profileId,
     instanceId,
     stateCategory,
@@ -565,6 +572,7 @@ test('state helper construction fails closed unless its cap, profile, instance, 
   const input = {
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    pf7Values,
     profileId,
     instanceId,
     stateCategory,
@@ -602,6 +610,7 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
   const helper = buildStateSettlementHelper({
     bindingLock,
     pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    pf7Values,
     profileId,
     instanceId,
     stateCategory,
@@ -661,6 +670,19 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     }],
     ['wrong-fee-vout-with-refreshed-context', (p) => {
       p.transaction.inputs[9].outpointIndex = 1;
+      refreshContextDigest('deposit', p);
+    }],
+    ['wrong-pf7-parent-with-refreshed-context', (p) => {
+      p.transaction.inputs[3].outpointTransactionHash[0] ^= 1;
+      refreshContextDigest('deposit', p);
+    }],
+    ['wrong-pf7-vout-with-refreshed-context', (p) => {
+      p.transaction.inputs[4].outpointIndex = 14;
+      refreshContextDigest('deposit', p);
+    }],
+    ['wrong-pf7-value-with-refreshed-context-and-exact-fee', (p) => {
+      p.sourceOutputs[5].valueSatoshis += 1n;
+      p.transaction.outputs.at(-1).valueSatoshis += 1n;
       refreshContextDigest('deposit', p);
     }],
     ['wrong-fee-sighash', (p) => {

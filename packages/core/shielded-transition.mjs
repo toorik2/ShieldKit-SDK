@@ -105,9 +105,10 @@ function u64le(value) {
 }
 
 function recordBytes(record, active) {
-  if (!Buffer.isBuffer(record) || record.length !== OUTPUT_RECORD_BYTES) fail(`output record must contain exactly ${OUTPUT_RECORD_BYTES} bytes`);
-  if (!active && !record.equals(Buffer.alloc(OUTPUT_RECORD_BYTES))) fail('inactive output record must be all zero');
-  return record;
+  if (!(record instanceof Uint8Array) || record.length !== OUTPUT_RECORD_BYTES) fail(`output record must contain exactly ${OUTPUT_RECORD_BYTES} bytes`);
+  const normalized = Buffer.from(record);
+  if (!active && !normalized.equals(Buffer.alloc(OUTPUT_RECORD_BYTES))) fail('inactive output record must be all zero');
+  return normalized;
 }
 
 function assertArray(value, length, label) {
