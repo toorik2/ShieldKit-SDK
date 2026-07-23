@@ -88,7 +88,7 @@ function fixture(kind = 'deposit', feeDeltaSatoshis = 0n) {
   });
   const inputMetadata = INPUT_ROLES.map((_, index) => ({
     outpointTransactionHashWire: [7, 9].includes(index) ? outpoint(7) : outpoint(index),
-    outpointIndex: index === 7 ? '0' : index === 9 ? '1' : String(index),
+    outpointIndex: index === 7 ? '7' : index === 9 ? '8' : String(index),
     sequenceNumber: '0',
   }));
   const context = encodeSettlementContext({

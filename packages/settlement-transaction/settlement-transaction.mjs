@@ -207,10 +207,10 @@ function assertCanonicalPreparationPair(rawInputs, sources, outputs, parsedInput
   if (
     rawInputs[BINDING_INPUT_INDEX].outpointTransactionHashWire
       !== rawInputs[FEE_INPUT_INDEX].outpointTransactionHashWire
-    || rawInputs[BINDING_INPUT_INDEX].outpointIndex !== '0'
-    || rawInputs[FEE_INPUT_INDEX].outpointIndex !== '1'
+    || rawInputs[BINDING_INPUT_INDEX].outpointIndex !== '7'
+    || rawInputs[FEE_INPUT_INDEX].outpointIndex !== '8'
   ) {
-    fail('binding and fee inputs must spend preparation sibling outputs 0 and 1');
+    fail('binding and fee inputs must spend canonical preparation sibling outputs 7 and 8');
   }
   const feeLock = Buffer.from(sources[FEE_INPUT_INDEX].lockingBytecode);
   if (

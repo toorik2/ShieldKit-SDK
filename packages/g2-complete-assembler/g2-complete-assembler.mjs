@@ -29,19 +29,38 @@ const fail = (message) => { throw new G2CompleteAssemblerError(message); };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const hash160 = (bytes) => createHash('ripemd160').update(sha256(bytes)).digest();
 const hex = (bytes) => Buffer.from(bytes).toString('hex');
+const HEX = /^[0-9a-f]*$/;
+const DECIMAL = /^(0|[1-9][0-9]*)$/;
+const MAX_U64 = 0xffff_ffff_ffff_ffffn;
 const bytes = (value, length, label) => {
+  if (!(value instanceof Uint8Array)) fail(`${label} must be a Uint8Array`);
   const result = Buffer.from(value);
   if (length !== undefined && result.length !== length) fail(`${label} must be ${length} bytes`);
   return result;
 };
-const wireHash = (value, label) => bytes(value, 32, label);
+const canonicalHexBytes = (value, length, label) => {
+  if (typeof value !== 'string' || !HEX.test(value) || value.length % 2 !== 0 || (length !== undefined && value.length !== length * 2)) {
+    fail(`${label} must be canonical lowercase hexadecimal${length === undefined ? '' : ` with ${length} bytes`}`);
+  }
+  return Buffer.from(value, 'hex');
+};
+const binaryOrHex = (value, length, label) => (
+  typeof value === 'string' ? canonicalHexBytes(value, length, label) : bytes(value, length, label)
+);
+// The preparation API serializes transaction hashes in wire order as canonical
+// lowercase hexadecimal. Accept that direct hand-off as well as an internal
+// Uint8Array, never a UTF-8 string interpreted as bytes.
+const wireHash = (value, label) => binaryOrHex(value, 32, label);
 const p2pkh = (publicKey) => Buffer.concat([Buffer.from([0x76, 0xa9, 0x14]), hash160(publicKey), Buffer.from([0x88, 0xac])]);
 const schnorrUnlock = (signature, publicKey) => Buffer.concat([Buffer.of(0x41), signature, Buffer.of(0x41, 0x21), publicKey]);
 const packetUnlock = (packet) => Buffer.concat([Buffer.of(0x4d, 0xf0, 0x02), packet]);
 const noToken = undefined;
 const decimal = (value, label) => {
-  if (typeof value !== 'bigint' || value < 0n) fail(`${label} must be a nonnegative bigint`);
-  return value;
+  const parsed = typeof value === 'bigint'
+    ? value
+    : typeof value === 'string' && DECIMAL.test(value) ? BigInt(value) : undefined;
+  if (parsed === undefined || parsed < 0n || parsed > MAX_U64) fail(`${label} must be a canonical nonnegative u64 bigint or decimal string`);
+  return parsed;
 };
 const u32 = (value, label) => {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 0xffff_ffff) fail(`${label} must be a canonical u32 number`);
@@ -139,16 +158,21 @@ async function requirePf7(value, expectedRoles) {
   if (!Array.isArray(value) || value.length !== 7) fail('pf7 must contain exactly the seven retained verifier roles');
   return value.map((row, index) => {
     if (row === null || typeof row !== 'object') fail(`pf7[${index}] must be an object`);
-    const lock = bytes(row.lockingBytecode, 35, `pf7[${index}].lockingBytecode`);
+    const lock = binaryOrHex(row.lockingBytecode, 35, `pf7[${index}].lockingBytecode`);
     if (lock[0] !== 0xaa || lock[1] !== 0x20 || lock[34] !== 0x87) fail(`pf7[${index}] is not P2SH32`);
     if (!lock.equals(expectedRoles[index].lockingBytecode)) fail(`pf7[${index}] locking bytecode does not match authenticated profile verifier role`);
-    const unlockingBytecode = Buffer.from(row.unlockingBytecode);
+    const unlockingBytecode = binaryOrHex(row.unlockingBytecode, undefined, `pf7[${index}].unlockingBytecode`);
     if (unlockingBytecode.length === 0 || unlockingBytecode.length > INPUT_UNLOCKING_LIMIT_BYTES) fail(`pf7[${index}] unlocking bytecode is outside the 1..10000 byte limit`);
     const valueSatoshis = decimal(row.valueSatoshis, `pf7[${index}].valueSatoshis`);
     if (valueSatoshis !== expectedRoles[index].valueSatoshis) fail(`pf7[${index}] value does not match authenticated profile verifier carrier`);
     return {
       lockingBytecode: lock, unlockingBytecode,
-      outpointTransactionHash: wireHash(row.outpointTransactionHashWire, `pf7[${index}].outpointTransactionHashWire`).reverse(),
+      // Libauth's encoder uses Uint8Array#slice().reverse(). A Buffer's
+      // slice is a view, so retaining Buffer here would let serialization
+      // mutate the in-memory outpoint after the fee signature is made.
+      outpointTransactionHash: Uint8Array.from(
+        wireHash(row.outpointTransactionHashWire, `pf7[${index}].outpointTransactionHashWire`),
+      ).reverse(),
       outpointIndex: u32(row.outpointIndex, `pf7[${index}].outpointIndex`), sequenceNumber: 0, valueSatoshis,
     };
   });
@@ -203,10 +227,12 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   if (bindingCarrierBaseSatoshis !== 1_000n) fail('bindingCarrierBaseSatoshis does not match the authenticated settlement kernel');
   if (stateCarrierBaseSatoshis !== 1_080n) fail('stateCarrierBaseSatoshis does not match the authenticated settlement kernel');
   const feeSourceValueSatoshis = decimal(value.feeSourceValueSatoshis, 'feeSourceValueSatoshis');
-  const stateOutpointTransactionHash = wireHash(value.stateOutpointTransactionHashWire, 'stateOutpointTransactionHashWire').reverse();
+  const stateOutpointTransactionHash = Uint8Array.from(
+    wireHash(value.stateOutpointTransactionHashWire, 'stateOutpointTransactionHashWire'),
+  ).reverse();
   const stateOutpointIndex = u32(value.stateOutpointIndex, 'stateOutpointIndex');
   const prepHash = wireHash(value.preparationTransactionHashWire, 'preparationTransactionHashWire');
-  const preparationParent = Buffer.from(prepHash).reverse();
+  const preparationParent = Uint8Array.from(prepHash).reverse();
   for (let index = 0; index < pf7.length; index += 1) {
     if (
       !Buffer.from(pf7[index].outpointTransactionHash).equals(preparationParent)
@@ -215,7 +241,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
       fail(`pf7[${index}] must spend preparation output ${index}`);
     }
   }
-  const withdrawalLock = kind === 'withdrawal' ? bytes(value.withdrawalLockingBytecode, undefined, 'withdrawalLockingBytecode') : undefined;
+  const withdrawalLock = kind === 'withdrawal' ? binaryOrHex(value.withdrawalLockingBytecode, undefined, 'withdrawalLockingBytecode') : undefined;
   if (kind === 'withdrawal' && hex(sha256(withdrawalLock)) !== decoded.withdrawalScriptHash) fail('withdrawal lock does not match packet hash');
 
   const {
