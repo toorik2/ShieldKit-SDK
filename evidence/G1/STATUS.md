@@ -35,7 +35,9 @@ Current decisive results:
 - it remains research-only with fixed verifier/deployment binding;
 - the original PF6 inputs 0–2 exceed 9,500 bytes, but the measured PF7 sub62
   repartition clears that component ceiling with a 9,176-byte maximum unlock;
-  it leaves only gross, not allocated, envelope headroom; and
+  it leaves only gross, not allocated, envelope headroom, and its seven
+  verifier inputs do not directly fit the current six-verifier-input
+  settlement draft; and
 - a pinned no-wallet BCHN v29 build now starts on Chipnet locally, but the
   recorded nodes remained at genesis and did not complete a loopback handshake;
   no current or independent-peer claim follows.
