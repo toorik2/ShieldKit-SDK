@@ -34,7 +34,7 @@
     {"path": "evidence/G1/verifier-ten-role/raw/boundary-parts.json", "sha256": "0f6639e5745824c1a73deede0e20cc63c16281968e78e9a64bbc28f6acd00c4c", "bytes": 819},
     {"path": "evidence/G1/verifier-ten-role/raw/input-redteam.json", "sha256": "e54bcbf8f82619c99b098e8ed250bdb7a24a88b1b42a18797c0123eececa7e1b", "bytes": 16880},
     {"path": "evidence/G1/verifier-ten-role/raw/vectors.json", "sha256": "9af75ae6b665512be654a4f4dabce5d3cfc3338ac1b42b3051b736ba89d0f81f", "bytes": 1537290},
-    {"path": "evidence/G1/verifier-ten-role/leanbch-xcheck.json", "sha256": "6e7be6816a69c178be660c37ee84b8abc2c4a02d2d8864ea59d80ebc02e97d5d", "bytes": 3692},
+    {"path": "evidence/G1/verifier-ten-role/leanbch-xcheck.json", "sha256": "d90816ac80b29f437d2d9627ce3e0b66fa048c87f770320b6a0d7d5b981f4aad", "bytes": 3933},
     {"path": "evidence/G1/verifier-ten-role/raw/leanbch-xcheck-native-results.tsv", "sha256": "f76673b7100aa29a5ce08de89e9ecb074d88ef47be61cd9b56bc2eda46ad735d", "bytes": 1001}
   ],
   "measurements": {

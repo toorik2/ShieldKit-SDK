@@ -18,12 +18,16 @@
   "artifacts": {
     "candidateTransaction": {
       "path": "evidence/G1/verifier-ten-role/raw/candidate-tx.hex",
-      "sha256": "2725394ddd7e25b2936277929d01415bfb66ef59102b5f9ea00329ba1c16cc05",
+      "fileSha256": "2725394ddd7e25b2936277929d01415bfb66ef59102b5f9ea00329ba1c16cc05",
+      "fileBytes": 109122,
+      "decodedSha256": "e4d4de714c03af065ccd664dca21d3ef64f7e87ffe7134bf86a15b99bb174d36",
       "decodedBytes": 54561
     },
     "sourceOutputs": {
       "path": "evidence/G1/verifier-ten-role/raw/source-outputs.hex",
-      "sha256": "d20d44cfa558b50d1c16dc013af3cfe99fa29946bddecebed41cb2b6a187448a",
+      "fileSha256": "d20d44cfa558b50d1c16dc013af3cfe99fa29946bddecebed41cb2b6a187448a",
+      "fileBytes": 822,
+      "decodedSha256": "32888d5f0cb661b1a4175dd3dd1ef044821c74edd4fd7e497df44f10a80e20ee",
       "decodedBytes": 411
     },
     "nativeResults": {
