@@ -1,0 +1,82 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1-toolchain-registry-20260723",
+  "gate": "G1",
+  "candidate": "g1-bn254-groth16-single-note-v0",
+  "claim": "Current npm registry metadata for candidate circuit, proof, covenant, and VM toolchain packages was recorded on the observation host.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "baaf021e3f61f396d31fbafa0aa5a90de87451c4",
+    "dirtyPaths": []
+  },
+  "environment": {
+    "observedAt": "2026-07-23T13:19:23Z",
+    "hardware": {
+      "architecture": "x86_64",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H",
+      "logicalCpus": 20
+    },
+    "software": {
+      "os": "Arch Linux",
+      "kernel": "7.1.3-arch1-2",
+      "node": "25.9.0",
+      "npm": "11.12.1"
+    }
+  },
+  "commands": [
+    "npm view circom2 version dist.tarball time.modified",
+    "npm view snarkjs version dist.tarball time.modified",
+    "npm view circomlib version dist.tarball time.modified",
+    "npm view circomlibjs version dist.tarball time.modified",
+    "npm view cashscript version dist.tarball time.modified",
+    "npm view cashc version dist.tarball time.modified",
+    "npm view @bitauth/libauth version dist.tarball time.modified",
+    "node --version",
+    "npm --version",
+    "uname -a",
+    "lscpu"
+  ],
+  "artifacts": [
+    {
+      "path": "evidence/G1/toolchain-inventory/commands.txt",
+      "sha256": "65ae9c11a2f081d11444f4d689415122891ed3f521e9c8d17fd437b894b27188",
+      "bytes": 425
+    },
+    {
+      "path": "evidence/G1/toolchain-inventory/registry-output.txt",
+      "sha256": "f416c75735517e4dc6c26fb951550520d6721173514d2e8a95015f9bb59c6969",
+      "bytes": 1219
+    },
+    {
+      "path": "evidence/G1/toolchain-inventory/REPORT.md",
+      "sha256": "fe3bb3926daa0de16534ae36a77c3eb31833e26056cb23d243ffad432695e842",
+      "bytes": 1248
+    }
+  ],
+  "measurements": {
+    "registryVersions": {
+      "circom2": "0.2.23",
+      "snarkjs": "0.7.6",
+      "circomlib": "2.0.5",
+      "circomlibjs": "0.1.7",
+      "cashscript": "0.13.2",
+      "cashc": "0.13.2",
+      "@bitauth/libauth": "3.0.0"
+    }
+  },
+  "tests": [
+    {
+      "name": "all requested npm package metadata returned successfully",
+      "expected": 7,
+      "observed": 7,
+      "pass": true
+    }
+  ],
+  "verdict": "PASS",
+  "limitations": [
+    "This verdict covers registry metadata retrieval only, not G1.",
+    "No dependency tarball, source tree, build, circuit, proof, script, or transaction was qualified.",
+    "Registry metadata is mutable and must be replaced by pinned source and tarball hashes before toolchain selection.",
+    "The observation host is not a reproducible build environment or a target-device benchmark fixture."
+  ]
+}

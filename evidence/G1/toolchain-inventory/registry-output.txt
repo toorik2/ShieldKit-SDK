@@ -1,0 +1,44 @@
+observed_at=2026-07-23T13:19:23Z
+
+circom2
+version = '0.2.23'
+dist.tarball = 'https://registry.npmjs.org/circom2/-/circom2-0.2.23.tgz'
+time.modified = '2026-06-30T23:27:10.196Z'
+
+snarkjs
+version = '0.7.6'
+dist.tarball = 'https://registry.npmjs.org/snarkjs/-/snarkjs-0.7.6.tgz'
+time.modified = '2026-01-12T11:04:55.809Z'
+
+circomlib
+version = '2.0.5'
+dist.tarball = 'https://registry.npmjs.org/circomlib/-/circomlib-2.0.5.tgz'
+time.modified = '2022-06-17T11:25:51.492Z'
+
+circomlibjs
+version = '0.1.7'
+dist.tarball = 'https://registry.npmjs.org/circomlibjs/-/circomlibjs-0.1.7.tgz'
+time.modified = '2022-07-15T19:44:50.113Z'
+
+cashscript
+version = '0.13.2'
+dist.tarball = 'https://registry.npmjs.org/cashscript/-/cashscript-0.13.2.tgz'
+time.modified = '2026-07-23T09:59:40.103Z'
+
+cashc
+version = '0.13.2'
+dist.tarball = 'https://registry.npmjs.org/cashc/-/cashc-0.13.2.tgz'
+time.modified = '2026-07-23T09:59:35.324Z'
+
+@bitauth/libauth
+version = '3.0.0'
+dist.tarball = 'https://registry.npmjs.org/@bitauth/libauth/-/libauth-3.0.0.tgz'
+time.modified = '2025-09-05T17:44:52.516Z'
+
+runtime
+node = v25.9.0
+npm = 11.12.1
+kernel = Linux Omarchyzen 7.1.3-arch1-2 x86_64
+cpu = 13th Gen Intel(R) Core(TM) i9-13900H
+logical_cpus = 20
+
