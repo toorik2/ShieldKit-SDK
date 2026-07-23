@@ -145,6 +145,7 @@ test('constructs canonical deposit, transfer, and withdrawal transactions', () =
     assert.equal(result.transactionHex.slice(10, 74), outpoint(0));
     assert.ok(result.measurements.wireBytes < 59_000);
     assert.ok(result.measurements.maximumUnlockingBytes < 10_000);
+    assert.equal(result.measurements.stateHelperUnlockingLimitBytes, 3_286);
     assert.equal(result.measurements.percentageHeadroomRequired, false);
     assert.equal(result.context.digestHex, fixture(kind).actionPacket.slice(-64));
   }
@@ -186,11 +187,18 @@ test('rejects context, packet, role, state, withdrawal, fee, and size mutations'
     () => buildSettlementTransaction(oversizedTransaction),
     /complete transaction is .* exceeding 59000/,
   );
+  const oversizedHelper = structuredClone(fixture());
+  oversizedHelper.inputs[8].unlockingBytecode = hex(0xaa, 3_287);
+  assert.throws(
+    () => buildSettlementTransaction(oversizedHelper),
+    /state helper unlocking bytecode is 3287 bytes, exceeding 3286/,
+  );
 });
 
 test('separates the 54739-byte reference from the active 59000-byte gate', () => {
   const result = buildSettlementTransaction(fixture());
   assert.equal(result.measurements.completeTransactionWireLimitBytes, 59_000);
   assert.equal(result.measurements.inputUnlockingLimitBytes, 10_000);
+  assert.equal(result.measurements.stateHelperUnlockingLimitBytes, 3_286);
   assert.equal('baselineWireLimitBytes' in result.measurements, false);
 });

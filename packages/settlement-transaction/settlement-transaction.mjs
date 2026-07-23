@@ -18,6 +18,10 @@ import {
 export const COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
 export const INPUT_UNLOCKING_LIMIT_BYTES = 10_000;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
+// Conservative common cap derived from the worst measured PF7 transfer seam,
+// the current 88-byte state trampoline, state NFT output, P2PKH change, and
+// exact fee unlock. Complete wire size remains the authoritative final gate.
+export const STATE_HELPER_UNLOCKING_LIMIT_BYTES = 3_286;
 export { STATE_NFT_COMMITMENT_LIMIT_BYTES };
 
 const HEX = /^[0-9a-f]*$/;
@@ -427,6 +431,12 @@ export function buildSettlementTransaction(value) {
   if (maximumUnlockingBytes > INPUT_UNLOCKING_LIMIT_BYTES) {
     fail(`largest unlocking bytecode is ${maximumUnlockingBytes} bytes, exceeding 10000`);
   }
+  if (inputs[STATE_INPUT_INDEX].unlockingBytecode.length > STATE_HELPER_UNLOCKING_LIMIT_BYTES) {
+    fail(
+      `state helper unlocking bytecode is ${inputs[STATE_INPUT_INDEX].unlockingBytecode.length}`
+      + ` bytes, exceeding ${STATE_HELPER_UNLOCKING_LIMIT_BYTES}`,
+    );
+  }
   const inputValue = sumValues(sources);
   const outputValue = sumValues(outputs);
   if (inputValue <= outputValue) fail('settlement fee must be positive');
@@ -458,6 +468,7 @@ export function buildSettlementTransaction(value) {
         wireBytes + sourceLockingBytecodeBytes + sourceTokenPrefixBytes,
       completeTransactionWireLimitBytes: COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES,
       inputUnlockingLimitBytes: INPUT_UNLOCKING_LIMIT_BYTES,
+      stateHelperUnlockingLimitBytes: STATE_HELPER_UNLOCKING_LIMIT_BYTES,
       percentageHeadroomRequired: false,
     }),
   });
