@@ -16,16 +16,27 @@ import {
   buildStateTrampolineLock,
   buildStateTrampolineUnlock,
 } from './compressed-covenants.mjs';
+import { deriveInstanceId } from '../../packages/core/verifier-profile.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const pf7 = JSON.parse(readFileSync(
   new URL('./pf7-seam-v0-locks.json', import.meta.url),
 ));
 const profileId = sha256(Buffer.from('g2-loop-profile'));
-const instanceId = sha256(Buffer.from('g2-loop-instance'));
 const stateCategory = sha256(Buffer.from('g2-loop-state-category'));
 const stateCarrierBase = 1_000n;
 const denomination = 10_000_000n;
+const maximumReserve = 30_000_000n;
+const genesis = {
+  categoryInputOutpoint: { txid: stateCategory.toString('hex'), vout: '0' },
+  instanceId: '',
+  network: 'chipnet',
+  profileId: `sha256:${profileId.toString('hex')}`,
+  reserveCapSatoshis: maximumReserve.toString(),
+  stateNftCategory: stateCategory.toString('hex'),
+};
+genesis.instanceId = deriveInstanceId(genesis);
+const instanceId = Buffer.from(genesis.instanceId.slice('sha256:'.length), 'hex');
 const feePubkey = Buffer.concat([Buffer.of(0x02), Buffer.alloc(32, 0x19)]);
 const hash160 = (bytes) => createHash('ripemd160').update(sha256(bytes)).digest();
 const p2pkh = Buffer.concat([
@@ -102,11 +113,13 @@ function packetFor(kind, contextDigest) {
   instanceId.copy(packet, 40);
   u64le(preSequence).copy(packet, 140);
   u64le(preReserve).copy(packet, 152);
+  u64le(maximumReserve).copy(packet, 160);
   preStateCommitment.copy(packet, 168);
   profileId.copy(packet, 200);
   instanceId.copy(packet, 232);
   u64le(postSequence).copy(packet, 332);
   u64le(postReserve).copy(packet, 344);
+  u64le(maximumReserve).copy(packet, 352);
   postStateCommitment.copy(packet, 360);
   u64le(kind === 'transfer' ? 0n : denomination).copy(packet, 680);
   if (kind === 'withdrawal') sha256(Buffer.of(0x51)).copy(packet, 688);
@@ -515,6 +528,43 @@ test('minimal state continuity lock is <=190, executes in both VMs, and rejects 
   }, null, 2));
 });
 
+test('state helper construction fails closed unless its cap, profile, instance, and state category agree with canonical genesis', () => {
+  const bindingLock = buildPacketOnlyBindingLock();
+  const input = {
+    bindingLock,
+    pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    profileId,
+    instanceId,
+    stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
+    bindingCarrierBaseSatoshis: Number(stateCarrierBase),
+  };
+  assert.doesNotThrow(() => buildStateSettlementHelper(input));
+  assert.throws(
+    () => buildStateSettlementHelper({ ...input, maximumReserveSatoshis: '20000000' }),
+    /genesis reserve cap does not match helper maximumReserveSatoshis/,
+  );
+  assert.throws(
+    () => buildStateSettlementHelper({
+      ...input,
+      genesis: { ...genesis, reserveCapSatoshis: '20000000' },
+      maximumReserveSatoshis: '20000000',
+    }),
+    /genesis instanceId derivation mismatch/,
+  );
+  assert.throws(
+    () => buildStateSettlementHelper({
+      ...input,
+      genesis: {
+        ...genesis,
+        categoryInputOutpoint: { ...genesis.categoryInputOutpoint, txid: '11'.repeat(32) },
+      },
+    }),
+    /genesis state category does not match helper stateCategory/,
+  );
+});
+
 test('hash-authenticated state trampoline executes the full helper and rejects helper, PF7, state, and category substitutions', () => {
   const bindingLock = buildPacketOnlyBindingLock();
   const helper = buildStateSettlementHelper({
@@ -523,6 +573,8 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     profileId,
     instanceId,
     stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   });
   const stateLock = buildStateTrampolineLock({ helper, bindingLock });
@@ -601,6 +653,14 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     }],
     ['state-output-value-with-refreshed-context', (p) => {
       p.transaction.outputs[0].valueSatoshis += 1n;
+      refreshContextDigest('deposit', p);
+    }],
+    ['pre-state-cap-with-refreshed-context', (p) => {
+      p.transaction.inputs[7].unlockingBytecode[3 + 160] ^= 1;
+      refreshContextDigest('deposit', p);
+    }],
+    ['post-state-cap-with-refreshed-context', (p) => {
+      p.transaction.inputs[7].unlockingBytecode[3 + 352] ^= 1;
       refreshContextDigest('deposit', p);
     }],
     ['same-category-fungible-input-with-refreshed-context', (p) => {
