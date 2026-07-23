@@ -1,0 +1,103 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g2.preparation-p2pkh-local-v1",
+  "gate": "G2",
+  "candidate": "g0-v3-preparation-transaction-v1",
+  "claim": "The deterministic preparation transaction emits and consumes the canonical 100-byte Schnorr ALL|FORKID P2PKH authorization for deposit, transfer, and withdrawal. Its vout-0 binding and vout-1 fee siblings share the wire-order double-SHA256 parent, and its fee/change accounting is exact at the requested feerate.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "a3e38844af4bc9a342c6997cd4333a1b8ded2d0c",
+    "dirtyPaths": []
+  },
+  "environment": {
+    "observedAt": "2026-07-23T20:40:56+03:00",
+    "hardware": {
+      "architecture": "x86_64",
+      "cpu": "13th Gen Intel Core i9-13900H",
+      "onlineCpus": 20
+    },
+    "software": {
+      "os": "Linux 7.1.3-arch1-2",
+      "node": "v25.9.0",
+      "npm": "11.12.1",
+      "libauth": "3.1.0-next.8"
+    }
+  },
+  "commands": [
+    "npm ci --no-audit --no-fund --prefix packages/preparation-transaction",
+    "npm ci --no-audit --no-fund --prefix packages/settlement-context",
+    "npm ci --no-audit --no-fund --prefix packages/settlement-transaction",
+    "npm test",
+    "npm test --prefix packages/preparation-transaction",
+    "npm test --prefix packages/settlement-transaction"
+  ],
+  "artifacts": [
+    {
+      "path": "packages/preparation-transaction/preparation-transaction.mjs",
+      "sha256": "51d002aedb137343245655e45e871fb7d5025b55d5c9ae90973b7bef51318f1c",
+      "bytes": 9446
+    },
+    {
+      "path": "packages/preparation-transaction/preparation-transaction.vm.test.mjs",
+      "sha256": "931f30ef310e5856c94dcad49436c4fdb3b58f95077bc05ccba71bee417c4505",
+      "bytes": 7226
+    },
+    {
+      "path": "packages/settlement-transaction/settlement-transaction.mjs",
+      "sha256": "42b75ff89b9a5406d27df68b2aa2af61abf29988e992c418bc6617a91834b1a2",
+      "bytes": 16544
+    }
+  ],
+  "measurements": {
+    "actions": ["deposit", "transfer", "withdrawal"],
+    "preparationSignedWireBytes": 229,
+    "preparationUnlockingBytecodeBytes": 100,
+    "sighashByte": "0x41",
+    "minimumFeeRateSatoshisPerByte": 2,
+    "preparationFeeSatoshis": 458,
+    "minimumDustSafeChangeSatoshis": 546,
+    "bindingOutputIndex": 0,
+    "feeOutputIndex": 1,
+    "changeOutputIndex": 2,
+    "settlementInputBindingIndex": 7,
+    "settlementInputFeeIndex": 9
+  },
+  "tests": [
+    {
+      "name": "BCH-2026 standard VM accepts each real locally signed preparation",
+      "expected": "3 accepts",
+      "observed": "deposit, transfer, and withdrawal accepted",
+      "pass": true
+    },
+    {
+      "name": "wire/display outpoint boundary",
+      "expected": "one reversal at libauth object boundary; child siblings use raw double-SHA256 wire order",
+      "observed": "all three cases matched",
+      "pass": true
+    },
+    {
+      "name": "P2PKH authorization mutations",
+      "expected": "wrong parent, vout, alternate sighash, mismatched key, diverted change, and signature mutation reject",
+      "observed": "6 of 6 rejected",
+      "pass": true
+    },
+    {
+      "name": "canonical dust/change accounting",
+      "expected": "546-satoshi change accepted; 545-satoshi change rejected; fee equals bytes times feerate",
+      "observed": "all conditions met",
+      "pass": true
+    },
+    {
+      "name": "settlement preparation-pair structural checks",
+      "expected": "same parent, vout 0 binding, vout 1 fee, canonical source lock/unlock, and exact change lock",
+      "observed": "existing settlement package test suite passed; wrong parent/vout, source/key mismatch, diverted change, and malformed unlock cases rejected",
+      "pass": true
+    }
+  ],
+  "verdict": "PASS",
+  "limitations": [
+    "This is local Libauth BCH-2026 standard-VM evidence for the one-input preparation P2PKH transaction, not BCHN peer relay or Chipnet inclusion evidence.",
+    "The complete ten-input settlement transaction remains structurally checked only here; it cannot be claimed VM-valid until the real PF7 verifier and binding/state covenant inputs are present and executed together.",
+    "This observation neither establishes G2 nor changes its 59000-byte complete-settlement gate."
+  ]
+}
