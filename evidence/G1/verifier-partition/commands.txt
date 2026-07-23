@@ -1,0 +1,20 @@
+# Read-only source; all writes occurred in disposable /tmp staging copies.
+git clone --no-checkout /home/toorik/Projects/ZK-Proofs/verifier.cash <temp-repo>
+git -C <temp-repo> checkout --detach 26468ae29004d2401619032de2a6ec8de269a4d6
+cd <temp-repo> && npm ci --no-audit --no-fund
+cd <temp-repo>/harness && corepack pnpm install --frozen-lockfile
+cd <temp-repo>/build && corepack pnpm install --frozen-lockfile
+
+# Build the source-pinned CashC vendor outside the repo tree (Yarn classic +
+# committed yarn.lock), then copy only its dependency closure and dist outputs
+# into the disposable candidate tree.
+npx --yes --package yarn@1.22.22 yarn install --frozen-lockfile
+git -C /home/toorik/Projects/ZK-Proofs/LeanBCH archive --format=tar 51201015fdaef4562debf2a2b1cab4013a45e8b4 | tar -xf - -C <leanbch-temp>
+cd <leanbch-temp>/optimizer && npm ci --no-audit --no-fund
+
+cd <temp-repo> && LEANBCH_ROOT=<leanbch-temp> npm run vc -- build lanes/bn254-onetx/candidates/bn254-onetx-pf7-sub62-r1.json --run-id g1-pf7-sub62
+
+# Validate the emitted bundle/result and decode the complete transaction/source outputs.
+jq '{buildResult,files}' <temp-repo>/.vc/runs/g1-pf7-sub62/bundle.json
+sha256sum <temp-repo>/.vc/runs/g1-pf7-sub62/build/{result.json,c7_candidate_tx.hex,c7_candidate_srcouts.hex,boundary_parts.json,c7_opmargin.json}
+npm test
