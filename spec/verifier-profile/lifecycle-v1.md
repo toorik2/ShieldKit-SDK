@@ -7,12 +7,13 @@ transaction exists or is qualified.
 
 ## 1. Stable interface, immutable selection
 
-Implementations MUST load all verifier material through
-`loadVerifierProfileBundle(directory, expected)` as specified in
-[manifest-v1.md](manifest-v1.md). The caller that has authenticated an existing
-instance genesis MUST pass that instance's `network`, `profileId`, and
-`instanceId` as `expected`. A mismatch MUST fail; it is never an invitation to
-select a replacement bundle.
+Implementations MUST load all verifier material through the loader contract in
+[manifest-v1.md](manifest-v1.md). The JavaScript reference entry point is
+`loadVerifierProfileBundle(directory, expected)`; other SDK targets MUST enforce
+the same parsing, artifact, identity, and expected-binding rules. A caller that
+has authenticated an existing instance genesis MUST supply that instance's
+`network`, `profileId`, and `instanceId` as the expected binding. A mismatch
+MUST fail; it is never an invitation to select a replacement bundle.
 
 The stable interface is the only intended meaning of “plug-and-play”:
 
