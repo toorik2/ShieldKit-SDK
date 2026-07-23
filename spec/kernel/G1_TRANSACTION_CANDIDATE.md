@@ -2,7 +2,7 @@
 
 Status: G1 feasibility candidate; not a profile or broadcast template
 
-Version: 0.1.0
+Version: 0.2.0
 
 ## 1. Objective
 
@@ -17,23 +17,37 @@ substitute for proof verification.
 
 ### Measured integration status
 
-The nine-input layout below remains an experiment target, not a qualified
-topology. The measured six-input PF6 verifier matches its verifier-role count
-but has three unlocking bytecodes above the 9,500-byte G2 ceiling. The measured
-PF7 sub62 repartition clears that component ceiling but has seven verifier
-roles. Appending binding, state, and fee-shaped structural inputs to its
-existing scripts produced a ten-input context in which the real terminal
-verifier rejected at `OP_VERIFY`.
+The original nine-input layout below is falsified, not a qualified topology.
+The measured six-input PF6 verifier matches its verifier-role count but has
+three unlocking bytecodes above the 9,500-byte G2 ceiling. An intermediate PF7
+experiment appeared to use seven verifier roles only because inputs 7–9 were
+structural and unevaluated.
 
-Therefore neither existing fixed-VK verifier can be relabeled as this
-settlement candidate. G1 must generate and execute either a new explicit
-ten-role profile with seven verifier roles plus separate binding/state/fee
-roles, or a real merged-role construction that preserves every binding
-condition. No merged construction currently exists.
+The fully parameterized PF7 build against the real development-v0 setup and
+deposit proof instead consumes **all ten inputs** as verifier roles:
+`exec0`–`exec6`, `genesis`, `finalize`, and `fused`. All ten accept in the real
+BCH-2026 VM at 81,563 serialized bytes and 82,739 scored bytes, but `exec0`
+uses a 9,596-byte unlocking bytecode and therefore misses the 9,500-byte G2
+headroom ceiling. Inputs 7–9 cannot simultaneously be relabeled as binding,
+state, and fee roles.
 
-## 2. Settlement inputs
+Only two active topology candidates remain:
 
-The candidate settlement transaction has exactly nine inputs in this order:
+1. regenerate the ten verifier roles against an exact **thirteen-input**
+   envelope, then place binding, state, and transparent fee roles at indices
+   10–12; or
+2. merge the complete binding, state, and fee semantics into the verifier's
+   `genesis`, `finalize`, and `fused` roles without weakening either the
+   verifier or settlement conditions.
+
+Neither candidate is accepted by this document. Each must execute with the
+real setup, proof, covenants, standardness checks, and adversarial corpus.
+Implementations must not build new work against the stale 0–6 verifier /
+7–9 settlement mapping.
+
+## 2. Original settlement-input hypothesis (falsified)
+
+The earlier candidate transaction had exactly nine inputs in this order:
 
 | Index | Role | Required source output |
 | ---: | --- | --- |
@@ -42,11 +56,16 @@ The candidate settlement transaction has exactly nine inputs in this order:
 | 7 | state and BCH reserve | instance-bound P2S state covenant holding the unique mutable state NFT |
 | 8 | transparent fee funding | one ordinary user- or sponsor-controlled BCH UTXO |
 
-All inputs use sequence `0`; transaction version is `2`; locktime is `0`.
+All inputs used sequence `0`; transaction version was `2`; locktime was `0`.
 
-The verifier topology is not assumed to remain valid when the input count grows
-from its six-input sizing fixture to nine. Every verifier role must be generated
-for and execute against the exact nine-input topology.
+This layout is retained as falsification history only. The complete PF7
+verifier requires ten verifier inputs, so no profile, builder, test, or evidence
+may instantiate this table as the active topology.
+
+Sections 3–11 preserve the semantic binding requirements discovered through
+this hypothesis. Their numeric input references are historical and must be
+remapped only after either the thirteen-input or merged-role candidate executes
+successfully. The requirements themselves may not be dropped during remapping.
 
 ## 3. Dependency construction without circular script hashes
 
