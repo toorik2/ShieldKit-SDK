@@ -35,7 +35,7 @@ function testPlan(kind, publicKey) {
     fundingPublicKey: Buffer.from(publicKey).toString('hex'),
     fundingSourceValueSatoshis: kind === 'deposit' ? '10200000' : '200000',
     kind,
-    minimumFeeRateSatoshisPerByte: '2',
+    minimumFeeRateSatoshisPerByte: '1',
     settlementFeeFundingSatoshis: '100000',
   };
 }
@@ -170,7 +170,7 @@ test('preparation requires an exactly dust-safe canonical change at the requeste
   assert.equal(dustSigned.signed.outputValues.preparationChangeSatoshis, '546');
   assert.equal(
     dustSigned.signed.measurements.feeSatoshis,
-    (BigInt(dustSigned.signed.measurements.wireBytes) * 2n).toString(),
+    BigInt(dustSigned.signed.measurements.wireBytes).toString(),
   );
 
   const insufficient = structuredClone(dust);

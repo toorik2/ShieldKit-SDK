@@ -15,6 +15,10 @@ withdrawal do not. The planner sizes the fixed 100-byte Schnorr
 without burning a remainder. Finalization substitutes the 64-byte signature
 without changing size and returns both wire-order sibling outpoints.
 
+Protocol fee sizing and primary conformance evidence use 1 satoshi per
+serialized byte. Higher explicit rates may be tested only as planner
+parameterization; they are not the baseline.
+
 This package validates deterministic construction and byte accounting. It does
 not claim that a supplied signature is cryptographically valid or that a peer
 accepted, relayed, or mined the transaction; those are VM and Chipnet gates.
