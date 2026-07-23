@@ -31,11 +31,13 @@ uses a 9,596-byte unlocking bytecode and therefore misses the 9,500-byte G2
 headroom ceiling. Inputs 7–9 cannot simultaneously be relabeled as binding,
 state, and fee roles.
 
-Only two active topology candidates remain:
+Only two active topology families remain:
 
-1. regenerate the ten verifier roles against an exact **thirteen-input**
-   envelope, then place binding, state, and transparent fee roles at indices
-   10–12; or
+1. regenerate an expanded envelope with at least the ten measured verifier
+   roles plus binding, state, and transparent fee roles. Thirteen inputs is the
+   minimum experiment; an additional verifier role is permitted only if a
+   measured repartition is required to bring every unlock to 9,500 bytes or
+   less; or
 2. merge the complete binding, state, and fee semantics into the verifier's
    `genesis`, `finalize`, and `fused` roles without weakening either the
    verifier or settlement conditions.
@@ -64,7 +66,7 @@ may instantiate this table as the active topology.
 
 Sections 3–11 preserve the semantic binding requirements discovered through
 this hypothesis. Their numeric input references are historical and must be
-remapped only after either the thirteen-input or merged-role candidate executes
+remapped only after either an expanded-input or merged-role candidate executes
 successfully. The requirements themselves may not be dropped during remapping.
 
 ## 3. Dependency construction without circular script hashes
