@@ -222,6 +222,35 @@ function refreshContextDigest(kind, program) {
   program.preimage = preimage;
 }
 
+function resolveExactFee(kind, program) {
+  const totalInputs = program.sourceOutputs.reduce(
+    (sum, output) => sum + output.valueSatoshis,
+    0n,
+  );
+  const change = program.transaction.outputs.at(-1);
+  const fixedOutputs = program.transaction.outputs.slice(0, -1).reduce(
+    (sum, output) => sum + output.valueSatoshis,
+    0n,
+  );
+  let next = 1n;
+  for (let iteration = 0; iteration < 8; iteration += 1) {
+    change.valueSatoshis = next;
+    const wire = BigInt(encodeTransaction(program.transaction).length);
+    const resolved = totalInputs - fixedOutputs - wire;
+    assert.ok(resolved > 0n, `${kind} fixture must fund its exact fee`);
+    if (resolved === next) {
+      refreshContextDigest(kind, program);
+      assert.equal(totalInputs - program.transaction.outputs.reduce(
+        (sum, output) => sum + output.valueSatoshis,
+        0n,
+      ), BigInt(encodeTransaction(program.transaction).length));
+      return;
+    }
+    next = resolved;
+  }
+  assert.fail(`${kind} exact-fee fixture did not converge`);
+}
+
 function evaluate(lock, program, inputIndex, standard) {
   return createVirtualMachineBch2026(standard).evaluate({
     inputIndex,
@@ -405,6 +434,7 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
   for (const kind of ['deposit', 'transfer', 'withdrawal']) {
     const program = programFor(kind, bindingLock, stateLock);
     program.transaction.inputs[8].unlockingBytecode = stateUnlock;
+    resolveExactFee(kind, program);
     for (const standard of [false, true]) {
       const bindingResult = evaluate(bindingLock, program, 7, standard);
       assert.equal(
@@ -426,6 +456,7 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
 
   const baseline = programFor('deposit', bindingLock, stateLock);
   baseline.transaction.inputs[8].unlockingBytecode = stateUnlock;
+  resolveExactFee('deposit', baseline);
   const mutations = [
     ['helper-byte', (p) => { p.transaction.inputs[8].unlockingBytecode[3] ^= 1; }],
     ['extra-helper-push', (p) => {
@@ -473,6 +504,14 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
       p.transaction.outputs[0].valueSatoshis += 1n;
       refreshContextDigest('deposit', p);
     }],
+    ['one-satoshi-overfee-with-refreshed-context', (p) => {
+      p.transaction.outputs.at(-1).valueSatoshis -= 1n;
+      refreshContextDigest('deposit', p);
+    }],
+    ['one-satoshi-underfee-with-refreshed-context', (p) => {
+      p.transaction.outputs.at(-1).valueSatoshis += 1n;
+      refreshContextDigest('deposit', p);
+    }],
     ['same-category-fungible-input-with-refreshed-context', (p) => {
       p.sourceOutputs[0].token = {
         category: Uint8Array.from(stateCategory),
@@ -514,9 +553,52 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
 
   const withdrawal = programFor('withdrawal', bindingLock, stateLock);
   withdrawal.transaction.inputs[8].unlockingBytecode = stateUnlock;
+  resolveExactFee('withdrawal', withdrawal);
   withdrawal.transaction.outputs[1].lockingBytecode = Buffer.of(0x52);
   refreshContextDigest('withdrawal', withdrawal);
   assert.equal(accepts(evaluate(stateLock, withdrawal, 8, true)), false);
+
+  // The fee covenant sizes each output as value8 || CompactSize(tokenPrefix
+  // + lockingBytecode) || tokenPrefix || lockingBytecode. Exercise both sides
+  // of the CompactSize 252/253 transition with a packet-bound withdrawal
+  // script, then confirm the extra script byte plus CompactSize growing from
+  // one to three bytes adds exactly three serialized bytes and sats.
+  const compactSizeBoundary = [];
+  for (const scriptLength of [252, 253]) {
+    const boundary = programFor('withdrawal', bindingLock, stateLock);
+    boundary.transaction.inputs[8].unlockingBytecode = stateUnlock;
+    const withdrawalScript = Buffer.alloc(scriptLength, 0x51);
+    boundary.transaction.outputs[1].lockingBytecode = withdrawalScript;
+    sha256(withdrawalScript).copy(
+      boundary.transaction.inputs[7].unlockingBytecode,
+      3 + 688,
+    );
+    resolveExactFee('withdrawal', boundary);
+    assert.equal(
+      accepts(evaluate(stateLock, boundary, 8, true)),
+      true,
+      `withdrawal script length ${scriptLength}`,
+    );
+    compactSizeBoundary.push({
+      scriptLength,
+      wireBytes: encodeTransaction(boundary.transaction).length,
+      feeSatoshis: (boundary.sourceOutputs.reduce(
+        (sum, output) => sum + output.valueSatoshis,
+        0n,
+      ) - boundary.transaction.outputs.reduce(
+        (sum, output) => sum + output.valueSatoshis,
+        0n,
+      )).toString(),
+    });
+  }
+  assert.equal(
+    compactSizeBoundary[1].wireBytes - compactSizeBoundary[0].wireBytes,
+    3,
+  );
+  assert.equal(
+    BigInt(compactSizeBoundary[1].feeSatoshis) - BigInt(compactSizeBoundary[0].feeSatoshis),
+    3n,
+  );
 
   const measuredPf7StructuralWire = {
     deposit: 55_311,
@@ -563,6 +645,7 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
     stateHelperStandardOperationCost: operationCost,
     packetBindingStandardOperationCost: bindingOperationCost,
     isolatedTenInputFixtureWireBytes: fixtureWireBytes,
+    compactSizeBoundary,
     structuralEnvelopeRecalculationNotCompleteMeasurement: {
       correctedFixedEnvelopeBytes,
       ...envelopeRecalculation,

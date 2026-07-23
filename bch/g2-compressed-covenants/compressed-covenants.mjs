@@ -18,6 +18,7 @@ const op = Object.freeze({
   NIP: 0x77,
   OVER: 0x78,
   PICK: 0x79,
+  ROT: 0x7b,
   TUCK: 0x7d,
   SWAP: 0x7c,
   CAT: 0x7e,
@@ -480,6 +481,91 @@ function requirePacketSlice(out, start, length, expected) {
   emit(out, op.EQUALVERIFY);
 }
 
+// The G2 fee rule is consensus-critical: every action pays exactly one
+// satoshi per final serialized byte. The four loops below derive that equality
+// from BCH introspection rather than trusting a packet field or JS builder.
+// Input count is fixed at 10. The sole tokenized output is state output 0;
+// its canonical CashTokens prefix is 115 bytes: 0xef, 32-byte category plus
+// mutable capability, 0x50 commitment length, 80-byte commitment, amount 0.
+function appendCompactSizeLength(out) {
+  // Entry/exit: [..., n] -> [..., CompactSize(n)]. All relevant scripts are
+  // below 65536 bytes, so the only possible encodings are 1 or 3 bytes.
+  emit(out, op.DUP, op.ZERO);
+  emitNumber(out, 253);
+  emit(out, op.WITHIN, op.IF, op.ONE, op.ELSE);
+  emitNumber(out, 3);
+  emit(out, op.ENDIF);
+}
+
+function appendInputValueSum(out) {
+  // [index, sum], loop to total input satoshis.
+  emit(out, op.ZERO, op.ZERO, op.BEGIN);
+  emit(out, op.OVER, op.UTXOVALUE, op.SWAP, op.ADD);
+  emit(out, op.SWAP, op.ONEADD, op.SWAP, op.OVER);
+  emitNumber(out, 10);
+  emit(out, op.NUMEQUAL, op.UNTIL, op.NIP);
+}
+
+function appendOutputValueSum(out) {
+  // [index, sum], loop to total output satoshis.
+  emit(out, op.ZERO, op.ZERO, op.BEGIN);
+  emit(out, op.OVER, op.OUTPUTVALUE, op.SWAP, op.ADD);
+  emit(out, op.SWAP, op.ONEADD, op.SWAP, op.OVER, op.TXOUTPUTCOUNT);
+  emit(out, op.NUMEQUAL, op.UNTIL, op.NIP);
+}
+
+function appendInputWireBytes(out) {
+  // Per input: 32-byte hash + 4-byte vout + CompactSize(unlock) + unlock +
+  // 4-byte sequence. BCH-2026 introspection exposes the exact unlock bytes.
+  emit(out, op.ZERO, op.ZERO, op.BEGIN);
+  emit(out, op.OVER, op.INPUTBYTECODE, op.SIZE, op.NIP);
+  appendCompactSizeLength(out);
+  emit(out, op.ADD);
+  emitNumber(out, 40);
+  emit(out, op.ADD, op.SWAP, op.ADD);
+  emit(out, op.SWAP, op.ONEADD, op.SWAP, op.OVER);
+  emitNumber(out, 10);
+  emit(out, op.NUMEQUAL, op.UNTIL, op.NIP);
+}
+
+function appendOutputWireBytes(out) {
+  // Per output: value(8) + CompactSize(token prefix + lock) + token prefix
+  // + lock. BCH encodes one combined field length, not separate token/script
+  // lengths. All non-state tokens were already rejected by SCCT.
+  emit(out, op.ZERO, op.ZERO, op.BEGIN);
+  emit(out, op.OVER, op.ZERO, op.NUMEQUAL, op.IF);
+  emitNumber(out, 115);
+  emit(out, op.ELSE, op.ZERO, op.ENDIF, op.TOALTSTACK);
+  emit(out, op.OVER, op.OUTPUTBYTECODE, op.SIZE, op.NIP, op.FROMALTSTACK, op.ADD);
+  // This keeps the CompactSize derivation closed to its 1/3-byte branches and
+  // bounds a withdrawal recipient script even when its hash is proof-bound.
+  emit(out, op.DUP, op.ZERO);
+  emitNumber(out, 10_001);
+  emit(out, op.WITHIN, op.VERIFY);
+  appendCompactSizeLength(out);
+  emit(out, op.ADD);
+  emitNumber(out, 8);
+  emit(out, op.ADD, op.SWAP, op.ADD);
+  emit(out, op.SWAP, op.ONEADD, op.SWAP, op.OVER, op.TXOUTPUTCOUNT);
+  emit(out, op.NUMEQUAL, op.UNTIL, op.NIP);
+}
+
+function appendExactOneSatPerByteFee(out) {
+  appendInputValueSum(out);
+  emit(out, op.TOALTSTACK);
+  appendOutputValueSum(out);
+  emit(out, op.FROMALTSTACK, op.SWAP, op.SUB, op.TOALTSTACK);
+
+  appendInputWireBytes(out);
+  emit(out, op.TOALTSTACK);
+  appendOutputWireBytes(out);
+  emit(out, op.FROMALTSTACK, op.ADD);
+  // version(4) + CompactSize(10 inputs)(1) + CompactSize(outputs)(1) +
+  // locktime(4). Input/output counts are bounded below 253 by other checks.
+  emitNumber(out, 10);
+  emit(out, op.ADD, op.FROMALTSTACK, op.EQUALVERIFY);
+}
+
 /**
  * Full executable state/settlement helper for the hash-authenticated state
  * trampoline. Unlike a P2S lock, this helper is carried in input 8's unlocking
@@ -627,7 +713,12 @@ export function buildStateSettlementHelper({
   emitNumber(out, 10_000_000);
   emit(out, op.NUMEQUALVERIFY, op.ONE, op.OUTPUTBYTECODE, op.SHA256);
   extractInputBytecodeSlice(out, 691, 32);
-  emit(out, op.EQUALVERIFY, op.ENDIF, op.ONE);
+  emit(out, op.EQUALVERIFY, op.ENDIF);
+  // Must execute after every value/token/shape constraint above. This binds
+  // the actual fee, including a valid but overpaying re-proved packet, to the
+  // exact serialized transaction length at the protocol's fixed rate.
+  appendExactOneSatPerByteFee(out);
+  emit(out, op.ONE);
   return Uint8Array.from(out);
 }
 
