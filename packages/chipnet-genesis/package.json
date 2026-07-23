@@ -1,0 +1,12 @@
+{
+  "name": "@shield.cash/chipnet-genesis",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8"
+  }
+}
