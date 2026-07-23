@@ -7,6 +7,8 @@ include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/bitify.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 include "../node_modules/circomlib/circuits/sha256/sha256.circom";
+include "../node_modules/circomlib/circuits/pointbits.circom";
+include "../node_modules/circomlib/circuits/escalarmulany.circom";
 
 template Bool() {
     signal input in;
@@ -31,6 +33,37 @@ template Hash3() {
     p.inputs[1] <== left;
     p.inputs[2] <== right;
     out <== p.out;
+}
+
+// The record stores standard circomlib compressed BabyJubJub points as LE
+// bytes. recordBits remains BE per byte for the SHA packet, hence this adapter.
+template RecordPoint() {
+    signal input bits[256];
+    signal output point[2];
+    component decode = Bits2Point_Strict();
+    for (var i = 0; i < 256; i++) decode.in[i] <== bits[i];
+    point[0] <== decode.out[0]; point[1] <== decode.out[1];
+}
+
+// Reject low-order and identity address keys. EscalarMulAny computes [l]P;
+// it is used as an explicit subgroup check, not as an assumption about P.
+template PrimeSubgroupPoint() {
+    signal input point[2];
+    var L = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
+    component nonidentity = IsZero(); nonidentity.in <== point[0]; nonidentity.out === 0;
+    component order = EscalarMulAny(251);
+    for (var i = 0; i < 251; i++) order.e[i] <== (L >> i) & 1;
+    order.p[0] <== point[0]; order.p[1] <== point[1];
+    order.out[0] === 0; order.out[1] === 1;
+}
+
+template RecordField(offset) {
+    signal input record[1536];
+    signal output out;
+    record[offset] === 0; record[offset+1] === 0;
+    component bits = Bits2Num(254);
+    for (var i = 0; i < 254; i++) bits.in[i] <== record[offset + 255 - i];
+    out <== bits.out;
 }
 
 template StateCommitment() {
@@ -179,9 +212,10 @@ template G1Relation() {
     component inputAkBits = Num2Bits(254); inputAkBits.in <== inputAk;
     component inputCmBits = Num2Bits(254); inputCmBits.in <== inputCm;
     component inputNfBits = Num2Bits(254); inputNfBits.in <== inputNf;
-    component spendAuth = Poseidon(6);
-    spendAuth.inputs[0] <== 1001; spendAuth.inputs[1] <== profileHi; spendAuth.inputs[2] <== profileLo;
-    spendAuth.inputs[3] <== instanceHi; spendAuth.inputs[4] <== instanceLo; spendAuth.inputs[5] <== inSk;
+    component spendPublic = BabyPbk(); spendPublic.in <== inSk;
+    component spendAuth = Poseidon(7);
+    spendAuth.inputs[0] <== 1004; spendAuth.inputs[1] <== profileHi; spendAuth.inputs[2] <== profileLo;
+    spendAuth.inputs[3] <== instanceHi; spendAuth.inputs[4] <== instanceLo; spendAuth.inputs[5] <== spendPublic.Ax; spendAuth.inputs[6] <== spendPublic.Ay;
     component inputNote = Poseidon(9);
     inputNote.inputs[0] <== 1002; inputNote.inputs[1] <== profileHi; inputNote.inputs[2] <== profileLo;
     inputNote.inputs[3] <== instanceHi; inputNote.inputs[4] <== instanceLo; inputNote.inputs[5] <== D;
@@ -308,6 +342,58 @@ template G1Relation() {
     signal input recordBits[RECORD_BITS];
     component recordBoolean[RECORD_BITS];
     for (var r = 0; r < RECORD_BITS; r++) { recordBoolean[r] = Bool(); recordBoolean[r].in <== recordBits[r]; isWithdrawal * recordBits[r] === 0; }
+
+    // Recovery record v2 (192 bytes): version=2, slot=0, compressed recipient
+    // and ephemeral BabyJubJub points, c_rho, c_r, Poseidon authenticator, and
+    // thirty zero bytes. Unlike V1, every active byte is semantically bound.
+    hasOutput * recordBits[0] === 0; hasOutput * recordBits[1] === 0; hasOutput * recordBits[2] === 0;
+    hasOutput * recordBits[3] === 0; hasOutput * recordBits[4] === 0; hasOutput * recordBits[5] === 0;
+    hasOutput * (recordBits[6] - 1) === 0; hasOutput * recordBits[7] === 0;
+    for (var recordSlotBit = 8; recordSlotBit < 16; recordSlotBit++) hasOutput * recordBits[recordSlotBit] === 0;
+    for (var recordPaddingBit = 1296; recordPaddingBit < 1536; recordPaddingBit++) hasOutput * recordBits[recordPaddingBit] === 0;
+
+    // The zero withdrawal record cannot be decoded as a point. Feed the fixed
+    // Base8 point to all always-present gadgets on that inactive branch.
+    component dummyPoint = BabyPbk(); dummyPoint.in <== 1;
+    component dummyPacked = Point2Bits_Strict(); dummyPacked.in[0] <== dummyPoint.Ax; dummyPacked.in[1] <== dummyPoint.Ay;
+    signal recipientCompressed[256]; signal ephemeralCompressed[256];
+    component selectRecipientRecord[256]; component selectEphemeralRecord[256];
+    for (var pointBit = 0; pointBit < 256; pointBit++) {
+        selectRecipientRecord[pointBit] = Select(); selectRecipientRecord[pointBit].whenZero <== dummyPacked.out[pointBit]; selectRecipientRecord[pointBit].whenOne <== recordBits[16 + 8*(pointBit\8) + 7 - (pointBit%8)]; selectRecipientRecord[pointBit].select <== hasOutput; recipientCompressed[pointBit] <== selectRecipientRecord[pointBit].out;
+        selectEphemeralRecord[pointBit] = Select(); selectEphemeralRecord[pointBit].whenZero <== dummyPacked.out[pointBit]; selectEphemeralRecord[pointBit].whenOne <== recordBits[272 + 8*(pointBit\8) + 7 - (pointBit%8)]; selectEphemeralRecord[pointBit].select <== hasOutput; ephemeralCompressed[pointBit] <== selectEphemeralRecord[pointBit].out;
+    }
+    component recipientPoint = RecordPoint(); component ephemeralPoint = RecordPoint();
+    for (var decodedBit = 0; decodedBit < 256; decodedBit++) { recipientPoint.bits[decodedBit] <== recipientCompressed[decodedBit]; ephemeralPoint.bits[decodedBit] <== ephemeralCompressed[decodedBit]; }
+    component recipientSubgroup = PrimeSubgroupPoint(); recipientSubgroup.point[0] <== recipientPoint.point[0]; recipientSubgroup.point[1] <== recipientPoint.point[1];
+    component ephemeralSubgroup = PrimeSubgroupPoint(); ephemeralSubgroup.point[0] <== ephemeralPoint.point[0]; ephemeralSubgroup.point[1] <== ephemeralPoint.point[1];
+
+    signal input recoveryEphemeralScalar;
+    component recoveryEphemeralBits = Num2Bits(253); recoveryEphemeralBits.in <== recoveryEphemeralScalar;
+    isWithdrawal * recoveryEphemeralScalar === 0;
+    component recoveryEphemeralZero = IsZero(); recoveryEphemeralZero.in <== recoveryEphemeralScalar; hasOutput * recoveryEphemeralZero.out === 0;
+    signal effectiveEphemeralScalar <== recoveryEphemeralScalar + isWithdrawal;
+    component effectiveEphemeralBits = Num2Bits(253); effectiveEphemeralBits.in <== effectiveEphemeralScalar;
+    component derivedEphemeral = BabyPbk(); derivedEphemeral.in <== effectiveEphemeralScalar;
+    derivedEphemeral.Ax === ephemeralPoint.point[0]; derivedEphemeral.Ay === ephemeralPoint.point[1];
+    component sharedPoint = EscalarMulAny(253);
+    for (var sharedBit = 0; sharedBit < 253; sharedBit++) sharedPoint.e[sharedBit] <== effectiveEphemeralBits.out[sharedBit];
+    sharedPoint.p[0] <== recipientPoint.point[0]; sharedPoint.p[1] <== recipientPoint.point[1];
+
+    component recordRho = RecordField(528); component recordR = RecordField(784); component recordAuth = RecordField(1040);
+    for (var recordFieldBit = 0; recordFieldBit < 1536; recordFieldBit++) { recordRho.record[recordFieldBit] <== recordBits[recordFieldBit]; recordR.record[recordFieldBit] <== recordBits[recordFieldBit]; recordAuth.record[recordFieldBit] <== recordBits[recordFieldBit]; }
+    component recipientAuthority = Poseidon(7);
+    recipientAuthority.inputs[0] <== 1004; recipientAuthority.inputs[1] <== profileHi; recipientAuthority.inputs[2] <== profileLo;
+    recipientAuthority.inputs[3] <== instanceHi; recipientAuthority.inputs[4] <== instanceLo; recipientAuthority.inputs[5] <== recipientPoint.point[0]; recipientAuthority.inputs[6] <== recipientPoint.point[1];
+    hasOutput * (outputAk - recipientAuthority.out) === 0;
+    component recoveryShared = Poseidon(9);
+    recoveryShared.inputs[0] <== 1101; recoveryShared.inputs[1] <== recipientPoint.point[0]; recoveryShared.inputs[2] <== recipientPoint.point[1]; recoveryShared.inputs[3] <== ephemeralPoint.point[0]; recoveryShared.inputs[4] <== ephemeralPoint.point[1]; recoveryShared.inputs[5] <== sharedPoint.out[0]; recoveryShared.inputs[6] <== sharedPoint.out[1]; recoveryShared.inputs[7] <== outputCm; recoveryShared.inputs[8] <== isDeposit + 2*isTransfer + 3*isWithdrawal;
+    component recoveryRhoMask = Poseidon(6); recoveryRhoMask.inputs[0] <== 1102; recoveryRhoMask.inputs[1] <== recoveryShared.out; recoveryRhoMask.inputs[2] <== profileHi; recoveryRhoMask.inputs[3] <== profileLo; recoveryRhoMask.inputs[4] <== instanceHi; recoveryRhoMask.inputs[5] <== instanceLo;
+    component recoveryRMask = Poseidon(6); recoveryRMask.inputs[0] <== 1103; recoveryRMask.inputs[1] <== recoveryShared.out; recoveryRMask.inputs[2] <== profileHi; recoveryRMask.inputs[3] <== profileLo; recoveryRMask.inputs[4] <== instanceHi; recoveryRMask.inputs[5] <== instanceLo;
+    component recoveryAuthenticator = Poseidon(9);
+    recoveryAuthenticator.inputs[0] <== 1104; recoveryAuthenticator.inputs[1] <== recoveryShared.out; recoveryAuthenticator.inputs[2] <== recordRho.out; recoveryAuthenticator.inputs[3] <== recordR.out; recoveryAuthenticator.inputs[4] <== outputAk; recoveryAuthenticator.inputs[5] <== profileHi; recoveryAuthenticator.inputs[6] <== profileLo; recoveryAuthenticator.inputs[7] <== instanceHi; recoveryAuthenticator.inputs[8] <== instanceLo;
+    hasOutput * (recordRho.out - outputRho - recoveryRhoMask.out) === 0;
+    hasOutput * (recordR.out - outputR - recoveryRMask.out) === 0;
+    hasOutput * (recordAuth.out - recoveryAuthenticator.out) === 0;
 
     signal input transactionContextHi;
     signal input transactionContextLo;

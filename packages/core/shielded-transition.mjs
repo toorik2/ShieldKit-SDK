@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { buildPoseidon } from 'circomlibjs';
 import { encodeActionPacket } from '../action-packet/action-packet.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
+import { BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, babyJubMul } from '../recovery/portable-core.mjs';
 
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const DENOMINATION_SATS = 10_000_000n;
@@ -15,7 +16,7 @@ export const NETWORK_CHIPNET = 2;
 
 // Concrete candidate tags, encoded as canonical Fr integer literals.
 export const DOMAIN_TAGS = Object.freeze({
-  SPEND_AUTHORITY: 1001n,
+  SPEND_AUTHORITY: 1004n,
   NOTE: 1002n,
   NULLIFIER: 1003n,
   NOTE_TREE_LEAF: 1010n,
@@ -204,8 +205,9 @@ export async function createShieldedTransitionReference() {
     const { profileId, instanceId, sk, rho, r } = noteWitness;
     const profile = identifierLimbs(profileId, 'note profileId'); const instance = identifierLimbs(instanceId, 'note instanceId');
     const secret = frFromHex(sk, 'note sk'); const nonce = frFromHex(rho, 'note rho'); const randomness = frFromHex(r, 'note r');
-    if (secret === 0n || nonce === 0n || randomness === 0n) fail('note sk, rho, and r must be nonzero');
-    const ak = hash(DOMAIN_TAGS.SPEND_AUTHORITY, ...profile, ...instance, secret);
+    if (secret === 0n || secret >= BABYJUB_SUBGROUP_ORDER || nonce === 0n || randomness === 0n) fail('note sk must be a canonical BabyJubJub scalar and rho/r must be nonzero');
+    const recipient = babyJubMul(BABYJUB_BASE8, secret);
+    const ak = hash(DOMAIN_TAGS.SPEND_AUTHORITY, ...profile, ...instance, recipient[0], recipient[1]);
     const cm = hash(DOMAIN_TAGS.NOTE, ...profile, ...instance, DENOMINATION_SATS, ak, nonce, randomness);
     const nf = hash(DOMAIN_TAGS.NULLIFIER, ...profile, ...instance, secret, nonce);
     if (cm === 0n || nf === 0n) fail('derived note commitment or nullifier is zero');

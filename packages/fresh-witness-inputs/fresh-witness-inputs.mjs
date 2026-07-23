@@ -77,7 +77,7 @@ function sparsePath(reference, target, leaves) {
   return siblings;
 }
 function noteKey(note) { return BigInt(`0x${Buffer.from(note.nf, 'hex').subarray(16).toString('hex')}`); }
-function circuitInput({ kind, action, prepared, reference, maximumLiveNotes }) {
+function circuitInput({ kind, action, prepared, reference, maximumLiveNotes, recoveryEphemeralScalar = '0' }) {
   const pre = prepared.preState; const post = prepared.postState; const profileId = pre.profileId; const instanceId = pre.instanceId;
   const spend = action.spend ? reference.deriveNote({ ...action.spend.note, profileId, instanceId }) : undefined;
   const output = action.outputNote ? reference.deriveOutputNote({ ...action.outputNote, profileId, instanceId }) : undefined;
@@ -92,7 +92,7 @@ function circuitInput({ kind, action, prepared, reference, maximumLiveNotes }) {
     outputAk: output ? toDec(output.ak) : zero, outputRho: output ? toDec(output.rho) : zero, outputR: output ? toDec(output.r) : zero, outputCm: output ? toDec(output.cm) : zero,
     appendSiblings: (action.noteAppendPath?.siblings ?? Array(NOTE_TREE_DEPTH).fill('0'.repeat(64))).map(toDec), noteSiblings: (action.spend?.noteSiblings ?? Array(NOTE_TREE_DEPTH).fill('0'.repeat(64))).map(toDec), noteIndex: action.spend?.noteIndex ?? zero, nullifierSiblings: (action.spend?.nullifierSiblings ?? Array(NULLIFIER_TREE_DEPTH).fill('0'.repeat(64))).map(toDec),
     boundaryAmount: kind === 'transfer' ? zero : DENOMINATION_SATS.toString(), withdrawalScriptHi: withdrawal ? idLimbs(withdrawal.scriptHash)[0] : zero, withdrawalScriptLo: withdrawal ? idLimbs(withdrawal.scriptHash)[1] : zero,
-    recordBits: recordBits(action.outputRecord), transactionContextHi: idLimbs(action.transactionContextDigest)[0], transactionContextLo: idLimbs(action.transactionContextDigest)[1],
+    recordBits: recordBits(action.outputRecord), recoveryEphemeralScalar, transactionContextHi: idLimbs(action.transactionContextDigest)[0], transactionContextLo: idLimbs(action.transactionContextDigest)[1],
   });
 }
 
@@ -146,7 +146,8 @@ export async function generateFreshWitnessInputs(input) {
   const actions = { deposit, transfer, withdrawal }; const result = {};
   for (const kind of KINDS) {
     const prepared = reference.transition({ ...actions[kind], publicInputs: reference.prepareTransition(actions[kind]).publicInputs });
-    result[kind] = Object.freeze({ action: actions[kind], actionPacket: prepared.actionPacket, actionPacketHex: prepared.actionPacket.toString('hex'), actionDigest: prepared.actionDigest, publicInputs: prepared.publicInputs, circuitInput: circuitInput({ kind, action: actions[kind], prepared, reference, maximumLiveNotes }) });
+    const recoveryEphemeralScalar = kind === 'deposit' ? depositOutput.recoveryWitness.ephemeralScalar : kind === 'transfer' ? transferOutput.recoveryWitness.ephemeralScalar : '0';
+    result[kind] = Object.freeze({ action: actions[kind], actionPacket: prepared.actionPacket, actionPacketHex: prepared.actionPacket.toString('hex'), actionDigest: prepared.actionDigest, publicInputs: prepared.publicInputs, circuitInput: circuitInput({ kind, action: actions[kind], prepared, reference, maximumLiveNotes, recoveryEphemeralScalar }) });
   }
   return Object.freeze({ schema: 'shield.cash/fresh-witness-inputs/v1', qualification: 'development-only relation witness material; no proof, PF7 verification, G2 settlement, Chipnet, or privacy claim', profile: Object.freeze({ profileId, instanceId, stateNftCategory: bundle.manifest.genesis.stateNftCategory, reserveCapSatoshis: maximumReserve, setupMode: bundle.manifest.setup.mode }), actions: Object.freeze(result) });
 }

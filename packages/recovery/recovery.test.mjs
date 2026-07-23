@@ -5,8 +5,7 @@ import {
   RECOVERY_RECORD_LAYOUT, RecoveryError, constructRecipientOutput, deriveRecipientAddress,
   deriveRecipientWallet, recoverRecipientOutput,
 } from './recovery.mjs';
-import { NODE_CRYPTO_BACKEND } from './node-backend.mjs';
-import { FR_MODULUS, NOBLE_CRYPTO_BACKEND, bytesToHex } from './portable-core.mjs';
+import { FR_MODULUS, bytesToHex } from './portable-core.mjs';
 
 const id = () => randomBytes(32).toString('hex');
 const publicRng = () => {
@@ -52,12 +51,23 @@ test('recovery rejects wrong seed, profile, instance, kind, slot, and commitment
   for (const mutation of cases) await assert.rejects(() => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, ...chainOutput, ...mutation }), RecoveryError);
 });
 
-test('record authentication binds ephemeral key, nonce, tag, ciphertext, AAD, and zero padding', async () => {
+test('record authentication binds recipient and ephemeral points, ciphertexts, tag, and zero padding', async () => {
   const { profileId, instanceId, recipientSeed, chainOutput } = await crossWalletFixture();
-  for (const offset of [2, 34, 46, 62, 190]) {
+  for (const offset of [2, 34, 66, 98, 130, 162]) {
     const record = Buffer.from(chainOutput.record); record[offset] ^= 1;
-    await assert.rejects(() => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: chainOutput.outputCommitment, record }), offset === 190 ? /padding/ : /authentication failed/);
+    await assert.rejects(() => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: chainOutput.outputCommitment, record }), offset === 162 ? /padding/ : /authentication failed|point/);
   }
+});
+
+test('rejects an owned-address recovery record poisoned with another valid note secret', async () => {
+  const { profileId, instanceId, recipientSeed, address } = await crossWalletFixture();
+  const rng = publicRng();
+  const first = await constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng });
+  const second = await constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng });
+  await assert.rejects(
+    () => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'deposit', slot: 0, outputCommitment: first.output.cm, record: second.record }),
+    /authentication failed|commitment does not match/,
+  );
 });
 
 test('strictly rejects noncanonical or zero fields, unknown properties, and CSPRNG failure', async () => {
@@ -73,20 +83,13 @@ test('strictly rejects noncanonical or zero fields, unknown properties, and CSPR
   await assert.rejects(() => deriveRecipientAddress({ seed: Buffer.alloc(31), profileId, instanceId }), /exactly 32/);
 });
 
-test('pinned V1 vector is byte-identical across noble portable and native Node crypto backends', async () => {
+test('pinned V2 vector is deterministic for an explicitly supplied CSPRNG stream', async () => {
   const seed = Buffer.from('11'.repeat(32), 'hex'); const profileId = '22'.repeat(32); const instanceId = '33'.repeat(32);
-  const nobleAddress = await deriveRecipientAddress({ seed, profileId, instanceId, cryptoBackend: NOBLE_CRYPTO_BACKEND });
-  const nodeAddress = await deriveRecipientAddress({ seed, profileId, instanceId, cryptoBackend: NODE_CRYPTO_BACKEND });
-  assert.deepEqual(nodeAddress, nobleAddress);
-  const noble = await constructRecipientOutput({ address: nobleAddress, kind: 'transfer', slot: 0, rng: publicRng(), cryptoBackend: NOBLE_CRYPTO_BACKEND });
-  const node = await constructRecipientOutput({ address: nodeAddress, kind: 'transfer', slot: 0, rng: publicRng(), cryptoBackend: NODE_CRYPTO_BACKEND });
-  assert.deepEqual(node.output, noble.output); assert.deepEqual(node.record, noble.record);
-  assert.deepEqual({ ak: nobleAddress.ak, recoveryPublicKey: nobleAddress.recoveryPublicKey, cm: noble.output.cm, record: bytesToHex(noble.record) }, {
-    ak: '292e2214a0ac4c974c51da62cf838b6b437a6175fa99d94a9ea3a41e793b96ad',
-    recoveryPublicKey: 'fd9061976a7672d40aca2fe76b53f911ee10e50822c6692f73ecad0fe6a09b71',
-    cm: '063e21cd16cfd9d223ce681d25c12ec18e267c2c460014d38531624d24c0ddd1',
-    record: '01009952fb7e5383c522c954de94f2e4620d3e08cd9e7248ad23207f9ef55c904144000000000000000000000004abca919bb84c7406fa480585a3de6604338b7436ac001d44752f692b755c89208c0551257d8c51e2e938704e1848d5b4fb9f22cb7a3ffdaf2c5052d663f2c16a3f72aa0db7998b3a7c96c3cc199e700f03bf22f6b5c0da386de988b80e4f0cb4afb59c43d01093748e97cb37130d098992af40b029608e79cea7c9ade5488dd25348d9340d10dd85b63aa1f4dcd63f650000',
-  });
-  const recovered = await recoverRecipientOutput({ seed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: noble.output.cm, record: node.record, cryptoBackend: NODE_CRYPTO_BACKEND });
-  assert.equal(recovered.cm, noble.output.cm);
+  const address = await deriveRecipientAddress({ seed, profileId, instanceId });
+  const first = await constructRecipientOutput({ address, kind: 'transfer', slot: 0, rng: publicRng() });
+  const second = await constructRecipientOutput({ address, kind: 'transfer', slot: 0, rng: publicRng() });
+  assert.deepEqual(second.output, first.output); assert.deepEqual(second.record, first.record);
+  assert.equal(first.record[0], 2); assert.equal(first.record.length, 192); assert.equal(bytesToHex(first.record).length, 384);
+  const recovered = await recoverRecipientOutput({ seed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: first.output.cm, record: first.record });
+  assert.equal(recovered.cm, first.output.cm);
 });

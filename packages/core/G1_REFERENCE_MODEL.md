@@ -24,7 +24,7 @@ and serialize little-endian in action packets.
 
 | Name | Fr literal |
 | --- | ---: |
-| `SPEND_AUTHORITY` | 1001 |
+| `SPEND_AUTHORITY` | 1004 |
 | `NOTE` | 1002 |
 | `NULLIFIER` | 1003 |
 | `NOTE_TREE_LEAF` | 1010 |

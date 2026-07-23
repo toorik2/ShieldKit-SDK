@@ -35,12 +35,12 @@ constrained by decomposition. The rest originate in pinned circomlib SHA-256
 internals. This audit does not treat the warnings as a proof of absence of all
 cryptographic implementation defects.
 
-Three re-bound mutations accept by design: an active encrypted record byte,
-the transaction-context digest, and the withdrawal script hash. Each becomes a
-different SHA-bound action when its public digest is recomputed. The relation
-does not validate record encryption or reconstruct/bind the BCH context and
-script preimages; those remain explicit G1/G2 limitations, not unexpected
-private-input freedom.
+This historical audit predates recovery record v2 and is not evidence for the
+changed relation. The prior active-record rebind acceptance is no longer
+permitted: an active recovery-byte mutation must fail its point, ECDH,
+field-mask, authenticator, or authority-key relation even after re-binding the
+public digest. The transaction-context digest and withdrawal script remain
+packet commitments only; their BCH preimages remain out of scope.
 
 This is a pre-setup audit result only. It does not change G1 from OPEN and does
 not establish setup, proving, verification, BCH VM, or deployment readiness.

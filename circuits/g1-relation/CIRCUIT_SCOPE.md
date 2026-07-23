@@ -39,6 +39,8 @@ The relation also enforces:
 - a nonzero denomination, a nonzero maximum-live-note count, and
   `maximumReserve <= 2,100,000,000,000,000` satoshis;
 - real spend `ak`, input `cm`, and `nf` Poseidon equations plus nonzero guards;
+  `ak` is `Poseidon(1004, profile, instance, BabyPbk(sk))`, binding spend
+  authority to the same BabyJubJub recipient key used for output recovery;
 - real output `cm` Poseidon equation plus active nonzero and withdrawal-zero
   inactive constraints;
 - depth-32 append-empty and membership paths;
@@ -47,7 +49,12 @@ The relation also enforces:
   two canonical zero most-significant bits, traversed least-significant first;
 - zero deposit inactive spend/path slots and zero withdrawal inactive
   append/output slots; and
-- boolean record bits, zero for withdrawal, SHA-bound for every action.
+- boolean record bits, zero for withdrawal, SHA-bound for every action; and
+- recovery record v2 semantic binding: fixed `version=2, slot=0`, canonical
+  compressed nonidentity prime-subgroup BabyJubJub recipient/ephemeral points,
+  ephemeral scalar-to-point relation, ECDH, field masks for the exact output
+  `rho` and `r`, a Poseidon authenticator, and thirty zero pad bytes. The
+  recipient point is re-hashed to the exact output `ak`.
 
 `u32` note-index capacity is handled conservatively: output actions require
 `preNextLeafIndex <= 2^32 - 2`, so the post-state index remains representable
@@ -59,9 +66,9 @@ is a deliberately narrower terminal behavior than an unbounded abstract tree.
 
 The profile/instance identifiers are externally authenticated relation inputs;
 the circuit does not derive them from a raw manifest-v1 preimage. Also absent:
-X25519/HKDF/ChaCha20-Poly1305 record validity, reconstruction of the BCH
-transaction-context preimage behind its SHA-256 digest, covenant/transaction
-binding, a ceremony or development setup, zkey/proof artifacts, BCH VM
-execution, and independent formal cross-checking. Compilation and valid
-witnesses therefore do not establish setup, proving, verification, or G1
-readiness.
+reconstruction of the BCH transaction-context preimage behind its SHA-256
+digest, covenant/transaction binding, a ceremony or development setup,
+zkey/proof artifacts, BCH VM execution, and independent formal cross-checking.
+The V2 construction makes no X25519, HKDF, ChaCha20-Poly1305,
+indistinguishability, constant-time, setup, proving, verification, or G1
+readiness claim.

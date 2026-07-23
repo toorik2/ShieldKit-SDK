@@ -1,6 +1,6 @@
 # `@shield.cash/recovery`
 
-Portable V1 recipient-address and chain-recovery primitives for SDK bindings.
+Portable V2 recipient-address and chain-recovery primitives for SDK bindings.
 The default entrypoint is browser-safe ESM: it imports neither `node:crypto` nor
 `Buffer`, retains secrets locally, performs no network or persistence I/O, and
 works with `Uint8Array` only.
@@ -21,8 +21,12 @@ const note = await recoverRecipientOutput({
 `seed` and `record` are exact-length `Uint8Array`s. Identifiers and field
 encodings are lowercase 32-byte hex strings. Errors are `RecoveryError` with a
 stable `code`; authentication failures deliberately do not expose plaintext.
-The record remains exactly 192 bytes: `version | slot | X25519 ephemeral public
-key | nonce | ChaCha20-Poly1305 ciphertext-and-tag | two zero bytes`.
+The record remains exactly 192 bytes: `version=2 | slot=0 | compressed
+BabyJubJub recipient point | compressed ephemeral point | c_rho | c_r |
+Poseidon authentication field | 30 zero bytes`. `c_rho` and `c_r` are field
+additive masks derived from BabyJubJub ECDH and a domain-separated Poseidon
+KDF. The recipient point is committed into `ak`; recovery therefore rejects a
+record that is not addressed to the authority in the output commitment.
 
 ## Packet-only history recovery
 
@@ -109,25 +113,23 @@ implementation evidence.
 
 ## Cryptographic and portability boundary
 
-V1 derivation, domains, record layout, X25519, HKDF-SHA256,
-ChaCha20-Poly1305, and Poseidon commitment semantics are unchanged. The default
-backend is pure-JS Noble (`@noble/curves` 2.2.0, `@noble/hashes` 2.2.0,
-`@noble/ciphers` 2.1.1); exact V1 Poseidon arities use `poseidon-lite` 0.3.0.
-All are lockfile-pinned. `./node` exposes a native `node:crypto` backend only
-for integration/conformance checks; it is never imported by the portable entry.
+V2 intentionally replaces the unprovable X25519/HKDF/ChaCha record with the
+same native-field BabyJubJub and Poseidon operations used by the Circom
+relation. The portable implementation checks compressed-point canonicality,
+curve membership, nonidentity, and prime subgroup membership before ECDH. It
+does not claim constant-time JavaScript execution. `poseidon-lite` 0.3.0 is
+lockfile-pinned; no Node crypto, network, persistence, prover, or backend
+service is imported by the portable entrypoint.
 
 Construction obtains randomness only through WebCrypto `getRandomValues` (or an
 explicit `rng.bytes(length)` source) and fails closed if it is unavailable or
-malformed. An explicit `cryptoBackend` must implement X25519 public/shared
-secret, HKDF-SHA256, and authenticated seal/open; the SDK validates that shape
-at runtime. The included Node backend and default Noble backend are both real
-implementations, not mocks.
+malformed. The one-output G1 relation fixes `slot=0`; callers cannot silently
+construct an unprovable multi-output record.
 
-`npm test` pins a deterministic V1 vector and proves byte identity between
-Noble and native Node crypto. It also bundles the public entrypoint and runs an
-actual Chromium module worker using WebCrypto randomness. This is portability
-evidence for the recovery core, not a browser proving benchmark or an Android
-qualification claim.
+`npm test` exercises deterministic V2 record construction, mutation rejection,
+and an actual Chromium module worker using WebCrypto randomness. This is
+portability evidence for the recovery core, not a browser proving benchmark,
+an Android qualification, a ceremony, or a proof/verifier qualification.
 
 Android remains a binding boundary: a current Android app must provide a
 standards-compliant JavaScript runtime with `Uint8Array`, `BigInt`, ES modules,
