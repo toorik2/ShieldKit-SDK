@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { AndroidProverHarnessError, parseManifest, parseRemoteSha256, parseStrictJson, remoteName, stagePath } from './android-prover-harness.mjs';
+const hash = 'a'.repeat(64), pin = path => ({ path, sha256: hash });
+const valid = () => ({ schema: 'shield.cash/android-prover-harness/v1', adb: pin('/usr/bin/adb'), serial: 'USB123', transport: 'usb', deviceRoot: '/data/local/tmp/shield-cash', prover: pin('/x/prover'), node: pin('/x/node'), snarkjs: pin('/x/snarkjs'), artifacts: { zkey: pin('/x/final.zkey'), verificationKey: pin('/x/vk.json') }, actions: ['deposit', 'transfer', 'withdrawal'].map(kind => ({ kind, witness: pin(`/x/${kind}.wtns`), expectedPublicSignals: ['1', '2'] })), outputFile: '/tmp/result.json', repetitions: 1 });
+test('accepts a direct, USB-only initial-feasibility manifest', () => assert.equal(parseManifest(valid()).serial, 'USB123'));
+test('rejects duplicate JSON keys rather than allowing last-key-wins', () => assert.throws(() => parseStrictJson('{"schema":1,"schema":2}', 'manifest'), AndroidProverHarnessError));
+test('uses role-and-hash remote names, preventing basename substitution', () => { const a = remoteName('prover', hash), b = remoteName('deposit-witness', hash); assert.notEqual(a, b); assert.match(a, /^prover-a{64}$/); });
+test('rejects malformed, substituted, and multi-line remote hash output', () => { const file = '/data/local/tmp/shield-cash/.staging-x/prover'; assert.throws(() => parseRemoteSha256(`b${'a'.repeat(63)}  ${file}\n`, hash, file), AndroidProverHarnessError); assert.throws(() => parseRemoteSha256(`${hash}  ${file}\nnoise\n`, hash, file), AndroidProverHarnessError); assert.throws(() => parseRemoteSha256(`${hash}  /other\n`, hash, file), AndroidProverHarnessError); });
+test('refuses unsafe cleanup targets and noninitial run counts', () => { assert.throws(() => stagePath('../outside'), AndroidProverHarnessError); const manifest = valid(); manifest.repetitions = 2; assert.throws(() => parseManifest(manifest), AndroidProverHarnessError); });

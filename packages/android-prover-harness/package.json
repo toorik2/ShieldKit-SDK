@@ -1,0 +1,6 @@
+{
+  "name": "@shield-cash/android-prover-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test android-prover-harness.test.mjs"}
+}
