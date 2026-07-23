@@ -1,0 +1,24 @@
+validation_time=2026-07-23T16:16:37+03:00
+
+command: node -e JSON.parse + required-fields + artifact-hash verifier
+result: observation.json: parse and artifact hashes OK
+
+command: node -e G2 ceiling arithmetic
+result: { opCostAt9500: 7632800, standardHashIterationsAt9500: 4770 }
+
+command: date -u -d @1778846400
+result: mainnet=2026-05-15T12:00:00Z
+
+command: date -u -d @1763208000
+result: chipnet=2025-11-15T12:00:00Z
+
+command: curl --fail --location --silent --show-error --output /dev/null --write-out '%{http_code} %{url_effective}\n' <three report URLs>
+result: 200 https://github.com/bitcoin-cash-node/bitcoin-cash-node/releases/tag/v29.0.0
+result: 200 https://github.com/bitcoin-cash-node/bitcoin-cash-node/blob/89a591f7c5b1fd110c0819377ad8f2647d656800/src/policy/policy.h
+result: 200 https://github.com/bitjson/bch-p2s/blob/2bcfa82b8aeb1f158398ae5532a94c8c5dcf870a/readme.md
+
+command: npm test
+result: PASS (policy check passed: g0-v2, 15 decisions, 12 frozen documents)
+
+command: git diff --check
+result: PASS (no output)

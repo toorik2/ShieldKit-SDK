@@ -1,0 +1,23 @@
+observation_time=2026-07-23T16:16:37+03:00
+method=HTTPS GET with curl --fail --location --silent --show-error; no executable was downloaded or run.
+
+https://api.github.com/repos/bitcoin-cash-node/bitcoin-cash-node/releases/latest
+  response=github-release-latest.json
+  observed_release=v29.0.0
+  published_at=2026-01-09T14:16:51Z
+  release_url=https://github.com/bitcoin-cash-node/bitcoin-cash-node/releases/tag/v29.0.0
+
+https://api.github.com/repos/bitcoin-cash-node/bitcoin-cash-node/git/ref/tags/v29.0.0
+  response=github-ref-v29.0.0.json
+  resolved_commit=89a591f7c5b1fd110c0819377ad8f2647d656800
+
+https://raw.githubusercontent.com/bitcoin-cash-node/bitcoin-cash-node/v29.0.0/<source-path>
+  responses=policy, consensus, script, token, activation, chainparams, validation, and release-document source files in this directory
+
+https://api.github.com/repos/bitjson/bch-vm-limits/commits/master
+  response=bch-vm-limits-master-commit.json
+  resolved_commit=bd7f2629535b5b7dbcbaccbbcae9c02949fffaf5
+
+https://api.github.com/repos/bitjson/bch-p2s/commits/master
+  response=bch-p2s-master-commit.json
+  resolved_commit=2bcfa82b8aeb1f158398ae5532a94c8c5dcf870a
