@@ -75,6 +75,25 @@ Chipnet, reorg, provider-authentication, or 10,000-transition recovery
 evidence. The caller must authenticate raw BCH provenance and confirmation
 order, and an independent implementation remains a G5 requirement.
 
+## Raw self-hosted BCHN chain recovery (Node-only subpath)
+
+`@shield.cash/recovery/raw-chain-recovery` accepts a caller-supplied BCHN
+JSON-RPC transport or caller-supplied raw blocks. It parses complete blocks
+locally, checks canonical transaction boundaries and merkle roots, validates
+raw header linkage, structural proof of work, and exact cumulative chainwork
+from a pinned checkpoint to a caller-pinned tip. It extracts only the
+contiguous, profile-bound ten-input settlement state chain and keeps a
+deterministic rollback/replay journal. Pending state spends are reported as
+`pending`; two valid pending spends of the same state are `conflicted` and are
+never selected.
+
+The RPC adapter takes a function of `(method, params)` and never stores or logs
+credentials. It refuses a BCHN node that reports `pruned`, mismatched
+`getblockhash`/`getblockheader`/raw-block responses, a truncated suffix, or a
+lower/equal-work competing branch. The caller must pin a trusted checkpoint and
+target tip. This module deliberately does not implement BCH difficulty rules,
+full consensus validation, BCH VM validation, or an independent implementation.
+
 ## Cryptographic and portability boundary
 
 V1 derivation, domains, record layout, X25519, HKDF-SHA256,

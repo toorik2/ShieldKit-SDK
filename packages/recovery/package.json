@@ -11,6 +11,7 @@
     ".": "./recovery.mjs",
     "./portable-core": "./portable-core.mjs",
     "./raw-settlement-history": "./raw-settlement-history.mjs",
+    "./raw-chain-recovery": "./raw-chain-recovery.mjs",
     "./node": "./node-backend.mjs"
   },
   "dependencies": {
