@@ -222,6 +222,41 @@ function refreshContextDigest(kind, program) {
   program.preimage = preimage;
 }
 
+// Use the authentic state category in every negative case. This ensures a
+// token cannot be smuggled into another role merely by reusing the state
+// category with a different CashToken form.
+function nonStateToken(form, discriminator) {
+  switch (form) {
+    case 'fungible':
+      return { category: Uint8Array.from(stateCategory), amount: 1n };
+    case 'immutable-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: { capability: 'none', commitment: Uint8Array.of(discriminator) },
+      };
+    case 'mutable-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: {
+          capability: 'mutable',
+          commitment: Uint8Array.from({ length: 80 }, (_, index) => (
+            (discriminator + index) & 0xff
+          )),
+        },
+      };
+    case 'minting-nft':
+      return {
+        category: Uint8Array.from(stateCategory),
+        amount: 0n,
+        nft: { capability: 'minting', commitment: Uint8Array.of(discriminator) },
+      };
+    default:
+      throw new Error(`unknown non-state token form: ${form}`);
+  }
+}
+
 function evaluate(lock, program, inputIndex, standard) {
   return createVirtualMachineBch2026(standard).evaluate({
     inputIndex,
@@ -229,6 +264,101 @@ function evaluate(lock, program, inputIndex, standard) {
     transaction: program.transaction,
   });
 }
+
+test('full helper rejects every CashToken form at every non-state input and output with refreshed SCCT', () => {
+  const bindingLock = buildPacketOnlyBindingLock();
+  const helper = buildStateSettlementHelper({
+    bindingLock,
+    pf7Locks: pf7.locks.map((value) => Buffer.from(value, 'hex')),
+    profileId,
+    instanceId,
+    stateCategory,
+    bindingCarrierBaseSatoshis: Number(stateCarrierBase),
+  });
+  const stateLock = buildStateTrampolineLock({ helper, bindingLock });
+  const stateUnlock = buildStateTrampolineUnlock(helper);
+  const forms = ['fungible', 'immutable-nft', 'mutable-nft', 'minting-nft'];
+  const actionLayouts = {
+    deposit: [1],
+    transfer: [1],
+    withdrawal: [1, 2],
+  };
+  const counts = { inputCases: 0, outputCases: 0, evaluations: 0 };
+
+  for (const [kind, nonStateOutputIndexes] of Object.entries(actionLayouts)) {
+    const baseline = programFor(kind, bindingLock, stateLock);
+    baseline.transaction.inputs[8].unlockingBytecode = stateUnlock;
+    for (const standard of [false, true]) {
+      assert.equal(
+        accepts(evaluate(stateLock, baseline, 8, standard)),
+        true,
+        `${kind} baseline standard=${standard}`,
+      );
+    }
+
+    for (const inputIndex of [0, 1, 2, 3, 4, 5, 6, 7, 9]) {
+      for (const form of forms) {
+        const program = structuredClone(baseline);
+        program.sourceOutputs[inputIndex].token = nonStateToken(
+          form,
+          0x10 + inputIndex,
+        );
+        refreshContextDigest(kind, program);
+        for (const standard of [false, true]) {
+          assert.equal(
+            accepts(evaluate(stateLock, program, 8, standard)),
+            false,
+            `${kind} input ${inputIndex} ${form} standard=${standard}`,
+          );
+          counts.evaluations += 1;
+        }
+        counts.inputCases += 1;
+      }
+    }
+
+    for (const outputIndex of nonStateOutputIndexes) {
+      for (const form of forms) {
+        const program = structuredClone(baseline);
+        program.transaction.outputs[outputIndex].token = nonStateToken(
+          form,
+          0x80 + outputIndex,
+        );
+        refreshContextDigest(kind, program);
+        for (const standard of [false, true]) {
+          assert.equal(
+            accepts(evaluate(stateLock, program, 8, standard)),
+            false,
+            `${kind} output ${outputIndex} ${form} standard=${standard}`,
+          );
+          counts.evaluations += 1;
+        }
+        counts.outputCases += 1;
+      }
+    }
+  }
+
+  assert.deepEqual(counts, {
+    inputCases: 108,
+    outputCases: 16,
+    evaluations: 248,
+  });
+  console.log(JSON.stringify({
+    tokenExclusionMatrix: {
+      actions: Object.keys(actionLayouts),
+      nonStateInputsPerAction: 9,
+      tokenForms: forms,
+      inputCases: counts.inputCases,
+      outputCases: counts.outputCases,
+      refreshedContextDigest: true,
+      normalAndStandardEvaluations: counts.evaluations,
+      includesFeeInput9: true,
+      includesWithdrawalOutput2: true,
+    },
+    helperBytes: helper.length,
+    stateTrampolineBytes: stateLock.length,
+    stateHelperUnlockBytes: stateUnlock.length,
+  }, null, 2));
+});
 
 test('loop reconstruction byte-matches exact SCCT for all actions and asymmetric wire-order outpoints', () => {
   const rawLock = buildLoopScctLock({ raw: true, tokenFunction: true });
