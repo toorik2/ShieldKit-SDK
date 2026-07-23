@@ -33,7 +33,9 @@
     {"path": "evidence/G1/verifier-ten-role/raw/op-margin.json", "sha256": "a7970e789b2229cb1b30bd40d07f619778ad801bdd866c4cb92a0403251cb6af", "bytes": 53},
     {"path": "evidence/G1/verifier-ten-role/raw/boundary-parts.json", "sha256": "0f6639e5745824c1a73deede0e20cc63c16281968e78e9a64bbc28f6acd00c4c", "bytes": 819},
     {"path": "evidence/G1/verifier-ten-role/raw/input-redteam.json", "sha256": "e54bcbf8f82619c99b098e8ed250bdb7a24a88b1b42a18797c0123eececa7e1b", "bytes": 16880},
-    {"path": "evidence/G1/verifier-ten-role/raw/vectors.json", "sha256": "9af75ae6b665512be654a4f4dabce5d3cfc3338ac1b42b3051b736ba89d0f81f", "bytes": 1537290}
+    {"path": "evidence/G1/verifier-ten-role/raw/vectors.json", "sha256": "9af75ae6b665512be654a4f4dabce5d3cfc3338ac1b42b3051b736ba89d0f81f", "bytes": 1537290},
+    {"path": "evidence/G1/verifier-ten-role/leanbch-xcheck.json", "sha256": "6e7be6816a69c178be660c37ee84b8abc2c4a02d2d8864ea59d80ebc02e97d5d", "bytes": 3692},
+    {"path": "evidence/G1/verifier-ten-role/raw/leanbch-xcheck-native-results.tsv", "sha256": "f76673b7100aa29a5ce08de89e9ecb074d88ef47be61cd9b56bc2eda46ad735d", "bytes": 1001}
   ],
   "measurements": {
     "inputCount": 10,
@@ -60,7 +62,7 @@
   "limitations": [
     "FAIL keeps G1 open; the seven-role VM result passes only the bounded verifier-context milestone described in the report.",
     "Not a valid ten-input BCH transaction: packet/state/fee roles are structural and unevaluated.",
-    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck; the worker PATH omitted lake, which root later located at /home/toorik/.elan/bin/lake.",
+    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, or Chipnet result. The separately recorded LeanBCH xcheck covers only verifier inputs 0..6 with Crypto.Secp256k1.reject; roles 7..9 remain unevaluated.",
     "Packet is authenticated against the fixture public limbs, not a complete runtime action-packet parser.",
     "The repository-wide architecture suite is not green in this linked worktree because historical candidate files are absent and arena lifecycle tests require a primary checkout."
   ]

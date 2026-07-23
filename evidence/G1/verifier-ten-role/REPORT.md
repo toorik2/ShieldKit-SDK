@@ -5,7 +5,7 @@ there was no funding, broadcast, deployment, or mainnet action.
 
 ## Verdict
 
-**PASS for the bounded verifier-context milestone only.** Source commit
+**FAIL / open for G1; a bounded verifier-context subcheck passed.** Source commit
 `aa12905c0f4928b20e2b66475a438eb9c7dcb613` builds the unchanged fixed-VK
 PF7 Groth16 equation as verifier roles `exec0..exec4, genesis, terminal` at
 inputs 0..6 in an exact ten-input transaction context. All seven real
@@ -82,9 +82,12 @@ make public limbs runtime-derived from an authenticated packet rather than a
 fixture-specific terminal comparison; execute every input; run standardness on
 unmodified BCHN/Chipnet policy; add full action/state/fee mutation coverage;
 and cross-check the exact final scripts with LeanBCH. A pinned LeanBCH root at
-`51201015…` was supplied to the generator environment, but no independent
-LeanBCH xcheck was completed. The worker PATH did not include `lake`; root
-subsequently located it at `/home/toorik/.elan/bin/lake`, so this is a pending
-tool-discovery correction rather than evidence that the host lacks Lean.
+`51201015…` now independently accepts inputs 0..6 in the compiled
+`xcheck_idxN` harness; exact provenance, output, and limitations are in
+[leanbch-xcheck.json](leanbch-xcheck.json). The default-stack
+`lake env lean --run` helper exhausts its interpreter stack while recursively
+decoding this transaction hex; the compiled executable completes the recorded
+checks. This narrow cross-check does not evaluate roles 7..9, secp256k1
+signatures, standardness, or qualification.
 
 Raw build and red-team outputs are under [raw](raw).
