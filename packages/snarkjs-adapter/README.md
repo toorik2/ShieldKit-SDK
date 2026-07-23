@@ -7,7 +7,9 @@ transaction, or qualification result.
 
 Required caller records are `{ path, sha256 }` for `verification_key.json`,
 `proof.json`, and `public.json`. Every path must be a regular, direct,
-non-symlink file and its SHA-256 is checked before parsing and after reading.
+non-symlink file. The SHA-256 of the exact JSON bytes parsed is required to
+match the caller pin; a post-read pathname hash plus device/inode/size check
+then detects replacement or mutation.
 The parser rejects duplicate JSON object names, trailing data, BOMs, malformed
 UTF-8, unknown keys, wrong protocol/curve/arity, noncanonical field/scalar
 strings, invalid affine encodings, infinity, invalid curve points, and
@@ -32,6 +34,12 @@ the same component order as the proof mapping above. `vk_alphabeta_12` is
 validated from snarkjs input but intentionally not exported: verifier.cash
 derives the alpha/beta Miller trajectory from the affine points and consumes no
 precomputed alpha-beta value.
+
+snarkjs permits canonical infinity only for `IC[0]`, encoded as
+`{ "x": "0", "y": "1", "infinity": true }` in `verifierCashVk`. The
+adapter preserves that valid source material. Current verifier.cash PF7 cannot
+consume an infinite IC point in its ECIP/MSM path, so its pinned importer must
+reject it; it must never substitute an affine point or an identity surrogate.
 
 `test-fixtures/two-public` is a local development-only two-public-signal
 snarkjs fixture. The test first asks pinned snarkjs to verify it, then adapts

@@ -96,6 +96,7 @@ export async function sha256File(filename) {
   for await (const chunk of createReadStream(filename)) hash.update(chunk);
   return hash.digest('hex');
 }
+export const sha256Bytes = (bytes) => createHash('sha256').update(bytes).digest('hex');
 async function pinnedRegularFile(record, label) {
   exactKeys(record, label, ['path', 'sha256']);
   if (typeof record.path !== 'string' || record.path.length === 0) fail(`${label}.path must be a nonempty string`);
@@ -108,12 +109,26 @@ async function pinnedRegularFile(record, label) {
   const after = await lstat(filename);
   if (!after.isFile() || after.isSymbolicLink() || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size) fail(`${label} changed while hashing`);
   if (hash !== record.sha256) fail(`${label} SHA-256 mismatch: expected ${record.sha256}, got ${hash}`);
-  return Object.freeze({ path: filename, sha256: hash, bytes: before.size });
+  const artifact = { path: filename, sha256: hash, bytes: before.size };
+  Object.defineProperties(artifact, {
+    dev: { value: before.dev, enumerable: false },
+    ino: { value: before.ino, enumerable: false },
+  });
+  return Object.freeze(artifact);
 }
 async function pinnedJson(record, label) {
   const artifact = await pinnedRegularFile(record, label);
   const bytes = await readFile(artifact.path);
-  if (await sha256File(artifact.path) !== artifact.sha256) fail(`${label} hash drift after read`);
+  // Bind the exact buffer parsed below, not merely a later pathname read. The
+  // following pathname checks remain required to detect replacement/mutation.
+  const bytesHash = sha256Bytes(bytes);
+  if (bytesHash !== artifact.sha256) fail(`${label} read bytes SHA-256 mismatch: expected ${artifact.sha256}, got ${bytesHash}`);
+  const afterRead = await lstat(artifact.path);
+  if (!afterRead.isFile() || afterRead.isSymbolicLink() || afterRead.dev !== artifact.dev || afterRead.ino !== artifact.ino || afterRead.size !== artifact.bytes) fail(`${label} changed while reading`);
+  const postReadHash = await sha256File(artifact.path);
+  const afterPostRead = await lstat(artifact.path);
+  if (!afterPostRead.isFile() || afterPostRead.isSymbolicLink() || afterPostRead.dev !== artifact.dev || afterPostRead.ino !== artifact.ino || afterPostRead.size !== artifact.bytes) fail(`${label} changed during post-read hash`);
+  if (postReadHash !== artifact.sha256) fail(`${label} hash drift after read`);
   return { artifact, value: parseStrictJson(bytes, label) };
 }
 const canonicalField = (value, label, modulus) => {
@@ -210,7 +225,7 @@ export async function adaptSnarkjsGroth16(records) {
   });
   return Object.freeze({
     schema: 'shield.cash/snarkjs-groth16-pf7-adapter/v1',
-    qualification: 'local conversion only; not a verifier bundle, profile, setup, standardness, or deployment result',
+    qualification: 'local conversion only; not a verifier bundle, profile, setup, standardness, or deployment result; canonical infinity IC0 is valid source material but PF7-incompatible and rejected downstream without substitution',
     source: Object.freeze({ verificationKey: vkInput.artifact, proof: proofInput.artifact, publicSignals: publicInput.artifact }),
     byteOrder: Object.freeze({
       scalars: 'canonical unsigned base-10 JSON strings; PF7 converts to its existing VM-number representation',

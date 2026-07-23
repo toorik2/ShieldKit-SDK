@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { SnarkjsAdapterError, adaptSnarkjsGroth16 } from './snarkjs-groth16-adapter.mjs';
+import { SnarkjsAdapterError, adaptSnarkjsGroth16, sha256Bytes } from './snarkjs-groth16-adapter.mjs';
 
 const execFile = promisify(execFileCallback);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -53,6 +53,7 @@ test('adapts a real snarkjs-verified two-public BN254 Groth16 fixture into PF7 f
     ic: rawKey.IC.map(([x, y, z]) => z === '0' ? { x: '0', y: '1', infinity: true } : { x, y }),
   });
   assert.equal('alphaBeta' in result.verifierCashVk, false);
+  assert.match(result.qualification, /infinity IC0 is valid source material but PF7-incompatible/);
   assert.deepEqual(result.verifierCashFixture, {
     Ax: rawProof.pi_a[0], Ay: rawProof.pi_a[1],
     Bxa: rawProof.pi_b[0][0], Bxb: rawProof.pi_b[0][1],
@@ -82,6 +83,14 @@ test('rejects caller hash drift and symlinked artifacts', async () => {
     const linkedInput = await records(); linkedInput.proof = { path: linked, sha256: await digest(path.join(fixture, 'proof.json')) };
     await assert.rejects(() => adaptSnarkjsGroth16(linkedInput), /non-symlink/);
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('pins the exact JSON bytes that are parsed', async () => {
+  assert.equal(sha256Bytes(Buffer.from('{"a":1}')), createHash('sha256').update('{"a":1}').digest('hex'));
+  const implementation = await readFile(adapterCli, 'utf8');
+  assert.match(implementation, /const bytesHash = sha256Bytes\(bytes\);/);
+  assert.match(implementation, /bytesHash !== artifact\.sha256/);
+  assert.match(implementation, /postReadHash !== artifact\.sha256/);
 });
 
 test('rejects wrong protocol, curve, public arity, scalar encoding, and malformed G1', async () => {
