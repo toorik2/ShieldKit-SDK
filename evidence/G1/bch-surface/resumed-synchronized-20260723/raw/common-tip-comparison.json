@@ -1,0 +1,18 @@
+{
+  "nodeA": {
+    "blocks": 315801,
+    "headers": 315801,
+    "bestblockhash": "0000000021bbbaa39f0ecf6fdf9f33a95b08c5a14bdb32172552cdc98d4fd646",
+    "chainwork": "0000000000000000000000000000000000000000000000000d8764d32c1785df",
+    "initialblockdownload": false
+  },
+  "nodeB": {
+    "blocks": 315801,
+    "headers": 315801,
+    "bestblockhash": "0000000021bbbaa39f0ecf6fdf9f33a95b08c5a14bdb32172552cdc98d4fd646",
+    "chainwork": "0000000000000000000000000000000000000000000000000d8764d32c1785df",
+    "initialblockdownload": false
+  },
+  "commonTip": true,
+  "bothSynchronized": true
+}

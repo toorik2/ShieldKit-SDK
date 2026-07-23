@@ -1,0 +1,2 @@
+97b5d3a0f0af68dba06de6d13f5ac9ae3896b0384b2e7923a0644c6ed7b5064e  /tmp/shield-cash-bchn-v29-2eUS57/build/src/bitcoind
+55bc8e3f59cb8354141041940f4f1443bb863c25c1db449e295d45fa5f262f56  /tmp/shield-cash-bchn-v29-2eUS57/build/src/bitcoin-cli

@@ -1,0 +1,15 @@
+Bitcoin Cash Node Daemon version v29.0.0-89a591f
+Copyright (C) 2009-2025 The Bitcoin developers
+
+Please contribute if you find Bitcoin Cash Node useful. Visit
+<https://bitcoincashnode.org> for further information about the software.
+
+The source code is available from
+<https://gitlab.com/bitcoin-cash-node/bitcoin-cash-node>.
+
+Distributed under the MIT software license, see the accompanying file COPYING
+or <https://opensource.org/licenses/MIT>
+
+This product includes software developed by the OpenSSL Project for use in the
+OpenSSL Toolkit <https://www.openssl.org> and cryptographic software written by
+Eric Young and UPnP software written by Thomas Bernard.

@@ -12,8 +12,8 @@ reproducible evidence for the exact candidate.
 
 | G1 requirement | State | Evidence or owner |
 | --- | --- | --- |
-| Current BCH consensus, standardness, activation, and VM limits | partial | v29 source and read/sync-only public P2P observations are recorded in `evidence/G1/bch-surface/`; current synchronized behavior remains missing |
-| Two independent current BCHN v29 peers reproduce behavior | missing | two local processes reached partly distinct public peers, but remained IBD and are not independent operators |
+| Current BCH consensus, standardness, activation, and VM limits | partial | v29 source plus two synchronized same-host, read/sync-only Chipnet runtimes are recorded in `evidence/G1/bch-surface/`; transaction-policy behavior remains missing |
+| Two independent current BCHN v29 peers reproduce behavior | missing | two local processes synchronized to one tip through partly distinct public peers, but are not independent operators |
 | Pinned reproducible verifier toolchain | partial | exact PF6 rebuild passes on Node 20 and 25; PF7 sub62 also reproduces from the pinned source; bootstrap closure remains distributed |
 | Real valid and invalid proof corpus in complete standard transactions | partial | the 608,499-constraint relation has three valid R1CS witnesses and five rejecting mutations; no zkey, proof, new verifier, or complete transaction exists |
 | Complete all-byte/source-script/per-input/VM accounting | partial | PF7 sub62 records 54,541 scored / 54,296 wire bytes and all seven unlocks below 9,500; the protocol envelope is absent |
@@ -42,8 +42,8 @@ Current decisive results:
   verifier inputs do not directly fit the current six-verifier-input
   settlement draft; and
 - a pinned no-wallet BCHN v29 build now records two separate local Chipnet
-  datadirs with read/sync-only outbound public P2P handshakes. At capture they
-  remained in IBD at blocks 101,413 and 107,523 against peer-advertised header
-  height 315,794; they are one local operator rather than independent peers, so
-  no current-tip, relay, or independent-peer claim follows. See
-  `evidence/G1/bch-surface/current-public-sync/`.
+  datadirs with read/sync-only outbound public P2P handshakes and a common
+  locally validated tip (height 315,801 at observation). The two processes are
+  one local operator rather than independent peers, and no transaction
+  acceptance or relay result was run; G1 therefore remains OPEN. See
+  `evidence/G1/bch-surface/resumed-synchronized-20260723/`.

@@ -1,0 +1,52 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.bch-surface.resumed-synchronized.20260723",
+  "gate": "G1",
+  "candidate": "g0-v2/bch-execution-surface",
+  "claim": "Two separate local preserved-datadir BCHN v29.0.0 no-wallet processes synchronized through outbound public Chipnet peers to the same locally validated tip; this is same-host redundant-client evidence, not independent-operator evidence or transaction-policy proof.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "fd5de0275c51edcff6f50ba6f50f341a5e4a30e4",
+    "dirtyPaths": ["evidence/G1/bch-surface/resumed-synchronized-20260723/", "evidence/G1/STATUS.md"]
+  },
+  "environment": {
+    "observedAt": "2026-07-23T15:10:57Z",
+    "hardware": {"architecture": "x86_64"},
+    "software": {
+      "bchnSourceTag": "v29.0.0",
+      "bchnSourceCommit": "89a591f7c5b1fd110c0819377ad8f2647d656800",
+      "bitcoindVersion": "v29.0.0-89a591f",
+      "bitcoinCliVersion": "v29.0.0-89a591f",
+      "bitcoindSha256": "97b5d3a0f0af68dba06de6d13f5ac9ae3896b0384b2e7923a0644c6ed7b5064e",
+      "runtimeArgumentsSha256": "cc607ea9b3da7a35eaee1c04d8ed69b2482e46e1ca26a456e13458427d6ff1c1"
+    }
+  },
+  "commands": [
+    "bitcoind -chipnet -datadir=<preserved-separate-datadir> -server=1 -listen=0 -listenonion=0 -discover=0 -dnsseed=1 -onlynet=ipv4 -blocksonly=1 -persistmempool=0 -maxconnections=8 -rpcbind=127.0.0.1 -rpcallowip=127.0.0.1 -rpcport=<separate-loopback-port>",
+    "bitcoin-cli -chipnet -datadir=<preserved-separate-datadir> getblockchaininfo|getnetworkinfo|getmempoolinfo|getnettotals|getpeerinfo|getconnectioncount"
+  ],
+  "artifacts": [
+    {"path": "evidence/G1/bch-surface/resumed-synchronized-20260723/REPORT.md", "sha256": "b98c09b946120e88273c82a43b311ed94d383a6428967161f5e22f0ffdd25362", "bytes": 2319},
+    {"path": "evidence/G1/bch-surface/resumed-synchronized-20260723/raw/SHA256SUMS", "sha256": "46f81ac7cbab666bf1b0da9b2cb07f8aa7f0890ae9524b77a61e729b401adf44", "bytes": 2964},
+    {"path": "evidence/G1/bch-surface/resumed-synchronized-20260723/raw/common-tip-comparison.json", "sha256": "e034cba65226a5e10cd74e588c84209d3c1d8324c268e86c6e7a209838f83739", "bytes": 594},
+    {"path": "evidence/G1/bch-surface/resumed-synchronized-20260723/raw/runtime-arguments.txt", "sha256": "cc607ea9b3da7a35eaee1c04d8ed69b2482e46e1ca26a456e13458427d6ff1c1", "bytes": 524}
+  ],
+  "measurements": {
+    "commonTip": {"blocks": 315801, "headers": 315801, "bestBlockHash": "0000000021bbbaa39f0ecf6fdf9f33a95b08c5a14bdb32172552cdc98d4fd646", "chainwork": "0000000000000000000000000000000000000000000000000d8764d32c1785df"},
+    "nodeA": {"initialBlockDownload": false, "outboundPeers": 8, "bytesReceived": 1986678479, "bytesSent": 12241705},
+    "nodeB": {"initialBlockDownload": false, "outboundPeers": 8, "bytesReceived": 1986368857, "bytesSent": 11973425},
+    "independentOperators": 0
+  },
+  "tests": [
+    {"name": "separate local BCHN v29 datadirs synchronize", "expected": "both local processes leave IBD at one tip and chainwork", "observed": "both reported height 315801, the same tip hash and chainwork, and initialblockdownload false", "pass": true},
+    {"name": "same-host limitation", "expected": "not counted as independent operators", "observed": "both daemons are controlled from one host/operator", "pass": false},
+    {"name": "complete 10-input 54KB transaction policy/relay result", "expected": "exact complete transaction acceptance and relay evidence", "observed": "not run by authorization boundary", "pass": false}
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "The two local daemons are one host/operator and are not independent peers.",
+    "External P2P user-agent strings and peer paths do not prove independent operator, release provenance, or consensus.",
+    "No wallet, key, UTXO, transaction construction, testmempoolaccept, submission, relay, broadcast, mining, funding, or mainnet activity occurred.",
+    "Synchronization does not establish policy or acceptance for the proposed 10-input verifier transaction."
+  ]
+}
