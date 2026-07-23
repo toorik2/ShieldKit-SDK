@@ -3,14 +3,14 @@
   "id": "g2.preparation-p2pkh-local-v1",
   "gate": "G2",
   "candidate": "g0-v3-preparation-transaction-v1",
-  "claim": "The deterministic preparation transaction emits and consumes the canonical 100-byte Schnorr ALL|FORKID P2PKH authorization for deposit, transfer, and withdrawal. Its vout-0 binding and vout-1 fee siblings share the wire-order double-SHA256 parent, and its fee/change accounting is exact at the requested feerate.",
+  "claim": "The deterministic preparation transaction emits and consumes the canonical 100-byte Schnorr ALL|FORKID P2PKH authorization for deposit, transfer, and withdrawal. Its vout-0 binding and vout-1 fee siblings share the wire-order double-SHA256 parent, and its fee/change accounting is fixed at exactly one satoshi per serialized byte.",
   "source": {
     "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
-    "commit": "a3e38844af4bc9a342c6997cd4333a1b8ded2d0c",
+    "commit": "59d1b902ac32f3f382eb4dd58f6b92cdbea4bf17",
     "dirtyPaths": []
   },
   "environment": {
-    "observedAt": "2026-07-23T20:40:56+03:00",
+    "observedAt": "2026-07-23T20:51:15+03:00",
     "hardware": {
       "architecture": "x86_64",
       "cpu": "13th Gen Intel Core i9-13900H",
@@ -34,18 +34,18 @@
   "artifacts": [
     {
       "path": "packages/preparation-transaction/preparation-transaction.mjs",
-      "sha256": "51d002aedb137343245655e45e871fb7d5025b55d5c9ae90973b7bef51318f1c",
-      "bytes": 9446
+      "sha256": "58ca9119876cd06ffdde26facf0319b073af671053d690c6dee47755f98cb1a6",
+      "bytes": 9592
     },
     {
       "path": "packages/preparation-transaction/preparation-transaction.vm.test.mjs",
-      "sha256": "931f30ef310e5856c94dcad49436c4fdb3b58f95077bc05ccba71bee417c4505",
-      "bytes": 7226
+      "sha256": "6181947ed6b50ecf4a63b4c2c6ac1f0bef97031191a5969977d40b0976fd4e0d",
+      "bytes": 7203
     },
     {
       "path": "packages/settlement-transaction/settlement-transaction.mjs",
-      "sha256": "42b75ff89b9a5406d27df68b2aa2af61abf29988e992c418bc6617a91834b1a2",
-      "bytes": 16544
+      "sha256": "3d2971ffeb398e93836ce209b316d5fde0b6b081e4551870cd8818175efb3cab",
+      "bytes": 17326
     }
   ],
   "measurements": {
@@ -53,8 +53,8 @@
     "preparationSignedWireBytes": 229,
     "preparationUnlockingBytecodeBytes": 100,
     "sighashByte": "0x41",
-    "minimumFeeRateSatoshisPerByte": 2,
-    "preparationFeeSatoshis": 458,
+    "feeRateSatoshisPerByte": 1,
+    "preparationFeeSatoshis": 229,
     "minimumDustSafeChangeSatoshis": 546,
     "bindingOutputIndex": 0,
     "feeOutputIndex": 1,
@@ -83,7 +83,7 @@
     },
     {
       "name": "canonical dust/change accounting",
-      "expected": "546-satoshi change accepted; 545-satoshi change rejected; fee equals bytes times feerate",
+      "expected": "546-satoshi change accepted; 545-satoshi change rejected; fee equals serialized bytes at the fixed one-sat protocol rate",
       "observed": "all conditions met",
       "pass": true
     },
