@@ -1,0 +1,51 @@
+{
+  "candidate": "bn254-onetx-pf6-a3-r1",
+  "sourceLimits": {
+    "standardTransactionBytes": 100000,
+    "standardUnlockingBytes": 10000,
+    "defaultMinRelaySatPerKb": 1000
+  },
+  "g2Ceilings": {
+    "allBytes": 95000,
+    "wireBytes": 95000,
+    "unlockingBytes": 9500
+  },
+  "baseline": {
+    "allBytes": 54949,
+    "wireBytes": 54739,
+    "perInputUnlockingBytes": [
+      9853,
+      9848,
+      9877,
+      8893,
+      7452,
+      8538
+    ],
+    "encodedFeeSatoshis": 5000
+  },
+  "allBytesBudgetRemaining": 40051,
+  "wireBudgetRemaining": 40261,
+  "maximumUnlockingBytes": 9877,
+  "unlockingViolations": [
+    {
+      "inputIndex": 0,
+      "bytes": 9853,
+      "overG2CeilingBytes": 353
+    },
+    {
+      "inputIndex": 1,
+      "bytes": 9848,
+      "overG2CeilingBytes": 348
+    },
+    {
+      "inputIndex": 2,
+      "bytes": 9877,
+      "overG2CeilingBytes": 377
+    }
+  ],
+  "minimumRelayFeeSatoshis": 54739,
+  "fixtureFeeShortfallSatoshis": 49739,
+  "feeAsPercentOfOneNote": 0.54739,
+  "baselineQualifiesForG2": false
+}
+
