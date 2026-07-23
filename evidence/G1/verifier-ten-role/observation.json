@@ -56,8 +56,9 @@
     {"name": "harness typecheck", "expected": "pass", "observed": "pass", "pass": true},
     {"name": "repository architecture suite", "expected": "pass", "observed": "7 unrelated checkout-layout failures", "pass": false}
   ],
-  "verdict": "PASS",
+  "verdict": "FAIL",
   "limitations": [
+    "FAIL keeps G1 open; the seven-role VM result passes only the bounded verifier-context milestone described in the report.",
     "Not a valid ten-input BCH transaction: packet/state/fee roles are structural and unevaluated.",
     "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck; lake is unavailable on this host.",
     "Packet is authenticated against the fixture public limbs, not a complete runtime action-packet parser.",
