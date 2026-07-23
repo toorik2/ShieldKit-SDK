@@ -206,6 +206,44 @@ test('rejects context, packet, role, state, withdrawal, fee, and size mutations'
   );
 });
 
+// This is a builder/SCCT negative matrix. It proves that the exact packet
+// context fails closed before any BCH VM or Groth16 claim is made.
+test('fails closed on every role parent, vout, source-value, and runtime-profile substitution', () => {
+  const baseline = fixture('deposit');
+  assert.doesNotThrow(() => buildSettlementTransaction(baseline));
+
+  for (let index = 0; index < INPUT_ROLES.length; index += 1) {
+    for (const [field, mutate] of [
+      ['parent', (value) => {
+        const parent = Buffer.from(value.inputs[index].outpointTransactionHashWire, 'hex');
+        parent[index % parent.length] ^= 1;
+        value.inputs[index].outpointTransactionHashWire = parent.toString('hex');
+      }],
+      ['vout', (value) => {
+        value.inputs[index].outpointIndex = String(Number(value.inputs[index].outpointIndex) + 10);
+      }],
+      ['source value', (value) => {
+        value.sourceOutputs[index].valueSatoshis = (BigInt(value.sourceOutputs[index].valueSatoshis) + 1n).toString();
+      }],
+    ]) {
+      const value = structuredClone(baseline);
+      mutate(value);
+      assert.throws(
+        () => buildSettlementTransaction(value),
+        SettlementTransactionError,
+        `${INPUT_ROLES[index]} ${field} substitution must invalidate the packet context`,
+      );
+    }
+  }
+
+  const wrongProfile = structuredClone(baseline);
+  wrongProfile.profileId = hex(0xfe, 32);
+  assert.throws(
+    () => buildSettlementTransaction(wrongProfile),
+    /action packet kind or identity/,
+  );
+});
+
 test('separates the 54739-byte reference from the active 59000-byte gate', () => {
   const result = buildSettlementTransaction(fixture());
   assert.equal(result.measurements.completeTransactionWireLimitBytes, 59_000);
