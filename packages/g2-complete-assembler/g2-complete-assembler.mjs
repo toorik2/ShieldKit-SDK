@@ -61,12 +61,14 @@ function manifestGenesis(value) {
   if (typeof genesis.instanceId !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(genesis.instanceId)) fail('profileManifest.genesis.instanceId is invalid');
   if (typeof genesis.stateNftCategory !== 'string' || !/^[0-9a-f]{64}$/.test(genesis.stateNftCategory)) fail('profileManifest.genesis.stateNftCategory is invalid');
   if (manifest.identity?.profileId !== genesis.profileId) fail('profileManifest identity does not match genesis profile');
+  if (!['development-only', 'ceremony-production'].includes(manifest.setup?.mode)) fail('profileManifest setup mode is unsupported');
   return Object.freeze({
     genesis,
     profileId: Buffer.from(genesis.profileId.slice('sha256:'.length), 'hex'),
     instanceId: Buffer.from(genesis.instanceId.slice('sha256:'.length), 'hex'),
     stateCategory: Buffer.from(genesis.stateNftCategory, 'hex'),
     maximumReserveSatoshis: genesis.reserveCapSatoshis,
+    setupMode: manifest.setup.mode,
   });
 }
 
@@ -222,7 +224,9 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   if (encodedTransaction.length > COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES) fail('complete transaction exceeds 59000 bytes');
   if (Math.max(...unsignedTransaction.inputs.map((input) => input.unlockingBytecode.length)) > INPUT_UNLOCKING_LIMIT_BYTES) fail('per-input unlocking-bytecode limit exceeded');
   return Object.freeze({
-    schema: 'shield.cash/g2-complete-settlement/v1', kind, transaction: unsignedTransaction,
+    schema: 'shield.cash/g2-complete-settlement/v1', kind,
+    qualification: profile.setupMode === 'development-only' ? 'development-only' : 'ceremony-profile-unqualified',
+    transaction: unsignedTransaction,
     sourceOutputs: sources, encodedTransaction, actionPacket: packet,
     context: provisionalContext,
     locks: Object.freeze({ bindingLock, stateLock, stateHelper: helper }),
@@ -239,6 +243,7 @@ export async function planCompleteG2Settlement(value) {
   const constructed = await constructCompleteG2Settlement(value, false);
   return Object.freeze({
     schema: 'shield.cash/g2-complete-settlement-plan/v1', kind: constructed.kind,
+    qualification: constructed.qualification,
     context: constructed.context,
     expectedWireBytes: constructed.measurements.wireBytes,
     expectedFeeSatoshis: constructed.measurements.feeSatoshis,
