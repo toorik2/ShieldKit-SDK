@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { encodeTransaction } from '@bitauth/libauth';
+import { createVirtualMachineBch2026, encodeTransaction } from '@bitauth/libauth';
 import { DENOMINATION_SATS } from '../action-packet/action-packet.mjs';
 import { loadVerifierProfileBundle, parseStrictJson } from '../core/verifier-profile.mjs';
 
@@ -404,6 +404,10 @@ export async function finalizeCompletePreparationTransaction(value, signatureHex
   const signature = hexBytes(signatureHex, 64, 'signature'); const plan = await deriveCompletePlan(value);
   const transaction = completeTransactionFor(plan.parsed, plan.authority.carriers, signature, plan.change); const encodedTransaction = Buffer.from(encodeTransaction(transaction));
   if (encodedTransaction.length !== plan.wireBytes) fail('final signature changed complete preparation transaction size');
+  if (createVirtualMachineBch2026(true).verify({
+    sourceOutputs: [{ valueSatoshis: plan.parsed.sourceValue, lockingBytecode: p2pkhLock(plan.parsed.publicKey) }],
+    transaction,
+  }) !== true) fail('complete preparation funding signature is not accepted by the standard BCH-2026 VM');
   const transactionHashWire = hash256(encodedTransaction);
   const hash = transactionHashWire.toString('hex');
   return Object.freeze({
