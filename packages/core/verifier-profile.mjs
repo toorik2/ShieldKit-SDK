@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -6,7 +7,7 @@ const HASH = /^sha256:[0-9a-f]{64}$/;
 const LABEL = /^[a-z0-9][a-z0-9._-]*$/;
 const REQUIRED_ARTIFACT_KINDS = new Set([
   'relation-definition', 'constraint-system', 'public-input-abi',
-  'verification-key', 'proving-key', 'bch-verifier-script',
+  'verification-key', 'proving-key', 'witness-generator', 'bch-verifier-set',
 ]);
 const ARTIFACT_KINDS = new Set([...REQUIRED_ARTIFACT_KINDS, 'ceremony-transcript']);
 const PROFILE_MATERIAL_KEYS = ['artifacts', 'network', 'profile', 'setup', 'standard', 'toolchain'];
@@ -38,6 +39,18 @@ const exactKeys = (value, label, keys) => {
   }
 };
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+const MAX_MANIFEST_BYTES = 1024 * 1024;
+
+async function hashFile(file) {
+  const digest = createHash('sha256');
+  for await (const chunk of createReadStream(file)) digest.update(chunk);
+  return `sha256:${digest.digest('hex')}`;
+}
+
+function compareDecimalSequence(left, right) {
+  if (left.length !== right.length) return left.length - right.length;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 
 /** Strict JSON parser: rejects duplicate object names before canonicalization. */
 export function parseStrictJson(bytes) {
@@ -145,6 +158,15 @@ export function deriveInstanceId(genesis) {
   return sha256(Buffer.concat([Buffer.from('shield.cash/verifier-instance-id/v1\0', 'utf8'), Buffer.from(canonicalJson(material), 'utf8')]));
 }
 
+/** CashToken category ID for a category-creating input spending output 0. */
+export function deriveStateNftCategory(categoryInputOutpoint) {
+  exactKeys(categoryInputOutpoint, 'category input outpoint', ['txid', 'vout']);
+  const txid = string(categoryInputOutpoint.txid, 'category input outpoint txid');
+  if (!/^[0-9a-f]{64}$/.test(txid)) fail('category input outpoint txid is invalid');
+  if (categoryInputOutpoint.vout !== '0') fail('category input outpoint must spend output 0');
+  return txid;
+}
+
 function safeArtifactPath(relativePath) {
   string(relativePath, 'artifact.path');
   if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(relativePath) || relativePath.includes('\\')) fail('artifact path is not a safe relative POSIX path');
@@ -179,12 +201,13 @@ function validateSetup(setup, artifactByPath) {
   if (transcript.sha256 !== hash(setup.transcript.sha256, 'ceremony transcript hash')) fail('ceremony transcript hash does not bind its artifact');
   validateVerifier(setup.transcript.verifier, 'ceremony transcript verifier');
   if (!Array.isArray(setup.contributions) || setup.contributions.length < 2) fail('ceremony setup requires at least two verified contributions');
-  const participants = new Set(); const sequences = new Set();
+  const participants = new Set(); let previousSequence;
   for (const [index, contribution] of setup.contributions.entries()) {
     exactKeys(contribution, `ceremony contribution ${index}`, ['sequence', 'participantCommitment', 'contributionHash', 'verification']);
     string(contribution.sequence, `ceremony contribution ${index} sequence`);
-    if (!/^[1-9][0-9]*$/.test(contribution.sequence) || sequences.has(contribution.sequence)) fail('ceremony contribution sequences must be unique positive decimal strings');
-    sequences.add(contribution.sequence);
+    if (!/^[1-9][0-9]*$/.test(contribution.sequence)) fail('ceremony contribution sequences must be positive decimal strings');
+    if (previousSequence !== undefined && compareDecimalSequence(previousSequence, contribution.sequence) >= 0) fail('ceremony contributions must be strictly sorted by numeric sequence');
+    previousSequence = contribution.sequence;
     const participant = hash(contribution.participantCommitment, `ceremony contribution ${index} participant commitment`);
     if (participants.has(participant)) fail('ceremony contribution participant commitments must be unique');
     participants.add(participant);
@@ -206,7 +229,7 @@ function validateManifest(manifest) {
   if (manifest.schema !== 'shield.cash/verifier-profile-manifest/v1') fail('unsupported manifest schema');
   exactKeys(manifest.standard, 'standard', ['id', 'version']);
   if (manifest.standard.id !== 'shield.cash' || manifest.standard.version !== '1') fail('unsupported standard');
-  exactKeys(manifest.profile, 'profile', ['proofSystem', 'curve', 'relation', 'constraintSystemHash', 'publicInputAbi']);
+  exactKeys(manifest.profile, 'profile', ['proofSystem', 'curve', 'relation', 'constraintSystemHash', 'publicInputAbi', 'bchVerifierSetHash']);
   if (manifest.profile.proofSystem !== 'groth16' || manifest.profile.curve !== 'bn254') fail('unsupported proof system or curve');
   for (const field of ['relation', 'publicInputAbi']) {
     exactKeys(manifest.profile[field], `profile.${field}`, ['id', 'sha256']);
@@ -214,15 +237,19 @@ function validateManifest(manifest) {
     hash(manifest.profile[field].sha256, `profile.${field}.sha256`);
   }
   hash(manifest.profile.constraintSystemHash, 'profile.constraintSystemHash');
+  hash(manifest.profile.bchVerifierSetHash, 'profile.bchVerifierSetHash');
   exactKeys(manifest.toolchain, 'toolchain', ['compiler', 'generator']);
   validateVerifier(manifest.toolchain.compiler, 'toolchain compiler'); validateVerifier(manifest.toolchain.generator, 'toolchain generator');
   exactKeys(manifest.network, 'network', ['name']);
   if (manifest.network.name !== 'chipnet') fail('only chipnet is authorized by this interface');
   if (!Array.isArray(manifest.artifacts)) fail('artifacts must be an array');
   const ids = new Set(), paths = new Set(), kinds = new Set(), artifactByPath = new Map();
+  let previousArtifactId;
   for (const [index, artifact] of manifest.artifacts.entries()) {
     exactKeys(artifact, `artifact ${index}`, ['id', 'kind', 'path', 'sha256']);
     if (!LABEL.test(string(artifact.id, `artifact ${index} id`)) || ids.has(artifact.id)) fail('artifact IDs must be unique labels');
+    if (previousArtifactId !== undefined && previousArtifactId >= artifact.id) fail('artifacts must be strictly sorted by id');
+    previousArtifactId = artifact.id;
     ids.add(artifact.id); if (!ARTIFACT_KINDS.has(artifact.kind) || kinds.has(artifact.kind)) fail('artifact kinds must be unique and supported');
     kinds.add(artifact.kind); const artifactPath = safeArtifactPath(artifact.path);
     if (paths.has(artifactPath)) fail('artifact paths must be unique'); paths.add(artifactPath);
@@ -233,14 +260,14 @@ function validateManifest(manifest) {
   if (byKind.get('relation-definition').sha256 !== manifest.profile.relation.sha256) fail('relation hash does not bind relation-definition artifact');
   if (byKind.get('constraint-system').sha256 !== manifest.profile.constraintSystemHash) fail('constraint hash does not bind constraint-system artifact');
   if (byKind.get('public-input-abi').sha256 !== manifest.profile.publicInputAbi.sha256) fail('public-input ABI hash does not bind public-input-abi artifact');
+  if (byKind.get('bch-verifier-set').sha256 !== manifest.profile.bchVerifierSetHash) fail('BCH verifier-set hash does not bind bch-verifier-set artifact');
   validateSetup(manifest.setup, artifactByPath);
   exactKeys(manifest.identity, 'identity', ['profileId']); hash(manifest.identity.profileId, 'identity.profileId');
-  exactKeys(manifest.genesis, 'genesis', ['profileId', 'instanceId', 'network', 'genesisOutpoint', 'reserveCapSatoshis']);
+  exactKeys(manifest.genesis, 'genesis', ['profileId', 'instanceId', 'network', 'categoryInputOutpoint', 'stateNftCategory', 'reserveCapSatoshis']);
   hash(manifest.genesis.profileId, 'genesis.profileId'); hash(manifest.genesis.instanceId, 'genesis.instanceId');
   if (manifest.genesis.network !== manifest.network.name) fail('genesis network does not bind profile network');
-  exactKeys(manifest.genesis.genesisOutpoint, 'genesis outpoint', ['txid', 'vout']);
-  if (!/^[0-9a-f]{64}$/.test(string(manifest.genesis.genesisOutpoint.txid, 'genesis outpoint txid'))) fail('genesis outpoint txid is invalid');
-  if (!/^(0|[1-9][0-9]{0,9})$/.test(string(manifest.genesis.genesisOutpoint.vout, 'genesis outpoint vout'))) fail('genesis outpoint vout is invalid');
+  const categoryInputTxid = deriveStateNftCategory(manifest.genesis.categoryInputOutpoint);
+  if (string(manifest.genesis.stateNftCategory, 'state NFT category') !== categoryInputTxid) fail('state NFT category must equal category input transaction hash in OP_HASH256 byte order');
   if (!/^(0|[1-9][0-9]{0,18})$/.test(string(manifest.genesis.reserveCapSatoshis, 'genesis reserve cap'))) fail('genesis reserve cap must be a canonical decimal string');
   const profileId = deriveProfileId(manifest); const instanceId = deriveInstanceId(manifest.genesis);
   if (manifest.identity.profileId !== profileId || manifest.genesis.profileId !== profileId) fail('profile identity or genesis binding mismatch');
@@ -260,6 +287,7 @@ export async function loadVerifierProfileBundle(directory, expected = {}) {
   const manifestPath = path.join(root, 'manifest.json');
   const manifestStats = await lstat(manifestPath).catch(() => fail('bundle manifest is missing'));
   if (!manifestStats.isFile() || manifestStats.isSymbolicLink()) fail('bundle manifest must be a regular non-symlink file');
+  if (manifestStats.size > MAX_MANIFEST_BYTES) fail('manifest exceeds the 1 MiB maximum size');
   const manifestBytes = await readFile(manifestPath);
   const manifest = parseStrictJson(manifestBytes);
   if (!Buffer.from(canonicalJson(manifest), 'utf8').equals(manifestBytes)) fail('manifest is not canonical JSON');
@@ -269,7 +297,9 @@ export async function loadVerifierProfileBundle(directory, expected = {}) {
     if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) fail('artifact path escapes bundle root');
     const stats = await lstat(candidate).catch(() => fail(`artifact is missing: ${artifact.path}`));
     if (!stats.isFile() || stats.isSymbolicLink()) fail(`artifact must be a regular non-symlink file: ${artifact.path}`);
-    if (sha256(await readFile(candidate)) !== artifact.sha256) fail(`artifact hash mismatch: ${artifact.path}`);
+    const resolved = await realpath(candidate).catch(() => fail(`artifact cannot be resolved: ${artifact.path}`));
+    if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) fail(`artifact resolves outside bundle root: ${artifact.path}`);
+    if (await hashFile(resolved) !== artifact.sha256) fail(`artifact hash mismatch: ${artifact.path}`);
   }
   exactKeys(expected, 'expected bundle binding', ['network', 'profileId', 'instanceId'].filter((key) => expected[key] !== undefined));
   if (expected.profileId !== undefined && expected.profileId !== profileId) fail('expected profile binding mismatch: refusing hot swap');
