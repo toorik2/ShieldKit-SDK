@@ -1,0 +1,15 @@
+{
+  "schema": "shield.cash/pf7-raw-attacks-summary/v1",
+  "source": {"path": "/tmp/verifiercash-shield-10role-019f8ed4/.vc/runs/g1-real-deposit/tmp/raw-attacks-v3.json", "sha256": "dc8d3c971beb0181e9ae0073e89e24362ceba95cd49afd05d7ed991387925513", "bytes": 25990},
+  "honest": {"allAccept": true},
+  "total": 18,
+  "rejected": 18,
+  "falseAccepts": 0,
+  "setupErrors": 0,
+  "results": [
+    "role-byte-0", "role-byte-1", "role-byte-2", "role-byte-3", "role-byte-4", "role-byte-5", "role-byte-6",
+    "role-witness-substitute-0", "role-witness-substitute-1", "role-witness-substitute-2", "role-witness-substitute-3", "role-witness-substitute-4", "role-witness-substitute-5", "role-witness-substitute-6",
+    "source-lock-permutation", "witness-permutation", "carrier-length", "carrier-byte"
+  ],
+  "status": "Every named mutation has status reject in the raw source."
+}

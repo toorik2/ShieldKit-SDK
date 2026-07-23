@@ -15,8 +15,8 @@ reproducible evidence for the exact candidate.
 | Current BCH consensus, standardness, activation, and VM limits | partial | v29 source plus two synchronized same-host, read/sync-only Chipnet runtimes are recorded in `evidence/G1/bch-surface/`; transaction-policy behavior remains missing |
 | Two independent current BCHN v29 peers reproduce behavior | missing | two local processes synchronized to one tip through partly distinct public peers, but are not independent operators |
 | Pinned reproducible verifier toolchain | partial | exact PF6 rebuild passes on Node 20 and 25; PF7 sub62 also reproduces from the pinned source; bootstrap closure remains distributed |
-| Real valid and invalid proof corpus in complete standard transactions | partial | the 608,499-constraint relation has three valid R1CS witnesses and five rejecting mutations; no zkey, proof, new verifier, or complete transaction exists |
-| Complete all-byte/source-script/per-input/VM accounting | partial | PF7 sub62 records 54,541 scored / 54,296 wire bytes and all seven unlocks below 9,500; the protocol envelope is absent |
+| Real valid and invalid proof corpus in complete standard transactions | partial | the 608,499-constraint development-only relation has three valid Groth16 proofs and independently verified outputs; the pinned deposit reaches a real ten-input BCH-2026/libauth VM context, but this is not BCHN-standardness, Chipnet, or a complete settled action |
+| Complete all-byte/source-script/per-input/VM accounting | partial | `development-v0-real-proof/` records all ten real PF7 inputs accepting, 81,563 wire / 82,739 score bytes, and 18/18 attack rejections; exec0 is 9,596 B (>9,500), so the G1 component gate remains failed |
 | Independent VM or formal cross-check | missing | libauth plus LeanBCH workstream |
 | Real Groth16 and alternative comparison | missing | no alternative may be compared by projection |
 | Explicit setup, upgrade, and failure model | partial | manifest/lifecycle v1 and the offline bundle builder fix the dev-versus-ceremony boundary; the real local initializer is in progress |
@@ -47,3 +47,9 @@ Current decisive results:
   one local operator rather than independent peers, and no transaction
   acceptance or relay result was run; G1 therefore remains OPEN. See
   `evidence/G1/bch-surface/resumed-synchronized-20260723/`.
+- `development-v0-real-proof/` adds a hash-pinned actual development-v0
+  deposit proof through the ten-input PF7 VM context: all 10 real inputs
+  accept and 18/18 recorded mutations reject, but `exec0` is 9,596 B and
+  direct proving peaks at 6.83--7.09 GiB RSS. This is development-only,
+  bounded local evidence, not BCHN standardness, Chipnet, full settlement, or
+  LeanBCH qualification.
