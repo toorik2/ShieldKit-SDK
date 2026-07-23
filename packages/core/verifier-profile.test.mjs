@@ -40,6 +40,14 @@ async function makeDevelopmentBundle(seed, mutation) {
     setup: {
       mode: 'development-only',
       provenance: { method: 'local-initialization', initializerCommitment: digest(`initializer-${seed}`) },
+      material: {
+        phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest(`ptau-${seed}`) },
+        phase2: {
+          initializationCommand: { argv: ['fixture-zkey', 'new', 'circuit.r1cs', 'ptau'] },
+          contributionCommand: { argv: ['fixture-zkey', 'contribute', 'initial.zkey', 'final.zkey'] },
+          randomnessCommitment: digest(`randomness-${seed}`), finalZkeySha256: digest(files['artifacts/pk.bin']),
+        },
+      },
       transcript: { status: 'not-applicable' }, contributions: [],
     },
     toolchain: {
@@ -139,6 +147,24 @@ test('setup mode and setup provenance cannot be relabeled in place', async () =>
   );
 });
 
+test('setup material binds Phase 1 provenance and the final zkey to the proving-key artifact', async () => {
+  const wrongFinalZkey = await makeDevelopmentBundle('wrong-final-zkey');
+  wrongFinalZkey.manifest.setup.material.phase2.finalZkeySha256 = digest('different-final-zkey');
+  await writeBoundManifest(wrongFinalZkey);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(wrongFinalZkey.directory),
+    /setup material final zkey hash does not bind proving-key artifact/,
+  );
+
+  const missingPtau = await makeDevelopmentBundle('missing-ptau');
+  delete missingPtau.manifest.setup.material.phase1.ptauSha256;
+  await writeBoundManifest(missingPtau);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(missingPtau.directory),
+    /setup material phase1 has missing or unknown properties/,
+  );
+});
+
 test('state NFT category is a circularity-free CashToken category binding from the pre-existing output-0 input', async () => {
   const bundle = await makeDevelopmentBundle('category-binding');
   const { categoryInputOutpoint, stateNftCategory } = bundle.manifest.genesis;
@@ -182,6 +208,10 @@ test('production mode rejects an incomplete ceremony transcript rather than acce
     manifest.setup = {
       mode: 'ceremony-production',
       provenance: { method: 'multi-party-randomness', initializerCommitment: digest('ceremony-init') },
+      material: {
+        phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest('ptau') },
+        phase2: { initializationCommand: { argv: ['fixture-zkey', 'new'] }, finalZkeySha256: digest('absent'), finalZkeyVerification: { status: 'verified', verifier: { name: 'fixture-verifier', version: '0', sha256: digest('verifier') } }, contributionChainSha256: digest(canonicalJson([{ sequence: '1', participantCommitment: digest('participant-1'), contributionHash: digest('contribution-1'), verification: { status: 'verified', verifier: { name: 'fixture-verifier', version: '0', sha256: digest('verifier') } } }, { sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier: { name: 'fixture-verifier', version: '0', sha256: digest('verifier') } } }])) },
+      },
       transcript: { status: 'complete', artifactPath: 'artifacts/transcript.json', sha256: digest('absent'), verifier: { name: 'fixture-verifier', version: '0', sha256: digest('verifier') } },
       contributions: [
         { sequence: '1', participantCommitment: digest('participant-1'), contributionHash: digest('contribution-1'), verification: { status: 'verified', verifier: { name: 'fixture-verifier', version: '0', sha256: digest('verifier') } } },
@@ -227,6 +257,10 @@ test('loader rejects unordered artifacts and unordered numeric ceremony contribu
     manifest.setup = {
       mode: 'ceremony-production',
       provenance: { method: 'multi-party-randomness', initializerCommitment: digest('ceremony-init') },
+      material: {
+        phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest('ptau') },
+        phase2: { initializationCommand: { argv: ['fixture-zkey', 'new'] }, finalZkeySha256: digest(files['artifacts/pk.bin']), finalZkeyVerification: { status: 'verified', verifier }, contributionChainSha256: digest(canonicalJson([{ sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier } }, { sequence: '1', participantCommitment: digest('participant-1'), contributionHash: digest('contribution-1'), verification: { status: 'verified', verifier } }])) },
+      },
       transcript: { status: 'complete', artifactPath: 'artifacts/transcript.json', sha256: digest(files['artifacts/transcript.json']), verifier },
       contributions: [
         { sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier } },

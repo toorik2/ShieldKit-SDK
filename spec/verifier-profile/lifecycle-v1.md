@@ -29,6 +29,22 @@ Plug-and-play does **not** permit an in-place verifier hot swap, a silent
 upgrade, a mutation of authenticated genesis, or reinterpretation of an old
 instance's notes, nullifiers, commitments, state, or action history.
 
+### Derivation boundary
+
+The derivation order is fixed: (1) relation, ABI, keys, and BCH verifier-set
+bytes; (2) `profileId`; (3) fresh genesis inputs and `instanceId`; (4)
+instance-binding/state scripts; then (5) an actual genesis transaction. The
+verifier set is in step 1, so it MUST NOT embed final profile or instance IDs;
+doing so creates a fixed-point requirement because its bytes are profile-hashed.
+It may bind verification-key/topology material and obtain profile/instance
+claims from the input-6 public packet. Later binding/state scripts enforce that
+packet's profile and instance IDs and pin exact verifier locks.
+
+Manifest-v1 packages only pre-genesis profile artifacts and identity inputs. It
+does not package instance-binding/state scripts or an actual genesis output.
+Those are distinct later evidence and cannot be silently substituted into the
+profile bundle.
+
 ## 2. Development initialization
 
 A fresh local Groth16 initialization may produce a bundle only when
@@ -44,6 +60,13 @@ provenance changes `profileId`; it therefore requires distinct authenticated
 genesis and produces a distinct `instanceId`, even when the relation and
 public-input ABI are unchanged.
 
+`initializerCommitment` alone is not complete setup provenance. Development
+material MUST additionally bind the exact Phase 1 powers-of-tau source
+identifier and SHA-256, the complete argv arrays for Phase 2 initialization and
+local contribution commands, a commitment to the private contribution
+randomness, and a final zkey SHA-256 equal to the proving-key artifact hash.
+The ptau remains provenance metadata rather than a runtime bundle artifact.
+
 ## 3. Future ceremony adapter
 
 No ceremony adapter is implemented by this candidate. When authorized, an
@@ -58,6 +81,11 @@ adapter MUST accept exactly these typed inputs before it can emit a
    ascending sequence of at least two contribution records. Each record has
    `sequence`, `participantCommitment`, `contributionHash`, and a `verified`
    verifier name/version/SHA-256 record.
+   It also identifies the Phase 1 ptau source and SHA-256, Phase 2
+   initialization command argv, and the verified final zkey SHA-256. The final
+   zkey hash must equal the packaged proving-key artifact hash; contribution
+   records are canonically hashed into the typed final-zkey chain, and the
+   transcript remains a separately hash-bound artifact.
 3. `artifacts`: exact regular bytes for all required bundle kinds:
    `relation-definition`, `constraint-system`, `public-input-abi`,
    `verification-key`, `proving-key`, `witness-generator`, and

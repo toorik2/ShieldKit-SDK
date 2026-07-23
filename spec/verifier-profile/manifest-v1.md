@@ -83,18 +83,33 @@ absolute path.
 assertion that any verifier is standard, sound, executable, or proof-accepting.
 This contract deliberately contains no proof-acceptance API.
 
+The `bch-verifier-set` is pre-genesis profile material and therefore MUST NOT
+embed its final `profileId` or any `instanceId`: `profileId` already hashes
+that artifact. It binds verification-key/topology material and derives identity
+claims from the public packet. Instance-specific packet/profile/instance checks
+and exact verifier-lock pinning belong to later binding/state scripts; those
+scripts are not artifacts in this pre-genesis manifest.
+
 ## Setup modes
 
 `setup.mode` is exactly one of:
 
 - `development-only`: local initialization. Its transcript and contribution
   verification statuses must be `not-applicable`; every instance remains
-  permanently development-only.
+  permanently development-only. `setup.material.phase1` binds the exact ptau
+  source identifier and hash without packaging the ptau as a runtime artifact.
+  Its phase-2 material binds exact initialization and contribution command
+  argv arrays, a randomness commitment, and the final zkey hash, which must
+  equal the proving-key artifact hash.
 - `ceremony-production`: multi-party randomness. A complete transcript artifact
   is required; its SHA-256, path, and verifier metadata must be bound, and each
   contribution must have a unique participant commitment, contribution hash,
-  and `verified` verifier record. This syntactic validation is not a claim that
-  a ceremony is secure or production-qualified.
+  and `verified` verifier record. Its phase-1 material binds the ptau source and
+  hash, while phase-2 binds the exact initialization command and final zkey
+  hash (equal to the proving-key artifact), a verifier record, and a
+  contribution-chain SHA-256 derived from canonical contribution records. This
+  syntactic validation is not a claim that a ceremony is secure or
+  production-qualified.
 
 Changing setup, relation, ABI, constraints, keys, proving artifacts, scripts,
 toolchain, or any profile-material byte changes the derived profile ID. A new

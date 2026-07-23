@@ -182,17 +182,18 @@ function validateSetup(setup, artifactByPath) {
   object(setup, 'setup');
   const mode = setup.mode;
   if (mode === 'development-only') {
-    exactKeys(setup, 'development setup', ['mode', 'provenance', 'transcript', 'contributions']);
+    exactKeys(setup, 'development setup', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
     exactKeys(setup.provenance, 'development setup provenance', ['method', 'initializerCommitment']);
     if (setup.provenance.method !== 'local-initialization') fail('development setup requires local-initialization provenance');
     hash(setup.provenance.initializerCommitment, 'development initializer commitment');
     exactKeys(setup.transcript, 'development setup transcript', ['status']);
     if (setup.transcript.status !== 'not-applicable') fail('development setup transcript must be not-applicable');
     if (!Array.isArray(setup.contributions) || setup.contributions.length !== 0) fail('development setup must have no ceremony contributions');
+    validateSetupMaterial(setup.material, 'development-only', artifactByPath);
     return;
   }
   if (mode !== 'ceremony-production') fail('setup.mode is unsupported');
-  exactKeys(setup, 'ceremony setup', ['mode', 'provenance', 'transcript', 'contributions']);
+  exactKeys(setup, 'ceremony setup', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
   exactKeys(setup.provenance, 'ceremony setup provenance', ['method', 'initializerCommitment']);
   if (setup.provenance.method !== 'multi-party-randomness') fail('ceremony setup requires multi-party-randomness provenance');
   hash(setup.provenance.initializerCommitment, 'ceremony initializer commitment');
@@ -219,6 +220,43 @@ function validateSetup(setup, artifactByPath) {
     if (contribution.verification.status !== 'verified') fail('ceremony contribution must be verified');
     validateVerifier(contribution.verification.verifier, `ceremony contribution ${index} verifier`);
   }
+  validateSetupMaterial(setup.material, 'ceremony-production', artifactByPath, setup.contributions);
+}
+
+function validateSetupCommand(command, label) {
+  exactKeys(command, label, ['argv']);
+  if (!Array.isArray(command.argv) || command.argv.length === 0) fail(`${label} argv must be a non-empty array`);
+  for (const [index, argument] of command.argv.entries()) string(argument, `${label} argv ${index}`);
+}
+
+/**
+ * Binds phase-1 and circuit-specific phase-2 provenance without bundling the
+ * potentially large ptau input as a runtime artifact. This is syntax/integrity
+ * validation, not a cryptographic verification of either ceremony phase.
+ */
+function validateSetupMaterial(material, mode, artifactByPath, contributions = undefined) {
+  exactKeys(material, 'setup material', ['phase1', 'phase2']);
+  exactKeys(material.phase1, 'setup material phase1', ['ptauSource', 'ptauSha256']);
+  string(material.phase1.ptauSource, 'setup material ptau source');
+  hash(material.phase1.ptauSha256, 'setup material ptau hash');
+  const finalZkeyHash = [...artifactByPath.values()].find((artifact) => artifact.kind === 'proving-key')?.sha256;
+  if (!finalZkeyHash) fail('setup material requires proving-key artifact');
+  if (mode === 'development-only') {
+    exactKeys(material.phase2, 'development setup material phase2', ['initializationCommand', 'contributionCommand', 'randomnessCommitment', 'finalZkeySha256']);
+    validateSetupCommand(material.phase2.initializationCommand, 'development phase2 initialization command');
+    validateSetupCommand(material.phase2.contributionCommand, 'development phase2 contribution command');
+    hash(material.phase2.randomnessCommitment, 'development phase2 randomness commitment');
+  } else {
+    exactKeys(material.phase2, 'ceremony setup material phase2', ['initializationCommand', 'finalZkeySha256', 'finalZkeyVerification', 'contributionChainSha256']);
+    validateSetupCommand(material.phase2.initializationCommand, 'ceremony phase2 initialization command');
+    exactKeys(material.phase2.finalZkeyVerification, 'ceremony final zkey verification', ['status', 'verifier']);
+    if (material.phase2.finalZkeyVerification.status !== 'verified') fail('ceremony final zkey must be verified');
+    validateVerifier(material.phase2.finalZkeyVerification.verifier, 'ceremony final zkey verifier');
+    const chainHash = hash(material.phase2.contributionChainSha256, 'ceremony contribution chain hash');
+    const expectedChainHash = sha256(Buffer.from(canonicalJson(contributions), 'utf8'));
+    if (chainHash !== expectedChainHash) fail('ceremony contribution chain hash does not bind contribution records');
+  }
+  if (hash(material.phase2.finalZkeySha256, 'setup material final zkey hash') !== finalZkeyHash) fail('setup material final zkey hash does not bind proving-key artifact');
 }
 
 function validateVerifier(verifier, label) {
