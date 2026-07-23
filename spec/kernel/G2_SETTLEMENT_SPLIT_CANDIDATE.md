@@ -101,6 +101,10 @@ P2PKH lock. Input 9's own P2PKH execution verifies the signature.
 The signature protects a prepared carrier from theft; it never substitutes for
 the proof-to-packet-to-`SCCT` transaction binding.
 
+Preparation and settlement fees are fixed at 1 satoshi per serialized byte.
+Builders reject any alternate fee-rate value; no higher-rate protocol mode is
+defined.
+
 ## Candidate falsifiers
 
 This split is rejected or redesigned if any of these occurs:

@@ -18,6 +18,7 @@ import {
 export const COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
 export const INPUT_UNLOCKING_LIMIT_BYTES = 10_000;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
+export const PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE = 1n;
 // Conservative common cap derived from the worst measured PF7 transfer seam,
 // the current 88-byte state trampoline, state NFT output, P2PKH change, and
 // exact fee unlock. Complete wire size remains the authoritative final gate.
@@ -283,7 +284,9 @@ export function buildSettlementTransaction(value) {
     MAX_U64,
     'minimumFeeRateSatoshisPerByte',
   );
-  if (minimumFeeRate === 0n) fail('minimumFeeRateSatoshisPerByte must be positive');
+  if (minimumFeeRate !== PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE) {
+    fail('minimumFeeRateSatoshisPerByte must equal the protocol rate of 1');
+  }
 
   if (!Array.isArray(value.inputs) || value.inputs.length !== INPUT_ROLES.length) {
     fail('inputs must contain exactly ten ordered roles');
@@ -441,7 +444,7 @@ export function buildSettlementTransaction(value) {
   const outputValue = sumValues(outputs);
   if (inputValue <= outputValue) fail('settlement fee must be positive');
   const feeSatoshis = inputValue - outputValue;
-  const minimumFeeSatoshis = BigInt(wireBytes) * minimumFeeRate;
+  const minimumFeeSatoshis = BigInt(wireBytes) * PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE;
   if (feeSatoshis < minimumFeeSatoshis) {
     fail(`settlement fee ${feeSatoshis} is below ${minimumFeeSatoshis}`);
   }

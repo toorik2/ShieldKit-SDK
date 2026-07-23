@@ -84,13 +84,12 @@ test('rejects malformed keys, outpoints, locks, amounts, and insufficient fundin
   );
 });
 
-test('charges exact requested feerate without using reserve or silent dust burn', () => {
+test('charges exactly one satoshi per byte without reserve use or dust burn', () => {
   const value = base('transfer');
-  value.minimumFeeRateSatoshisPerByte = '3';
   const result = finalizePreparationTransaction(value, hex(0x44, 64));
   assert.equal(
     result.measurements.feeSatoshis,
-    (BigInt(result.measurements.wireBytes) * 3n).toString(),
+    BigInt(result.measurements.wireBytes).toString(),
   );
   assert.ok(BigInt(result.outputValues.preparationChangeSatoshis) >= 546n);
   assert.equal(result.measurements.percentageHeadroomRequired, false);

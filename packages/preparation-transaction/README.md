@@ -11,13 +11,12 @@ It spends one canonical P2PKH wallet UTXO and creates:
 
 Deposit adds exactly 10,000,000 satoshis to the binding carrier. Transfer and
 withdrawal do not. The planner sizes the fixed 100-byte Schnorr
-`ALL|FORKID` unlock, charges the exact requested feerate, and derives change
+`ALL|FORKID` unlock, charges exactly 1 satoshi per byte, and derives change
 without burning a remainder. Finalization substitutes the 64-byte signature
 without changing size and returns both wire-order sibling outpoints.
 
-Protocol fee sizing and primary conformance evidence use 1 satoshi per
-serialized byte. Higher explicit rates may be tested only as planner
-parameterization; they are not the baseline.
+The input schema keeps the explicit rate field for auditability but rejects
+every value other than `1`; there is no higher-rate protocol mode.
 
 This package validates deterministic construction and byte accounting. It does
 not claim that a supplied signature is cryptographically valid or that a peer

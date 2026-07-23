@@ -5,6 +5,7 @@ import { DENOMINATION_SATS } from '../action-packet/action-packet.mjs';
 export const PREPARATION_TRANSACTION_WIRE_LIMIT_BYTES = 59_000;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
 export const P2PKH_DUST_FLOOR_SATOSHIS = 546n;
+export const PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE = 1n;
 
 const HEX = /^[0-9a-f]*$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
@@ -149,7 +150,9 @@ function parsePlan(value) {
     MAX_U64,
     'minimumFeeRateSatoshisPerByte',
   );
-  if (minimumFeeRate === 0n) fail('minimum fee rate must be positive');
+  if (minimumFeeRate !== PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE) {
+    fail('minimum fee rate must equal the protocol rate of 1 satoshi per byte');
+  }
   return {
     kind: value.kind,
     bindingBase,
@@ -249,7 +252,7 @@ export function planPreparationTransaction(value) {
     measurements: Object.freeze({
       plannedSignedWireBytes: plan.wireBytes,
       feeSatoshis: plan.fee.toString(),
-      minimumFeeRateSatoshisPerByte: parsed.minimumFeeRate.toString(),
+      minimumFeeRateSatoshisPerByte: PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE.toString(),
       signatureBytes: 64,
       finalUnlockingBytes: 100,
     }),

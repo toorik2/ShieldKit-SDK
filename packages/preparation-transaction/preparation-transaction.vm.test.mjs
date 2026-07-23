@@ -155,7 +155,7 @@ test('real P2PKH signatures reject parent, vout, sighash, key, change, and signa
   }
 });
 
-test('preparation requires an exactly dust-safe canonical change at the requested feerate', async () => {
+test('preparation requires dust-safe change at the fixed one-sat fee rate', async () => {
   const secp256k1 = await instantiateSecp256k1();
   const publicKey = secp256k1.derivePublicKeyCompressed(TEST_PRIVATE_KEY);
   assert.equal(typeof publicKey, 'object');
