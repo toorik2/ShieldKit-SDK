@@ -108,6 +108,33 @@ test('state NFT category is a circularity-free CashToken category binding from t
   await assert.rejects(() => loadVerifierProfileBundle(bundle.directory), /state NFT category must equal/);
 });
 
+test('genesis rejects a zero category and reserve caps outside fixed-note BCH bounds', async () => {
+  const zeroCategory = await makeDevelopmentBundle('zero-category');
+  zeroCategory.manifest.genesis.categoryInputOutpoint.txid = '0'.repeat(64);
+  zeroCategory.manifest.genesis.stateNftCategory = '0'.repeat(64);
+  await writeBoundManifest(zeroCategory);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(zeroCategory.directory),
+    /category input outpoint txid must be nonzero/,
+  );
+
+  const fractionalReserve = await makeDevelopmentBundle('fractional-reserve');
+  fractionalReserve.manifest.genesis.reserveCapSatoshis = '10000001';
+  await writeBoundManifest(fractionalReserve);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(fractionalReserve.directory),
+    /nonzero denomination multiple within BCH supply/,
+  );
+
+  const excessiveReserve = await makeDevelopmentBundle('excessive-reserve');
+  excessiveReserve.manifest.genesis.reserveCapSatoshis = '2110000000000000';
+  await writeBoundManifest(excessiveReserve);
+  await assert.rejects(
+    () => loadVerifierProfileBundle(excessiveReserve.directory),
+    /nonzero denomination multiple within BCH supply/,
+  );
+});
+
 test('production mode rejects an incomplete ceremony transcript rather than accepting a development setup label', async () => {
   const bundle = await makeDevelopmentBundle('missing-transcript', (manifest) => {
     manifest.setup = {

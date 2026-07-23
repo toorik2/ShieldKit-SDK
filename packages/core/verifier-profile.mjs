@@ -11,6 +11,8 @@ const REQUIRED_ARTIFACT_KINDS = new Set([
 ]);
 const ARTIFACT_KINDS = new Set([...REQUIRED_ARTIFACT_KINDS, 'ceremony-transcript']);
 const PROFILE_MATERIAL_KEYS = ['artifacts', 'network', 'profile', 'setup', 'standard', 'toolchain'];
+const DENOMINATION_SATOSHIS = 10_000_000n;
+const MAX_BCH_SUPPLY_SATOSHIS = 2_100_000_000_000_000n;
 
 export class BundleValidationError extends Error {
   constructor(message) { super(message); this.name = 'BundleValidationError'; }
@@ -163,6 +165,7 @@ export function deriveStateNftCategory(categoryInputOutpoint) {
   exactKeys(categoryInputOutpoint, 'category input outpoint', ['txid', 'vout']);
   const txid = string(categoryInputOutpoint.txid, 'category input outpoint txid');
   if (!/^[0-9a-f]{64}$/.test(txid)) fail('category input outpoint txid is invalid');
+  if (/^0+$/.test(txid)) fail('category input outpoint txid must be nonzero');
   if (categoryInputOutpoint.vout !== '0') fail('category input outpoint must spend output 0');
   return txid;
 }
@@ -269,6 +272,14 @@ function validateManifest(manifest) {
   const categoryInputTxid = deriveStateNftCategory(manifest.genesis.categoryInputOutpoint);
   if (string(manifest.genesis.stateNftCategory, 'state NFT category') !== categoryInputTxid) fail('state NFT category must equal category input transaction hash in OP_HASH256 byte order');
   if (!/^(0|[1-9][0-9]{0,18})$/.test(string(manifest.genesis.reserveCapSatoshis, 'genesis reserve cap'))) fail('genesis reserve cap must be a canonical decimal string');
+  const reserveCap = BigInt(manifest.genesis.reserveCapSatoshis);
+  if (
+    reserveCap < DENOMINATION_SATOSHIS
+    || reserveCap > MAX_BCH_SUPPLY_SATOSHIS
+    || reserveCap % DENOMINATION_SATOSHIS !== 0n
+  ) {
+    fail('genesis reserve cap must be a nonzero denomination multiple within BCH supply');
+  }
   const profileId = deriveProfileId(manifest); const instanceId = deriveInstanceId(manifest.genesis);
   if (manifest.identity.profileId !== profileId || manifest.genesis.profileId !== profileId) fail('profile identity or genesis binding mismatch');
   if (manifest.genesis.instanceId !== instanceId) fail('genesis instance identity mismatch');

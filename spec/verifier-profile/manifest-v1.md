@@ -13,9 +13,11 @@ profile, while any material change to a profile produces a new profile ID.
 
 `network.name` is currently `chipnet`; no value in this interface authorizes
 mainnet. `genesis.reserveCapSatoshis` is a decimal integer string and is the
-immutable maximum reserve for that instance. This pre-genesis bundle does not
-contain an actual genesis transaction outpoint; that transaction is a later,
-authenticated instance record.
+immutable maximum reserve for that instance. It is nonzero, divisible by the
+10,000,000-satoshi denomination, and no greater than the 2,100,000,000,000,000
+satoshis that can exist under BCH's issuance schedule. This pre-genesis bundle
+does not contain an actual genesis transaction outpoint; that transaction is a
+later, authenticated instance record.
 
 ## Canonical bytes and hashes
 
@@ -44,9 +46,10 @@ CashToken category. Its `vout` is exactly string `"0"`, as required for a
 CashToken genesis category. `txid` is 32 bytes of lowercase hex in
 `OP_HASH256`/P2P wire byte order (the byte order used by BCH token category
 fields), not block-explorer display byte order. `stateNftCategory` is derived
-without hashing: it is exactly that `txid` string. The loader rejects any other
-value. This fixes the category before the genesis transaction exists and avoids
-deriving an identifier from an outpoint that transaction itself will create.
+without hashing: it is exactly that nonzero `txid` string. The loader rejects
+any other value. This fixes the category before the genesis transaction exists
+and avoids deriving an identifier from an outpoint that transaction itself will
+create.
 
 `instanceMaterial` is `genesis` with `instanceId` omitted. Its `profileId` and
 `network` must equal the derived profile ID and profile network respectively.
