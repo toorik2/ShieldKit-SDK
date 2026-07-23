@@ -1,0 +1,98 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.relation-circuit.circom-subset.20260723",
+  "gate": "G1",
+  "candidate": "g1-relation-circom-typed-prefix-subset",
+  "claim": "Pinned Circom and circomlib tooling compiled the explicitly incomplete G1 typed-prefix subset to a real R1CS and WASM, a deterministic deposit witness satisfied that R1CS, and a boundary mutation failed witness generation.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "43013af5a42d4c29f4567289016cc3aacb99c17c",
+    "dirtyPaths": []
+  },
+  "environment": {
+    "observedAt": "2026-07-23T16:46:00+03:00",
+    "hardware": {
+      "architecture": "x86_64"
+    },
+    "software": {
+      "node": "v25.9.0",
+      "circom2Package": "0.2.23",
+      "circomCompiler": "2.2.3",
+      "circomlib": "2.0.5",
+      "snarkjs": "0.7.6"
+    }
+  },
+  "commands": [
+    "npm --prefix circuits/g1-relation ci --ignore-scripts --no-audit --no-fund",
+    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym -o <temporary-build>",
+    "node circuits/g1-relation/scripts/generate-deposit-input.mjs > <temporary-build>/valid-deposit.json",
+    "node <temporary-build>/g1_relation_js/generate_witness.js <temporary-build>/g1_relation_js/g1_relation.wasm <temporary-build>/valid-deposit.json <temporary-build>/valid-deposit.wtns",
+    "circuits/g1-relation/node_modules/.bin/snarkjs wtns check <temporary-build>/g1_relation.r1cs <temporary-build>/valid-deposit.wtns",
+    "node circuits/g1-relation/scripts/make-invalid-boundary.mjs <temporary-build>/valid-deposit.json <temporary-build>/invalid-boundary.json",
+    "node <temporary-build>/g1_relation_js/generate_witness.js <temporary-build>/g1_relation_js/g1_relation.wasm <temporary-build>/invalid-boundary.json <temporary-build>/invalid-boundary.wtns",
+    "npm --prefix circuits/g1-relation run test:key"
+  ],
+  "artifacts": [
+    {
+      "path": "circuits/g1-relation/src/g1_relation.circom",
+      "sha256": "b4ac0cc622a0551df3220fa042be29ddf36b427e2f9bf48a247d38f0ef7e4f03",
+      "bytes": 22872
+    },
+    {
+      "path": "circuits/g1-relation/CIRCUIT_SCOPE.md",
+      "sha256": "a073bb794faee4d132a4c9540416d516fe29dc8e20d9dbeb7533fde8ede5e823",
+      "bytes": 2673
+    },
+    {
+      "path": "evidence/G1/relation-circuit/2026-07-23-circom-subset.json",
+      "sha256": "6943bead16ae7b1f5c894bde68d3b0688fac171db90350094356997b39f21b08",
+      "bytes": 2087
+    }
+  ],
+  "measurements": {
+    "packetBytes": 684,
+    "referencePacketBytes": 752,
+    "nonLinearConstraints": 431169,
+    "linearConstraints": 145958,
+    "r1csConstraints": 577127,
+    "wires": 572109,
+    "publicInputs": 2,
+    "privateInputs": 1768,
+    "r1csBytes": 109203016,
+    "wasmBytes": 9843265,
+    "witnessBytes": 18307564
+  },
+  "tests": [
+    {
+      "name": "real Circom compilation",
+      "expected": "R1CS and WASM generated with exactly two public inputs",
+      "observed": "577127 constraints, 572109 wires, and 2 public inputs",
+      "pass": true
+    },
+    {
+      "name": "deterministic deposit subset witness",
+      "expected": "snarkjs wtns check succeeds",
+      "observed": "witness check succeeded",
+      "pass": true
+    },
+    {
+      "name": "invalid deposit boundary",
+      "expected": "changing 10000000 satoshis to 1 fails",
+      "observed": "witness generation failed at the boundary equation",
+      "pass": true
+    },
+    {
+      "name": "nullifier truncated-key codec",
+      "expected": "Circom bit selection equals BE_u128 of canonical nullifier bytes 0 through 15",
+      "observed": "cross-check passed",
+      "pass": true
+    }
+  ],
+  "verdict": "PASS",
+  "limitations": [
+    "PASS applies only to real compilation and the stated subset witness tests, not to the complete relation or G1.",
+    "The 684-byte typed prefix is intentionally incompatible with the 752-byte reference packet and omits required digest bindings.",
+    "Only a deposit subset witness was checked; transfer and withdrawal witnesses were not generated.",
+    "No setup, proving key, verification key, proof, BCH verifier, transaction, VM execution, peer, or Chipnet deployment was produced."
+  ]
+}
