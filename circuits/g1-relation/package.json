@@ -6,6 +6,8 @@
     "test": "npm run test:key",
     "test:key": "node scripts/nullifier-key-crosscheck.mjs",
     "generate:deposit": "node scripts/generate-deposit-input.mjs",
+    "generate:core-vectors": "node scripts/generate-core-vectors.mjs",
+    "make:invalid-core-vector": "node scripts/make-invalid-core-vector.mjs",
     "make:invalid-boundary": "node scripts/make-invalid-boundary.mjs"
   },
   "dependencies": {

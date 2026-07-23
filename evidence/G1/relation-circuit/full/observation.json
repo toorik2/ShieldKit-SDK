@@ -1,0 +1,108 @@
+{
+  "schema": "shield.cash/evidence/v1",
+  "id": "g1.relation-circuit.full-packet.20260723",
+  "gate": "G1",
+  "candidate": "g1-bn254-groth16-single-note-v0",
+  "claim": "A Circom relation compilation SHA-binds the complete 752-byte core action packet and accepts the three checked-in core transition vectors while rejecting targeted invalid inputs.",
+  "source": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/shield.cash",
+    "commit": "bfd5594734cf07541180480d19e30c97c0db38a1",
+    "dirtyPaths": [
+      "circuits/g1-relation/CIRCUIT_SCOPE.md",
+      "circuits/g1-relation/package.json",
+      "circuits/g1-relation/scripts/generate-core-vectors.mjs",
+      "circuits/g1-relation/scripts/make-invalid-core-vector.mjs",
+      "circuits/g1-relation/src/g1_relation.circom",
+      "evidence/G1/relation-circuit/full/core-vector-summary.json",
+      "evidence/G1/relation-circuit/full/observation.json"
+    ]
+  },
+  "environment": {
+    "observedAt": "2026-07-23T13:53:15Z",
+    "hardware": {
+      "architecture": "x86_64"
+    },
+    "software": {
+      "node": "25.9.0",
+      "circom2Package": "0.2.23",
+      "circomCompiler": "2.2.3",
+      "circomlib": "2.0.5",
+      "snarkjs": "0.7.6"
+    }
+  },
+  "commands": [
+    "npm ci --prefix circuits/g1-relation --no-audit --no-fund",
+    "npm ci --prefix packages/core --no-audit --no-fund",
+    "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym -o /tmp/g1-full-build-NzoA3z",
+    "npm --prefix circuits/g1-relation run generate:core-vectors -- /tmp/g1-core-vectors-Fr4JU0",
+    "node /tmp/g1-full-build-NzoA3z/g1_relation_js/generate_witness.js /tmp/g1-full-build-NzoA3z/g1_relation_js/g1_relation.wasm /tmp/g1-core-vectors-Fr4JU0/{deposit,transfer,withdrawal}.json /tmp/g1-full-build-NzoA3z/{deposit,transfer,withdrawal}.wtns",
+    "circuits/g1-relation/node_modules/.bin/snarkjs wtns check /tmp/g1-full-build-NzoA3z/g1_relation.r1cs /tmp/g1-full-build-NzoA3z/{deposit,transfer,withdrawal}.wtns",
+    "npm --prefix circuits/g1-relation run make:invalid-core-vector -- SOURCE.json TARGET.json digest|membership|nullifier|reserve|inactive-record"
+  ],
+  "artifacts": [
+    {
+      "path": "circuits/g1-relation/src/g1_relation.circom",
+      "sha256": "8a8785de2aab103d9dd775c68553ffbe8fb1004c71b65b29c3608d5679872fac",
+      "bytes": 28119
+    },
+    {
+      "path": "circuits/g1-relation/scripts/generate-core-vectors.mjs",
+      "sha256": "11baaa144b5c1f40d155b5f911bd0c0a3b670e015c8a6a6740a25e9a2aee172d",
+      "bytes": 8695
+    },
+    {
+      "path": "evidence/G1/relation-circuit/full/core-vector-summary.json",
+      "sha256": "10255356b7914dc488205027344248236f9196b89d5b3747fe3a0ed8c6c0a958",
+      "bytes": 974
+    }
+  ],
+  "measurements": {
+    "packetBytes": 752,
+    "shaInputBits": 6016,
+    "nonlinearConstraints": 469863,
+    "linearConstraints": 138636,
+    "r1csConstraints": 608499,
+    "wires": 603165,
+    "publicInputs": 2,
+    "privateInputs": 1768,
+    "r1csBytes": 118084384,
+    "wasmBytes": 9977135,
+    "minimumPtauPowerForConstraintCount": 20,
+    "minimumPtauCapacity": 1048576,
+    "ptauPower19Capacity": 524288
+  },
+  "tests": [
+    {
+      "name": "deposit core packet public limbs generate a valid witness",
+      "expected": "valid R1CS witness",
+      "observed": "valid R1CS witness",
+      "pass": true
+    },
+    {
+      "name": "transfer core packet public limbs generate a valid witness",
+      "expected": "valid R1CS witness",
+      "observed": "valid R1CS witness",
+      "pass": true
+    },
+    {
+      "name": "withdrawal core packet public limbs generate a valid witness",
+      "expected": "valid R1CS witness",
+      "observed": "valid R1CS witness",
+      "pass": true
+    },
+    {
+      "name": "targeted digest, membership, nullifier, reserve, and inactive-record mutations",
+      "expected": "witness generation rejects all five",
+      "observed": "witness generation rejected all five",
+      "pass": true
+    }
+  ],
+  "verdict": "FAIL",
+  "limitations": [
+    "FAIL means the complete G1 gate remains open; it is not a failure of the recorded compilation or witness checks.",
+    "The 2^20 ptau power is only the minimum capacity implied by 608499 R1CS constraints; no ptau was selected, prepared, or used, and no setup readiness follows.",
+    "No zkey, proof, verifier, BCH transaction, covenant, Chipnet interaction, or deployment was produced.",
+    "Profile and instance identifiers are externally authenticated relation inputs; the circuit does not derive them from raw manifest-v1 bytes.",
+    "The terminal note append is intentionally restricted to preNextLeafIndex <= 2^32-2 because the serialized state has a u32 index."
+  ]
+}

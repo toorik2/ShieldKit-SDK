@@ -67,7 +67,7 @@ template G1Relation() {
     var NOTE_DEPTH = 32;
     var NULLIFIER_DEPTH = 128;
     var RECORD_BITS = 1536;
-    var PACKET_BITS = 5472;
+    var PACKET_BITS = 6016;
     // Exactly two public Groth16 inputs: BE_u128(SHA256(packet)) halves.
     signal input publicDigestHi;
     signal input publicDigestLo;
@@ -155,8 +155,15 @@ template G1Relation() {
     postReserveSats === preReserveSats + (isDeposit - isWithdrawal) * D;
     postMaximumReserve === preMaximumReserve;
     preMaximumReserve === maximumLiveNotes * D;
+    component maximumLiveZero = IsZero(); maximumLiveZero.in <== maximumLiveNotes; maximumLiveZero.out === 0;
     component preCap = LessEqThan(64); preCap.in[0] <== preReserveSats; preCap.in[1] <== preMaximumReserve; preCap.out === 1;
     component postCap = LessEqThan(64); postCap.in[0] <== postReserveSats; postCap.in[1] <== postMaximumReserve; postCap.out === 1;
+    component maximumBound = LessEqThan(64); maximumBound.in[0] <== preMaximumReserve; maximumBound.in[1] <== 2100000000000000; maximumBound.out === 1;
+    // u32 cannot encode 2^32. An output action may append through index
+    // 2^32-2 only, leaving postNext <= 2^32-1 representable and rejecting a
+    // further append rather than wrapping or claiming an unencodable terminal.
+    component appendCapacity = LessEqThan(32); appendCapacity.in[0] <== preNextLeafIndex; appendCapacity.in[1] <== 4294967294;
+    hasOutput * (appendCapacity.out - 1) === 0;
 
     // Input spend authority, commitment, and nullifier. The relations are
     // gated only for deposits; zero inactive input fields are required there.
@@ -307,29 +314,71 @@ template G1Relation() {
     component contextHiBits = Num2Bits(128); contextHiBits.in <== transactionContextHi;
     component contextLoBits = Num2Bits(128); contextLoBits.in <== transactionContextLo;
 
-    // The SHA preimage is a fixed 684-byte typed-prefix packet. Every emitted
-    // bit below is constrained from a typed relation signal; there is no caller
-    // packet-bit input. CIRCUIT_SCOPE.md lists un-emitted semantic fields.
+    // Exact packages/core serializeActionPacket layout: 752 bytes. Every bit
+    // is driven by a typed relation signal; no caller packet-bit input exists.
     signal packet[PACKET_BITS];
     var o = 0;
-    // version 1, Chipnet network 2, action code, and six reserved zero bits.
-    packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 1; o++;
-    packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 1; o++; packet[o] <== 0; o++;
-    packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== 0; o++; packet[o] <== isTransfer + isWithdrawal; o++; packet[o] <== isDeposit + isWithdrawal; o++;
-    for (var z = 0; z < 8; z++) { packet[o] <== 0; o++; }
-    for (var a = 127; a >= 0; a--) { packet[o] <== profileHiBits.out[a]; o++; }
-    for (var b = 127; b >= 0; b--) { packet[o] <== profileLoBits.out[b]; o++; }
-    for (var c = 127; c >= 0; c--) { packet[o] <== instanceHiBits.out[c]; o++; }
-    for (var d = 127; d >= 0; d--) { packet[o] <== instanceLoBits.out[d]; o++; }
-    // Pre/post state: Frs encode as 2 leading zero bits plus 254 BE bits.
-    for (var q = 0; q < 2; q++) { packet[o] <== 0; o++; } for (var e = 253; e >= 0; e--) { packet[o] <== preNoteRootBits.out[e]; o++; }
-    for (var q1 = 0; q1 < 2; q1++) { packet[o] <== 0; o++; } for (var f = 253; f >= 0; f--) { packet[o] <== preNullifierRootBits.out[f]; o++; }
-    for (var g = 31; g >= 0; g--) { packet[o] <== preNextBits.out[g]; o++; } for (var h = 63; h >= 0; h--) { packet[o] <== preSeqBits.out[h]; o++; }
-    for (var ii = 31; ii >= 0; ii--) { packet[o] <== preLiveBits.out[ii]; o++; } for (var j1 = 63; j1 >= 0; j1--) { packet[o] <== preReserveBits.out[j1]; o++; }
-    for (var k1 = 63; k1 >= 0; k1--) { packet[o] <== preMaxBits.out[k1]; o++; }
-    // Remaining packet slots are intentionally not emitted in this first compiling subset.
-    // A compile-time guard makes the actual SHA message a fixed 684-byte prefix.
-    while (o < PACKET_BITS) { packet[o] <== 0; o++; }
+    var scar[4] = [83, 67, 65, 82];
+    for (var headerByte = 0; headerByte < 4; headerByte++) {
+        for (var headerBit = 7; headerBit >= 0; headerBit--) { packet[o] <== (scar[headerByte] >> headerBit) & 1; o++; }
+    }
+    // version=1, network=2, action kind 1/2/3, reserved=0.
+    for (var versionBit = 7; versionBit >= 0; versionBit--) { packet[o] <== (1 >> versionBit) & 1; o++; }
+    for (var networkBit = 7; networkBit >= 0; networkBit--) { packet[o] <== (2 >> networkBit) & 1; o++; }
+    for (var actionBit = 7; actionBit >= 0; actionBit--) {
+        if (actionBit == 1) packet[o] <== isTransfer + isWithdrawal;
+        else if (actionBit == 0) packet[o] <== isDeposit + isWithdrawal;
+        else packet[o] <== 0;
+        o++;
+    }
+    for (var reservedBit = 0; reservedBit < 8; reservedBit++) { packet[o] <== 0; o++; }
+
+    // serializeState(pre): profile, instance, roots, LE counters, commitment.
+    for (var preProfileHi = 127; preProfileHi >= 0; preProfileHi--) { packet[o] <== profileHiBits.out[preProfileHi]; o++; }
+    for (var preProfileLo = 127; preProfileLo >= 0; preProfileLo--) { packet[o] <== profileLoBits.out[preProfileLo]; o++; }
+    for (var preInstanceHi = 127; preInstanceHi >= 0; preInstanceHi--) { packet[o] <== instanceHiBits.out[preInstanceHi]; o++; }
+    for (var preInstanceLo = 127; preInstanceLo >= 0; preInstanceLo--) { packet[o] <== instanceLoBits.out[preInstanceLo]; o++; }
+    for (var preRootPad = 0; preRootPad < 2; preRootPad++) { packet[o] <== 0; o++; }
+    for (var preRootBit = 253; preRootBit >= 0; preRootBit--) { packet[o] <== preNoteRootBits.out[preRootBit]; o++; }
+    for (var preNullPad = 0; preNullPad < 2; preNullPad++) { packet[o] <== 0; o++; }
+    for (var preNullBit = 253; preNullBit >= 0; preNullBit--) { packet[o] <== preNullifierRootBits.out[preNullBit]; o++; }
+    for (var preNextByte = 0; preNextByte < 4; preNextByte++) { for (var preNextBit = 7; preNextBit >= 0; preNextBit--) { packet[o] <== preNextBits.out[8*preNextByte + preNextBit]; o++; } }
+    for (var preSeqByte = 0; preSeqByte < 8; preSeqByte++) { for (var preSeqBit = 7; preSeqBit >= 0; preSeqBit--) { packet[o] <== preSeqBits.out[8*preSeqByte + preSeqBit]; o++; } }
+    for (var preLiveByte = 0; preLiveByte < 4; preLiveByte++) { for (var preLiveBit = 7; preLiveBit >= 0; preLiveBit--) { packet[o] <== preLiveBits.out[8*preLiveByte + preLiveBit]; o++; } }
+    for (var preReserveByte = 0; preReserveByte < 8; preReserveByte++) { for (var preReserveBit = 7; preReserveBit >= 0; preReserveBit--) { packet[o] <== preReserveBits.out[8*preReserveByte + preReserveBit]; o++; } }
+    for (var preMaxByte = 0; preMaxByte < 8; preMaxByte++) { for (var preMaxBit = 7; preMaxBit >= 0; preMaxBit--) { packet[o] <== preMaxBits.out[8*preMaxByte + preMaxBit]; o++; } }
+    for (var preCommitPad = 0; preCommitPad < 2; preCommitPad++) { packet[o] <== 0; o++; }
+    for (var preCommitBit = 253; preCommitBit >= 0; preCommitBit--) { packet[o] <== preCommitmentBits.out[preCommitBit]; o++; }
+
+    // serializeState(post), byte-for-byte identical ordering.
+    for (var postProfileHi = 127; postProfileHi >= 0; postProfileHi--) { packet[o] <== profileHiBits.out[postProfileHi]; o++; }
+    for (var postProfileLo = 127; postProfileLo >= 0; postProfileLo--) { packet[o] <== profileLoBits.out[postProfileLo]; o++; }
+    for (var postInstanceHi = 127; postInstanceHi >= 0; postInstanceHi--) { packet[o] <== instanceHiBits.out[postInstanceHi]; o++; }
+    for (var postInstanceLo = 127; postInstanceLo >= 0; postInstanceLo--) { packet[o] <== instanceLoBits.out[postInstanceLo]; o++; }
+    for (var postRootPad = 0; postRootPad < 2; postRootPad++) { packet[o] <== 0; o++; }
+    for (var postRootBit = 253; postRootBit >= 0; postRootBit--) { packet[o] <== postNoteRootBits.out[postRootBit]; o++; }
+    for (var postNullPad = 0; postNullPad < 2; postNullPad++) { packet[o] <== 0; o++; }
+    for (var postNullBit = 253; postNullBit >= 0; postNullBit--) { packet[o] <== postNullifierRootBits.out[postNullBit]; o++; }
+    for (var postNextByte = 0; postNextByte < 4; postNextByte++) { for (var postNextBit = 7; postNextBit >= 0; postNextBit--) { packet[o] <== postNextBits.out[8*postNextByte + postNextBit]; o++; } }
+    for (var postSeqByte = 0; postSeqByte < 8; postSeqByte++) { for (var postSeqBit = 7; postSeqBit >= 0; postSeqBit--) { packet[o] <== postSeqBits.out[8*postSeqByte + postSeqBit]; o++; } }
+    for (var postLiveByte = 0; postLiveByte < 4; postLiveByte++) { for (var postLiveBit = 7; postLiveBit >= 0; postLiveBit--) { packet[o] <== postLiveBits.out[8*postLiveByte + postLiveBit]; o++; } }
+    for (var postReserveByte = 0; postReserveByte < 8; postReserveByte++) { for (var postReserveBit = 7; postReserveBit >= 0; postReserveBit--) { packet[o] <== postReserveBits.out[8*postReserveByte + postReserveBit]; o++; } }
+    for (var postMaxByte = 0; postMaxByte < 8; postMaxByte++) { for (var postMaxBit = 7; postMaxBit >= 0; postMaxBit--) { packet[o] <== postMaxBits.out[8*postMaxByte + postMaxBit]; o++; } }
+    for (var postCommitPad = 0; postCommitPad < 2; postCommitPad++) { packet[o] <== 0; o++; }
+    for (var postCommitBit = 253; postCommitBit >= 0; postCommitBit--) { packet[o] <== postCommitmentBits.out[postCommitBit]; o++; }
+
+    for (var inputCmPad = 0; inputCmPad < 2; inputCmPad++) { packet[o] <== 0; o++; }
+    for (var inputCmBit = 253; inputCmBit >= 0; inputCmBit--) { packet[o] <== inputCmBits.out[inputCmBit]; o++; }
+    for (var inputNfPad = 0; inputNfPad < 2; inputNfPad++) { packet[o] <== 0; o++; }
+    for (var inputNfBit = 253; inputNfBit >= 0; inputNfBit--) { packet[o] <== inputNfBits.out[inputNfBit]; o++; }
+    for (var outputCmPad = 0; outputCmPad < 2; outputCmPad++) { packet[o] <== 0; o++; }
+    for (var outputCmBit = 253; outputCmBit >= 0; outputCmBit--) { packet[o] <== outputCmBits.out[outputCmBit]; o++; }
+    for (var recordBit = 0; recordBit < RECORD_BITS; recordBit++) { packet[o] <== recordBits[recordBit]; o++; }
+    for (var boundaryByte = 0; boundaryByte < 8; boundaryByte++) { for (var boundaryBit = 7; boundaryBit >= 0; boundaryBit--) { packet[o] <== boundaryBits.out[8*boundaryByte + boundaryBit]; o++; } }
+    for (var scriptHiBit = 127; scriptHiBit >= 0; scriptHiBit--) { packet[o] <== withdrawalScriptHiBits.out[scriptHiBit]; o++; }
+    for (var scriptLoBit = 127; scriptLoBit >= 0; scriptLoBit--) { packet[o] <== withdrawalScriptLoBits.out[scriptLoBit]; o++; }
+    for (var contextHiBit = 127; contextHiBit >= 0; contextHiBit--) { packet[o] <== contextHiBits.out[contextHiBit]; o++; }
+    for (var contextLoBit = 127; contextLoBit >= 0; contextLoBit--) { packet[o] <== contextLoBits.out[contextLoBit]; o++; }
     component sha = Sha256(PACKET_BITS);
     for (var s = 0; s < PACKET_BITS; s++) { sha.in[s] <== packet[s]; }
     component digestHi = Bits2Num(128); component digestLo = Bits2Num(128);

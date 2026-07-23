@@ -1,0 +1,27 @@
+{
+  "source": "packages/core/shielded-transition.mjs",
+  "packetBytes": 752,
+  "actions": {
+    "deposit": {
+      "digest": "3b3f83ecabc740a380a2a2b7ca6ee6cd08b01ccea4dd983e069ec37006fdafda",
+      "publicInputs": [
+        "000000000000000000000000000000003b3f83ecabc740a380a2a2b7ca6ee6cd",
+        "0000000000000000000000000000000008b01ccea4dd983e069ec37006fdafda"
+      ]
+    },
+    "transfer": {
+      "digest": "bd6df7eeff6521677fcb831c8c8fac1085c8fd4bbd48be9fda752666ae3447d7",
+      "publicInputs": [
+        "00000000000000000000000000000000bd6df7eeff6521677fcb831c8c8fac10",
+        "0000000000000000000000000000000085c8fd4bbd48be9fda752666ae3447d7"
+      ]
+    },
+    "withdrawal": {
+      "digest": "9509f08e76a788c5ec47b9fe016a35ff9ea77197c1b31c8d7fea29070a97f3d1",
+      "publicInputs": [
+        "000000000000000000000000000000009509f08e76a788c5ec47b9fe016a35ff",
+        "000000000000000000000000000000009ea77197c1b31c8d7fea29070a97f3d1"
+      ]
+    }
+  }
+}
