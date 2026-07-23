@@ -75,16 +75,19 @@ bytecodes.
 ## Required next step
 
 Add a first-class, fixed-layout public-signal seam to the composed PF7
-generator while preserving the existing projection prefix:
+generator while preserving the existing projection window. The selected ABI
+extends the first push from 448 to 480 bytes:
 
 ```
-PUSHDATA2(448) || projectionContext ||
-PUSHDATA(64) || paddedPublicSignalCarrier || existing arguments
+PUSHDATA2(480) || projectionContext[448] ||
+SHA256(actionPacket)[32] || existing arguments
 ```
 
-This places the canonical 65-byte carrier push at raw offset 451 without
-changing the projection offsets consumed by the executors. The terminal can
-then parse that fixed carrier and authenticate an exact
+The projection remains at raw bytes `[3,451)`, so the executor reads do not
+move. The raw action digest is at `[451,483)`. Genesis must split its two
+16-byte big-endian halves and compare them bijectively with the Groth16 public
+inputs; it must not reduce, truncate, or interpret a high-bit limb as negative.
+The terminal can read that fixed digest and authenticate an exact
 `PUSHDATA2(752) || actionPacket` at input 7.
 
 The existing action-specific packet equality guard must be replaced: retaining
@@ -95,6 +98,10 @@ deposit/transfer/withdrawal corpus. No G2 integration or size claim is
 permitted before all seven verifier roles pass the normal and standard
 BCH-2026 VMs and the new seam survives substitution, truncation, non-minimal
 encoding, carrier, limb, packet, high-bit-limb, and cross-action attacks.
+
+A separate `PUSHDATA2(448) || projection || PUSH64 || padded limbs` layout is
+also structurally possible, but it is not selected: it adds 33 wire bytes and
+duplicates 32 zero-padding bytes without adding a security property.
 
 The experimental worktree was restored to its pre-probe clean state. No failed
 candidate patch was retained as verifier authority.
