@@ -1,0 +1,39 @@
+{
+  "schema": "shield.cash/g1-relation-circuit-evidence/v1",
+  "status": "compiling-subset-only",
+  "claimBoundary": "This records a real Circom R1CS/WASM compilation and one checked witness for the explicitly incomplete typed-prefix subset. It is not proof, verifier, BCH VM, Chipnet, G1 PASS, or production evidence.",
+  "source": {
+    "path": "circuits/g1-relation/src/g1_relation.circom",
+    "sha256": "b4ac0cc622a0551df3220fa042be29ddf36b427e2f9bf48a247d38f0ef7e4f03",
+    "scope": "circuits/g1-relation/CIRCUIT_SCOPE.md"
+  },
+  "toolchain": {
+    "circom2Package": "0.2.23",
+    "circomCompiler": "2.2.3",
+    "circomlib": "2.0.5",
+    "snarkjs": "0.7.6",
+    "packageLockSha256": "e9fe6edade40e0f6228e9892f1649f99ae20f9669660e0959dd74e7a430dc299"
+  },
+  "command": "circuits/g1-relation/node_modules/.bin/circom2 circuits/g1-relation/src/g1_relation.circom --r1cs --wasm --sym -o BUILD_DIR",
+  "compilation": {
+    "templateInstances": 557,
+    "nonLinearConstraints": 431169,
+    "linearConstraints": 145958,
+    "r1csConstraints": 577127,
+    "wires": 572109,
+    "labels": 2613445,
+    "publicInputs": 2,
+    "privateInputs": 1768
+  },
+  "ephemeralArtifacts": [
+    {"name": "g1_relation.r1cs", "bytes": 109203016, "sha256": "8cde81ce54c35f914a261425d06e52da2b809e6c35fa7978c119547dcd2c40be"},
+    {"name": "g1_relation.wasm", "bytes": 9843265, "sha256": "230ef464cbec076a26b37e5d91eef9d36163d1c7aa3f0299f2b65ae1474bc945"},
+    {"name": "g1_relation.sym", "bytes": 174946665, "sha256": "0d3d801740c118480d72beeab4610873dc5c84ea436672ad371e5538b406409d"},
+    {"name": "valid-deposit.wtns", "bytes": 18307564, "sha256": "ea8e896fed8a9469ec13a3daa5889356ec1cead8f035499760a80ef2e58e024d"}
+  ],
+  "witnesses": {
+    "valid": "A deterministic deposit-subset witness passed snarkjs wtns check.",
+    "invalid": "Changing boundaryAmount from 10000000 to 1 made generated witness calculation fail at G1Relation line 298."
+  },
+  "limitations": "See CIRCUIT_SCOPE.md; the 684-byte SHA preimage is not the 752-byte reference action packet and does not bind all required semantics."
+}
