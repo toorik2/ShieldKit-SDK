@@ -34,9 +34,10 @@ npm run check:architecture
 node --check lanes/bn254-onetx/src/build-adapter.mjs
 git diff --check
 
-# LeanBCH xcheck was investigated but is unavailable on this host:
+# LeanBCH xcheck was not completed because the worker PATH omitted the tool:
 cd /tmp/shield-leanbch-51201015 && lake --version
 # observed: lake: command not found
+# Root later located /home/toorik/.elan/bin/lake; an exact pinned xcheck remains pending.
 
 # shield.cash policy gate after importing evidence
 cd /tmp/shieldcash-g1-10role-evidence-019f8ed4

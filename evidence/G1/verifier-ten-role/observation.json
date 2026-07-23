@@ -60,7 +60,7 @@
   "limitations": [
     "FAIL keeps G1 open; the seven-role VM result passes only the bounded verifier-context milestone described in the report.",
     "Not a valid ten-input BCH transaction: packet/state/fee roles are structural and unevaluated.",
-    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck; lake is unavailable on this host.",
+    "No binding covenant, state covenant, fee policy, canonical protocol outputs, BCHN standardness, Chipnet result, or LeanBCH independent xcheck; the worker PATH omitted lake, which root later located at /home/toorik/.elan/bin/lake.",
     "Packet is authenticated against the fixture public limbs, not a complete runtime action-packet parser.",
     "The repository-wide architecture suite is not green in this linked worktree because historical candidate files are absent and arena lifecycle tests require a primary checkout."
   ]

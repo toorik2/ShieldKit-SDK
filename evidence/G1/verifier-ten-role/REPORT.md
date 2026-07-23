@@ -83,6 +83,8 @@ fixture-specific terminal comparison; execute every input; run standardness on
 unmodified BCHN/Chipnet policy; add full action/state/fee mutation coverage;
 and cross-check the exact final scripts with LeanBCH. A pinned LeanBCH root at
 `51201015…` was supplied to the generator environment, but no independent
-LeanBCH xcheck was completed: this host has no `lake` executable.
+LeanBCH xcheck was completed. The worker PATH did not include `lake`; root
+subsequently located it at `/home/toorik/.elan/bin/lake`, so this is a pending
+tool-discovery correction rather than evidence that the host lacks Lean.
 
 Raw build and red-team outputs are under [raw](raw).
