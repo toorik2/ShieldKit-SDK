@@ -1,0 +1,13 @@
+{
+  "schema": "shield.cash/change/v1",
+  "rfc": "RFC-0002",
+  "oldFreeze": "g0-v2",
+  "newFreeze": "g0-v3",
+  "changedDecisions": ["D-016"],
+  "invalidatedGates": ["G0", "G1"],
+  "invalidatedEvidence": [
+    "G1 topology-selection conclusions based solely on the 9,500-byte project ceiling",
+    "G1 topology-selection conclusions based solely on the five-percent project margin"
+  ],
+  "reason": "Use the exact seven-input 54-kilobyte verifier topology under actual BCH limits without a project-local percentage margin or a larger generic-wrapper fallback."
+}

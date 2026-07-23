@@ -517,8 +517,8 @@ legally compliant.
 
 | Gate | Status | Reason |
 | --- | --- | --- |
-| G0 | PASS | Direction frozen by `g0-v2`; verifier setup/profile boundary and change control machine-checked |
-| G1 | OPEN | Reproduce current BCH behavior and qualify the verifier-bundle envelope |
+| G0 | OPEN | RFC-0002 reopens the verifier input-limit and project-margin boundary |
+| G1 | NOT ENTERED | G0 prerequisite |
 | G2 | NOT ENTERED | G1 prerequisite |
 | G3 | NOT ENTERED | G2 prerequisite |
 | G4 | NOT ENTERED | G2 prerequisite |

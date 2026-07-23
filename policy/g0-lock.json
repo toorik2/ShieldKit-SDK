@@ -2,7 +2,7 @@
   "schema": "shield.cash/g0-lock/v1",
   "freezeId": "g0-v2",
   "freezeTag": "g0-v2",
-  "status": "PASS",
+  "status": "OPEN",
   "frozenAt": "2026-07-23",
   "baseline": {
     "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
@@ -73,7 +73,7 @@
     },
     {
       "path": "docs/KILL_GATES.md",
-      "sha256": "317181139a6d7171f08aa8b47388eeedccb29d992cdc60dece24f6efa8bb658e"
+      "sha256": "0f5fb356cbb0f8d3440b1af8cf30d5d7f78cb604c6320c1e88b4acd85847e694"
     },
     {
       "path": "docs/OPEN_QUESTIONS.md",
