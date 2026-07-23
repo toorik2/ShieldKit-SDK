@@ -217,8 +217,8 @@ function programFor(kind, bindingLock, stateLock, digest = undefined) {
   transaction.inputs[7].outpointTransactionHash = Uint8Array.from(
     transaction.inputs[9].outpointTransactionHash,
   );
-  transaction.inputs[7].outpointIndex = 0;
-  transaction.inputs[9].outpointIndex = 1;
+  transaction.inputs[7].outpointIndex = 7;
+  transaction.inputs[9].outpointIndex = 8;
   const preimage = encodeScct(kind, transaction, sourceOutputs);
   const contextDigest = digest ?? sha256(preimage);
   const packet = packetFor(kind, contextDigest).packet;
@@ -656,11 +656,11 @@ test('hash-authenticated state trampoline executes the full helper and rejects h
       refreshContextDigest('deposit', p);
     }],
     ['wrong-binding-vout-with-refreshed-context', (p) => {
-      p.transaction.inputs[7].outpointIndex = 2;
+      p.transaction.inputs[7].outpointIndex = 0;
       refreshContextDigest('deposit', p);
     }],
     ['wrong-fee-vout-with-refreshed-context', (p) => {
-      p.transaction.inputs[9].outpointIndex = 2;
+      p.transaction.inputs[9].outpointIndex = 1;
       refreshContextDigest('deposit', p);
     }],
     ['wrong-fee-sighash', (p) => {

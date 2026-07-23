@@ -714,7 +714,9 @@ export function buildStateSettlementHelper({
     emit(out, op.EQUALVERIFY);
   }
 
-  // Inputs 7 and 9 must be the exact two outputs of one permissionless
+  // Inputs 7 and 9 must be the binding and fee outputs (vouts 7 and 8) of one
+  // permissionless complete preparation transaction. Vouts 0..6 fund the
+  // seven retained PF7 verifier carriers in their fixed role order.
   // preparation transaction. Input 9's signature remains consensus-verified
   // by its P2PKH lock; the helper authenticates its canonical structure,
   // SIGHASH_ALL|FORKID byte, pubkey-derived source lock, and same-key change.
@@ -723,9 +725,13 @@ export function buildStateSettlementHelper({
   emitNumber(out, 9);
   emit(out, op.OUTPOINTTXHASH, op.EQUALVERIFY);
   emitNumber(out, 7);
-  emit(out, op.OUTPOINTINDEX, op.ZERO, op.NUMEQUALVERIFY);
+  emit(out, op.OUTPOINTINDEX);
+  emitNumber(out, 7);
+  emit(out, op.NUMEQUALVERIFY);
   emitNumber(out, 9);
-  emit(out, op.OUTPOINTINDEX, op.ONE, op.NUMEQUALVERIFY);
+  emit(out, op.OUTPOINTINDEX);
+  emitNumber(out, 8);
+  emit(out, op.NUMEQUALVERIFY);
 
   emitNumber(out, 9);
   emit(out, op.INPUTBYTECODE, op.SIZE);

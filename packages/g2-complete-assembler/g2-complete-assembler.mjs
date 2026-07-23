@@ -231,9 +231,9 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   ];
   const inputs = [
     ...pf7.map((row) => ({ ...row })),
-    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 0, sequenceNumber: 0, unlockingBytecode: packetUnlock(packet) },
+    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 7, sequenceNumber: 0, unlockingBytecode: packetUnlock(packet) },
     { outpointTransactionHash: stateOutpointTransactionHash, outpointIndex: stateOutpointIndex, sequenceNumber: 0, unlockingBytecode: stateUnlock },
-    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 1, sequenceNumber: 0, unlockingBytecode: schnorrUnlock(Buffer.alloc(64), publicKey) },
+    { outpointTransactionHash: Buffer.from(prepHash).reverse(), outpointIndex: 8, sequenceNumber: 0, unlockingBytecode: schnorrUnlock(Buffer.alloc(64), publicKey) },
   ];
   const totalInputValue = sources.reduce((sum, source) => sum + source.valueSatoshis, 0n);
   const { transaction: unsignedTransaction, wireBytes: unsignedWireBytes } = fixedPointTransaction({
