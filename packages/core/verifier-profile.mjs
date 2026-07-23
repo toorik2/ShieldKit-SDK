@@ -11,6 +11,7 @@ const REQUIRED_ARTIFACT_KINDS = new Set([
 ]);
 const ARTIFACT_KINDS = new Set([...REQUIRED_ARTIFACT_KINDS, 'ceremony-transcript']);
 const PROFILE_MATERIAL_KEYS = ['artifacts', 'network', 'profile', 'setup', 'standard', 'toolchain'];
+const INSTANCE_BINDING_KEYS = ['instanceId', 'network', 'profileId'];
 const DENOMINATION_SATOSHIS = 10_000_000n;
 const MAX_BCH_SUPPLY_SATOSHIS = 2_100_000_000_000_000n;
 
@@ -330,6 +331,26 @@ function validateManifest(manifest) {
   return { profileId, instanceId };
 }
 
+/**
+ * An authenticated instance is a three-part binding. Accepting only one or
+ * two coordinates creates an API footgun: callers can accidentally pin a
+ * profile while leaving the genesis/instance selection unconstrained (or vice
+ * versa). Discovery may pass `{}`, but post-genesis loading must pin all of
+ * network, profile, and instance atomically.
+ */
+function validateExpectedInstanceBinding(expected) {
+  object(expected, 'expected bundle binding');
+  const keys = Object.keys(expected).sort();
+  if (keys.length === 0) return Object.freeze({});
+  if (keys.length !== INSTANCE_BINDING_KEYS.length || keys.some((key, index) => key !== INSTANCE_BINDING_KEYS[index])) {
+    fail('expected bundle binding must be empty or contain network, profileId, and instanceId');
+  }
+  if (expected.network !== 'chipnet') fail('expected network binding must be chipnet');
+  hash(expected.profileId, 'expected profile binding');
+  hash(expected.instanceId, 'expected instance binding');
+  return expected;
+}
+
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.freeze(value); for (const child of Object.values(value)) deepFreeze(child);
@@ -361,10 +382,10 @@ export async function loadVerifierProfileBundle(directory, expected = {}) {
     if (resolved !== candidate) fail(`artifact path contains a symlink: ${artifact.path}`);
     if (await hashFile(resolved) !== artifact.sha256) fail(`artifact hash mismatch: ${artifact.path}`);
   }
-  exactKeys(expected, 'expected bundle binding', ['network', 'profileId', 'instanceId'].filter((key) => expected[key] !== undefined));
-  if (expected.profileId !== undefined && expected.profileId !== profileId) fail('expected profile binding mismatch: refusing hot swap');
-  if (expected.instanceId !== undefined && expected.instanceId !== instanceId) fail('expected instance binding mismatch: refusing hot swap');
-  if (expected.network !== undefined && expected.network !== manifest.network.name) fail('expected network binding mismatch');
+  const binding = validateExpectedInstanceBinding(expected);
+  if (binding.profileId !== undefined && binding.profileId !== profileId) fail('expected profile binding mismatch: refusing hot swap');
+  if (binding.instanceId !== undefined && binding.instanceId !== instanceId) fail('expected instance binding mismatch: refusing hot swap');
+  if (binding.network !== undefined && binding.network !== manifest.network.name) fail('expected network binding mismatch');
   return deepFreeze({ root, manifest, profileId, instanceId });
 }
 
