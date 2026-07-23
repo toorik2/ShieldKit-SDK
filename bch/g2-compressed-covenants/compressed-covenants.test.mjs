@@ -286,6 +286,8 @@ test('full helper rejects every CashToken form at every non-state input and outp
     profileId,
     instanceId,
     stateCategory,
+    maximumReserveSatoshis: maximumReserve.toString(),
+    genesis,
     bindingCarrierBaseSatoshis: Number(stateCarrierBase),
   });
   const stateLock = buildStateTrampolineLock({ helper, bindingLock });
