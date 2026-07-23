@@ -30,7 +30,18 @@
     "ninja -C <build> -j4 bitcoind bitcoin-cli",
     "bitcoind -chipnet <isolated loopback-only arguments>; bitcoin-cli getnetworkinfo|getblockchaininfo|getmempoolinfo|getpeerinfo|getconnectioncount; bitcoin-cli stop"
   ],
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "evidence/G1/bch-surface/live-nodes/REPORT.md",
+      "sha256": "82fdb011939fea0a92cce38db90f6695c840d4db7ef016d3644897be6b599eff",
+      "bytes": 5241
+    },
+    {
+      "path": "evidence/G1/bch-surface/live-nodes/raw/SHA256SUMS",
+      "sha256": "791d8ac19f373825fb215ecadc7fd5e7ea1c75da027a7ee0be93f846f342109f",
+      "bytes": 939
+    }
+  ],
   "measurements": {
     "nodeA": {
       "chain": "chip",
