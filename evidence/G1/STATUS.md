@@ -35,6 +35,12 @@ Current decisive results:
   constraints; setup, proof, and BCH settlement evidence remain absent;
 - the verifier baseline is reproducible without source patches when every
   committed dependency closure is installed;
+- a source-pinned native rapidsnark feasibility run now proves and
+  pinned-snarkjs-verifies all three exact low128-v0 witnesses at 2.546–3.362
+  seconds and 562,484–566,628 KiB warm peak RSS. This passes the frozen desktop
+  thresholds as an initial one-host feasibility sample only; it is not p95
+  qualification, a selected backend, or a G1 PASS. See
+  `evidence/G1/native-prover-rapidsnark/`;
 - it remains research-only with fixed verifier/deployment binding;
 - the original PF6 inputs 0–2 exceed 9,500 bytes, but the measured PF7 sub62
   repartition clears that component ceiling with a 9,176-byte maximum unlock;

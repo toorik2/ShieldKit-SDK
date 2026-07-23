@@ -1,0 +1,20 @@
+{
+  "schema": "shield.cash/rapidsnark-build-closure/v1",
+  "source": {
+    "repository": "https://github.com/iden3/rapidsnark.git",
+    "commit": "81eddf1a536d26497b237c0b8a04fe90baf7e439",
+    "submodules": {
+      "circom_runtime": "839785075f90a060a5ee5697c6c6e27f85aa35ee",
+      "ffiasm": "aa90166dc4c5a075b835a398e15cc1e06ac90e95",
+      "json": "350ff4f7ced7c4117eae2fb93df02823c8021fcb",
+      "pistache": "ae0da38cf1c26c3321b19a512e2faffb80ae9867"
+    }
+  },
+  "gmp": {"version": "6.3.0", "archiveSha256": "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898", "staticLibrarySha256": "089bad78e216180d236ac48865eca869a71dc2d1d291a43f7464f43629d9afd4", "configure": ["--build=x86_64-pc-linux-gnu", "--host=x86_64-pc-linux-gnu", "--with-pic", "--disable-fft", "--enable-fat"], "cflags": "-O2 -std=gnu17 -fomit-frame-pointer"},
+  "nativeProver": {"sha256": "123856b3f2a39360c64d83a3ca8e5cca3ad18ea03a28c0cfddf2b2a7ea00a598", "cmake": ["-DCMAKE_BUILD_TYPE=Release", "-DUSE_ASM=OFF", "-DUSE_OPENMP=ON", "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -include cstdint"]},
+  "toolchain": {"architecture": "x86_64", "kernel": "Linux 7.1.3-arch1-2", "cpu": "13th Gen Intel(R) Core(TM) i9-13900H", "logicalCpus": 20, "memoryBytes": 50116329472, "compiler": "g++ (GCC) 16.1.1 20260625", "cmake": "4.4.0", "ninja": "1.13.2"},
+  "failedConfigurations": [
+    {"configuration": "upstream ASM host", "result": "failed", "reason": "nasm: command not found"},
+    {"configuration": "native no-ASM without compatibility flags", "result": "failed", "reason": "GCC 16 requires direct cstdint inclusion in pinned source"}
+  ]
+}
