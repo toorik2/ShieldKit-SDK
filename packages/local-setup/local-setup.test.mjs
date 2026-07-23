@@ -62,7 +62,7 @@ async function fixture(t, { verifiedPtau = true } = {}) {
   const entropy = await open(entropyPath, 'r'); t.after(async () => entropy.close());
   const tool = await getPinnedSnarkjsInfo();
   return {
-    root, r1cs, ptau, entropyFd: entropy.fd, tool,
+    root, r1cs, ptau, entropyFd: entropy.fd, entropyHandle: entropy, tool,
     expectedR1csSha256: digest(await readFile(r1cs)), expectedPtauSha256: digest(await readFile(ptau)),
   };
 }
@@ -94,6 +94,7 @@ test('real pinned snarkjs development setup creates one verified local contribut
   const serialized = JSON.parse(await readFile(path.join(destination, 'setup-metadata.json'), 'utf8'));
   assert.equal(serialized.setup.mode, 'development-only');
   assert.equal(JSON.stringify(serialized).includes('entropy.txt'), false);
+  await data.entropyHandle.stat();
 
   const shortEntropyPath = path.join(data.root, 'short-entropy.txt');
   await writeFile(shortEntropyPath, 'too-short', { mode: 0o600 }); await chmod(shortEntropyPath, 0o600);
@@ -101,6 +102,7 @@ test('real pinned snarkjs development setup creates one verified local contribut
   const cleanupDestination = path.join(data.root, 'must-be-removed'); const cleanupInput = inputFor(data, cleanupDestination);
   cleanupInput.entropySource = { kind: 'fd', fd: shortEntropy.fd };
   await assert.rejects(() => initializeDevelopmentGroth16(cleanupInput), /entropy must contain at least 32 bytes/);
+  await shortEntropy.stat();
   await assert.rejects(() => lstat(cleanupDestination));
 });
 

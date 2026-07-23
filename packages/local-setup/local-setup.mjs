@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { createReadStream, fstat } from 'node:fs';
+import { createReadStream, fstat, readSync } from 'node:fs';
 import {
   lstat, mkdir, readFile, realpath, rm, writeFile,
 } from 'node:fs/promises';
@@ -86,7 +86,9 @@ async function readPtauCapacity(ptauPath) {
 async function readR1csCapacity(r1csPath) {
   const { fd, sections } = await readBinFile(r1csPath, 'r1cs', 1, 1 << 22, 1 << 24);
   try {
-    const header = await readR1csHeader(fd, sections, false);
+    // Header inspection does not use curve arithmetic. Keep ffjavascript in
+    // single-thread mode so a metadata read cannot leave a worker pool alive.
+    const header = await readR1csHeader(fd, sections, true);
     const terms = header.nConstraints + header.nPubInputs + header.nOutputs;
     const requiredPower = Math.ceil(Math.log2(terms + 1));
     return { nConstraints: header.nConstraints, nPublicInputs: header.nPubInputs, nOutputs: header.nOutputs, requiredPower };
@@ -167,7 +169,26 @@ async function collectEntropy(source) {
     if (!Number.isInteger(source.fd) || source.fd < 0) fail('entropy fd must be a non-negative integer');
     const details = await fstatAsync(source.fd).catch(() => fail('entropy fd cannot be inspected'));
     if (!details.isFile() || (details.mode & 0o077) !== 0) fail('entropy fd must reference a private regular file');
-    readable = createReadStream(null, { fd: source.fd, autoClose: false });
+    // The fd is caller-owned. A temporary ReadStream either retains an active
+    // event-loop handle or closes the fd when explicitly destroyed. Entropy is
+    // bounded to 4096 bytes, so read it synchronously without creating a
+    // libuv-backed handle and leave ownership unchanged.
+    const scratch = Buffer.allocUnsafe(MAX_ENTROPY_BYTES + 1); let size = 0;
+    try {
+      while (size < scratch.length) {
+        const bytesRead = readSync(source.fd, scratch, size, scratch.length - size, null);
+        if (bytesRead === 0) break;
+        size += bytesRead;
+      }
+      if (size > MAX_ENTROPY_BYTES) fail(`entropy exceeds ${MAX_ENTROPY_BYTES} bytes`);
+      const entropy = Buffer.allocUnsafe(size);
+      scratch.copy(entropy, 0, 0, size);
+      return validateEntropy(entropy);
+    } catch (error) {
+      throw error instanceof LocalSetupError ? error : new LocalSetupError('entropy fd cannot be read');
+    } finally {
+      scratch.fill(0);
+    }
   } else {
     fail('entropy source kind must be stdin or fd');
   }
@@ -184,6 +205,10 @@ async function collectEntropy(source) {
   }
   const entropy = Buffer.allocUnsafe(size); let offset = 0;
   for (const chunk of chunks) { chunk.copy(entropy, offset); offset += chunk.length; chunk.fill(0); }
+  return validateEntropy(entropy);
+}
+
+function validateEntropy(entropy) {
   if (entropy.length < MIN_ENTROPY_BYTES) { entropy.fill(0); fail(`entropy must contain at least ${MIN_ENTROPY_BYTES} bytes`); }
   try { new TextDecoder('utf-8', { fatal: true }).decode(entropy); }
   catch { entropy.fill(0); fail('entropy must be UTF-8 text'); }
