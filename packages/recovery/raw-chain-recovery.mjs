@@ -55,14 +55,65 @@ function settlement(value) { exactKeys(value, 'settlement config', ['genesisRawT
 const stateSpend = (transaction) => transaction.inputs.length >= 9 && transaction.inputs[8].outpointIndex === 0 ? bytesToHex(transaction.inputs[8].outpointTransactionHash) : undefined;
 const historyInput = (config, rawTransactions) => ({ genesisTransactionId: config.genesisTransactionId, instanceId: config.instanceId, profileId: config.profileId, stateCarrierBaseSatoshis: config.stateCarrierBaseSatoshis, stateLockSha256: config.stateLockSha256, stateLockingBytecode: config.stateLockingBytecode, stateNftCategory: config.stateNftCategory, rawTransactions });
 
-/** Extract only the contiguous, profile-bound state chain from authenticated blocks. */
-export function extractProfileBoundSettlements(value) {
-  exactKeys(value, 'profile settlement extraction', ['blocks', 'settlement']); const config = settlement(value.settlement); if (!Array.isArray(value.blocks)) fail('INVALID_BLOCKS', 'blocks must be an array'); const rawTransactions = [config.genesisRawTransaction]; const stateIds = new Set([config.genesisTransactionId]); let parent = config.genesisTransactionId;
-  for (const block of value.blocks) { if (block === null || !Array.isArray(block.transactions)) fail('INVALID_BLOCKS', 'blocks must come from verifyRawChainSegment'); for (const row of block.transactions) { if (!row || typeof row.id !== 'string' || !isBytes(row.raw) || !row.transaction) fail('INVALID_BLOCKS', 'block transaction is malformed'); if (row.id === config.genesisTransactionId) fail('DUPLICATE_GENESIS', 'genesis transaction must not appear in recovered suffix'); const spend = stateSpend(row.transaction); if (spend === undefined || !stateIds.has(spend)) continue; if (spend !== parent) fail('STATE_FORK', 'a transaction spends an earlier state anchor after its successor exists'); if (row.transaction.inputs.length !== 10) fail('SETTLEMENT_INPUT_COUNT', 'state-anchor spend does not have the fixed ten-input topology'); rawTransactions.push(new Uint8Array(row.raw)); try { extractRawSettlementHistory(historyInput(config, rawTransactions)); } catch (error) { fail(error.code ?? 'INVALID_SETTLEMENT', `profile-bound settlement rejected: ${error.message}`); } parent = row.id; stateIds.add(parent); } }
-  const history = rawTransactions.length === 1 ? undefined : extractRawSettlementHistory(historyInput(config, rawTransactions)); return Object.freeze({ schema: 'shield.cash/profile-settlement-chain/v1', qualification: 'authenticated raw-chain structural extraction only; BCH VM/script validity and independent implementation remain separate gates', confirmedTransactionIds: Object.freeze(rawTransactions.map((entry) => displayHash(entry))), settlementTransactionIds: Object.freeze(rawTransactions.slice(1).map((entry) => displayHash(entry))), terminalStateTransactionId: parent, history });
+function profileBoundSettlementChain(config, blocks) {
+  if (!Array.isArray(blocks)) fail('INVALID_BLOCKS', 'blocks must be an array');
+  const rows = [];
+  for (const block of blocks) {
+    if (block === null || !Array.isArray(block.transactions)) fail('INVALID_BLOCKS', 'blocks must come from verifyRawChainSegment');
+    for (const row of block.transactions) {
+      if (!row || typeof row.id !== 'string' || !isBytes(row.raw) || !row.transaction) fail('INVALID_BLOCKS', 'block transaction is malformed');
+      if (row.id === config.genesisTransactionId) fail('DUPLICATE_GENESIS', 'genesis transaction must not appear in recovered suffix');
+      rows.push(row);
+    }
+  }
+  // BCH canonical transaction ordering is not topological: a child may appear
+  // before its parent in one block. Reconstruct the unique state chain by
+  // input-8 outpoint ancestry rather than block transaction position.
+  const children = new Map();
+  for (const row of rows) {
+    const parent = stateSpend(row.transaction);
+    if (parent === undefined) continue;
+    const siblings = children.get(parent) ?? [];
+    siblings.push(row); children.set(parent, siblings);
+  }
+  const rawTransactions = [config.genesisRawTransaction];
+  const stateIds = new Set([config.genesisTransactionId]);
+  let parent = config.genesisTransactionId;
+  while (true) {
+    const candidates = children.get(parent) ?? [];
+    if (candidates.length === 0) break;
+    if (candidates.length !== 1) fail('STATE_FORK', 'multiple transactions spend the same confirmed state anchor');
+    const [row] = candidates;
+    if (row.transaction.inputs.length !== 10) fail('SETTLEMENT_INPUT_COUNT', 'state-anchor spend does not have the fixed ten-input topology');
+    rawTransactions.push(new Uint8Array(row.raw));
+    try { extractRawSettlementHistory(historyInput(config, rawTransactions)); } catch (error) { fail(error.code ?? 'INVALID_SETTLEMENT', `profile-bound settlement rejected: ${error.message}`); }
+    parent = row.id;
+    if (stateIds.has(parent)) fail('STATE_CYCLE', 'state ancestry contains a cycle');
+    stateIds.add(parent);
+  }
+  for (const stateId of stateIds) {
+    const candidates = children.get(stateId) ?? [];
+    if (candidates.length > 1) fail('STATE_FORK', 'multiple transactions spend the same confirmed state anchor');
+  }
+  return Object.freeze({ rawTransactions: Object.freeze(rawTransactions), terminalStateTransactionId: parent });
 }
 
-function settlementWithRaw(value, segment) { const config = settlement(value); const extracted = extractProfileBoundSettlements({ settlement: config, blocks: segment.blocks }); const rawTransactions = [config.genesisRawTransaction]; const known = new Set([config.genesisTransactionId]); let parent = config.genesisTransactionId; for (const block of segment.blocks) for (const row of block.transactions) { const spend = stateSpend(row.transaction); if (spend !== parent || !known.has(spend) || row.transaction.inputs.length !== 10) continue; rawTransactions.push(new Uint8Array(row.raw)); parent = row.id; known.add(parent); } return Object.freeze({ config, extracted, confirmedRawTransactions: Object.freeze(rawTransactions), terminalStateTransactionId: extracted.terminalStateTransactionId }); }
+/** Extract only the contiguous, profile-bound state chain from authenticated blocks. */
+export function extractProfileBoundSettlements(value) {
+  exactKeys(value, 'profile settlement extraction', ['blocks', 'settlement']);
+  const config = settlement(value.settlement);
+  const chain = profileBoundSettlementChain(config, value.blocks);
+  const history = chain.rawTransactions.length === 1 ? undefined : extractRawSettlementHistory(historyInput(config, chain.rawTransactions));
+  return Object.freeze({ schema: 'shield.cash/profile-settlement-chain/v1', qualification: 'authenticated raw-chain structural extraction only; BCH VM/script validity and independent implementation remain separate gates', confirmedTransactionIds: Object.freeze(chain.rawTransactions.map((entry) => displayHash(entry))), settlementTransactionIds: Object.freeze(chain.rawTransactions.slice(1).map((entry) => displayHash(entry))), terminalStateTransactionId: chain.terminalStateTransactionId, history });
+}
+
+function settlementWithRaw(value, segment) {
+  const config = settlement(value);
+  const chain = profileBoundSettlementChain(config, segment.blocks);
+  const history = chain.rawTransactions.length === 1 ? undefined : extractRawSettlementHistory(historyInput(config, chain.rawTransactions));
+  const extracted = Object.freeze({ schema: 'shield.cash/profile-settlement-chain/v1', qualification: 'authenticated raw-chain structural extraction only; BCH VM/script validity and independent implementation remain separate gates', confirmedTransactionIds: Object.freeze(chain.rawTransactions.map((entry) => displayHash(entry))), settlementTransactionIds: Object.freeze(chain.rawTransactions.slice(1).map((entry) => displayHash(entry))), terminalStateTransactionId: chain.terminalStateTransactionId, history });
+  return Object.freeze({ config, extracted, confirmedRawTransactions: chain.rawTransactions, terminalStateTransactionId: chain.terminalStateTransactionId });
+}
 function pending(value, config, confirmed) { if (value === undefined) return Object.freeze({ status: 'none', transactions: Object.freeze([]) }); if (!Array.isArray(value)) fail('INVALID_PENDING', 'pendingTransactions must be an array'); const ids = new Set(); const candidates = []; for (const entry of value) { const raw = bytes(entry, 'pending transaction'); const parsed = readTransactionCommon({ bin: raw, index: 0 }); if (typeof parsed === 'string' || parsed.position.index !== raw.length) fail('MALFORMED_TRANSACTION', 'pending transaction cannot be parsed'); const id = displayHash(raw); if (ids.has(id)) fail('DUPLICATE_PENDING', 'pending transaction identifier repeats'); ids.add(id); if (stateSpend(parsed.result) === confirmed.terminalStateTransactionId) { if (parsed.result.inputs.length !== 10) fail('SETTLEMENT_INPUT_COUNT', 'pending state spend does not have the fixed ten-input topology'); try { extractRawSettlementHistory(historyInput(config, [...confirmed.confirmedRawTransactions, raw])); } catch (error) { fail(error.code ?? 'INVALID_PENDING_SETTLEMENT', `pending settlement rejected: ${error.message}`); } candidates.push(Object.freeze({ id, raw: new Uint8Array(raw) })); } } const status = candidates.length === 0 ? 'none' : candidates.length === 1 ? 'pending' : 'conflicted'; return Object.freeze({ status, transactions: Object.freeze(candidates) }); }
 
 /**

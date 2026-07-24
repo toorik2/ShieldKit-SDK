@@ -43,6 +43,15 @@ test('structurally parses existing Chipnet settlement fixtures inside locally mi
   expect(() => extractProfileBoundSettlements({ settlement: { ...values.settlement, profileId: '00'.repeat(32) }, blocks: segment.blocks }), 'PROFILE_MISMATCH');
 });
 
+test('reconstructs same-block state ancestry independently of BCH canonical transaction order', async () => {
+  const values = await fixtures();
+  const orderedByBlock = mineBlock('00'.repeat(32), [values.withdrawal, values.deposit, values.transfer], 2);
+  const segment = verifyRawChainSegment(chain([orderedByBlock]));
+  const extracted = extractProfileBoundSettlements({ settlement: values.settlement, blocks: segment.blocks });
+  assert.deepEqual(extracted.settlementTransactionIds, [display(values.deposit), display(values.transfer), display(values.withdrawal)]);
+  assert.equal(extracted.history.packets.length, 3);
+});
+
 test('rejects truncation, broken linkage, malformed transactions, merkle corruption, and invalid proof of work', async () => {
   const values = await fixtures(); const first = mineBlock('00'.repeat(32), [values.deposit], 10); const second = mineBlock(first.id, [values.transfer], 11); const full = chain([first, second]);
   expect(() => verifyRawChainSegment({ ...full, rawBlocks: [first.raw] }), 'TRUNCATED_CHAIN');
