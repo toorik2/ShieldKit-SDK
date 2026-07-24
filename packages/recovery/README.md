@@ -75,24 +75,37 @@ Chipnet, reorg, provider-authentication, or 10,000-transition recovery
 evidence. The caller must authenticate raw BCH provenance and confirmation
 order, and an independent implementation remains a G5 requirement.
 
-## Raw self-hosted BCHN chain recovery (Node-only subpath)
+## Raw BCH structural parsing and self-hosted BCHN consistency (Node-only)
 
-`@shield.cash/recovery/raw-chain-recovery` accepts a caller-supplied BCHN
-JSON-RPC transport or caller-supplied raw blocks. It parses complete blocks
-locally, checks canonical transaction boundaries and merkle roots, validates
-raw header linkage, structural proof of work, and exact cumulative chainwork
-from a pinned checkpoint to a caller-pinned tip. It extracts only the
-contiguous, profile-bound ten-input settlement state chain and keeps a
-deterministic rollback/replay journal. Pending state spends are reported as
-`pending`; two valid pending spends of the same state are `conflicted` and are
-never selected.
+`@shield.cash/recovery/raw-chain-recovery` contains two deliberately distinct
+surfaces. `parseRawBchBlock`, `verifyRawChainSegment`, and the in-memory journal
+are **untrusted structural parsers**: they check raw transaction boundaries,
+merkle roots, header linkage, structural proof of work, and arithmetic chainwork
+against caller-supplied anchors. They do not establish BCH consensus, canonical
+chain selection, coinbase validity, difficulty rules, UTXO validity, BCH VM
+validity, or G5 recovery. Never use an arbitrary structural segment as a wallet
+chain source.
 
-The RPC adapter takes a function of `(method, params)` and never stores or logs
-credentials. It refuses a BCHN node that reports `pruned`, mismatched
-`getblockhash`/`getblockheader`/raw-block responses, a truncated suffix, or a
-lower/equal-work competing branch. The caller must pin a trusted checkpoint and
-target tip. This module deliberately does not implement BCH difficulty rules,
-full consensus validation, BCH VM validation, or an independent implementation.
+`fetchBchnRawChainSegment` is the bounded self-hosted BCHN subpath. Its caller
+pins an authenticated checkpoint, while the node supplies the current canonical
+tip and every block hash by height. It requires `chain == "chipnet"`, an
+available non-IBD/non-pruned node with equal block/header counts, and a stable
+`getblockchaininfo` snapshot. For every height it cross-checks
+`getblockhash`, raw and verbose `getblockheader`, raw `getblock`, parent hash,
+height, confirmations, merkle/header bytes, and cumulative chainwork. It rejects
+tip changes during fetch, stale nodes, wrong networks, malformed responses, and
+equivocation. It first proves the checkpoint is canonical at its declared
+height, including the checkpoint chainwork, so a zero-block suffix is not an
+unchecked success. One request is bounded to 10,000 blocks; a wallet must retain
+an authenticated checkpoint and resume in bounded suffixes for longer history.
+The RPC adapter takes only `(method, params)` and never stores or logs
+credentials.
+
+This remains a single-BCHN, bounded consistency layer rather than a consensus
+engine or independent implementation. It is useful only after its raw suffix is
+also passed through profile-bound settlement validation; it does not close G5,
+which still requires long-history, VM, archival, adversarial, and independent
+implementation evidence.
 
 ## Cryptographic and portability boundary
 
