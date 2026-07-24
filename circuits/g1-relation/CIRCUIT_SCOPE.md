@@ -50,11 +50,15 @@ The relation also enforces:
 - zero deposit inactive spend/path slots and zero withdrawal inactive
   append/output slots; and
 - boolean record bits, zero for withdrawal, SHA-bound for every action; and
-- recovery record v2 semantic binding: fixed `version=2, slot=0`, canonical
-  compressed nonidentity prime-subgroup BabyJubJub recipient/ephemeral points,
-  ephemeral scalar-to-point relation, ECDH, field masks for the exact output
-  `rho` and `r`, a Poseidon authenticator, and thirty zero pad bytes. The
-  recipient point is re-hashed to the exact output `ak`.
+- recovery record v2 semantic binding: fixed `version=2, slot=0`, one
+  canonical compressed nonidentity prime-subgroup BabyJubJub *ephemeral*
+  point, canonical `c_rho`/`c_r`/authenticator field encodings, and sixty-two
+  zero pad bytes. Separate spend and recovery points are private on-curve
+  prime-subgroup witnesses. The spend point is re-hashed to the exact output
+  `ak`; the recovery point is the ECDH peer. Neither is serialized because a
+  stable recipient point would link records addressed to the same wallet. The
+  circuit binds the ephemeral scalar-to-point relation, ECDH, field masks for
+  the exact output `rho` and `r`, and the Poseidon authenticator.
 
 `u32` note-index capacity is handled conservatively: output actions require
 `preNextLeafIndex <= 2^32 - 2`, so the post-state index remains representable

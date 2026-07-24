@@ -6,7 +6,11 @@ import { poseidon6, poseidon7, poseidon9 } from 'poseidon-lite';
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const OUTPUT_RECORD_BYTES = 192;
 export const RECOVERY_RECORD_CIPHERTEXT_BYTES = 64;
-export const RECOVERY_RECORD_PADDING_BYTES = 30;
+// The recipient public point is deliberately not serialized. An address is
+// stable for a seed/profile/instance, so publishing it on every output would
+// make receipts to that address trivially linkable. The fixed record leaves
+// its former 32-byte slot as mandatory zero padding instead.
+export const RECOVERY_RECORD_PADDING_BYTES = 62;
 export const ADDRESS_SCHEMA = 'shield.cash/recipient-address/v2';
 export const RECORD_VERSION = 2;
 export const BABYJUB_SUBGROUP_ORDER = 2736030358979909402780800718157159386076813972158567259200215660948447373041n;
@@ -131,10 +135,10 @@ const identifierLimbs = (identifier, label) => {
   return [BigInt(`0x${bytesToHex(value.subarray(0, 16))}`), BigInt(`0x${bytesToHex(value.subarray(16, 32))}`)];
 };
 
-export async function deriveRecipientAuthority({ profileId, instanceId, recoveryPublicKey }) {
+export async function deriveRecipientAuthority({ profileId, instanceId, spendPublicKey }) {
   const profile = identifierLimbs(profileId, 'recipient profileId');
   const instance = identifierLimbs(instanceId, 'recipient instanceId');
-  const point = unpackBabyJubPoint(hexToBytes(hex32(recoveryPublicKey, 'recipient recovery public key')));
+  const point = unpackBabyJubPoint(hexToBytes(hex32(spendPublicKey, 'recipient spend public key')));
   return frToHex(poseidonHash(1004n, ...profile, ...instance, point[0], point[1]));
 }
 
@@ -152,8 +156,8 @@ export async function deriveOutputNote({ profileId, instanceId, ak, rho, r }) {
 export async function deriveRecipientNote({ profileId, instanceId, spendSecret, rho, r }) {
   const secret = nonzeroFr(spendSecret, 'note spend secret');
   if (BigInt(`0x${secret}`) >= BABYJUB_SUBGROUP_ORDER) failCore('INVALID_SCALAR', 'note spend secret is outside the BabyJubJub subgroup order');
-  const recoveryPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${secret}`))));
-  const ak = await deriveRecipientAuthority({ profileId, instanceId, recoveryPublicKey });
+  const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${secret}`))));
+  const ak = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
   const output = await deriveOutputNote({ profileId, instanceId, ak, rho, r });
   const profile = identifierLimbs(profileId, 'note profileId');
   const instance = identifierLimbs(instanceId, 'note instanceId');
@@ -163,12 +167,12 @@ export async function deriveRecipientNote({ profileId, instanceId, spendSecret, 
   return Object.freeze({ ...output, nf, sk: secret });
 }
 
-export function recoveryMasks({ profileId, instanceId, outputCm, recipientPoint, ephemeralPoint, sharedPoint, outputAk, kindCode }) {
+export function recoveryMasks({ profileId, instanceId, outputCm, recoveryPoint, ephemeralPoint, sharedPoint, outputAk, kindCode }) {
   const profile = identifierLimbs(profileId, 'recovery profileId'); const instance = identifierLimbs(instanceId, 'recovery instanceId');
   const commitment = BigInt(`0x${nonzeroFr(outputCm, 'recovery output commitment')}`); const authority = BigInt(`0x${nonzeroFr(outputAk, 'recovery output ak')}`);
   if (!Number.isInteger(kindCode) || kindCode < 1 || kindCode > 3) failCore('INVALID_KIND', 'recovery action kind code is invalid');
-  for (const point of [recipientPoint, ephemeralPoint, sharedPoint]) if (!babyJubInSubgroup(point)) failCore('INVALID_POINT', 'recovery point is not a nonidentity prime-subgroup point');
-  const shared = poseidonHash(1101n, recipientPoint[0], recipientPoint[1], ephemeralPoint[0], ephemeralPoint[1], sharedPoint[0], sharedPoint[1], commitment, BigInt(kindCode));
+  for (const point of [recoveryPoint, ephemeralPoint, sharedPoint]) if (!babyJubInSubgroup(point)) failCore('INVALID_POINT', 'recovery point is not a nonidentity prime-subgroup point');
+  const shared = poseidonHash(1101n, recoveryPoint[0], recoveryPoint[1], ephemeralPoint[0], ephemeralPoint[1], sharedPoint[0], sharedPoint[1], commitment, BigInt(kindCode));
   const rhoMask = poseidonHash(1102n, shared, profile[0], profile[1], instance[0], instance[1]);
   const rMask = poseidonHash(1103n, shared, profile[0], profile[1], instance[0], instance[1]);
   return Object.freeze({ shared, rhoMask, rMask, authentication: (ciphertextRho, ciphertextR) => frToHex(poseidonHash(1104n, shared, ciphertextRho, ciphertextR, authority, profile[0], profile[1], instance[0], instance[1])) });

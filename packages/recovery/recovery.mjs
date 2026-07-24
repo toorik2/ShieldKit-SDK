@@ -1,4 +1,4 @@
-// Portable recipient address and chain-recovery V1 API. No Node built-ins,
+// Portable recipient address and chain-recovery V2 API. No Node built-ins,
 // Buffer, network access, or storage are required by this entrypoint.
 import {
   ADDRESS_SCHEMA, BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, FR_MODULUS, OUTPUT_RECORD_BYTES, PortableCoreError,
@@ -81,13 +81,17 @@ export function createWebCryptoRandomSource(crypto = globalThis.crypto) {
   } });
 }
 
-function assertAddress(address) {
-  exactKeys(address, 'recipient address', ['ak', 'instanceId', 'profileId', 'recoveryPublicKey', 'schema']);
+async function assertAddress(address) {
+  exactKeys(address, 'recipient address', ['ak', 'instanceId', 'profileId', 'recoveryPublicKey', 'schema', 'spendPublicKey']);
   if (address.schema !== ADDRESS_SCHEMA) fail('UNSUPPORTED_ADDRESS_SCHEMA', 'recipient address schema is unsupported');
   const profileId = identifier(address.profileId, 'recipient address profileId'); const instanceId = identifier(address.instanceId, 'recipient address instanceId');
-  const ak = field(address.ak, 'recipient address ak'); const recoveryPublicKey = identifier(address.recoveryPublicKey, 'recipient address recovery public key');
-  try { unpackBabyJubPoint(hexToBytes(recoveryPublicKey)); } catch (error) { translate(error); }
-  return Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak, recoveryPublicKey });
+  const ak = field(address.ak, 'recipient address ak'); const spendPublicKey = identifier(address.spendPublicKey, 'recipient address spend public key'); const recoveryPublicKey = identifier(address.recoveryPublicKey, 'recipient address recovery public key');
+  try {
+    unpackBabyJubPoint(hexToBytes(spendPublicKey)); unpackBabyJubPoint(hexToBytes(recoveryPublicKey));
+  } catch (error) { translate(error); }
+  const expectedAk = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
+  if (ak !== expectedAk) fail('ADDRESS_AUTHORITY_MISMATCH', 'recipient address authority does not bind its spend public key');
+  return Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak, spendPublicKey, recoveryPublicKey });
 }
 
 function normalizeDerivationInput(input, label) {
@@ -100,22 +104,26 @@ export async function deriveRecipientWallet(input) {
   const { seed, profileId, instanceId } = normalizeDerivationInput(input, 'wallet derivation input');
   try {
     const spendSecret = deriveBabyJubScalar(seed, 'shield.cash/wallet-spend/v2\0', profileId, instanceId).toString(16).padStart(64, '0');
-    const recoveryPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${spendSecret}`))));
-    const authority = await deriveRecipientAuthority({ profileId, instanceId, recoveryPublicKey });
-    const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, recoveryPublicKey });
-    return Object.freeze({ address, spendSecret });
+    const recoverySecret = deriveBabyJubScalar(seed, 'shield.cash/wallet-recovery/v2\0', profileId, instanceId).toString(16).padStart(64, '0');
+    const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${spendSecret}`))));
+    const recoveryPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`))));
+    const authority = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
+    const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, spendPublicKey, recoveryPublicKey });
+    return Object.freeze({ address, spendSecret, recoverySecret });
   } catch (error) { translate(error); }
 }
 
 /** Derive the public recipient address without exposing spend or scan material. */
 export async function deriveRecipientAddress(input) { return (await deriveRecipientWallet(input)).address; }
 
-/** Construct a public recipient output and its exact 192-byte recovery record. */
+/** Construct a public recipient output and its exact 192-byte recovery record.
+ * The recipient point remains private witness material: serializing a stable
+ * address key would link all notes received by that address. */
 export async function constructRecipientOutput(input) {
   oneOfKeys(input, 'output construction input', [
     ['address', 'kind', 'slot'], ['address', 'kind', 'rng', 'slot'],
   ]);
-  const address = assertAddress(input.address); const recordKind = kind(input.kind); const recordSlot = slot(input.slot);
+  const address = await assertAddress(input.address); const recordKind = kind(input.kind); const recordSlot = slot(input.slot);
   if (recordKind === 'withdrawal') fail('UNSUPPORTED_KIND', 'withdrawal has no active recipient output');
   const rng = input.rng === undefined ? createWebCryptoRandomSource() : input.rng;
   if (rng === null || typeof rng !== 'object' || typeof rng.bytes !== 'function') fail('INVALID_RNG', 'rng must expose bytes(length)');
@@ -125,26 +133,30 @@ export async function constructRecipientOutput(input) {
     if (recordSlot !== 0) fail('UNSUPPORTED_SLOT', 'the one-output G1 relation fixes the recovery record slot to zero');
     const recipientPoint = unpackBabyJubPoint(hexToBytes(address.recoveryPublicKey));
     const ephemeralScalar = randomScalar(rng); const ephemeralPoint = babyJubMul(BABYJUB_BASE8, ephemeralScalar); const sharedPoint = babyJubMul(recipientPoint, ephemeralScalar);
-    const masks = recoveryMasks({ profileId: address.profileId, instanceId: address.instanceId, outputCm: output.cm, outputAk: output.ak, recipientPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
+    const masks = recoveryMasks({ profileId: address.profileId, instanceId: address.instanceId, outputCm: output.cm, outputAk: output.ak, recoveryPoint: recipientPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
     const ciphertextRho = (BigInt(`0x${rho}`) + masks.rhoMask) % FR_MODULUS; const ciphertextR = (BigInt(`0x${r}`) + masks.rMask) % FR_MODULUS;
     const authentication = masks.authentication(ciphertextRho, ciphertextR);
-    const record = bytes(Uint8Array.of(RECORD_VERSION, recordSlot), packBabyJubPoint(recipientPoint), packBabyJubPoint(ephemeralPoint), hexToBytes(ciphertextRho.toString(16).padStart(64, '0')), hexToBytes(ciphertextR.toString(16).padStart(64, '0')), hexToBytes(authentication), new Uint8Array(RECOVERY_RECORD_PADDING_BYTES));
+    const record = bytes(Uint8Array.of(RECORD_VERSION, recordSlot), packBabyJubPoint(ephemeralPoint), hexToBytes(ciphertextRho.toString(16).padStart(64, '0')), hexToBytes(ciphertextR.toString(16).padStart(64, '0')), hexToBytes(authentication), new Uint8Array(RECOVERY_RECORD_PADDING_BYTES));
     if (record.length !== OUTPUT_RECORD_BYTES) fail('INTERNAL_SIZE', 'internal recovery record size mismatch');
-    return Object.freeze({ output: Object.freeze(output), record, recoveryWitness: Object.freeze({ ephemeralScalar: ephemeralScalar.toString(10) }) });
+    const spendPoint = unpackBabyJubPoint(hexToBytes(address.spendPublicKey));
+    return Object.freeze({ output: Object.freeze(output), record, recoveryWitness: Object.freeze({
+      ephemeralScalar: ephemeralScalar.toString(10),
+      spendPoint: Object.freeze({ x: spendPoint[0].toString(10), y: spendPoint[1].toString(10) }),
+      recoveryPoint: Object.freeze({ x: recipientPoint[0].toString(10), y: recipientPoint[1].toString(10) }),
+    }) });
   } catch (error) { translate(error); }
 }
 
-function decryptRecord({ spendSecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, outputAk, record }) {
+function decryptRecord({ recoverySecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, outputAk, record }) {
   const bytesRecord = validBytes(record, OUTPUT_RECORD_BYTES, 'record');
   if (bytesRecord[0] !== RECORD_VERSION || bytesRecord[1] !== recordSlot) fail('RECORD_HEADER', 'record version or output slot mismatch');
   if (recordSlot !== 0) fail('RECORD_HEADER', 'record slot is unsupported by the one-output relation');
   if (!equalBytes(bytesRecord.subarray(OUTPUT_RECORD_BYTES - RECOVERY_RECORD_PADDING_BYTES), new Uint8Array(RECOVERY_RECORD_PADDING_BYTES))) fail('RECORD_PADDING', 'record padding must be zero');
-  const recipientPoint = unpackBabyJubPoint(bytesRecord.subarray(2, 34)); const expectedRecipient = babyJubMul(BABYJUB_BASE8, BigInt(`0x${spendSecret}`));
-  if (recipientPoint[0] !== expectedRecipient[0] || recipientPoint[1] !== expectedRecipient[1]) fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed');
-  const ephemeralPoint = unpackBabyJubPoint(bytesRecord.subarray(34, 66)); const sharedPoint = babyJubMul(ephemeralPoint, BigInt(`0x${spendSecret}`));
-  const ciphertextRho = BigInt(`0x${bytesToHex(bytesRecord.subarray(66, 98))}`); const ciphertextR = BigInt(`0x${bytesToHex(bytesRecord.subarray(98, 130))}`); const authentication = bytesToHex(bytesRecord.subarray(130, 162));
+  const recoveryPoint = babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`));
+  const ephemeralPoint = unpackBabyJubPoint(bytesRecord.subarray(2, 34)); const sharedPoint = babyJubMul(ephemeralPoint, BigInt(`0x${recoverySecret}`));
+  const ciphertextRho = BigInt(`0x${bytesToHex(bytesRecord.subarray(34, 66))}`); const ciphertextR = BigInt(`0x${bytesToHex(bytesRecord.subarray(66, 98))}`); const authentication = bytesToHex(bytesRecord.subarray(98, 130));
   if (ciphertextRho >= FR_MODULUS || ciphertextR >= FR_MODULUS) fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed');
-  const masks = recoveryMasks({ profileId, instanceId, outputCm, outputAk, recipientPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
+  const masks = recoveryMasks({ profileId, instanceId, outputCm, outputAk, recoveryPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
   if (authentication !== masks.authentication(ciphertextRho, ciphertextR)) fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed');
   return { rho: ((ciphertextRho - masks.rhoMask + FR_MODULUS) % FR_MODULUS).toString(16).padStart(64, '0'), r: ((ciphertextR - masks.rMask + FR_MODULUS) % FR_MODULUS).toString(16).padStart(64, '0') };
 }
@@ -156,7 +168,7 @@ export async function recoverRecipientOutput(input) {
   const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const seed = seed32(input.seed); const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
   try {
     const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
-    const decoded = decryptRecord({ spendSecret: wallet.spendSecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, outputAk: wallet.address.ak, record: input.record });
+    const decoded = decryptRecord({ recoverySecret: wallet.recoverySecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, outputAk: wallet.address.ak, record: input.record });
     const note = await deriveRecipientNote({ profileId, instanceId, spendSecret: wallet.spendSecret, rho: decoded.rho, r: decoded.r });
     if (note.cm !== outputCommitment) fail('COMMITMENT_MISMATCH', 'record plaintext does not match output commitment');
     return note;

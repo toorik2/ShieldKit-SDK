@@ -30,11 +30,13 @@ assembler's exact SCCT digest for each action into
 and reserve cap for the assembler to cross-check.
 
 Active records are constructed through the public recipient-address path in
-`@shield.cash/recovery`: a sender has only `{ak,recoveryPublicKey}` and never
-needs a recipient spend secret. They are 192-byte
-X25519/HKDF-SHA256/ChaCha20-Poly1305 records, cryptographically constructed and
-byte-bound by G1, but G1 does not prove AEAD correctness. Wallet recovery must
-decrypt and recompute the note before accepting it. This module is
+`@shield.cash/recovery`: a sender has only
+`{ak,spendPublicKey,recoveryPublicKey}` and never needs either recipient
+secret. The V2 192-byte record contains an ephemeral BabyJubJub point,
+Poseidon-field ciphertexts and authenticator, and fixed zero padding; neither
+stable address point is serialized. The circuit binds the private spend point
+to `ak` and uses the separate private recovery point for ECDH. Wallet recovery
+must decrypt and recompute the note before accepting it. This module is
 development-only witness tooling, not a G2/Chipnet qualification claim.
 
 To exercise the real relation witness generator when an authenticated local

@@ -5,7 +5,10 @@ import {
   RECOVERY_RECORD_LAYOUT, RecoveryError, constructRecipientOutput, deriveRecipientAddress,
   deriveRecipientWallet, recoverRecipientOutput,
 } from './recovery.mjs';
-import { FR_MODULUS, bytesToHex } from './portable-core.mjs';
+import {
+  BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, FR_MODULUS, babyJubMul, bytesToHex,
+  deriveRecipientNote,
+} from './portable-core.mjs';
 
 const id = () => randomBytes(32).toString('hex');
 const publicRng = () => {
@@ -25,7 +28,7 @@ async function crossWalletFixture() {
 
 test('sender constructs a recipient output from a public address only; recipient recovers it', async () => {
   const { profileId, instanceId, recipientSeed, address, senderWitness, chainOutput } = await crossWalletFixture();
-  assert.deepEqual(Object.keys(address).sort(), ['ak', 'instanceId', 'profileId', 'recoveryPublicKey', 'schema']);
+  assert.deepEqual(Object.keys(address).sort(), ['ak', 'instanceId', 'profileId', 'recoveryPublicKey', 'schema', 'spendPublicKey']);
   assert.equal(chainOutput.record.length, RECOVERY_RECORD_LAYOUT.bytes);
   assert.deepEqual(Object.keys(senderWitness).sort(), ['ak', 'cm', 'r', 'rho']);
   const recovered = await recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, ...chainOutput });
@@ -38,10 +41,13 @@ test('account-static derivation is seed-profile-instance separated and rejects a
   const otherSeed = await deriveRecipientWallet({ seed: randomBytes(32), profileId, instanceId });
   const otherProfile = await deriveRecipientWallet({ seed, profileId: id(), instanceId });
   const otherInstance = await deriveRecipientWallet({ seed, profileId, instanceId: id() });
+  assert.notEqual(first.spendSecret, first.recoverySecret);
   assert.notEqual(first.address.ak, otherSeed.address.ak); assert.notEqual(first.address.ak, otherProfile.address.ak); assert.notEqual(first.address.ak, otherInstance.address.ak);
   const sent = await constructRecipientOutput({ address: first.address, kind: 'deposit', slot: 0, rng: publicRng() });
   const chainOutput = { outputCommitment: sent.output.cm, record: sent.record };
   await assert.rejects(() => recoverRecipientOutput({ seed: randomBytes(32), profileId, instanceId, kind: 'deposit', slot: 0, ...chainOutput }), /authentication failed/);
+  const wrongSpend = await deriveRecipientNote({ profileId, instanceId, spendSecret: first.recoverySecret, rho: sent.output.rho, r: sent.output.r });
+  assert.notEqual(wrongSpend.cm, sent.output.cm);
 });
 
 test('recovery rejects wrong seed, profile, instance, kind, slot, and commitment', async () => {
@@ -53,10 +59,32 @@ test('recovery rejects wrong seed, profile, instance, kind, slot, and commitment
 
 test('record authentication binds recipient and ephemeral points, ciphertexts, tag, and zero padding', async () => {
   const { profileId, instanceId, recipientSeed, chainOutput } = await crossWalletFixture();
-  for (const offset of [2, 34, 66, 98, 130, 162]) {
+  for (const offset of [2, 34, 66, 98, 130]) {
     const record = Buffer.from(chainOutput.record); record[offset] ^= 1;
-    await assert.rejects(() => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: chainOutput.outputCommitment, record }), offset === 162 ? /padding/ : /authentication failed|point/);
+    await assert.rejects(() => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: chainOutput.outputCommitment, record }), offset === 130 ? /padding/ : /authentication failed|point/);
   }
+});
+
+test('rejects noncanonical recovery ciphertext field encodings before opening', async () => {
+  const { profileId, instanceId, recipientSeed, chainOutput } = await crossWalletFixture();
+  const record = Buffer.from(chainOutput.record);
+  Buffer.from(FR_MODULUS.toString(16).padStart(64, '0'), 'hex').copy(record, 34);
+  await assert.rejects(
+    () => recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, outputCommitment: chainOutput.outputCommitment, record }),
+    /authentication failed/,
+  );
+});
+
+test('does not serialize a stable recipient address point into two records', async () => {
+  const { address } = await crossWalletFixture();
+  const rng = publicRng();
+  const first = await constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng });
+  const second = await constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng });
+  const addressPoint = Buffer.from(address.recoveryPublicKey, 'hex');
+  assert.notDeepEqual(first.record.subarray(2, 34), second.record.subarray(2, 34));
+  assert.notDeepEqual(first.record.subarray(2, 34), addressPoint);
+  assert.notDeepEqual(second.record.subarray(2, 34), addressPoint);
+  assert.deepEqual(first.record.subarray(130), new Uint8Array(62));
 });
 
 test('rejects an owned-address recovery record poisoned with another valid note secret', async () => {
@@ -70,11 +98,28 @@ test('rejects an owned-address recovery record poisoned with another valid note 
   );
 });
 
+test('uses the unique BabyJubJub scalar representative required by the circuit', async () => {
+  const { profileId, instanceId, recipientSeed, address } = await crossWalletFixture();
+  const wallet = await deriveRecipientWallet({ seed: recipientSeed, profileId, instanceId });
+  const sent = await constructRecipientOutput({ address, kind: 'transfer', slot: 0, rng: publicRng() });
+  const scalar = BigInt(`0x${wallet.spendSecret}`); const alias = scalar + BABYJUB_SUBGROUP_ORDER;
+  // The alias produces the same public key but would produce a different
+  // nullifier if it were admitted as a note spend secret.
+  assert.ok(alias < (1n << 253n));
+  assert.deepEqual(babyJubMul(BABYJUB_BASE8, scalar), babyJubMul(BABYJUB_BASE8, alias));
+  await assert.rejects(
+    () => deriveRecipientNote({ profileId, instanceId, spendSecret: alias.toString(16).padStart(64, '0'), rho: sent.output.rho, r: sent.output.r }),
+    /outside the BabyJubJub subgroup order/,
+  );
+});
+
 test('strictly rejects noncanonical or zero fields, unknown properties, and CSPRNG failure', async () => {
   const { profileId, instanceId, recipientSeed, address, chainOutput } = await crossWalletFixture();
   await assert.rejects(() => constructRecipientOutput({ address: { ...address, ak: '0'.repeat(64) }, kind: 'deposit', slot: 0 }), /nonzero/);
   await assert.rejects(() => constructRecipientOutput({ address: { ...address, ak: FR_MODULUS.toString(16).padStart(64, '0') }, kind: 'deposit', slot: 0 }), /noncanonical/);
   await assert.rejects(() => constructRecipientOutput({ address: { ...address, extra: true }, kind: 'deposit', slot: 0 }), /unknown/);
+  const other = await deriveRecipientAddress({ seed: randomBytes(32), profileId, instanceId });
+  await assert.rejects(() => constructRecipientOutput({ address: { ...address, spendPublicKey: other.spendPublicKey }, kind: 'deposit', slot: 0 }), /does not bind/);
   await assert.rejects(() => deriveRecipientAddress({ seed: recipientSeed, profileId, instanceId, extra: true }), /unknown/);
   await assert.rejects(() => constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng: { bytes: () => { throw new Error('unavailable'); } } }), /CSPRNG failed/);
   await assert.rejects(() => constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng: { bytes: () => Buffer.alloc(1) } }), /invalid byte string/);
