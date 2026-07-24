@@ -98,22 +98,30 @@ identity. At minimum, distinct tags exist for:
 
 ## 5. Notes and spend authority
 
-A real note has private fields:
+A real note has private fields and two independently derived, per-profile and
+per-instance wallet keys:
 
 ```
-sk      canonical nonzero Fr spending secret
+sk      canonical nonzero scalar in [1, BabyJubJub subgroup order)
+rk      canonical nonzero scalar in [1, BabyJubJub subgroup order)
+SP      [sk]Base8
+RP      [rk]Base8
 rho     canonical nonzero Fr unique note nonce
 r       canonical nonzero Fr commitment randomness
-ak      H(SPEND_AUTHORITY, profileHi, profileLo, instanceHi, instanceLo, sk)
+ak      H(SPEND_AUTHORITY, profileHi, profileLo, instanceHi, instanceLo,
+          SP.x, SP.y, RP.x, RP.y)
 cm      H(NOTE, profileHi, profileLo, instanceHi, instanceLo, D, ak, rho, r)
 nf      H(NULLIFIER, profileHi, profileLo, instanceHi, instanceLo, sk, rho)
 ```
 
-`cm` and `nf` must be nonzero canonical fields. The relation proves that the
-same `sk` derives both the note's `ak` and its nullifier. Knowledge of a
-caller-supplied nullifier or public tag is not spend authorization.
+`SP` and `RP` must be non-identity prime-subgroup points. `cm` and `nf` must be
+nonzero canonical fields. The relation proves that `sk` derives `SP`, that the
+same `SP` and recovery point `RP` derive the note's `ak`, and that the same
+`sk` derives its nullifier. Knowledge of a caller-supplied point, nullifier, or
+public tag is not spend authorization. The precise encrypted-record binding is
+defined by `spec/recovery-record-v2.md`.
 
-The wallet derives `sk`, viewing material, `rho`, and `r` under separately
+The wallet derives `sk`, `rk`, `rho`, and `r` under separately
 domain-separated seed paths. Concurrent operations must never reuse `rho`, `r`,
 encryption nonces, or proving randomness.
 

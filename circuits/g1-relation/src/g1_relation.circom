@@ -152,12 +152,16 @@ template G1Relation() {
     signal input postStateCommitment;
     signal input maximumLiveNotes;
 
-    component preNoteRootBits = Num2Bits(254); preNoteRootBits.in <== preNoteRoot;
-    component preNullifierRootBits = Num2Bits(254); preNullifierRootBits.in <== preNullifierRoot;
-    component postNoteRootBits = Num2Bits(254); postNoteRootBits.in <== postNoteRoot;
-    component postNullifierRootBits = Num2Bits(254); postNullifierRootBits.in <== postNullifierRoot;
-    component preCommitmentBits = Num2Bits(254); preCommitmentBits.in <== preStateCommitment;
-    component postCommitmentBits = Num2Bits(254); postCommitmentBits.in <== postStateCommitment;
+    // Every Fr value that is serialized or supplies semantic key bits must have
+    // one canonical integer decomposition. Plain Num2Bits(254) permits the
+    // alternate bit string x + Fr for small x because its recomposition
+    // equation is evaluated modulo Fr.
+    component preNoteRootBits = Num2Bits_strict(); preNoteRootBits.in <== preNoteRoot;
+    component preNullifierRootBits = Num2Bits_strict(); preNullifierRootBits.in <== preNullifierRoot;
+    component postNoteRootBits = Num2Bits_strict(); postNoteRootBits.in <== postNoteRoot;
+    component postNullifierRootBits = Num2Bits_strict(); postNullifierRootBits.in <== postNullifierRoot;
+    component preCommitmentBits = Num2Bits_strict(); preCommitmentBits.in <== preStateCommitment;
+    component postCommitmentBits = Num2Bits_strict(); postCommitmentBits.in <== postStateCommitment;
     component preNextBits = Num2Bits(32); preNextBits.in <== preNextLeafIndex;
     component postNextBits = Num2Bits(32); postNextBits.in <== postNextLeafIndex;
     component preSeqBits = Num2Bits(64); preSeqBits.in <== preActionSequence;
@@ -214,7 +218,7 @@ template G1Relation() {
     signal input inputNf;
     signal input inputViewX;
     signal input inputViewY;
-    component inSkBits = Num2Bits(254); inSkBits.in <== inSk;
+    component inSkBits = Num2Bits_strict(); inSkBits.in <== inSk;
     // BabyPbk reduces the scalar modulo the BabyJubJub prime subgroup order.
     // The nullifier hashes the scalar itself, so accepting s + L here would
     // give one note two distinct nullifiers. Require the unique nonzero
@@ -223,11 +227,11 @@ template G1Relation() {
     inSkCanonical.in[0] <== inSk;
     inSkCanonical.in[1] <== 2736030358979909402780800718157159386076813972158567259200215660948447373041;
     inSkCanonical.out === 1;
-    component inRhoBits = Num2Bits(254); inRhoBits.in <== inRho;
-    component inRBits = Num2Bits(254); inRBits.in <== inR;
-    component inputAkBits = Num2Bits(254); inputAkBits.in <== inputAk;
-    component inputCmBits = Num2Bits(254); inputCmBits.in <== inputCm;
-    component inputNfBits = Num2Bits(254); inputNfBits.in <== inputNf;
+    component inRhoBits = Num2Bits_strict(); inRhoBits.in <== inRho;
+    component inRBits = Num2Bits_strict(); inRBits.in <== inR;
+    component inputAkBits = Num2Bits_strict(); inputAkBits.in <== inputAk;
+    component inputCmBits = Num2Bits_strict(); inputCmBits.in <== inputCm;
+    component inputNfBits = Num2Bits_strict(); inputNfBits.in <== inputNf;
     component inputDummyPoint = BabyPbk(); inputDummyPoint.in <== 1;
     isDeposit * inputViewX === 0; isDeposit * inputViewY === 0;
     signal inputViewCoordinates[2];
@@ -264,10 +268,10 @@ template G1Relation() {
     signal input outputRho;
     signal input outputR;
     signal input outputCm;
-    component outputAkBits = Num2Bits(254); outputAkBits.in <== outputAk;
-    component outputRhoBits = Num2Bits(254); outputRhoBits.in <== outputRho;
-    component outputRBits = Num2Bits(254); outputRBits.in <== outputR;
-    component outputCmBits = Num2Bits(254); outputCmBits.in <== outputCm;
+    component outputAkBits = Num2Bits_strict(); outputAkBits.in <== outputAk;
+    component outputRhoBits = Num2Bits_strict(); outputRhoBits.in <== outputRho;
+    component outputRBits = Num2Bits_strict(); outputRBits.in <== outputR;
+    component outputCmBits = Num2Bits_strict(); outputCmBits.in <== outputCm;
     component outputNote = Poseidon(9);
     outputNote.inputs[0] <== 1002; outputNote.inputs[1] <== profileHi; outputNote.inputs[2] <== profileLo;
     outputNote.inputs[3] <== instanceHi; outputNote.inputs[4] <== instanceLo; outputNote.inputs[5] <== D;
