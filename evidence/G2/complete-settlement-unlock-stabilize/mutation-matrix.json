@@ -1,0 +1,158 @@
+{
+  "deposit": {
+    "honestAccepted": true,
+    "attackCount": 9,
+    "allAttacksRejected": true,
+    "attacks": [
+      {
+        "attack": "flip-pf7-unlock-0",
+        "assembleError": "pf7[0] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-1",
+        "assembleError": "pf7[1] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-2",
+        "assembleError": "pf7[2] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-3",
+        "assembleError": "pf7[3] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-4",
+        "assembleError": "pf7[4] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-5",
+        "assembleError": "pf7[5] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-6",
+        "assembleError": "pf7[6] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-packet",
+        "assembleError": "packet changes an immutable state field",
+        "rejected": true
+      },
+      {
+        "attack": "wrong-fee-key",
+        "assembleError": "action packet context digest does not bind this exact settlement",
+        "rejected": true
+      }
+    ]
+  },
+  "transfer": {
+    "honestAccepted": true,
+    "attackCount": 9,
+    "allAttacksRejected": true,
+    "attacks": [
+      {
+        "attack": "flip-pf7-unlock-0",
+        "assembleError": "pf7[0] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-1",
+        "assembleError": "pf7[1] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-2",
+        "assembleError": "pf7[2] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-3",
+        "assembleError": "pf7[3] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-4",
+        "assembleError": "pf7[4] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-5",
+        "assembleError": "pf7[5] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-6",
+        "assembleError": "pf7[6] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-packet",
+        "assembleError": "packet changes an immutable state field",
+        "rejected": true
+      },
+      {
+        "attack": "wrong-fee-key",
+        "assembleError": "action packet context digest does not bind this exact settlement",
+        "rejected": true
+      }
+    ]
+  },
+  "withdrawal": {
+    "honestAccepted": true,
+    "attackCount": 9,
+    "allAttacksRejected": true,
+    "attacks": [
+      {
+        "attack": "flip-pf7-unlock-0",
+        "assembleError": "pf7[0] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-1",
+        "assembleError": "pf7[1] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-2",
+        "assembleError": "pf7[2] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-3",
+        "assembleError": "pf7[3] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-4",
+        "assembleError": "pf7[4] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-5",
+        "assembleError": "pf7[5] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-pf7-unlock-6",
+        "assembleError": "pf7[6] unlocking bytecode is outside the 1..10000 byte limit",
+        "rejected": true
+      },
+      {
+        "attack": "flip-packet",
+        "assembleError": "packet changes an immutable state field",
+        "rejected": true
+      },
+      {
+        "attack": "wrong-fee-key",
+        "assembleError": "action packet context digest does not bind this exact settlement",
+        "rejected": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "wireBytes": 56974,
+  "maximumUnlockingBytes": 9350,
+  "feeSatoshis": "56974",
+  "sizeOk": true,
+  "vmAccepted": true,
+  "failedInputIndexes": [],
+  "contextDigest": "62633733707807735e7644b7ed9acbe3f5522cff77e15e7c70c98071acae68f9",
+  "plannedDigest": "62633733707807735e7644b7ed9acbe3f5522cff77e15e7c70c98071acae68f9"
+}
