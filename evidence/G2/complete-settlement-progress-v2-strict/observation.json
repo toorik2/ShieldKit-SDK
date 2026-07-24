@@ -1,0 +1,67 @@
+{
+  "schema": "shieldkit-sdk/g2-complete-settlement-progress/v1",
+  "product": "ShieldKit-SDK",
+  "status": "in-progress toward 10/10 complete settlement",
+  "observedAt": "2026-07-24T04:20:12Z",
+  "claimBoundary": "Documents partial complete-settlement progress. Not Chipnet, not G2 PASS.",
+  "achieved": {
+    "relationFreeze": "done",
+    "devSetup": "done",
+    "desktopProve3": "done",
+    "pf7Roles0to6_originalPackets": "done (18/18 attacks, seam pass)",
+    "structuralSettlement_roles7to9": "done",
+    "nearCompleteWithHarvestedUnlocks": "roles 0-5+7-9 accept; role 6 terminal fails when packet/SCCT not fixed-point aligned with unlock lengths",
+    "fixedPointProofs": "done for deposit/transfer/withdrawal",
+    "fixedPointPf7Build": "deposit+transfer gateOk; withdrawal genesis OP_VERIFY fail in PF7 context"
+  },
+  "remaining": [
+    "SCCT fixed-point iteration: plan with real unlock sizes \u2192 prove \u2192 PF7 \u2192 reassemble until unlock lengths and change stabilize",
+    "withdrawal PF7 genesis accept for fixed-point packet",
+    "mutation matrix on complete 10-input txs",
+    "BCHN testmempoolaccept",
+    "funding handoff then live Chipnet"
+  ],
+  "sizeHeadroom": {
+    "note": "structural and near-complete assemblies measured ~55-57kB wire, max unlock ~9.2kB under 59k/10k gates",
+    "priorNearComplete": {
+      "deposit": {
+        "wireBytes": 56833,
+        "feeSatoshis": "56833",
+        "maximumUnlockingBytes": 9277,
+        "bindingLockBytes": 20,
+        "stateLockBytes": 88,
+        "vmAccepted": false,
+        "failedInputIndexes": [
+          6
+        ],
+        "sizeOk": true
+      },
+      "transfer": {
+        "wireBytes": 56798,
+        "feeSatoshis": "56798",
+        "maximumUnlockingBytes": 9276,
+        "bindingLockBytes": 20,
+        "stateLockBytes": 88,
+        "vmAccepted": false,
+        "failedInputIndexes": [
+          6
+        ],
+        "sizeOk": true
+      },
+      "withdrawal": {
+        "wireBytes": 56777,
+        "feeSatoshis": "56777",
+        "maximumUnlockingBytes": 9276,
+        "bindingLockBytes": 20,
+        "stateLockBytes": 88,
+        "vmAccepted": false,
+        "failedInputIndexes": [
+          6
+        ],
+        "sizeOk": true
+      }
+    }
+  },
+  "profileId": "sha256:34d907599331997dfc67083742f0fcbb37b971687b1ae420658a172de2119c49",
+  "instanceId": "sha256:1cce04acbd7b6b9fd9f40aac36edaf18024e7e77bbd23d044d9785692850cb3b"
+}
