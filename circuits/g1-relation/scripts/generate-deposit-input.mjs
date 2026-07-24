@@ -6,6 +6,7 @@ import { writeFile } from 'node:fs/promises';
 import {
   createShieldedTransitionReference, DOMAIN_TAGS, frToHex, OUTPUT_RECORD_BYTES,
 } from '../../../packages/core/shielded-transition.mjs';
+import { BABYJUB_BASE8, babyJubMul, bytesToHex, packBabyJubPoint } from '../../../packages/recovery/portable-core.mjs';
 
 const output = process.argv[2];
 if (!output) throw new Error('usage: generate-deposit-input.mjs OUTPUT.json');
@@ -22,6 +23,7 @@ const emptySiblings = (depth, emptyTag, nodeTag) => {
 const pre = reference.emptyState({ profileId, instanceId, maximumReserve: '30000000' });
 const outputNote = {
   sk: '000000000000000000000000000000000000000000000000000000000000000b',
+  recoveryPublicKey: bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, 31n))),
   rho: '000000000000000000000000000000000000000000000000000000000000000c',
   r: '000000000000000000000000000000000000000000000000000000000000000d',
 };
@@ -61,7 +63,7 @@ const input = {
   postNoteRoot: toDec(post.noteRoot), postNullifierRoot: toDec(post.nullifierRoot), postNextLeafIndex: post.nextLeafIndex,
   postActionSequence: post.actionSequence, postLiveNoteCount: post.liveNoteCount, postReserveSats: post.reserveSats,
   postMaximumReserve: post.maximumReserve, postStateCommitment: toDec(post.stateCommitment), maximumLiveNotes: '3',
-  inSk: '0', inRho: '0', inR: '0', inputAk: '0', inputCm: '0', inputNf: '0',
+  inSk: '0', inRho: '0', inR: '0', inputAk: '0', inputCm: '0', inputNf: '0', inputViewX: '0', inputViewY: '0',
   outputAk: toDec(derived.ak), outputRho: toDec(derived.rho), outputR: toDec(derived.r), outputCm: toDec(derived.cm),
   appendSiblings: appendSiblings.map(toDec), noteSiblings: Array(32).fill('0'), noteIndex: '0', nullifierSiblings: Array(128).fill('0'),
   boundaryAmount: '10000000', withdrawalScriptHi: '0', withdrawalScriptLo: '0',

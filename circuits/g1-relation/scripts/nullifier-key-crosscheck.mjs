@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createShieldedTransitionReference, frToBytes } from '../../../packages/core/shielded-transition.mjs';
+import { BABYJUB_BASE8, babyJubMul, bytesToHex, packBabyJubPoint } from '../../../packages/recovery/portable-core.mjs';
 
 const profileId = '8f153701118a339f1d1fd41f7c0c5afc4c15f505f74631a3264647f6d1f7e39b';
 const instanceId = '3f5aa57b81dd8e4f8be305dbef75c5265baf9a24f0d746e75bfd49f2a990a3ff';
@@ -7,6 +8,7 @@ const reference = await createShieldedTransitionReference();
 const note = reference.deriveNote({
   profileId, instanceId,
   sk: '000000000000000000000000000000000000000000000000000000000000000b',
+  recoveryPublicKey: bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, 31n))),
   rho: '000000000000000000000000000000000000000000000000000000000000000c',
   r: '000000000000000000000000000000000000000000000000000000000000000d',
 });

@@ -8,6 +8,7 @@ import {
   createShieldedTransitionReference, DOMAIN_TAGS, frToHex, OUTPUT_RECORD_BYTES,
 } from '../../../packages/core/shielded-transition.mjs';
 import vectors from '../../../packages/core/vectors/g1-relation-v1.json' with { type: 'json' };
+import { BABYJUB_BASE8, babyJubMul, bytesToHex, hexToBytes, packBabyJubPoint, unpackBabyJubPoint } from '../../../packages/recovery/portable-core.mjs';
 
 const target = process.argv[2];
 if (!target) throw new Error('usage: generate-core-vectors.mjs OUTPUT_DIRECTORY');
@@ -17,6 +18,7 @@ const D = '10000000';
 const toDec = (hex) => BigInt(`0x${hex}`).toString();
 const idLimbs = (hex) => [BigInt(`0x${hex.slice(0, 32)}`).toString(), BigInt(`0x${hex.slice(32)}`).toString()];
 const digest = (text) => createHash('sha256').update(text).digest('hex');
+const recoveryKey = (scalar) => bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(scalar))));
 const emptySiblings = (depth, emptyTag, nodeTag) => {
   const result = []; let empty = reference.poseidon(emptyTag, 0n);
   for (let level = 0; level < depth; level += 1) { result.push(frToHex(empty)); empty = reference.poseidon(nodeTag, empty, empty); }
@@ -29,8 +31,8 @@ const root = (leaf, index, siblings, tag) => {
 };
 const notePathEmpty = emptySiblings(32, DOMAIN_TAGS.NOTE_TREE_EMPTY, DOMAIN_TAGS.NOTE_TREE_NODE);
 const nullifierPathEmpty = emptySiblings(128, DOMAIN_TAGS.NULLIFIER_TREE_EMPTY, DOMAIN_TAGS.NULLIFIER_TREE_NODE);
-const note1 = { sk: '000000000000000000000000000000000000000000000000000000000000000b', rho: '000000000000000000000000000000000000000000000000000000000000000c', r: '000000000000000000000000000000000000000000000000000000000000000d' };
-const note2 = { sk: '0000000000000000000000000000000000000000000000000000000000000015', rho: '0000000000000000000000000000000000000000000000000000000000000016', r: '0000000000000000000000000000000000000000000000000000000000000017' };
+const note1 = { sk: '000000000000000000000000000000000000000000000000000000000000000b', recoveryPublicKey: recoveryKey(31), rho: '000000000000000000000000000000000000000000000000000000000000000c', r: '000000000000000000000000000000000000000000000000000000000000000d' };
+const note2 = { sk: '0000000000000000000000000000000000000000000000000000000000000015', recoveryPublicKey: recoveryKey(41), rho: '0000000000000000000000000000000000000000000000000000000000000016', r: '0000000000000000000000000000000000000000000000000000000000000017' };
 const derived1 = reference.deriveNote({ ...note1, profileId, instanceId });
 const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });
 const initial = reference.emptyState({ profileId, instanceId, maximumReserve: '30000000' });
@@ -56,6 +58,7 @@ const inputFor = (kind, action, result) => {
   const pre = result.preState; const post = result.postState;
   const [profileHi, profileLo] = idLimbs(profileId); const [instanceHi, instanceLo] = idLimbs(instanceId);
   const spend = action.spend ? reference.deriveNote({ ...action.spend.note, profileId, instanceId }) : null;
+  const inputView = spend ? unpackBabyJubPoint(hexToBytes(spend.recoveryPublicKey)) : null;
   const output = action.outputNote ? reference.deriveOutputNote({ ...action.outputNote, profileId, instanceId }) : null;
   const withdrawalBoundary = action.withdrawal;
   return {
@@ -63,7 +66,7 @@ const inputFor = (kind, action, result) => {
     isDeposit: kind === 'deposit' ? '1' : '0', isTransfer: kind === 'transfer' ? '1' : '0', isWithdrawal: kind === 'withdrawal' ? '1' : '0', profileHi, profileLo, instanceHi, instanceLo,
     preNoteRoot: toDec(pre.noteRoot), preNullifierRoot: toDec(pre.nullifierRoot), preNextLeafIndex: pre.nextLeafIndex, preActionSequence: pre.actionSequence, preLiveNoteCount: pre.liveNoteCount, preReserveSats: pre.reserveSats, preMaximumReserve: pre.maximumReserve, preStateCommitment: toDec(pre.stateCommitment),
     postNoteRoot: toDec(post.noteRoot), postNullifierRoot: toDec(post.nullifierRoot), postNextLeafIndex: post.nextLeafIndex, postActionSequence: post.actionSequence, postLiveNoteCount: post.liveNoteCount, postReserveSats: post.reserveSats, postMaximumReserve: post.maximumReserve, postStateCommitment: toDec(post.stateCommitment), maximumLiveNotes: '3',
-    inSk: spend ? toDec(spend.sk) : zero, inRho: spend ? toDec(spend.rho) : zero, inR: spend ? toDec(spend.r) : zero, inputAk: spend ? toDec(spend.ak) : zero, inputCm: spend ? toDec(spend.cm) : zero, inputNf: spend ? toDec(spend.nf) : zero,
+    inSk: spend ? toDec(spend.sk) : zero, inRho: spend ? toDec(spend.rho) : zero, inR: spend ? toDec(spend.r) : zero, inputAk: spend ? toDec(spend.ak) : zero, inputCm: spend ? toDec(spend.cm) : zero, inputNf: spend ? toDec(spend.nf) : zero, inputViewX: inputView?.[0].toString() ?? zero, inputViewY: inputView?.[1].toString() ?? zero,
     outputAk: output ? toDec(output.ak) : zero, outputRho: output ? toDec(output.rho) : zero, outputR: output ? toDec(output.r) : zero, outputCm: output ? toDec(output.cm) : zero,
     appendSiblings: (action.noteAppendPath?.siblings ?? Array(32).fill('0')).map(toDec), noteSiblings: (action.spend?.noteSiblings ?? Array(32).fill('0')).map(toDec), noteIndex: action.spend?.noteIndex ?? zero, nullifierSiblings: (action.spend?.nullifierSiblings ?? Array(128).fill('0')).map(toDec),
     boundaryAmount: kind === 'transfer' ? zero : D, withdrawalScriptHi: withdrawalBoundary ? idLimbs(withdrawalBoundary.scriptHash)[0] : zero, withdrawalScriptLo: withdrawalBoundary ? idLimbs(withdrawalBoundary.scriptHash)[1] : zero,

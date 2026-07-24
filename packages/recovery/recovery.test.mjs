@@ -46,7 +46,7 @@ test('account-static derivation is seed-profile-instance separated and rejects a
   const sent = await constructRecipientOutput({ address: first.address, kind: 'deposit', slot: 0, rng: publicRng() });
   const chainOutput = { outputCommitment: sent.output.cm, record: sent.record };
   await assert.rejects(() => recoverRecipientOutput({ seed: randomBytes(32), profileId, instanceId, kind: 'deposit', slot: 0, ...chainOutput }), /authentication failed/);
-  const wrongSpend = await deriveRecipientNote({ profileId, instanceId, spendSecret: first.recoverySecret, rho: sent.output.rho, r: sent.output.r });
+  const wrongSpend = await deriveRecipientNote({ profileId, instanceId, spendSecret: first.recoverySecret, recoveryPublicKey: first.address.recoveryPublicKey, rho: sent.output.rho, r: sent.output.r });
   assert.notEqual(wrongSpend.cm, sent.output.cm);
 });
 
@@ -108,7 +108,7 @@ test('uses the unique BabyJubJub scalar representative required by the circuit',
   assert.ok(alias < (1n << 253n));
   assert.deepEqual(babyJubMul(BABYJUB_BASE8, scalar), babyJubMul(BABYJUB_BASE8, alias));
   await assert.rejects(
-    () => deriveRecipientNote({ profileId, instanceId, spendSecret: alias.toString(16).padStart(64, '0'), rho: sent.output.rho, r: sent.output.r }),
+    () => deriveRecipientNote({ profileId, instanceId, spendSecret: alias.toString(16).padStart(64, '0'), recoveryPublicKey: wallet.address.recoveryPublicKey, rho: sent.output.rho, r: sent.output.r }),
     /outside the BabyJubJub subgroup order/,
   );
 });
@@ -120,6 +120,7 @@ test('strictly rejects noncanonical or zero fields, unknown properties, and CSPR
   await assert.rejects(() => constructRecipientOutput({ address: { ...address, extra: true }, kind: 'deposit', slot: 0 }), /unknown/);
   const other = await deriveRecipientAddress({ seed: randomBytes(32), profileId, instanceId });
   await assert.rejects(() => constructRecipientOutput({ address: { ...address, spendPublicKey: other.spendPublicKey }, kind: 'deposit', slot: 0 }), /does not bind/);
+  await assert.rejects(() => constructRecipientOutput({ address: { ...address, recoveryPublicKey: other.recoveryPublicKey }, kind: 'deposit', slot: 0 }), /does not bind/);
   await assert.rejects(() => deriveRecipientAddress({ seed: recipientSeed, profileId, instanceId, extra: true }), /unknown/);
   await assert.rejects(() => constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng: { bytes: () => { throw new Error('unavailable'); } } }), /CSPRNG failed/);
   await assert.rejects(() => constructRecipientOutput({ address, kind: 'deposit', slot: 0, rng: { bytes: () => Buffer.alloc(1) } }), /invalid byte string/);

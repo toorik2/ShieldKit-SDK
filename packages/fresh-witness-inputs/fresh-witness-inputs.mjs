@@ -8,6 +8,7 @@ import {
 } from '../core/shielded-transition.mjs';
 import { loadVerifierProfileBundle } from '../core/verifier-profile.mjs';
 import { constructRecipientOutput, deriveRecipientWallet } from '../recovery/recovery.mjs';
+import { hexToBytes, unpackBabyJubPoint } from '../recovery/portable-core.mjs';
 
 const HEX_32 = /^[0-9a-f]{64}$/;
 const KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
@@ -81,6 +82,7 @@ function circuitInput({ kind, action, prepared, reference, maximumLiveNotes, rec
   const pre = prepared.preState; const post = prepared.postState; const profileId = pre.profileId; const instanceId = pre.instanceId;
   const spend = action.spend ? reference.deriveNote({ ...action.spend.note, profileId, instanceId }) : undefined;
   const output = action.outputNote ? reference.deriveOutputNote({ ...action.outputNote, profileId, instanceId }) : undefined;
+  const inputViewPoint = spend ? unpackBabyJubPoint(hexToBytes(spend.recoveryPublicKey)) : undefined;
   const zero = '0'; const withdrawal = action.withdrawal;
   return Object.freeze({
     publicDigestHi: BigInt(`0x${prepared.publicInputs[0]}`).toString(), publicDigestLo: BigInt(`0x${prepared.publicInputs[1]}`).toString(),
@@ -88,7 +90,7 @@ function circuitInput({ kind, action, prepared, reference, maximumLiveNotes, rec
     profileHi: idLimbs(profileId)[0], profileLo: idLimbs(profileId)[1], instanceHi: idLimbs(instanceId)[0], instanceLo: idLimbs(instanceId)[1],
     preNoteRoot: toDec(pre.noteRoot), preNullifierRoot: toDec(pre.nullifierRoot), preNextLeafIndex: pre.nextLeafIndex, preActionSequence: pre.actionSequence, preLiveNoteCount: pre.liveNoteCount, preReserveSats: pre.reserveSats, preMaximumReserve: pre.maximumReserve, preStateCommitment: toDec(pre.stateCommitment),
     postNoteRoot: toDec(post.noteRoot), postNullifierRoot: toDec(post.nullifierRoot), postNextLeafIndex: post.nextLeafIndex, postActionSequence: post.actionSequence, postLiveNoteCount: post.liveNoteCount, postReserveSats: post.reserveSats, postMaximumReserve: post.maximumReserve, postStateCommitment: toDec(post.stateCommitment), maximumLiveNotes: maximumLiveNotes.toString(),
-    inSk: spend ? toDec(spend.sk) : zero, inRho: spend ? toDec(spend.rho) : zero, inR: spend ? toDec(spend.r) : zero, inputAk: spend ? toDec(spend.ak) : zero, inputCm: spend ? toDec(spend.cm) : zero, inputNf: spend ? toDec(spend.nf) : zero,
+    inSk: spend ? toDec(spend.sk) : zero, inRho: spend ? toDec(spend.rho) : zero, inR: spend ? toDec(spend.r) : zero, inputAk: spend ? toDec(spend.ak) : zero, inputCm: spend ? toDec(spend.cm) : zero, inputNf: spend ? toDec(spend.nf) : zero, inputViewX: inputViewPoint?.[0].toString() ?? zero, inputViewY: inputViewPoint?.[1].toString() ?? zero,
     outputAk: output ? toDec(output.ak) : zero, outputRho: output ? toDec(output.rho) : zero, outputR: output ? toDec(output.r) : zero, outputCm: output ? toDec(output.cm) : zero,
     appendSiblings: (action.noteAppendPath?.siblings ?? Array(NOTE_TREE_DEPTH).fill('0'.repeat(64))).map(toDec), noteSiblings: (action.spend?.noteSiblings ?? Array(NOTE_TREE_DEPTH).fill('0'.repeat(64))).map(toDec), noteIndex: action.spend?.noteIndex ?? zero, nullifierSiblings: (action.spend?.nullifierSiblings ?? Array(NULLIFIER_TREE_DEPTH).fill('0'.repeat(64))).map(toDec),
     boundaryAmount: kind === 'transfer' ? zero : DENOMINATION_SATS.toString(), withdrawalScriptHi: withdrawal ? idLimbs(withdrawal.scriptHash)[0] : zero, withdrawalScriptLo: withdrawal ? idLimbs(withdrawal.scriptHash)[1] : zero,
@@ -124,8 +126,8 @@ export async function generateFreshWitnessInputs(input) {
   const recipient2 = await deriveRecipientWallet({ seed: recipient2Seed, profileId, instanceId });
   const depositOutput = await constructRecipientOutput({ address: recipient1.address, kind: 'deposit', slot: 0, rng: deterministicRng(seed, 'deposit') });
   const transferOutput = await constructRecipientOutput({ address: recipient2.address, kind: 'transfer', slot: 0, rng: deterministicRng(seed, 'transfer') });
-  const note1 = { sk: recipient1.spendSecret, rho: depositOutput.output.rho, r: depositOutput.output.r };
-  const note2 = { sk: recipient2.spendSecret, rho: transferOutput.output.rho, r: transferOutput.output.r };
+  const note1 = { sk: recipient1.spendSecret, recoveryPublicKey: recipient1.address.recoveryPublicKey, rho: depositOutput.output.rho, r: depositOutput.output.r };
+  const note2 = { sk: recipient2.spendSecret, recoveryPublicKey: recipient2.address.recoveryPublicKey, rho: transferOutput.output.rho, r: transferOutput.output.r };
   const outputNote1 = { ak: depositOutput.output.ak, rho: depositOutput.output.rho, r: depositOutput.output.r };
   const outputNote2 = { ak: transferOutput.output.ak, rho: transferOutput.output.rho, r: transferOutput.output.r };
   const derived1 = reference.deriveNote({ ...note1, profileId, instanceId }); const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });

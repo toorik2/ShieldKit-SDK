@@ -39,8 +39,8 @@ The relation also enforces:
 - a nonzero denomination, a nonzero maximum-live-note count, and
   `maximumReserve <= 2,100,000,000,000,000` satoshis;
 - real spend `ak`, input `cm`, and `nf` Poseidon equations plus nonzero guards;
-  `ak` is `Poseidon(1004, profile, instance, BabyPbk(sk))`, binding spend
-  authority to the same BabyJubJub recipient key used for output recovery;
+  `ak` is `Poseidon(1004, profile, instance, spendPoint, recoveryPoint)`,
+  binding both distinct BabyJubJub address points to each note authority;
 - real output `cm` Poseidon equation plus active nonzero and withdrawal-zero
   inactive constraints;
 - depth-32 append-empty and membership paths;

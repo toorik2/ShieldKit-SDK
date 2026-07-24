@@ -89,8 +89,8 @@ async function assertAddress(address) {
   try {
     unpackBabyJubPoint(hexToBytes(spendPublicKey)); unpackBabyJubPoint(hexToBytes(recoveryPublicKey));
   } catch (error) { translate(error); }
-  const expectedAk = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
-  if (ak !== expectedAk) fail('ADDRESS_AUTHORITY_MISMATCH', 'recipient address authority does not bind its spend public key');
+  const expectedAk = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey });
+  if (ak !== expectedAk) fail('ADDRESS_AUTHORITY_MISMATCH', 'recipient address authority does not bind its spend and recovery public keys');
   return Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak, spendPublicKey, recoveryPublicKey });
 }
 
@@ -107,7 +107,7 @@ export async function deriveRecipientWallet(input) {
     const recoverySecret = deriveBabyJubScalar(seed, 'shield.cash/wallet-recovery/v2\0', profileId, instanceId).toString(16).padStart(64, '0');
     const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${spendSecret}`))));
     const recoveryPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`))));
-    const authority = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
+    const authority = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey });
     const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, spendPublicKey, recoveryPublicKey });
     return Object.freeze({ address, spendSecret, recoverySecret });
   } catch (error) { translate(error); }
@@ -169,7 +169,7 @@ export async function recoverRecipientOutput(input) {
   try {
     const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
     const decoded = decryptRecord({ recoverySecret: wallet.recoverySecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, outputAk: wallet.address.ak, record: input.record });
-    const note = await deriveRecipientNote({ profileId, instanceId, spendSecret: wallet.spendSecret, rho: decoded.rho, r: decoded.r });
+    const note = await deriveRecipientNote({ profileId, instanceId, spendSecret: wallet.spendSecret, recoveryPublicKey: wallet.address.recoveryPublicKey, rho: decoded.rho, r: decoded.r });
     if (note.cm !== outputCommitment) fail('COMMITMENT_MISMATCH', 'record plaintext does not match output commitment');
     return note;
   } catch (error) { translate(error); }

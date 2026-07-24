@@ -212,6 +212,8 @@ template G1Relation() {
     signal input inputAk;
     signal input inputCm;
     signal input inputNf;
+    signal input inputViewX;
+    signal input inputViewY;
     component inSkBits = Num2Bits(254); inSkBits.in <== inSk;
     // BabyPbk reduces the scalar modulo the BabyJubJub prime subgroup order.
     // The nullifier hashes the scalar itself, so accepting s + L here would
@@ -226,10 +228,18 @@ template G1Relation() {
     component inputAkBits = Num2Bits(254); inputAkBits.in <== inputAk;
     component inputCmBits = Num2Bits(254); inputCmBits.in <== inputCm;
     component inputNfBits = Num2Bits(254); inputNfBits.in <== inputNf;
+    component inputDummyPoint = BabyPbk(); inputDummyPoint.in <== 1;
+    isDeposit * inputViewX === 0; isDeposit * inputViewY === 0;
+    signal inputViewCoordinates[2];
+    component selectInputViewX = Select(); selectInputViewX.whenZero <== inputDummyPoint.Ax; selectInputViewX.whenOne <== inputViewX; selectInputViewX.select <== hasSpend; inputViewCoordinates[0] <== selectInputViewX.out;
+    component selectInputViewY = Select(); selectInputViewY.whenZero <== inputDummyPoint.Ay; selectInputViewY.whenOne <== inputViewY; selectInputViewY.select <== hasSpend; inputViewCoordinates[1] <== selectInputViewY.out;
+    component inputViewOnCurve = BabyCheck(); inputViewOnCurve.x <== inputViewCoordinates[0]; inputViewOnCurve.y <== inputViewCoordinates[1];
+    component inputViewSubgroup = PrimeSubgroupPoint(); inputViewSubgroup.point[0] <== inputViewCoordinates[0]; inputViewSubgroup.point[1] <== inputViewCoordinates[1];
     component spendPublic = BabyPbk(); spendPublic.in <== inSk;
-    component spendAuth = Poseidon(7);
+    component spendAuth = Poseidon(9);
     spendAuth.inputs[0] <== 1004; spendAuth.inputs[1] <== profileHi; spendAuth.inputs[2] <== profileLo;
     spendAuth.inputs[3] <== instanceHi; spendAuth.inputs[4] <== instanceLo; spendAuth.inputs[5] <== spendPublic.Ax; spendAuth.inputs[6] <== spendPublic.Ay;
+    spendAuth.inputs[7] <== inputViewCoordinates[0]; spendAuth.inputs[8] <== inputViewCoordinates[1];
     component inputNote = Poseidon(9);
     inputNote.inputs[0] <== 1002; inputNote.inputs[1] <== profileHi; inputNote.inputs[2] <== profileLo;
     inputNote.inputs[3] <== instanceHi; inputNote.inputs[4] <== instanceLo; inputNote.inputs[5] <== D;
@@ -415,9 +425,10 @@ template G1Relation() {
 
     component recordRho = RecordField(272); component recordR = RecordField(528); component recordAuth = RecordField(784);
     for (var recordFieldBit = 0; recordFieldBit < 1536; recordFieldBit++) { recordRho.record[recordFieldBit] <== recordBits[recordFieldBit]; recordR.record[recordFieldBit] <== recordBits[recordFieldBit]; recordAuth.record[recordFieldBit] <== recordBits[recordFieldBit]; }
-    component recipientAuthority = Poseidon(7);
+    component recipientAuthority = Poseidon(9);
     recipientAuthority.inputs[0] <== 1004; recipientAuthority.inputs[1] <== profileHi; recipientAuthority.inputs[2] <== profileLo;
     recipientAuthority.inputs[3] <== instanceHi; recipientAuthority.inputs[4] <== instanceLo; recipientAuthority.inputs[5] <== spendCoordinates[0]; recipientAuthority.inputs[6] <== spendCoordinates[1];
+    recipientAuthority.inputs[7] <== viewCoordinates[0]; recipientAuthority.inputs[8] <== viewCoordinates[1];
     hasOutput * (outputAk - recipientAuthority.out) === 0;
     component recoveryShared = Poseidon(9);
     recoveryShared.inputs[0] <== 1101; recoveryShared.inputs[1] <== viewCoordinates[0]; recoveryShared.inputs[2] <== viewCoordinates[1]; recoveryShared.inputs[3] <== ephemeralPoint.point[0]; recoveryShared.inputs[4] <== ephemeralPoint.point[1]; recoveryShared.inputs[5] <== sharedPoint.out[0]; recoveryShared.inputs[6] <== sharedPoint.out[1]; recoveryShared.inputs[7] <== outputCm; recoveryShared.inputs[8] <== isDeposit + 2*isTransfer + 3*isWithdrawal;

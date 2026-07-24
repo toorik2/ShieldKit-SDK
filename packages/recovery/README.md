@@ -25,8 +25,8 @@ The record remains exactly 192 bytes: `version=2 | slot=0 | compressed
 ephemeral BabyJubJub point | c_rho | c_r | Poseidon authentication field | 62
 zero bytes`. `c_rho` and `c_r` are field additive masks derived from
 BabyJubJub ECDH and a domain-separated Poseidon KDF. The V2 address contains
-distinct `spendPublicKey` and `recoveryPublicKey` points; `ak` is bound only to
-the spend point. Both points are private circuit witnesses and neither is
+distinct `spendPublicKey` and `recoveryPublicKey` points; `ak` commits both
+points. Both points are private circuit witnesses and neither is
 serialized: a stable public address point would otherwise link all receipts to
 that address. Recovery derives its recovery point to open the record, then its
 independent spend scalar to reconstruct the note and nullifier.

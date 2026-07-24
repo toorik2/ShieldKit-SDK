@@ -34,8 +34,8 @@ Active records are constructed through the public recipient-address path in
 `{ak,spendPublicKey,recoveryPublicKey}` and never needs either recipient
 secret. The V2 192-byte record contains an ephemeral BabyJubJub point,
 Poseidon-field ciphertexts and authenticator, and fixed zero padding; neither
-stable address point is serialized. The circuit binds the private spend point
-to `ak` and uses the separate private recovery point for ECDH. Wallet recovery
+stable address point is serialized. The circuit binds both private points to
+`ak` and uses the recovery point for ECDH. Wallet recovery
 must decrypt and recompute the note before accepting it. This module is
 development-only witness tooling, not a G2/Chipnet qualification claim.
 

@@ -9,9 +9,11 @@ import {
   frToHex, MAX_BCH_SUPPLY_SATS, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH, OUTPUT_RECORD_BYTES,
   RelationValidationError,
 } from './shielded-transition.mjs';
+import { BABYJUB_BASE8, babyJubMul, bytesToHex, packBabyJubPoint } from '../recovery/portable-core.mjs';
 
 const digest = (text) => createHash('sha256').update(text).digest('hex');
 const field = (number) => frToHex(BigInt(number));
+const recoveryKey = (scalar) => bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(scalar))));
 const vectors = JSON.parse(readFileSync(new URL('./vectors/g1-relation-v1.json', import.meta.url)));
 
 function rootFromPath(reference, leaf, index, siblings, tag) {
@@ -47,8 +49,8 @@ async function fixture() {
   const initial = reference.emptyState({ profileId, instanceId, maximumReserve: max });
   const notePathEmpty = emptySiblings(reference, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_EMPTY, DOMAIN_TAGS.NOTE_TREE_NODE);
   const nullifierPathEmpty = emptySiblings(reference, NULLIFIER_TREE_DEPTH, DOMAIN_TAGS.NULLIFIER_TREE_EMPTY, DOMAIN_TAGS.NULLIFIER_TREE_NODE);
-  const note1 = { sk: field(11), rho: field(12), r: field(13) };
-  const note2 = { sk: field(21), rho: field(22), r: field(23) };
+  const note1 = { sk: field(11), recoveryPublicKey: recoveryKey(31), rho: field(12), r: field(13) };
+  const note2 = { sk: field(21), recoveryPublicKey: recoveryKey(41), rho: field(22), r: field(23) };
   const derived1 = reference.deriveNote({ ...note1, profileId, instanceId });
   const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });
   const leaf1 = reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived1.cm}`));
@@ -101,7 +103,7 @@ test('real circomlibjs Poseidon reference executes deterministic deposit, transf
 
 test('reference fails closed on field codecs, paths, membership/nullifier reuse, state deltas, identifiers, capacity, and digest limbs', async () => {
   const { reference, profileId, instanceId, initial, deposit, transfer, withdrawal, depositPost, transferPost, withdrawalPost } = await fixture();
-  assert.throws(() => reference.deriveNote({ profileId, instanceId, sk: FR_MODULUS.toString(16), rho: field(1), r: field(2) }), /noncanonical Fr encoding/);
+  assert.throws(() => reference.deriveNote({ profileId, instanceId, sk: FR_MODULUS.toString(16), recoveryPublicKey: recoveryKey(1), rho: field(1), r: field(2) }), /noncanonical Fr encoding/);
   const badPath = { ...deposit, noteAppendPath: { siblings: [...deposit.noteAppendPath.siblings] } }; badPath.noteAppendPath.siblings[0] = field(7);
   await assert.rejects(async () => reference.transition(bindPublic(reference, badPath)), RelationValidationError);
   const wrongMembership = { ...transfer, spend: { ...transfer.spend, note: { ...transfer.spend.note, rho: field(99) } } };

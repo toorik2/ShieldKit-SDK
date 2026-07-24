@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 import { buildPoseidon } from 'circomlibjs';
 import { encodeActionPacket } from '../action-packet/action-packet.mjs';
 import { encodeStateNftCommitment } from '../state-nft/state-nft.mjs';
-import { BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, babyJubMul } from '../recovery/portable-core.mjs';
+import {
+  BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, babyJubMul, hexToBytes, unpackBabyJubPoint,
+} from '../recovery/portable-core.mjs';
 
 export const FR_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const DENOMINATION_SATS = 10_000_000n;
@@ -201,17 +203,19 @@ export async function createShieldedTransitionReference() {
   };
 
   const deriveNote = (noteWitness) => {
-    exactKeys(noteWitness, 'note witness', ['profileId', 'instanceId', 'sk', 'rho', 'r']);
-    const { profileId, instanceId, sk, rho, r } = noteWitness;
+    exactKeys(noteWitness, 'note witness', ['profileId', 'instanceId', 'recoveryPublicKey', 'sk', 'rho', 'r']);
+    const { profileId, instanceId, recoveryPublicKey, sk, rho, r } = noteWitness;
     const profile = identifierLimbs(profileId, 'note profileId'); const instance = identifierLimbs(instanceId, 'note instanceId');
     const secret = frFromHex(sk, 'note sk'); const nonce = frFromHex(rho, 'note rho'); const randomness = frFromHex(r, 'note r');
     if (secret === 0n || secret >= BABYJUB_SUBGROUP_ORDER || nonce === 0n || randomness === 0n) fail('note sk must be a canonical BabyJubJub scalar and rho/r must be nonzero');
-    const recipient = babyJubMul(BABYJUB_BASE8, secret);
-    const ak = hash(DOMAIN_TAGS.SPEND_AUTHORITY, ...profile, ...instance, recipient[0], recipient[1]);
+    const spendPoint = babyJubMul(BABYJUB_BASE8, secret);
+    let recoveryPoint;
+    try { recoveryPoint = unpackBabyJubPoint(hexToBytes(parseIdentifier(recoveryPublicKey, 'note recovery public key'))); } catch { fail('note recovery public key is invalid'); }
+    const ak = hash(DOMAIN_TAGS.SPEND_AUTHORITY, ...profile, ...instance, spendPoint[0], spendPoint[1], recoveryPoint[0], recoveryPoint[1]);
     const cm = hash(DOMAIN_TAGS.NOTE, ...profile, ...instance, DENOMINATION_SATS, ak, nonce, randomness);
     const nf = hash(DOMAIN_TAGS.NULLIFIER, ...profile, ...instance, secret, nonce);
     if (cm === 0n || nf === 0n) fail('derived note commitment or nullifier is zero');
-    return Object.freeze({ ak: frToHex(ak), cm: frToHex(cm), nf: frToHex(nf), sk: frToHex(secret), rho: frToHex(nonce), r: frToHex(randomness) });
+    return Object.freeze({ ak: frToHex(ak), cm: frToHex(cm), nf: frToHex(nf), recoveryPublicKey, sk: frToHex(secret), rho: frToHex(nonce), r: frToHex(randomness) });
   };
 
   // Output construction deliberately accepts a recipient authority key, not a

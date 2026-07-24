@@ -135,11 +135,12 @@ const identifierLimbs = (identifier, label) => {
   return [BigInt(`0x${bytesToHex(value.subarray(0, 16))}`), BigInt(`0x${bytesToHex(value.subarray(16, 32))}`)];
 };
 
-export async function deriveRecipientAuthority({ profileId, instanceId, spendPublicKey }) {
+export async function deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey }) {
   const profile = identifierLimbs(profileId, 'recipient profileId');
   const instance = identifierLimbs(instanceId, 'recipient instanceId');
-  const point = unpackBabyJubPoint(hexToBytes(hex32(spendPublicKey, 'recipient spend public key')));
-  return frToHex(poseidonHash(1004n, ...profile, ...instance, point[0], point[1]));
+  const spendPoint = unpackBabyJubPoint(hexToBytes(hex32(spendPublicKey, 'recipient spend public key')));
+  const recoveryPoint = unpackBabyJubPoint(hexToBytes(hex32(recoveryPublicKey, 'recipient recovery public key')));
+  return frToHex(poseidonHash(1004n, ...profile, ...instance, spendPoint[0], spendPoint[1], recoveryPoint[0], recoveryPoint[1]));
 }
 
 /** Exact V1 recipient output commitment, independent of the Node reference module. */
@@ -153,11 +154,11 @@ export async function deriveOutputNote({ profileId, instanceId, ak, rho, r }) {
 }
 
 /** Exact V1 spendable note fields after a recipient record is authenticated. */
-export async function deriveRecipientNote({ profileId, instanceId, spendSecret, rho, r }) {
+export async function deriveRecipientNote({ profileId, instanceId, spendSecret, recoveryPublicKey, rho, r }) {
   const secret = nonzeroFr(spendSecret, 'note spend secret');
   if (BigInt(`0x${secret}`) >= BABYJUB_SUBGROUP_ORDER) failCore('INVALID_SCALAR', 'note spend secret is outside the BabyJubJub subgroup order');
   const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${secret}`))));
-  const ak = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey });
+  const ak = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey });
   const output = await deriveOutputNote({ profileId, instanceId, ak, rho, r });
   const profile = identifierLimbs(profileId, 'note profileId');
   const instance = identifierLimbs(instanceId, 'note instanceId');
