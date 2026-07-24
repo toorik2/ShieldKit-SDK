@@ -8,6 +8,12 @@ device. The library deliberately requires a separately pinned
 Android proof, APK, memory number, timing number, or G4 Android result is
 claimed.
 
+The source now specifies a descriptor-only native session: proving and
+verification artifacts must be app-private direct regular files, opened once,
+SHA-256-pinned, and passed to JNI only as live descriptors. The future JNI
+backend must hash/fstat/mmap those descriptors and reject concurrent sessions.
+This is source-level hardening, not NDK or device evidence.
+
 The existing USB-only harness is deliberately not an Android-package substitute:
 it is only a fail-closed way to stage profile-derived artifacts to a physical
 device and validate a native-prover feasibility run. It must never be used to

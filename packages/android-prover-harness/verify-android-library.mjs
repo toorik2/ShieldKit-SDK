@@ -24,15 +24,18 @@ export async function verifyAndroidLibrary({ javac = 'javac', outputDirectory = 
   const manifest = await readFile(join(library, 'src/main/AndroidManifest.xml'), 'utf8');
   if (/android\.permission\.INTERNET|uses-permission/.test(manifest)) fail('Android library must not request network permission');
   const nativeSource = await readFile(join(source, 'NativePf7Backend.java'), 'utf8');
-  if (!nativeSource.includes('System.loadLibrary("shield_pf7")') || !nativeSource.includes('nativeProve') || !nativeSource.includes('nativeVerify')) fail('Android library does not require the native PF7 backend');
+  if (!nativeSource.includes('System.loadLibrary("shield_pf7")') || !nativeSource.includes('nativeOpenSession') || !nativeSource.includes('FileDescriptor') || !nativeSource.includes('PROCESS_SESSION')) fail('Android library does not require a serialized descriptor-only native PF7 session');
+  if (nativeSource.includes('nativeProve(byte[] provingKey') || nativeSource.includes('nativeVerify(byte[] verificationKey')) fail('Android library still passes artifacts across JNI as byte arrays');
   const profileSource = await readFile(join(source, 'ProfileBoundPf7Prover.java'), 'utf8');
-  if (!profileSource.includes('!expected.equals(observed)') || !profileSource.includes('backend.verify')) fail('profile binding or local verification is absent');
+  const artifactSource = await readFile(join(source, 'AppPrivateArtifact.java'), 'utf8');
+  if (!profileSource.includes('!expected.equals(observed)') || !profileSource.includes('backend.open') || !profileSource.includes('PROCESS_PROOF')) fail('profile binding, session serialization, or local verification is absent');
+  if (!artifactSource.includes('Files.isSymbolicLink') || !artifactSource.includes('FileDescriptor') || !artifactSource.includes('artifact hash mismatch')) fail('app-private regular-file artifact checks are absent');
   const temp = outputDirectory === undefined ? await mkdtemp(join(process.cwd(), '.tmp-android-library-')) : resolve(outputDirectory);
   let owned = outputDirectory === undefined;
   try {
     if (!owned) await mkdir(temp, { recursive: false });
     const classes = join(temp, 'classes'); await mkdir(classes);
-    const version = await run(javac, ['-version']); await run(javac, ['--release', '17', '-d', classes, ...files, ...tests]); await run('java', ['-cp', classes, 'cash.shield.prover.HostContractTest']);
+    const version = await run(javac, ['-version']); await run(javac, ['--release', '17', '-d', classes, ...files, ...tests]); await run('java', [`-Dshield.cash.hostTestDirectory=${join(temp, 'host-artifacts')}`, '-cp', classes, 'cash.shield.prover.HostContractTest']);
     const classFiles = await readdir(classes, { recursive: true });
     const result = { schema: 'shield.cash/android-library-host-check/v1', qualification: 'host-Java source compilation plus fail-closed contract test only; not an Android Gradle build, APK, emulator/device, native PF7 proof, memory, or G4 qualification', javac: { command: javac, version: (version.stdout + version.stderr).trim() }, sourceFiles: files.map((file) => file.slice(root.length + 1)), hostTestFiles: tests.map((file) => file.slice(root.length + 1)), sourceSetSha256: hash(await Promise.all([...files, ...tests].map((file) => readFile(file))).then((parts) => Buffer.concat(parts))), classFiles: classFiles.filter((name) => name.endsWith('.class')).sort(), manifestSha256: hash(manifest) };
     await writeFile(join(temp, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, { flag: 'wx' }); return result;
