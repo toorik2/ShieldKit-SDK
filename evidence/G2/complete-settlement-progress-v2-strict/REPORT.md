@@ -1,20 +1,20 @@
-# Complete settlement progress (ShieldKit-SDK V2 strict-Fr)
+# Complete settlement progress (updated)
 
-Observed: 2026-07-24T04:20:12Z
+Observed: 2026-07-24T04:31:40Z
 
-## Done
+## Closed
 
-- Relation freeze, development-only setup, desktop prove/verify for three actions
-- PF7-sub62 fresh corpus (original packets): roles 0–6, 18/18 attacks, seam pass
-- Structural prep+settlement: roles 7–9 accept with covenant stack
-- Near-complete assembly with real PF7 unlocks (~56.8 kB wire, unlock ≤9277): **9/10 inputs accept**, only terminal (input 6) fails when SCCT/packet not length-aligned with real unlocks
-- Fixed-point packets+proofs generated; deposit/transfer PF7 rebuilds gateOk
+- Relation freeze, setup, desktop prove, PF7-sub62 (roles 0–6), structural 7–9, recovery 29/29
+- SCCT binding works when unlock lengths match plan
+- Size gates hold (~55–57 kB / ≤9.3 kB unlocks)
 
-## Remaining for 10/10 + Chipnet
+## Open (blocks 10/10 + Chipnet)
 
-1. SCCT ↔ unlock-length fixed point (change amount depends on wire which depends on unlock lengths)
-2. Withdrawal PF7 genesis accept for that fixed point
-3. Full mutation matrix + optional BCHN
-4. Funding request with exact address/amount
+**PF7 unlock-length fixed point:** genesis/terminal unlock sizes oscillate under prove→PF7→replan (observed terminal 9212↔9277). Without stable lengths, SCCT change amount and terminal proof diverge.
 
-**Do not fund yet.**
+Next engineering options:
+1. Pad terminal/genesis unlocks to a fixed max length inside PF7 packing
+2. Fix PF7 dens/pad selection to be packet-invariant for length
+3. Multi-start search for a self-consistent length tuple
+
+**Do not fund Chipnet** until 10/10 libauth accept for deposit/transfer/withdrawal with mutation matrix.
