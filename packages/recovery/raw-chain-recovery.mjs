@@ -79,7 +79,8 @@ const rpcHex = (value, label) => { if (typeof value !== 'string' || value.length
 const rpcChainwork = (value, label) => { if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) fail('RPC_MALFORMED', `${label} must be a 32-byte lowercase hexadecimal chainwork value`); return BigInt(`0x${value}`); };
 const rpcInfo = (value) => {
   if (value === null || Array.isArray(value) || typeof value !== 'object') fail('RPC_MALFORMED', 'BCHN getblockchaininfo result is malformed');
-  if (value.chain !== 'chipnet') fail('WRONG_NETWORK', 'BCHN provider is not on Chipnet');
+  // BCHN's canonical getblockchaininfo identifier for Chipnet is `chip`.
+  if (value.chain !== 'chip') fail('WRONG_NETWORK', 'BCHN provider is not on Chipnet');
   if (value.pruned === true) fail('PRUNED_NODE', 'a pruned BCHN node is not an acceptable chain-recovery provider');
   if (value.pruned !== false || value.initialblockdownload === true) fail('NODE_NOT_READY', 'BCHN provider must report a fully available, non-IBD chain');
   const blocks = uint(value.blocks, 'BCHN blocks'); const headers = uint(value.headers, 'BCHN headers');

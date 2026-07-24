@@ -64,7 +64,7 @@ test('journal rolls back only to a strictly higher-work full branch and reports 
 
 test('BCHN adapter derives a stable canonical Chipnet tip and every block hash by height without caller-supplied tip data', async () => {
   const values = await fixtures(); const first = mineBlock('00'.repeat(32), [values.deposit], 30); const input = chain([first]);
-  const info = { chain: 'chipnet', pruned: false, initialblockdownload: false, blocks: input.tip.height, headers: input.tip.height, bestblockhash: first.id, chainwork: rpcWork(input.tip.chainwork) };
+  const info = { chain: 'chip', pruned: false, initialblockdownload: false, blocks: input.tip.height, headers: input.tip.height, bestblockhash: first.id, chainwork: rpcWork(input.tip.chainwork) };
   const request = async (method, params) => {
     if (method === 'getblockchaininfo') return info;
     if (method === 'getblockhash' && params[0] === input.checkpoint.height) return input.checkpoint.blockHash;
@@ -80,7 +80,7 @@ test('BCHN adapter derives a stable canonical Chipnet tip and every block hash b
 
 test('BCHN adapter rejects wrong networks, stale or unsynced nodes, verbose equivocation, and a reorg during fetch', async () => {
   const values = await fixtures(); const first = mineBlock('00'.repeat(32), [values.deposit], 31); const input = chain([first]);
-  const info = { chain: 'chipnet', pruned: false, initialblockdownload: false, blocks: input.tip.height, headers: input.tip.height, bestblockhash: first.id, chainwork: rpcWork(input.tip.chainwork) };
+  const info = { chain: 'chip', pruned: false, initialblockdownload: false, blocks: input.tip.height, headers: input.tip.height, bestblockhash: first.id, chainwork: rpcWork(input.tip.chainwork) };
   const request = (overrides = {}) => async (method, params) => {
     if (method === 'getblockchaininfo') return { ...info, ...(overrides.info ?? {}) };
     if (method === 'getblockhash' && params[0] === input.checkpoint.height) return overrides.checkpointHash ?? input.checkpoint.blockHash;
