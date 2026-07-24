@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { actionFixturePaths, evaluateStructuralRoles } from './real-deposit-leanbch-fixture.mjs';
+import { actionFixturePaths, evaluateAllRoles, evaluateStructuralRoles } from './real-deposit-leanbch-fixture.mjs';
 
 test('public real deposit fixture canonically replays structural inputs 7 and 8 in Libauth', async () => {
   const result = await evaluateStructuralRoles();
@@ -24,5 +24,15 @@ test('public real transfer and withdrawal fixtures canonically replay structural
   for (const path of actionFixturePaths.slice(1)) {
     const result = await evaluateStructuralRoles(path);
     assert.deepEqual(result.libauth.map((row) => [row.inputIndex, row.accepted]), [[7, true], [8, true]]);
+  }
+});
+
+test('public complete fixtures canonically replay all ten inputs in Libauth before LeanBCH comparison', async () => {
+  for (const fixturePath of actionFixturePaths) {
+    const result = await evaluateAllRoles(fixturePath);
+    assert.deepEqual(result.libauth.map(({ inputIndex, accepted }) => [inputIndex, accepted]), [
+      [0, true], [1, true], [2, true], [3, true], [4, true],
+      [5, true], [6, true], [7, true], [8, true], [9, true],
+    ]);
   }
 });

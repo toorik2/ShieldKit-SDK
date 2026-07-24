@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node --test *.test.mjs",
-    "run:real-mutation-matrix": "node real-action-mutation-matrix.mjs"
+    "run:real-mutation-matrix": "node real-action-mutation-matrix.mjs",
+    "run:real-full10-leanbch": "node real-actions-full10-leanbch-crosscheck.mjs"
   }
 }

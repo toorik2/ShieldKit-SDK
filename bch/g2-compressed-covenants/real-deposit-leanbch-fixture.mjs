@@ -73,10 +73,20 @@ export async function loadRealDepositFixture(path = fixturePath) {
   return { fixture, fixtureBytes, transaction, transactionBytes, sourceOutputs, sourceOutputsWire };
 }
 
-export async function evaluateStructuralRoles(path = fixturePath) {
+function assertedInputIndexes(loaded, inputIndexes) {
+  if (!Array.isArray(inputIndexes) || inputIndexes.length === 0) throw new Error('inputIndexes must be a non-empty array');
+  const unique = [...new Set(inputIndexes)];
+  if (unique.length !== inputIndexes.length || unique.some((index) => !Number.isInteger(index) || index < 0 || index >= loaded.transaction.inputs.length)) {
+    throw new Error('inputIndexes must be unique transaction input indexes');
+  }
+  return unique;
+}
+
+export async function evaluateRoles(path = fixturePath, inputIndexes = undefined) {
   const loaded = await loadRealDepositFixture(path);
   const vm = createVirtualMachineBch2026(true);
-  const results = loaded.fixture.crosscheckInputIndexes.map((inputIndex) => {
+  const indexes = assertedInputIndexes(loaded, inputIndexes ?? loaded.fixture.crosscheckInputIndexes);
+  const results = indexes.map((inputIndex) => {
     const result = vm.evaluate({ inputIndex, sourceOutputs: loaded.sourceOutputs, transaction: loaded.transaction });
     return {
       inputIndex,
@@ -85,7 +95,7 @@ export async function evaluateStructuralRoles(path = fixturePath) {
       operationCost: result.metrics?.operationCost ?? null,
     };
   });
-  if (results.some(({ accepted }) => !accepted)) throw new Error('Libauth rejected a structural cross-check input');
+  if (results.some(({ accepted }) => !accepted)) throw new Error('Libauth rejected a requested cross-check input');
   return {
     ...loaded,
     sourceOutputsSha256: sha256(loaded.sourceOutputsWire),
@@ -94,8 +104,17 @@ export async function evaluateStructuralRoles(path = fixturePath) {
   };
 }
 
-export async function writeLeanBchInput(prefix, path = fixturePath) {
-  const result = await evaluateStructuralRoles(path);
+export async function evaluateStructuralRoles(path = fixturePath) {
+  return evaluateRoles(path);
+}
+
+export async function evaluateAllRoles(path = fixturePath) {
+  const loaded = await loadRealDepositFixture(path);
+  return evaluateRoles(path, loaded.transaction.inputs.map((_, inputIndex) => inputIndex));
+}
+
+export async function writeLeanBchInput(prefix, path = fixturePath, inputIndexes = undefined) {
+  const result = await evaluateRoles(path, inputIndexes);
   const resolvedPrefix = resolve(prefix);
   await writeFile(`${resolvedPrefix}_tx.hex`, `${Buffer.from(result.transactionBytes).toString('hex')}\n`);
   await writeFile(`${resolvedPrefix}_srcouts.hex`, `${result.sourceOutputsWire.toString('hex')}\n`);
