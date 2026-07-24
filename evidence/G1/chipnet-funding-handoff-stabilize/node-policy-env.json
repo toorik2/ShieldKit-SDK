@@ -1,0 +1,25 @@
+{
+  "schema": "shieldkit-sdk/node-policy-env/v1",
+  "observedAt": "2026-07-24T05:10:00Z",
+  "libauthBch2026": {
+    "completeSettlement": "10/10 accept",
+    "mutationMatrix": "27/27 reject",
+    "evidence": "evidence/G2/complete-settlement-unlock-stabilize/"
+  },
+  "leanBch": {
+    "checkout": ".worktrees/leanbch-pf7",
+    "present": true,
+    "role": "PF7 build-time LEANBCH_ROOT; no host RPC for complete-tx policy"
+  },
+  "bchnV29": {
+    "present": false,
+    "testmempoolaccept": "not-run",
+    "reason": "unmodified BCHN v29 binary not installed on host (no bitcoind/bitcoin-cli/bchn in PATH or known local build)"
+  },
+  "completeTxArtifactsOffline": {
+    "deposit": ".cache/complete-settlement-stabilize/deposit-tx.hex",
+    "transfer": ".cache/complete-settlement-stabilize/transfer-tx.hex",
+    "withdrawal": ".cache/complete-settlement-stabilize/withdrawal-tx.hex",
+    "note": "Offline assembly against synthetic prep outpoints; live re-assembly required after genesis"
+  }
+}

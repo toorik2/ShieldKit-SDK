@@ -1,0 +1,116 @@
+{
+  "schema": "shieldkit-sdk/chipnet-funding-handoff/v1",
+  "status": "ready-for-funding",
+  "observedAt": "2026-07-24T05:07:59.964Z",
+  "network": "chipnet",
+  "denominationNoteSatoshis": "10000000",
+  "profile": {
+    "profileId": "sha256:79782441a9d56f7d8199d9812ba566daddad63e20142fc9e7d2a33c7a66e5bf7",
+    "instanceId": "sha256:74770b7d277c1953842dcdf3e6a9446620b293512786dcf02c4e8a6d7641b5d6",
+    "setupMode": "development-only",
+    "bundleDirectory": ".cache/profile-build-stabilize/profile-bundle",
+    "bchVerifierSetHash": "sha256:a97647c206b1741937895de5276f466da969c935ea47d5f5677505c93d5ce171",
+    "constraintSystemHash": "sha256:6a797e696a4fe01f500b232270944f93e5e6f171906c37511748ab0f50df0e17",
+    "postFundRebind": "Rebuild genesis.categoryInputOutpoint + stateNftCategory to confirmed funding_txid (vout 0) before Chipnet genesis broadcast. Current category hash is a development placeholder."
+  },
+  "funding": {
+    "address": "bchtest:qp55a60g879wnpfh92h37vpa6wfwu8frkcwp4tlvg9",
+    "cashAddressPrefix": "bchtest",
+    "lockingBytecodeHex": "76a914694ee9e83f8ae985372aaf1f303dd392ee1d23b688ac",
+    "publicKeyHex": "032806e8ca12ffa0492a323ce0a5f7390548c87a68d168f44acfde62fbde703bad",
+    "amountSatoshis": "20485518",
+    "amountBch": "0.20485518",
+    "preferredOutputIndex": 0,
+    "instruction": "Chipnet only. Send exactly amountSatoshis as a single P2PKH output preferably at vout 0 to funding.address."
+  },
+  "amountBreakdown": {
+    "depositPrepFundingSatoshis": "20100000",
+    "genesisStateCarrierSatoshis": "1080",
+    "genesisFeeCeilingSatoshis": "500",
+    "transferPrepBudgetSatoshis": "110000",
+    "withdrawalPrepBudgetSatoshis": "110000",
+    "measuredSettlementFeesSatoshis": {
+      "deposit": "56964",
+      "transfer": "56964",
+      "withdrawal": "56974"
+    },
+    "marginSatoshis": "50000",
+    "totalSatoshis": "20485518",
+    "feeModel": "1 sat/B transparent fee + change; no pool subsidy"
+  },
+  "offlineReadiness": {
+    "relationFreeze": true,
+    "developmentSetup": true,
+    "desktopProve": true,
+    "pf7UnlockLengthStabilize": true,
+    "completeSettlementLibauth10of10": true,
+    "mutationMatrixAllReject": true,
+    "sizes": {
+      "deposit": {
+        "wireBytes": 56964,
+        "maximumUnlockingBytes": 9350,
+        "feeSatoshis": "56964",
+        "sizeOk": true,
+        "vmAccepted": true,
+        "failedInputIndexes": [],
+        "contextDigest": "7e0cd8d34c6d408da15273882764d8a16ddebdbb21abbfe5a891947398fbd575",
+        "plannedDigest": "7e0cd8d34c6d408da15273882764d8a16ddebdbb21abbfe5a891947398fbd575"
+      },
+      "transfer": {
+        "wireBytes": 56964,
+        "maximumUnlockingBytes": 9350,
+        "feeSatoshis": "56964",
+        "sizeOk": true,
+        "vmAccepted": true,
+        "failedInputIndexes": [],
+        "contextDigest": "e060f84fff52b340a7e57ea7b13256a7fda0aa5344b1a06253f117ac1486a245",
+        "plannedDigest": "e060f84fff52b340a7e57ea7b13256a7fda0aa5344b1a06253f117ac1486a245"
+      },
+      "withdrawal": {
+        "wireBytes": 56974,
+        "maximumUnlockingBytes": 9350,
+        "feeSatoshis": "56974",
+        "sizeOk": true,
+        "vmAccepted": true,
+        "failedInputIndexes": [],
+        "contextDigest": "62633733707807735e7644b7ed9acbe3f5522cff77e15e7c70c98071acae68f9",
+        "plannedDigest": "62633733707807735e7644b7ed9acbe3f5522cff77e15e7c70c98071acae68f9"
+      }
+    },
+    "unlockPinsBytes": [
+      8177,
+      6654,
+      7066,
+      7066,
+      8393,
+      7600,
+      9350
+    ],
+    "evidence": "evidence/G2/complete-settlement-unlock-stabilize/"
+  },
+  "nodePolicy": {
+    "libauthBch2026Standard": "pass",
+    "leanBchRoot": ".worktrees/leanbch-pf7",
+    "bchnV29Unmodified": "not-found-on-host",
+    "testmempoolaccept": "not-run-env-limit"
+  },
+  "postFundPlan": [
+    "Confirm Chipnet funding tx to address (prefer vout 0); record txid/raw/height — never log keys.",
+    "Rebuild development-only profile genesis bindings to funding_txid:0 as category.",
+    "Offline plan+sign Chipnet genesis; broadcast; confirm state NFT.",
+    "Prep+settlement deposit (0.1 BCH note).",
+    "Prep+settlement one-note transfer.",
+    "Prep+settlement withdrawal.",
+    "Seed+chain recovery evidence; capture all txids/raw/node verdicts/hashes."
+  ],
+  "prepPlanProbe": {
+    "fundingSourceValueSatoshis": "20100000",
+    "settlementFeeFundingSatoshis": "100000",
+    "planned": true
+  },
+  "hardBans": [
+    "mainnet",
+    "commit-private-keys",
+    "hosted-proving"
+  ]
+}
