@@ -95,7 +95,8 @@ chain source.
 
 `fetchBchnRawChainSegment` is the bounded self-hosted BCHN subpath. Its caller
 pins an authenticated checkpoint, while the node supplies the current canonical
-tip and every block hash by height. It requires `chain == "chipnet"`, an
+tip and every block hash by height. BCHN identifies Chipnet with
+`chain == "chip"`; the adapter requires that exact node-reported identifier, an
 available non-IBD/non-pruned node with equal block/header counts, and a stable
 `getblockchaininfo` snapshot. For every height it cross-checks
 `getblockhash`, raw and verbose `getblockheader`, raw `getblock`, parent hash,
