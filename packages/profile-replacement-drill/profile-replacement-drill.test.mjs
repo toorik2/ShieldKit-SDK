@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -128,6 +128,14 @@ test('distinct authenticated PF7 bundles preserve SDK shape and reject cross-pro
   const { stdout, stderr } = await execFileAsync(process.execPath, ['cli.mjs', '--input', input], { cwd: path.dirname(new URL(import.meta.url).pathname) });
   assert.equal(stderr, '');
   assert.deepEqual(JSON.parse(stdout), result);
+  const output = path.join(root, 'drill-result.json');
+  const published = await execFileAsync(process.execPath, ['cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) });
+  assert.equal(published.stderr, '');
+  assert.equal(await readFile(output, 'utf8'), published.stdout);
+  await assert.rejects(
+    () => execFileAsync(process.execPath, ['cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) }),
+    /profile-replacement-drill:/,
+  );
 });
 
 test('drill rejects a post-authentication verifier-set mutation before SDK loading', async (t) => {

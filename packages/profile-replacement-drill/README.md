@@ -17,6 +17,17 @@ Bundle paths in that input are resolved relative to the input file. The output
 is canonical JSON containing only public identifiers and derived authority
 hashes.
 
+To atomically publish the canonical result as immutable evidence, add an
+explicit output path:
+
+```sh
+node packages/profile-replacement-drill/cli.mjs \
+  --input replacement-drill.json \
+  --output replacement-drill-result.json
+```
+
+Publication fails if the output already exists.
+
 For each bundle it verifies the manifest hash boundary and pinned
 profile/instance coordinates, rederives the category from its fresh category
 input, parses the authenticated PF7 verifier-set, and independently derives
