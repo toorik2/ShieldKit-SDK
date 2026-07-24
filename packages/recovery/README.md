@@ -31,12 +31,20 @@ serialized: a stable public address point would otherwise link all receipts to
 that address. Recovery derives its recovery point to open the record, then its
 independent spend scalar to reconstruct the note and nullifier.
 
+For a contiguous local scan, `prepareRecipientRecoveryAccount({ seed,
+profileId, instanceId })` derives that account material once and
+`recoverPreparedRecipientOutput({ account, kind, slot, outputCommitment,
+record })` opens successive records. The prepared account is process-local and
+capability-checked; it is not a serialized wallet format. The ordinary
+`recoverRecipientOutput` API remains the one-record convenience wrapper.
+
 ## Packet-only history recovery
 
 `recoverAuthenticatedChainHistory` accepts an explicit V2 `accountSeed`,
 profile/instance IDs, and caller-authenticated contiguous action-packet bytes
 anchored by exact initial and terminal serialized states. It reconstructs owned
-notes, derives their nullifiers, and returns spent/unspent status. The companion
+notes, derives its account-static material once, and returns spent/unspent
+status. The companion
 `serializeChainHistoryActions` is the strict exact-field-to-packet codec.
 
 It performs no node, indexer, service, storage, or network access. The caller

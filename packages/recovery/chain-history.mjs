@@ -6,7 +6,7 @@ import {
   ACTION_STATE_BYTES, PortableActionPacketError, decodePortableActionPacket,
   decodePortableActionState, encodePortableActionPacket, portableActionStatesEqual,
 } from './portable-action-packet.mjs';
-import { RecoveryError, recoverRecipientOutput } from './recovery.mjs';
+import { RecoveryError, prepareRecipientRecoveryAccount, recoverPreparedRecipientOutput } from './recovery.mjs';
 
 const STATE_KEYS = Object.freeze(['profileId', 'instanceId', 'noteRoot', 'nullifierRoot', 'nextLeafIndex', 'actionSequence', 'liveNoteCount', 'reserveSats', 'maximumReserve', 'stateCommitment']);
 
@@ -82,6 +82,7 @@ function normaliseInput(value) {
 export async function recoverAuthenticatedChainHistory(value) {
   const input = normaliseInput(value); const initial = state(input.history.initialState, 'initial state'); const terminal = state(input.history.terminalState, 'terminal state');
   assertProfile(initial, input.profileId, input.instanceId, 'initial state'); assertProfile(terminal, input.profileId, input.instanceId, 'terminal state');
+  const account = await prepareRecipientRecoveryAccount({ seed: input.accountSeed, profileId: input.profileId, instanceId: input.instanceId });
   let previous = initial; const seenPackets = new Set(); const notesByNullifier = new Map(); const notesByCommitment = new Set(); const notes = [];
   for (let index = 0; index < input.history.packets.length; index += 1) {
     const packetBytes = input.history.packets[index]; const fingerprint = Array.from(packetBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -100,7 +101,7 @@ export async function recoverAuthenticatedChainHistory(value) {
     if (decoded.kind !== 'withdrawal') {
       // The current action shape has its single active output in slot zero.
       try {
-        const note = await recoverRecipientOutput({ seed: input.accountSeed, profileId: input.profileId, instanceId: input.instanceId, kind: decoded.kind, slot: 0, outputCommitment: decoded.outputCommitment, record: decoded.outputRecord });
+        const note = await recoverPreparedRecipientOutput({ account, kind: decoded.kind, slot: 0, outputCommitment: decoded.outputCommitment, record: decoded.outputRecord });
         if (notesByCommitment.has(note.cm)) fail('DUPLICATE_COMMITMENT', `packet ${index} repeats an owned output commitment`);
         if (notesByNullifier.has(note.nf)) fail('DUPLICATE_NULLIFIER', `packet ${index} reuses an owned note nullifier`);
         notesByCommitment.add(note.cm);

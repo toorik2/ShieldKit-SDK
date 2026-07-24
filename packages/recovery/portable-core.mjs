@@ -79,16 +79,42 @@ const sqrt = (value) => {
 
 /** BabyJubJub arithmetic over the Circom/BN254 scalar field. These values and
  * encodings are deliberately identical to circomlib's BabyPbk/PointBits.
- * This is public-address/recovery code; it makes no constant-time claim. */
-export const babyJubAdd = ([x1, y1], [x2, y2]) => {
-  const beta = mod(x1 * y2); const gamma = mod(y1 * x2); const tau = mod(beta * gamma);
-  return Object.freeze([mod((beta + gamma) * inverse(1n + 168696n * tau)), mod(((-168700n * x1 + y1) * (x2 + y2) + 168700n * beta - gamma) * inverse(1n - 168696n * tau))]);
+ *
+ * Affine addition needs two exponentiation-based inversions. Recovery scans
+ * multiply every valid ephemeral point by the account scan scalar, so doing
+ * that inside a double-and-add loop makes normal history recovery need many
+ * thousands of inversions. The internal representation below is the standard
+ * unified projective formula for a twisted Edwards curve. It performs only one
+ * inversion when the public affine result is requested. Inputs and outputs of
+ * the public API remain exact affine field elements; this is an implementation
+ * change only. This public-address/recovery code makes no constant-time claim.
+ */
+const BABYJUB_A = 168700n;
+const BABYJUB_D = 168696n;
+const extendedIdentity = () => [0n, 1n, 1n];
+const extendedFromAffine = (point) => [mod(point[0]), mod(point[1]), 1n];
+const extendedAdd = ([x1, y1, z1], [x2, y2, z2]) => {
+  // Hisil et al. unified projective addition, specialized to a=168700,
+  // d=168696. It agrees with circomlib's affine addPoint for every valid
+  // BabyJubJub subgroup point while avoiding per-addition inversions.
+  const z = mod(z1 * z2); const zz = mod(z * z);
+  const xx = mod(x1 * x2); const yy = mod(y1 * y2);
+  const dxy = mod(BABYJUB_D * xx * yy);
+  const minus = mod(zz - dxy); const plus = mod(zz + dxy);
+  const sum = mod((x1 + y1) * (x2 + y2) - xx - yy);
+  return [mod(z * minus * sum), mod(z * plus * (yy - BABYJUB_A * xx)), mod(minus * plus)];
 };
+const affineFromExtended = ([x, y, z]) => {
+  if (z === 0n) failCore('INVALID_POINT', 'BabyJubJub point has a zero projective denominator');
+  const zInverse = inverse(z);
+  return Object.freeze([mod(x * zInverse), mod(y * zInverse)]);
+};
+export const babyJubAdd = (left, right) => affineFromExtended(extendedAdd(extendedFromAffine(left), extendedFromAffine(right)));
 export const babyJubMul = (point, scalar) => {
   if (!Array.isArray(point) || point.length !== 2 || typeof scalar !== 'bigint' || scalar < 0n) failCore('INVALID_POINT', 'invalid BabyJubJub multiplication input');
-  let result = [0n, 1n]; let base = [mod(point[0]), mod(point[1])]; let remaining = scalar;
-  while (remaining > 0n) { if (remaining & 1n) result = babyJubAdd(result, base); base = babyJubAdd(base, base); remaining >>= 1n; }
-  return Object.freeze(result);
+  let result = extendedIdentity(); let base = extendedFromAffine(point); let remaining = scalar;
+  while (remaining > 0n) { if (remaining & 1n) result = extendedAdd(result, base); base = extendedAdd(base, base); remaining >>= 1n; }
+  return affineFromExtended(result);
 };
 export const babyJubInSubgroup = (point) => {
   if (!Array.isArray(point) || point.length !== 2 || point.some((coordinate) => typeof coordinate !== 'bigint' || coordinate < 0n || coordinate >= FR_MODULUS)) return false;
@@ -159,7 +185,20 @@ export async function deriveRecipientNote({ profileId, instanceId, spendSecret, 
   if (BigInt(`0x${secret}`) >= BABYJUB_SUBGROUP_ORDER) failCore('INVALID_SCALAR', 'note spend secret is outside the BabyJubJub subgroup order');
   const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${secret}`))));
   const ak = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey });
-  const output = await deriveOutputNote({ profileId, instanceId, ak, rho, r });
+  return derivePreparedRecipientNote({ profileId, instanceId, spendSecret: secret, ak, rho, r });
+}
+
+/**
+ * Derive a note after a prepared account has already authenticated the spend
+ * and recovery public keys into `ak`. This deliberately checks all dynamic
+ * scalar and field inputs, but does not repeat the static key-to-authority
+ * relation for every record in one contiguous history scan.
+ */
+export async function derivePreparedRecipientNote({ profileId, instanceId, spendSecret, ak, rho, r }) {
+  const secret = nonzeroFr(spendSecret, 'note spend secret');
+  if (BigInt(`0x${secret}`) >= BABYJUB_SUBGROUP_ORDER) failCore('INVALID_SCALAR', 'note spend secret is outside the BabyJubJub subgroup order');
+  const authority = nonzeroFr(ak, 'prepared note ak');
+  const output = await deriveOutputNote({ profileId, instanceId, ak: authority, rho, r });
   const profile = identifierLimbs(profileId, 'note profileId');
   const instance = identifierLimbs(instanceId, 'note instanceId');
   const nonce = nonzeroFr(rho, 'note rho');
@@ -168,13 +207,20 @@ export async function deriveRecipientNote({ profileId, instanceId, spendSecret, 
   return Object.freeze({ ...output, nf, sk: secret });
 }
 
-export function recoveryMasks({ profileId, instanceId, outputCm, recoveryPoint, ephemeralPoint, sharedPoint, outputAk, kindCode }) {
+const recoveryMasksCore = ({ profileId, instanceId, outputCm, recoveryPoint, ephemeralPoint, sharedPoint, outputAk, kindCode }) => {
   const profile = identifierLimbs(profileId, 'recovery profileId'); const instance = identifierLimbs(instanceId, 'recovery instanceId');
   const commitment = BigInt(`0x${nonzeroFr(outputCm, 'recovery output commitment')}`); const authority = BigInt(`0x${nonzeroFr(outputAk, 'recovery output ak')}`);
   if (!Number.isInteger(kindCode) || kindCode < 1 || kindCode > 3) failCore('INVALID_KIND', 'recovery action kind code is invalid');
-  for (const point of [recoveryPoint, ephemeralPoint, sharedPoint]) if (!babyJubInSubgroup(point)) failCore('INVALID_POINT', 'recovery point is not a nonidentity prime-subgroup point');
   const shared = poseidonHash(1101n, recoveryPoint[0], recoveryPoint[1], ephemeralPoint[0], ephemeralPoint[1], sharedPoint[0], sharedPoint[1], commitment, BigInt(kindCode));
   const rhoMask = poseidonHash(1102n, shared, profile[0], profile[1], instance[0], instance[1]);
   const rMask = poseidonHash(1103n, shared, profile[0], profile[1], instance[0], instance[1]);
   return Object.freeze({ shared, rhoMask, rMask, authentication: (ciphertextRho, ciphertextR) => frToHex(poseidonHash(1104n, shared, ciphertextRho, ciphertextR, authority, profile[0], profile[1], instance[0], instance[1])) });
+};
+export function recoveryMasks({ profileId, instanceId, outputCm, recoveryPoint, ephemeralPoint, sharedPoint, outputAk, kindCode }) {
+  for (const point of [recoveryPoint, ephemeralPoint, sharedPoint]) if (!babyJubInSubgroup(point)) failCore('INVALID_POINT', 'recovery point is not a nonidentity prime-subgroup point');
+  return recoveryMasksCore({ profileId, instanceId, outputCm, recoveryPoint, ephemeralPoint, sharedPoint, outputAk, kindCode });
 }
+
+/** Internal scan helper. Its point arguments must have passed canonical
+ * decoding/subgroup checks, or be scalar products of those checked points. */
+export const recoveryMasksFromValidatedPoints = recoveryMasksCore;

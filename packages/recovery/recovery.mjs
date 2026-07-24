@@ -3,12 +3,13 @@
 import {
   ADDRESS_SCHEMA, BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, FR_MODULUS, OUTPUT_RECORD_BYTES, PortableCoreError,
   RECOVERY_RECORD_CIPHERTEXT_BYTES, RECOVERY_RECORD_PADDING_BYTES, RECORD_VERSION,
-  babyJubMul, bytes, bytesToHex, deriveBabyJubScalar, deriveOutputNote, deriveRecipientAuthority, deriveRecipientNote, equalBytes, hex32,
-  hexToBytes, isBytes, nonzeroFr, packBabyJubPoint, recoveryMasks, unpackBabyJubPoint,
+  babyJubMul, bytes, bytesToHex, deriveBabyJubScalar, deriveOutputNote, derivePreparedRecipientNote, deriveRecipientAuthority, equalBytes, hex32,
+  hexToBytes, isBytes, nonzeroFr, packBabyJubPoint, recoveryMasks, recoveryMasksFromValidatedPoints, unpackBabyJubPoint,
 } from './portable-core.mjs';
 
 const KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 const KIND_CODE = Object.freeze({ deposit: 1, transfer: 2, withdrawal: 3 });
+const preparedAccounts = new WeakSet();
 
 export class RecoveryError extends Error {
   constructor(code, message) { super(message); this.name = 'RecoveryError'; this.code = code; }
@@ -117,6 +118,33 @@ export async function deriveRecipientWallet(input) {
 /** Derive the public recipient address without exposing spend or scan material. */
 export async function deriveRecipientAddress(input) { return (await deriveRecipientWallet(input)).address; }
 
+/**
+ * Prepare one seed/profile/instance account for a contiguous local scan. The
+ * object is process-local and intentionally non-serializable: it holds the
+ * same private material returned by deriveRecipientWallet, plus a checked
+ * recovery point. A WeakSet capability prevents a caller from fabricating an
+ * authority binding for the prepared-opening path.
+ */
+export async function prepareRecipientRecoveryAccount(input) {
+  const { seed, profileId, instanceId } = normalizeDerivationInput(input, 'prepared recovery account input');
+  try {
+    const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
+    const recoveryPoint = unpackBabyJubPoint(hexToBytes(wallet.address.recoveryPublicKey));
+    const prepared = Object.freeze({
+      schema: 'shield.cash/prepared-recovery-account/v1', profileId, instanceId,
+      address: wallet.address, spendSecret: wallet.spendSecret, recoverySecret: wallet.recoverySecret, recoveryPoint,
+    });
+    preparedAccounts.add(prepared);
+    return prepared;
+  } catch (error) { translate(error); }
+}
+
+const preparedAccount = (value, profileId, instanceId) => {
+  if (value === null || typeof value !== 'object' || !preparedAccounts.has(value)) fail('INVALID_PREPARED_ACCOUNT', 'prepared recovery account was not created by this wallet runtime');
+  if (value.profileId !== profileId || value.instanceId !== instanceId) fail('PREPARED_ACCOUNT_IDENTITY_MISMATCH', 'prepared recovery account does not match requested profile and instance');
+  return value;
+};
+
 /** Construct a public recipient output and its exact 192-byte recovery record.
  * The recipient point remains private witness material: serializing a stable
  * address key would link all notes received by that address. */
@@ -148,18 +176,38 @@ export async function constructRecipientOutput(input) {
   } catch (error) { translate(error); }
 }
 
-function decryptRecord({ recoverySecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, outputAk, record }) {
+function decryptRecord({ recoverySecret, recoveryPoint, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm, outputAk, record }) {
   const bytesRecord = validBytes(record, OUTPUT_RECORD_BYTES, 'record');
   if (bytesRecord[0] !== RECORD_VERSION || bytesRecord[1] !== recordSlot) fail('RECORD_HEADER', 'record version or output slot mismatch');
   if (recordSlot !== 0) fail('RECORD_HEADER', 'record slot is unsupported by the one-output relation');
   if (!equalBytes(bytesRecord.subarray(OUTPUT_RECORD_BYTES - RECOVERY_RECORD_PADDING_BYTES), new Uint8Array(RECOVERY_RECORD_PADDING_BYTES))) fail('RECORD_PADDING', 'record padding must be zero');
-  const recoveryPoint = babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`));
+  const staticRecoveryPoint = recoveryPoint ?? babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`));
   const ephemeralPoint = unpackBabyJubPoint(bytesRecord.subarray(2, 34)); const sharedPoint = babyJubMul(ephemeralPoint, BigInt(`0x${recoverySecret}`));
   const ciphertextRho = BigInt(`0x${bytesToHex(bytesRecord.subarray(34, 66))}`); const ciphertextR = BigInt(`0x${bytesToHex(bytesRecord.subarray(66, 98))}`); const authentication = bytesToHex(bytesRecord.subarray(98, 130));
   if (ciphertextRho >= FR_MODULUS || ciphertextR >= FR_MODULUS) fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed');
-  const masks = recoveryMasks({ profileId, instanceId, outputCm, outputAk, recoveryPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
+  // `staticRecoveryPoint` was checked once when the prepared account was
+  // created; ephemeralPoint is strict-decoded above and sharedPoint is its
+  // scalar product, so repeating three expensive subgroup multiplications per
+  // output would add no validation.
+  const masks = recoveryPoint === undefined
+    ? recoveryMasks({ profileId, instanceId, outputCm, outputAk, recoveryPoint: staticRecoveryPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] })
+    : recoveryMasksFromValidatedPoints({ profileId, instanceId, outputCm, outputAk, recoveryPoint: staticRecoveryPoint, ephemeralPoint, sharedPoint, kindCode: KIND_CODE[recordKind] });
   if (authentication !== masks.authentication(ciphertextRho, ciphertextR)) fail('RECORD_AUTHENTICATION_FAILED', 'record authentication failed');
   return { rho: ((ciphertextRho - masks.rhoMask + FR_MODULUS) % FR_MODULUS).toString(16).padStart(64, '0'), r: ((ciphertextR - masks.rMask + FR_MODULUS) % FR_MODULUS).toString(16).padStart(64, '0') };
+}
+
+/** Open one record with a process-local prepared account. Intended for a
+ * contiguous scan; all per-record fields retain the ordinary strict checks. */
+export async function recoverPreparedRecipientOutput(input) {
+  exactKeys(input, 'prepared recovery input', ['account', 'kind', 'outputCommitment', 'record', 'slot']);
+  const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
+  const account = preparedAccount(input.account, input.account?.profileId, input.account?.instanceId);
+  try {
+    const decoded = decryptRecord({ recoverySecret: account.recoverySecret, recoveryPoint: account.recoveryPoint, kind: recordKind, slot: recordSlot, profileId: account.profileId, instanceId: account.instanceId, outputCm: outputCommitment, outputAk: account.address.ak, record: input.record });
+    const note = await derivePreparedRecipientNote({ profileId: account.profileId, instanceId: account.instanceId, spendSecret: account.spendSecret, ak: account.address.ak, rho: decoded.rho, r: decoded.r });
+    if (note.cm !== outputCommitment) fail('COMMITMENT_MISMATCH', 'record plaintext does not match output commitment');
+    return note;
+  } catch (error) { translate(error); }
 }
 
 /** Decrypt, recompute, and validate a record from local seed and serialized chain fields. */
@@ -168,11 +216,8 @@ export async function recoverRecipientOutput(input) {
   const profileId = identifier(input.profileId, 'recovery profileId'); const instanceId = identifier(input.instanceId, 'recovery instanceId');
   const recordKind = kind(input.kind); const recordSlot = slot(input.slot); const seed = seed32(input.seed); const outputCommitment = field(input.outputCommitment, 'recovery output commitment');
   try {
-    const wallet = await deriveRecipientWallet({ seed, profileId, instanceId });
-    const decoded = decryptRecord({ recoverySecret: wallet.recoverySecret, kind: recordKind, slot: recordSlot, profileId, instanceId, outputCm: outputCommitment, outputAk: wallet.address.ak, record: input.record });
-    const note = await deriveRecipientNote({ profileId, instanceId, spendSecret: wallet.spendSecret, recoveryPublicKey: wallet.address.recoveryPublicKey, rho: decoded.rho, r: decoded.r });
-    if (note.cm !== outputCommitment) fail('COMMITMENT_MISMATCH', 'record plaintext does not match output commitment');
-    return note;
+    const account = await prepareRecipientRecoveryAccount({ seed, profileId, instanceId });
+    return recoverPreparedRecipientOutput({ account, kind: recordKind, slot: recordSlot, outputCommitment, record: input.record });
   } catch (error) { translate(error); }
 }
 

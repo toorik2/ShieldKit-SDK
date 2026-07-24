@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import test from 'node:test';
 import {
   RECOVERY_RECORD_LAYOUT, RecoveryError, constructRecipientOutput, deriveRecipientAddress,
-  deriveRecipientWallet, recoverRecipientOutput,
+  deriveRecipientWallet, prepareRecipientRecoveryAccount, recoverPreparedRecipientOutput, recoverRecipientOutput,
 } from './recovery.mjs';
 import {
   BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, FR_MODULUS, babyJubMul, bytesToHex,
@@ -48,6 +48,18 @@ test('account-static derivation is seed-profile-instance separated and rejects a
   await assert.rejects(() => recoverRecipientOutput({ seed: randomBytes(32), profileId, instanceId, kind: 'deposit', slot: 0, ...chainOutput }), /authentication failed/);
   const wrongSpend = await deriveRecipientNote({ profileId, instanceId, spendSecret: first.recoverySecret, recoveryPublicKey: first.address.recoveryPublicKey, rho: sent.output.rho, r: sent.output.r });
   assert.notEqual(wrongSpend.cm, sent.output.cm);
+});
+
+test('prepared account opens repeated outputs without changing record semantics or accepting forged preparation', async () => {
+  const { profileId, instanceId, recipientSeed, chainOutput } = await crossWalletFixture();
+  const account = await prepareRecipientRecoveryAccount({ seed: recipientSeed, profileId, instanceId });
+  const prepared = await recoverPreparedRecipientOutput({ account, kind: 'transfer', slot: 0, ...chainOutput });
+  const ordinary = await recoverRecipientOutput({ seed: recipientSeed, profileId, instanceId, kind: 'transfer', slot: 0, ...chainOutput });
+  assert.deepEqual(prepared, ordinary);
+  await assert.rejects(
+    () => recoverPreparedRecipientOutput({ account: { ...account }, kind: 'transfer', slot: 0, ...chainOutput }),
+    (error) => error instanceof RecoveryError && error.code === 'INVALID_PREPARED_ACCOUNT',
+  );
 });
 
 test('recovery rejects wrong seed, profile, instance, kind, slot, and commitment', async () => {
