@@ -32,7 +32,7 @@ async function makeDevelopmentBundle(seed, mutation) {
     standard: { id: 'shield.cash', version: '1' },
     profile: {
       proofSystem: 'groth16', curve: 'bn254',
-      relation: { id: 'shielded-action-v1', sha256: digest(files['artifacts/relation.json']) },
+      relation: { id: 'shielded-action-v2', sha256: digest(files['artifacts/relation.json']) },
       constraintSystemHash: digest(files['artifacts/constraints.r1cs']),
       publicInputAbi: { id: 'shielded-action-public-input-v1', sha256: digest(files['artifacts/public-input-abi.json']) },
       bchVerifierSetHash: digest(files['artifacts/verifier-set.json']),

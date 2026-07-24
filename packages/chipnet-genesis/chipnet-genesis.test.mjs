@@ -65,7 +65,7 @@ async function fixture(t) {
   await mkdir(path.dirname(compiler), { recursive: true }); await writeFile(compiler, 'TEST-ONLY compiler'); await writeFile(generator, 'TEST-ONLY generator');
   const bundle = await buildVerifierProfileBundle({
     destination: path.join(root, 'bundle'),
-    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v1' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
+    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v2' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
     setup: { mode: 'development-only', provenance: { method: 'local-initialization', initializerCommitment: digest('initializer') }, material: { phase1: { ptauSource: 'test-only-ptau', ptauSha256: digest('ptau') }, phase2: { initializationCommand: { argv: ['test', 'init'] }, contributionCommand: { argv: ['test', 'contribute'] }, randomnessCommitment: digest('randomness'), finalZkeySha256: digest(files['proving-key'][2]) } } },
     toolchain: { compiler: { name: 'test-compiler', version: '0', source: { sourcePath: compiler } }, generator: { name: 'test-generator', version: '0', source: { sourcePath: generator } } },
     network: { name: 'chipnet' },

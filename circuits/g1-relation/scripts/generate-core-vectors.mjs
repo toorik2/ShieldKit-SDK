@@ -7,7 +7,7 @@ import path from 'node:path';
 import {
   createShieldedTransitionReference, DOMAIN_TAGS, frToHex, OUTPUT_RECORD_BYTES,
 } from '../../../packages/core/shielded-transition.mjs';
-import vectors from '../../../packages/core/vectors/g1-relation-v1.json' with { type: 'json' };
+import vectors from '../../../packages/core/vectors/g1-relation-v2.json' with { type: 'json' };
 import { BABYJUB_BASE8, babyJubMul, bytesToHex, hexToBytes, packBabyJubPoint, unpackBabyJubPoint } from '../../../packages/recovery/portable-core.mjs';
 
 const target = process.argv[2];

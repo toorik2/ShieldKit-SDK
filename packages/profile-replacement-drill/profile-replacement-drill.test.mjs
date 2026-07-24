@@ -75,7 +75,7 @@ async function makeBundle(root, seed, categoryTxid) {
   await writeFile(compiler, 'structural-drill compiler\n'); await writeFile(generator, 'structural-drill generator\n');
   return buildVerifierProfileBundle({
     destination: path.join(root, `bundle-${seed}`),
-    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v1' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
+    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v2' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
     setup: {
       mode: 'development-only',
       provenance: { method: 'local-initialization', initializerCommitment: digest(`initializer-${seed}`) },
@@ -112,7 +112,7 @@ test('distinct authenticated PF7 bundles preserve SDK shape and reject cross-pro
   });
   assert.equal(result.schema, 'shield.cash/profile-replacement-drill/v1');
   assert.equal(result.setupMode, 'development-only');
-  assert.equal(result.sdk.schema, 'shield.cash/desktop-wallet-sdk/v1');
+  assert.equal(result.sdk.schema, 'shield.cash/desktop-wallet-sdk/v2');
   assert.equal(result.sdk.methods.length, 11);
   assert.notEqual(result.replacements.left.profileId, result.replacements.right.profileId);
   assert.notEqual(result.replacements.left.instanceId, result.replacements.right.instanceId);

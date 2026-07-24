@@ -6,6 +6,7 @@ import { parseStrictJson } from '../core/verifier-profile.mjs';
 import { ProfileBuildError, buildVerifierProfileBundle } from '../profile-builder/profile-builder.mjs';
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
+const CURRENT_RELATION_ID = 'shielded-action-v2';
 const CURRENT_ABI_ID = 'shielded-action-public-input-v1';
 
 export class SetupProfileBridgeError extends Error {
@@ -159,7 +160,9 @@ export async function bridgeLocalSetupToProfile(input) {
   const { sourcePath, metadata } = await metadataFile(input);
   const local = await validateMetadata(sourcePath, metadata);
   exactKeys(input.profile, 'profile input', ['proofSystem', 'curve', 'relation', 'publicInputAbi']);
+  exactKeys(input.profile.relation, 'profile input relation', ['id']);
   exactKeys(input.profile.publicInputAbi, 'profile input publicInputAbi', ['id']);
+  if (input.profile.relation.id !== CURRENT_RELATION_ID) fail(`profile relation must be ${CURRENT_RELATION_ID}`);
   if (input.profile.publicInputAbi.id !== CURRENT_ABI_ID) fail(`profile public-input ABI must be ${CURRENT_ABI_ID}`);
   exactKeys(input.toolchain, 'toolchain input', ['compiler', 'generator']);
   exactKeys(input.toolchain.generator, 'toolchain generator input', ['name', 'version', 'source']);

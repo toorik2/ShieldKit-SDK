@@ -74,7 +74,7 @@ function assertGenesis(bundle, label) {
 }
 
 function sdkSurface(sdk, label) {
-  if (sdk.schema !== 'shield.cash/desktop-wallet-sdk/v1') fail(`${label} SDK schema changed`);
+  if (sdk.schema !== 'shield.cash/desktop-wallet-sdk/v2') fail(`${label} SDK schema changed`);
   for (const name of SDK_METHODS) if (typeof sdk[name] !== 'function') fail(`${label} SDK is missing ${name}`);
   return Object.freeze({ schema: sdk.schema, methods: SDK_METHODS });
 }

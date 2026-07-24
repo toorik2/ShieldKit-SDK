@@ -50,11 +50,11 @@ candidate uses at most `2^32 - 1` leaves and deliberately leaves the final
 depth-32 leaf unused. G2 must either retain this explicit terminal rule or widen
 the counter and regenerate the relation, vectors, and profile.
 
-The action packet has a fixed reference encoding and binds complete pre/post
-states, note/nullifier material, fixed 192-byte active output record or zero
-inactive record, boundary descriptor, and transaction-context digest. Output
-record AEAD correctness is intentionally outside this relation reference until
-the G2 construction is selected.
+The action packet has a fixed v1 reference encoding and binds complete pre/post
+states, note/nullifier material, fixed 192-byte active V2 output record or zero
+inactive record, boundary descriptor, and transaction-context digest. The V2
+relation constrains its native-field BabyJubJub ECDH, masks, and Poseidon
+authenticator; it is not the obsolete X25519/AEAD draft.
 
 The numeric Chipnet discriminator `2` and 192-byte record length are
 profile-candidate constants, not claims about a BCH consensus network enum or a

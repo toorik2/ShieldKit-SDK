@@ -42,7 +42,7 @@ test('profile, local prover, and Android contracts fail closed', () => {
   assert.equal(capability.mode, 'local-only');
   const runtime = { platform: 'android', bigInt: true, esModules: true, uint8Array: true, webCryptoGetRandomValues: true };
   assert.deepEqual(assertAndroidRuntimeContract(runtime), runtime);
-  assert.equal(createAndroidWalletSdk({ profile, runtime }).schema, 'shield.cash/android-wallet-sdk/v1');
+  assert.equal(createAndroidWalletSdk({ profile, runtime }).schema, 'shield.cash/android-wallet-sdk/v2');
   assert.throws(() => assertAndroidRuntimeContract({ ...runtime, bigInt: false }), /requires BigInt/);
 });
 
@@ -81,7 +81,7 @@ test('desktop facade composes portable methods from an authenticated profile bun
       instanceId: process.env.SHIELD_CASH_TEST_INSTANCE_ID,
     },
   });
-  assert.equal(sdk.schema, 'shield.cash/desktop-wallet-sdk/v1');
+  assert.equal(sdk.schema, 'shield.cash/desktop-wallet-sdk/v2');
   assert.equal(sdk.profile.bundleDirectory, process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE);
   assert.equal(typeof sdk.deriveRecipientAddress, 'function');
   assert.equal(typeof sdk.planCompletePreparation, 'function');

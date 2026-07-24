@@ -33,7 +33,7 @@ independent spend scalar to reconstruct the note and nullifier.
 
 ## Packet-only history recovery
 
-`recoverAuthenticatedChainHistory` accepts an explicit V1 `accountSeed`,
+`recoverAuthenticatedChainHistory` accepts an explicit V2 `accountSeed`,
 profile/instance IDs, and caller-authenticated contiguous action-packet bytes
 anchored by exact initial and terminal serialized states. It reconstructs owned
 notes, derives their nullifiers, and returns spent/unspent status. The companion
@@ -60,7 +60,7 @@ It covers at least 384 valid deposit/transfer/withdrawal transitions and runs
 the requested 10,000-transition recovery workload. It does not claim Groth16,
 BCH VM, BCHN, relay, miner, raw-block-provenance, or production qualification.
 
-The seed is a V1 account seed, not a root-seed hierarchy. V1 retains exactly
+The seed is a V2 account seed, not a root-seed hierarchy. V2 retains exactly
 one recipient address for `(accountSeed, profileId, instanceId)`; applications
 with a master seed must supply their own versioned account derivation and scan
 each account seed separately.

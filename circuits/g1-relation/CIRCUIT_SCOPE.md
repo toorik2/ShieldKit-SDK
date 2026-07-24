@@ -4,6 +4,14 @@ Status: relation compilation and core-vector witness evidence only. This is not
 a complete G1 verdict, setup/proof evidence, BCH/Chipnet evidence, or a
 deployment claim.
 
+## Current semantic identity
+
+The compiled relation is `shielded-action-v2`. Its public-input ABI is still
+`shielded-action-public-input-v1`: the unchanged 752-byte `SCAR` packet has
+packet version byte `1`, while the private recovery relation and record are
+V2. A V1 relation/profile/record is invalidated historical material and is not
+compatible with this source.
+
 ## Pinned implementation
 
 - Circom compiler: `circom2` package `0.2.23` (compiler `2.2.3` at build)
@@ -45,8 +53,9 @@ The relation also enforces:
   inactive constraints;
 - depth-32 append-empty and membership paths;
 - depth-128 nullifier empty-leaf and insertion paths. The key is exactly
-  `BE_u128(canonicalFr(nf)[0..16])`: `Num2Bits(254)[128..253]`, followed by
-  two canonical zero most-significant bits, traversed least-significant first;
+  `BE_u128(canonicalFr(nf)[16..32])`: `Num2Bits(254)[0..127]`, traversed
+  least-significant bit first. This is the low unsigned 128-bit half of the
+  canonical Fr value and avoids its structurally zero most-significant bits;
 - zero deposit inactive spend/path slots and zero withdrawal inactive
   append/output slots; and
 - boolean record bits, zero for withdrawal, SHA-bound for every action; and
@@ -75,4 +84,5 @@ digest, covenant/transaction binding, a ceremony or development setup,
 zkey/proof artifacts, BCH VM execution, and independent formal cross-checking.
 The V2 construction makes no X25519, HKDF, ChaCha20-Poly1305,
 indistinguishability, constant-time, setup, proving, verification, or G1
-readiness claim.
+readiness claim. Its native-field record semantics are constrained; the
+remaining disclaimer is not a claim that record correctness is out of circuit.

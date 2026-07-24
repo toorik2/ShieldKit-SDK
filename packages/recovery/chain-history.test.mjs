@@ -31,13 +31,13 @@ async function historyFixture() {
   return { accountSeed, profileId, instanceId, initial, terminal, packets, actions, deposited, transferred };
 }
 
-test('authenticated packet history deterministically reconstructs V1 owned notes and nullifier state', async () => {
+test('authenticated packet history deterministically reconstructs V2 owned notes and nullifier state', async () => {
   const fixture = await historyFixture();
   const result = await recoverAuthenticatedChainHistory({
     accountSeed: fixture.accountSeed, profileId: fixture.profileId, instanceId: fixture.instanceId,
     history: { initialState: encodePortableActionState(fixture.initial), terminalState: encodePortableActionState(fixture.terminal), packets: fixture.packets },
   });
-  assert.equal(result.schema, 'shield.cash/chain-history-recovery/v1');
+  assert.equal(result.schema, 'shield.cash/chain-history-recovery/v2');
   assert.equal(result.notes.length, 2); assert.equal(result.unspentNotes.length, 1); assert.equal(result.unspentNotes[0].cm, fixture.transferred.output.cm);
   assert.equal(result.notes[0].noteIndex, '0'); assert.equal(result.notes[0].spentAtActionSequence, '2');
   assert.deepEqual(result.spentNullifiers, [result.notes[0].nf]);

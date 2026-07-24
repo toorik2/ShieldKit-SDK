@@ -38,7 +38,7 @@ async function makeInput(root, seed, destination, options = {}) {
   }));
   return {
     destination,
-    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v1' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
+    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v2' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
     setup: {
       mode: 'development-only', provenance: { method: 'local-initialization', initializerCommitment: digest(`initializer-${seed}`) },
       material: {

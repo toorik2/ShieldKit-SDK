@@ -12,7 +12,7 @@ The safe order is:
 2. Derive a recipient address from a caller-held seed; scan serialized BCH
    outputs supplied by the application and recover matching 192-byte records.
    For a contiguous caller-authenticated packet segment, call
-   `recoverAuthenticatedHistory` with a V1 account seed and exact initial and
+   `recoverAuthenticatedHistory` with a V2 account seed and exact initial and
    terminal state anchors; it locally reconstructs owned notes and their
    spent/unspent state without a service client.
 3. Require an explicit `local-only` prover capability, make witness-bound plans,
@@ -70,5 +70,5 @@ provider. The integrator supplies authenticated, ordered packets plus both
 state anchors; the helper detects malformed, duplicate, reordered, and
 truncated supplied history. It makes no raw-node synchronization, reorg,
 10,000-transition, archival-availability, or independent-implementation
-claim. Its `accountSeed` is the V1 seed defining one address for this profile
+claim. Its `accountSeed` is the V2 seed defining one address for this profile
 and instance, not an SDK-defined master/root hierarchy.

@@ -1,7 +1,15 @@
-# Recipient addresses and recovery records v1 (draft)
+# Recipient addresses and recovery records v1 (invalidated historical draft)
 
-Status: G1 candidate implementation specification. This document does not
-freeze a G2 profile, establish a deployed address format, or make a privacy,
+Status: **INVALIDATED.** This was the pre-V2 X25519/HKDF/ChaCha20-Poly1305
+draft. It is retained only to explain why old vectors, manifests, and Chipnet
+research evidence cannot qualify the current relation. It MUST NOT be used to
+construct an address, record, witness, profile, setup, genesis, or deployment.
+The active G1 candidate is [recovery-record-v2.md](recovery-record-v2.md).
+
+The old circuit did not prove the X25519 or AEAD construction described below;
+therefore its byte-bound record was not a context-bound recovery construction.
+No `recipient-address/v1` or `shielded-action-v1` material is compatible with
+the current V2 relation. This historical text makes no deployment, privacy,
 proof, BCH-VM, relay, or Chipnet claim.
 
 ## 1. Scope and constants
@@ -16,7 +24,7 @@ strings, without a `sha256:` prefix. `ak`, `rho`, `r`, and `cm` are canonical,
 nonzero, 32-byte big-endian BN254 scalar-field encodings. Every API object in
 this draft rejects missing and unknown properties.
 
-The current G1 circuit binds record bytes only. It does not verify X25519,
+The historical V1 circuit bound record bytes only. It did not verify X25519,
 HKDF, or AEAD. A wallet MUST decrypt and recompute every field below before it
 accepts a discovered note.
 

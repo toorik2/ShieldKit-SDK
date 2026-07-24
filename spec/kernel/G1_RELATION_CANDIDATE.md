@@ -2,7 +2,7 @@
 
 Status: G1 feasibility candidate; not a profile and not deployment material
 
-Version: 0.1.0
+Version: 0.2.0
 
 ## 1. Purpose and falsification boundary
 
@@ -17,9 +17,12 @@ hash instantiation, encryption construction, and BCH transaction topology.
 Changing any of those after G2 creates a new candidate and invalidates dependent
 evidence.
 
-This is not the archived `PoolActionV1` relation. In particular, the denomination
-is the frozen **10,000,000 satoshis**, and no digest-only circuit or synthetic
-verifier can satisfy this document.
+This is `shielded-action-v2`, not the archived `PoolActionV1` relation. In
+particular, the denomination is the frozen **10,000,000 satoshis**, and no
+digest-only circuit or synthetic verifier can satisfy this document. Its
+public-input ABI remains `shielded-action-public-input-v1`; the fixed 752-byte
+`SCAR` packet retains packet version byte `1` because V2 does not change its
+wire layout.
 
 ## 2. Candidate primitives
 
@@ -32,18 +35,19 @@ The G1 candidate evaluates these concrete choices:
 - note tree: append-only binary Merkle tree, candidate depth 32;
 - nullifier set: collision-fail-closed sparse binary Merkle tree, candidate
   depth 128;
-- recipient encryption: X25519, HKDF-SHA-256, and ChaCha20-Poly1305, performed
-  locally and bound by the action digest; and
+- recipient recovery: native-field BabyJubJub ECDH, Poseidon masks, and a
+  Poseidon authenticator constrained in the relation; and
 - note value: exactly `D = 10,000,000` satoshis.
 
 The final profile must pin source closure, versions, parameters, domain tags,
 byte encodings, generated vectors, and artifact hashes. A library name alone is
 not a primitive specification.
 
-The 128-level nullifier tree indexes the least-significant 128 bits of the
-canonical nullifier field encoding. This avoids the two structurally zero high
-bits of BN254 field encodings, but remains a feasibility candidate rather than
-a claim of 128-bit collision resistance for an unbounded population. A truncated-key
+The 128-level nullifier tree indexes `BE_u128(canonicalFr(nf)[16..32])`, the
+least-significant 128 bits of the canonical nullifier field encoding, traversed
+least-significant bit first. This avoids the two structurally zero high bits of
+BN254 field encodings, but remains a feasibility candidate rather than a claim
+of 128-bit collision resistance for an unbounded population. A truncated-key
 collision must reject without value creation. G1/G2 must publish its lifetime
 liveness bound or select a deeper tree.
 
@@ -252,26 +256,22 @@ The circuit proves the reserve transition. Covenants prove that the actual state
 input value, successor value, deposit contribution, withdrawal output, fee
 input, carrier values, change, and miner fee match the packet.
 
-## 9. Encrypted recovery record
+## 9. Recovery record v2
 
-An output action carries one fixed-size record containing:
+An output action carries the fixed 192-byte V2 record defined in
+[`recovery-record-v2.md`](../recovery-record-v2.md): `version=2`, `slot=0`, one
+canonical compressed BabyJubJub ephemeral point, canonical `c_rho`, `c_r`, and
+Poseidon authenticator fields, then 62 zero bytes. A withdrawal carries the
+all-zero inactive record.
 
-- record version and output slot;
-- ephemeral X25519 public key;
-- unique nonce;
-- ChaCha20-Poly1305 ciphertext and authentication tag; and
-- canonical zero padding.
-
-The plaintext contains the note fields required for recipient recovery plus the
-profile and instance identifiers. Associated data binds the network, profile,
-instance, action-packet header, output slot, and output commitment without
-creating a ciphertext/action-digest cycle. G2 must freeze the exact construction
-and length.
-
-The proof binds the record bytes and canonical active/inactive shape. Unless the
-chosen relation actually implements X25519 and AEAD verification, it must not
-claim ciphertext correctness. After decryption, the wallet recomputes `ak`,
-`cm`, profile, instance, and value and rejects any mismatch.
+The proof binds every record byte and constrains the active record's point
+canonicality, nonidentity and subgroup membership; the unique ephemeral scalar
+and its point; ECDH with a private recovery point; both Poseidon masks; the
+authenticator; and the exact output `rho`, `r`, `cm`, and `ak`. The private
+spend and recovery points are both bound into `ak`, so substituting either key
+cannot create a valid note. Neither stable public point is serialized into the
+record, avoiding public receipt linkage. The exact derivation and recovery
+procedure is normative in `recovery-record-v2.md`.
 
 ## 10. Required G1 artifacts and tests
 

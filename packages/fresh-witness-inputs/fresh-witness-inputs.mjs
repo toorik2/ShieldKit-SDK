@@ -1,4 +1,4 @@
-// Typed, local witness material for the pinned low128 G1 relation. This is
+// Typed, local witness material for the pinned V2 low128 G1 relation. This is
 // deliberately profile-bound and does not initialize setup, make proofs, or
 // construct BCH transactions.
 import { createHash } from 'node:crypto';
@@ -43,7 +43,7 @@ function deterministicRng(seed, label) {
     const chunks = [];
     while (Buffer.concat(chunks).length < length) {
       const count = Buffer.alloc(4); count.writeUInt32BE(counter++);
-      chunks.push(sha256(Buffer.from('shield.cash/fresh-witness-rng/v1\\0', 'utf8'), seed, Buffer.from(label, 'utf8'), count));
+      chunks.push(sha256(Buffer.from('shield.cash/fresh-witness-rng/v2\\0', 'utf8'), seed, Buffer.from(label, 'utf8'), count));
     }
     return Buffer.concat(chunks).subarray(0, length);
   } });
@@ -114,14 +114,14 @@ export async function generateFreshWitnessInputs(input) {
   hex32(input.withdrawalScriptHash, 'withdrawalScriptHash'); hex32(input.witnessSeed, 'witnessSeed');
   const bundle = await loadVerifierProfileBundle(input.bundleDirectory, input.expectedProfile);
   if (bundle.manifest.setup.mode !== 'development-only' || bundle.manifest.setup.provenance.method !== 'local-initialization') fail('fresh witness pipeline accepts only authenticated development-only local profiles');
-  if (bundle.manifest.network.name !== 'chipnet' || bundle.manifest.profile.relation.id !== 'shielded-action-v1' || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') fail('bundle does not select the pinned Chipnet low128 relation ABI');
+  if (bundle.manifest.network.name !== 'chipnet' || bundle.manifest.profile.relation.id !== 'shielded-action-v2' || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') fail('bundle does not select the pinned Chipnet V2 relation and packet ABI');
   const profileId = idHex(bundle.profileId, 'bundle profileId'); const instanceId = idHex(bundle.instanceId, 'bundle instanceId'); const maximumReserve = bundle.manifest.genesis.reserveCapSatoshis;
   const maximumLiveNotes = BigInt(maximumReserve) / DENOMINATION_SATS;
   const reference = await createShieldedTransitionReference(); const seed = Buffer.from(input.witnessSeed, 'hex');
   // The deterministic chain uses two separately domain-derived local wallets,
   // exercising the same public-recipient path as a cross-wallet sender.
-  const recipient1Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/deposit/v1\\0', 'utf8'), seed);
-  const recipient2Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/transfer/v1\\0', 'utf8'), seed);
+  const recipient1Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/deposit/v2\\0', 'utf8'), seed);
+  const recipient2Seed = sha256(Buffer.from('shield.cash/fresh-witness-wallet/transfer/v2\\0', 'utf8'), seed);
   const recipient1 = await deriveRecipientWallet({ seed: recipient1Seed, profileId, instanceId });
   const recipient2 = await deriveRecipientWallet({ seed: recipient2Seed, profileId, instanceId });
   const depositOutput = await constructRecipientOutput({ address: recipient1.address, kind: 'deposit', slot: 0, rng: deterministicRng(seed, 'deposit') });
@@ -151,5 +151,5 @@ export async function generateFreshWitnessInputs(input) {
     const recoveryWitness = kind === 'deposit' ? depositOutput.recoveryWitness : kind === 'transfer' ? transferOutput.recoveryWitness : undefined;
     result[kind] = Object.freeze({ action: actions[kind], actionPacket: prepared.actionPacket, actionPacketHex: prepared.actionPacket.toString('hex'), actionDigest: prepared.actionDigest, publicInputs: prepared.publicInputs, circuitInput: circuitInput({ kind, action: actions[kind], prepared, reference, maximumLiveNotes, recoveryEphemeralScalar: recoveryWitness?.ephemeralScalar ?? '0', recoverySpendPoint: recoveryWitness?.spendPoint, recoveryViewPoint: recoveryWitness?.recoveryPoint }) });
   }
-  return Object.freeze({ schema: 'shield.cash/fresh-witness-inputs/v1', qualification: 'development-only relation witness material; no proof, PF7 verification, G2 settlement, Chipnet, or privacy claim', profile: Object.freeze({ profileId, instanceId, stateNftCategory: bundle.manifest.genesis.stateNftCategory, reserveCapSatoshis: maximumReserve, setupMode: bundle.manifest.setup.mode }), actions: Object.freeze(result) });
+  return Object.freeze({ schema: 'shield.cash/fresh-witness-inputs/v2', qualification: 'development-only V2 relation witness material; no proof, PF7 verification, G2 settlement, Chipnet, or privacy claim', profile: Object.freeze({ profileId, instanceId, stateNftCategory: bundle.manifest.genesis.stateNftCategory, reserveCapSatoshis: maximumReserve, setupMode: bundle.manifest.setup.mode }), actions: Object.freeze(result) });
 }

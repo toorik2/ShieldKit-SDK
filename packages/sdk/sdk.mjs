@@ -76,7 +76,7 @@ export async function createDesktopWalletSdk(value) {
   // profile coordinates, not desktop-only bundle metadata.
   const portable = createBrowserWalletSdk({ profile: expected });
   return Object.freeze({
-    schema: 'shield.cash/desktop-wallet-sdk/v1',
+    schema: 'shield.cash/desktop-wallet-sdk/v2',
     profile,
     qualification: profile.setupMode === 'development-only'
       ? 'development-only local profile; not ceremony or production qualification'

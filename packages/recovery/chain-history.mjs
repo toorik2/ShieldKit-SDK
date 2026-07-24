@@ -75,7 +75,7 @@ function normaliseInput(value) {
 }
 
 /**
- * Recover one V1 account's notes from a caller-authenticated contiguous packet
+ * Recover one V2 account's notes from a caller-authenticated contiguous packet
  * segment. Start and terminal state anchors are mandatory: without them a
  * local parser cannot distinguish a complete history from a truncated prefix.
  */
@@ -98,7 +98,7 @@ export async function recoverAuthenticatedChainHistory(value) {
       }
     }
     if (decoded.kind !== 'withdrawal') {
-      // V1's current action shape has its single active output in slot zero.
+      // The current action shape has its single active output in slot zero.
       try {
         const note = await recoverRecipientOutput({ seed: input.accountSeed, profileId: input.profileId, instanceId: input.instanceId, kind: decoded.kind, slot: 0, outputCommitment: decoded.outputCommitment, record: decoded.outputRecord });
         if (notesByCommitment.has(note.cm)) fail('DUPLICATE_COMMITMENT', `packet ${index} repeats an owned output commitment`);
@@ -118,8 +118,8 @@ export async function recoverAuthenticatedChainHistory(value) {
   if (!exactState(previous, terminal)) fail('TERMINAL_STATE_MISMATCH', 'terminal state does not match the authenticated packet history');
   const frozenNotes = notes.map((note) => Object.freeze(note)); const unspentNotes = frozenNotes.filter((note) => note.spentAtActionSequence === null);
   return Object.freeze({
-    schema: 'shield.cash/chain-history-recovery/v1',
-    qualification: 'deterministic local packet reconstruction only; caller must authenticate BCH provenance, ordering, and both state anchors; no node sync, reorg, history-scale, or independent-implementation claim',
+    schema: 'shield.cash/chain-history-recovery/v2',
+    qualification: 'deterministic local V2 packet reconstruction only; caller must authenticate BCH provenance, ordering, and both state anchors; no node sync, reorg, history-scale, or independent-implementation claim',
     profileId: input.profileId, instanceId: input.instanceId, initialState: Object.freeze(initial), terminalState: Object.freeze(terminal),
     notes: Object.freeze(frozenNotes), unspentNotes: Object.freeze(unspentNotes), spentNullifiers: Object.freeze(frozenNotes.filter((note) => note.spentAtActionSequence !== null).map((note) => note.nf)),
   });
@@ -131,4 +131,4 @@ export function serializeChainHistoryActions(actions) {
   return Object.freeze(actions.map((action, index) => fieldsPacket(action, index)));
 }
 
-export const CHAIN_HISTORY_LAYOUT = Object.freeze({ schema: 'shield.cash/chain-history-recovery/v1', actionPacketBytes: 752, actionStateBytes: ACTION_STATE_BYTES, activeOutputSlot: 0 });
+export const CHAIN_HISTORY_LAYOUT = Object.freeze({ schema: 'shield.cash/chain-history-recovery/v2', actionPacketBytes: 752, actionPacketAbi: 'shielded-action-public-input-v1', actionStateBytes: ACTION_STATE_BYTES, activeOutputSlot: 0 });

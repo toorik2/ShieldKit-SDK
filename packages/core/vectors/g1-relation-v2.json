@@ -1,6 +1,6 @@
 {
   "schema": "shield.cash/g1-relation-reference-vector/v2",
-  "status": "non-proof deterministic reference fixture",
+  "status": "non-proof deterministic V2 relation reference fixture",
   "poseidon": {
     "implementation": "circomlibjs",
     "version": "0.1.7",

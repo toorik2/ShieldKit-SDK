@@ -41,7 +41,7 @@ export function createBrowserWalletSdk(value) {
   exactKeys(value, 'browser wallet SDK input', ['profile']);
   const profile = createProfileCoordinates(value.profile); const identity = recoveryIdentity(profile);
   return Object.freeze({
-    schema: 'shield.cash/browser-wallet-sdk/v1',
+    schema: 'shield.cash/browser-wallet-sdk/v2',
     profile,
     qualification: 'portable recovery binding only; no browser proving, chain synchronization, transaction broadcast, or device qualification claim',
     async deriveRecipientAddress(seed) { return deriveRecipientAddress({ seed, ...identity }); },

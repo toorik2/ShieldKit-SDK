@@ -84,7 +84,7 @@ async function bridgeInput(fixture, setupDirectory, destination) {
   const compiler = path.join(source, 'toolchain/compiler'); await mkdir(path.dirname(compiler), { recursive: true }); await writeFile(compiler, 'test-only compiler provenance\n');
   return {
     destination, setupMetadata: { sourcePath: setupMetadata, expectedSha256: digest(await readFile(setupMetadata)) },
-    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v1' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
+    profile: { proofSystem: 'groth16', curve: 'bn254', relation: { id: 'shielded-action-v2' }, publicInputAbi: { id: 'shielded-action-public-input-v1' } },
     toolchain: {
       compiler: { name: 'test-compiler', version: 'test-only', source: { sourcePath: compiler } },
       generator: { name: 'snarkjs', version: SNARKJS_VERSION, source: { sourcePath: fixture.generatorPath } },
@@ -142,6 +142,8 @@ test('two tiny real local setups bridge as distinct immutable development profil
 
 test('bridge rejects relabeling, metadata drift, key-source override, and existing profile destination', async (t) => {
   const fixture = await realFixture(t); const setup = await fixture.setup('setup'); const input = await bridgeInput(fixture, setup.directory, path.join(fixture.root, 'profile'));
+  const obsoleteRelation = structuredClone(input); obsoleteRelation.profile.relation.id = 'shielded-action-v1';
+  await assert.rejects(() => bridgeLocalSetupToProfile(obsoleteRelation), /profile relation must be shielded-action-v2/);
   const hashMismatch = structuredClone(input); hashMismatch.setupMetadata.expectedSha256 = `sha256:${'0'.repeat(64)}`;
   await assert.rejects(() => bridgeLocalSetupToProfile(hashMismatch), /setup metadata hash mismatch/);
 

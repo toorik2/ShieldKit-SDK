@@ -10,7 +10,7 @@ export interface SchnorrSignatureRequest {
   readonly signingSerialization: Uint8Array; readonly signingSerializationHex: string; readonly digest: Uint8Array; readonly digestHex: string;
 }
 export function createDesktopWalletSdk(value: { bundleDirectory: string; expectedProfile: import('./browser.mjs').ProfileCoordinates }): Promise<Readonly<{
-  schema: 'shield.cash/desktop-wallet-sdk/v1'; profile: import('./browser.mjs').ProfileCoordinates & { readonly bundleDirectory: string; readonly setupMode: string; readonly stateNftCategory: string };
+  schema: 'shield.cash/desktop-wallet-sdk/v2'; profile: import('./browser.mjs').ProfileCoordinates & { readonly bundleDirectory: string; readonly setupMode: string; readonly stateNftCategory: string };
   qualification: string; deriveRecipientAddress: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['deriveRecipientAddress'];
   constructRecipientOutput: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['constructRecipientOutput'];
   recoverChainOutput: ReturnType<typeof import('./browser.mjs').createBrowserWalletSdk>['recoverChainOutput'];

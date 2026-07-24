@@ -108,6 +108,7 @@ export async function deriveRecipientWallet(input) {
     const spendPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${spendSecret}`))));
     const recoveryPublicKey = bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(`0x${recoverySecret}`))));
     const authority = await deriveRecipientAuthority({ profileId, instanceId, spendPublicKey, recoveryPublicKey });
+    if (authority === '0'.repeat(64)) fail('ZERO_FIELD', 'recipient address authority must be nonzero');
     const address = Object.freeze({ schema: ADDRESS_SCHEMA, profileId, instanceId, ak: authority, spendPublicKey, recoveryPublicKey });
     return Object.freeze({ address, spendSecret, recoverySecret });
   } catch (error) { translate(error); }
@@ -178,7 +179,7 @@ export async function recoverRecipientOutput(input) {
 export const RECOVERY_RECORD_LAYOUT = Object.freeze({ bytes: OUTPUT_RECORD_BYTES, version: RECORD_VERSION, ciphertextBytes: RECOVERY_RECORD_CIPHERTEXT_BYTES, paddingBytes: RECOVERY_RECORD_PADDING_BYTES });
 
 // Kept as a separate module so the packet codec can remain browser-safe while
-// history recovery reuses the exact V1 record-opening primitive above.
+// History recovery reuses the exact V2 record-opening primitive above.
 export { CHAIN_HISTORY_LAYOUT, ChainHistoryRecoveryError, recoverAuthenticatedChainHistory, serializeChainHistoryActions } from './chain-history.mjs';
 export { decodePortableActionPacket, decodePortableActionState, encodePortableActionPacket, encodePortableActionState } from './portable-action-packet.mjs';
 export const RECIPIENT_ADDRESS_SCHEMA = ADDRESS_SCHEMA;

@@ -12,7 +12,7 @@ const exactKeys = (value, label, expected) => {
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) fail('UNKNOWN_PROPERTY', `${label} has missing or unknown properties`);
 };
 
-/** Validate the minimum Android JS bridge contract required by portable V1 recovery. */
+/** Validate the minimum Android JS bridge contract required by portable V2 recovery. */
 export function assertAndroidRuntimeContract(value) {
   exactKeys(value, 'Android runtime contract', ['bigInt', 'esModules', 'platform', 'uint8Array', 'webCryptoGetRandomValues']);
   if (value.platform !== 'android' || value.bigInt !== true || value.esModules !== true || value.uint8Array !== true || value.webCryptoGetRandomValues !== true) {
@@ -60,7 +60,7 @@ export function createAndroidWalletSdk(value) {
   const portable = createBrowserWalletSdk({ profile });
   return Object.freeze({
     ...portable,
-    schema: 'shield.cash/android-wallet-sdk/v1',
+    schema: 'shield.cash/android-wallet-sdk/v2',
     runtime,
     qualification: 'Android JavaScript binding contract only; no emulator, device, proving-performance, or app-RSS qualification claim',
   });

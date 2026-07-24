@@ -1,4 +1,4 @@
-// Runtime-neutral V1 byte primitives. This file intentionally has no Node or
+// Runtime-neutral V2 recovery primitives. This file intentionally has no Node or
 // WebCrypto imports: it runs in browsers, workers, and JavaScript Android hosts.
 import { sha256 } from '@noble/hashes/sha2.js';
 import { poseidon6, poseidon7, poseidon9 } from 'poseidon-lite';
@@ -127,7 +127,7 @@ function poseidonHash(tag, ...values) {
   if (inputs.length === 6) return poseidon6(inputs);
   if (inputs.length === 7) return poseidon7(inputs);
   if (inputs.length === 9) return poseidon9(inputs);
-  failCore('INTERNAL_POSEIDON_ARITY', 'unsupported V1 Poseidon input arity');
+  failCore('INTERNAL_POSEIDON_ARITY', 'unsupported V2 Poseidon input arity');
 }
 
 const identifierLimbs = (identifier, label) => {
@@ -143,7 +143,7 @@ export async function deriveRecipientAuthority({ profileId, instanceId, spendPub
   return frToHex(poseidonHash(1004n, ...profile, ...instance, spendPoint[0], spendPoint[1], recoveryPoint[0], recoveryPoint[1]));
 }
 
-/** Exact V1 recipient output commitment, independent of the Node reference module. */
+/** Exact V2 recipient output commitment, independent of the Node reference module. */
 export async function deriveOutputNote({ profileId, instanceId, ak, rho, r }) {
   const profile = identifierLimbs(profileId, 'output note profileId');
   const instance = identifierLimbs(instanceId, 'output note instanceId');
@@ -153,7 +153,7 @@ export async function deriveOutputNote({ profileId, instanceId, ak, rho, r }) {
   return Object.freeze({ ak: authority, cm, rho: nonce, r: randomness });
 }
 
-/** Exact V1 spendable note fields after a recipient record is authenticated. */
+/** Exact V2 spendable note fields after a recipient record is authenticated. */
 export async function deriveRecipientNote({ profileId, instanceId, spendSecret, recoveryPublicKey, rho, r }) {
   const secret = nonzeroFr(spendSecret, 'note spend secret');
   if (BigInt(`0x${secret}`) >= BABYJUB_SUBGROUP_ORDER) failCore('INVALID_SCALAR', 'note spend secret is outside the BabyJubJub subgroup order');

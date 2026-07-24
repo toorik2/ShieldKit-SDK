@@ -24,6 +24,8 @@ The candidate verifier-bundle boundary is specified in
 non-upgrade lifecycle and future ceremony-adapter contract are in
 [verifier-profile/lifecycle-v1.md](verifier-profile/lifecycle-v1.md).
 
-The candidate public-recipient-address and fixed encrypted-record construction
-is specified in [recovery-record-v1.md](recovery-record-v1.md). It is local
-wallet recovery logic, not a G2 freeze or a privacy claim.
+The current candidate public-recipient-address and fixed recovery-record
+construction is specified in [recovery-record-v2.md](recovery-record-v2.md).
+It is local wallet recovery logic, not a G2 freeze or a privacy claim. The
+former [recovery-record-v1.md](recovery-record-v1.md) is explicitly
+invalidated historical evidence, not a compatible construction.
