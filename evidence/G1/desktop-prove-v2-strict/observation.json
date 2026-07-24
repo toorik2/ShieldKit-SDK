@@ -1,0 +1,54 @@
+{
+  "schema": "shieldkit-sdk/g1-desktop-prove/v1",
+  "product": "ShieldKit-SDK",
+  "status": "real snarkjs groth16 prove+verify for three actions",
+  "claimBoundary": "Desktop/local snarkjs prove against development zkey/VK. Not p95 qualification, not BCH settlement, not Chipnet.",
+  "observedAt": "2026-07-24T03:49:38Z",
+  "backend": "snarkjs@0.7.6 groth16 prove/verify",
+  "zkeySha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a",
+  "vkSha256": "sha256:e52d09c35f38131955cea0beb85737e6951384eef1b02857c391d74520c7a164",
+  "actions": {
+    "deposit": {
+      "proof": {
+        "bytes": 806,
+        "sha256": "1ca9c82b7aa654f22e8a7b28c6bfddf7d177dfa35940b9964e36f6372f3ba9ec"
+      },
+      "public": {
+        "bytes": 90,
+        "sha256": "2ba24ad930d9fe02e68f489d3e355c6643022c0fe09c3907a64800ca8f4c7ad8"
+      },
+      "verify": "snarkjs groth16 verify OK"
+    },
+    "transfer": {
+      "proof": {
+        "bytes": 806,
+        "sha256": "277247c257d1f456f40672c4ad4bf4d1c1a8051237dce975916e81fff7a8b37c"
+      },
+      "public": {
+        "bytes": 88,
+        "sha256": "940e35d8f4dfea16a2326092c61ea501a64c9eacabf869b5bdd767dd532707f4"
+      },
+      "verify": "snarkjs groth16 verify OK"
+    },
+    "withdrawal": {
+      "proof": {
+        "bytes": 808,
+        "sha256": "968461c9325d68a0cf8bcb9b02b8adc3fc95b19ca6714ab94836158e083ec1bb"
+      },
+      "public": {
+        "bytes": 89,
+        "sha256": "a3a3a37443d83a035168a4cffb6b12c7d94ac26b57b8c7fbca851d60959b62bb"
+      },
+      "verify": "snarkjs groth16 verify OK"
+    }
+  },
+  "logExcerpt": [
+    "prove_deposit exit=0 wall=9.4 peak_rss_kib=2072",
+    "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: OK!",
+    "prove_transfer exit=0 wall=9.604 peak_rss_kib=2068",
+    "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: OK!",
+    "prove_withdrawal exit=0 wall=10.221 peak_rss_kib=2068",
+    "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: OK!"
+  ],
+  "artifactRoot": ".cache/desktop-prove-v2-strict"
+}

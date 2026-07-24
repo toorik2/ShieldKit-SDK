@@ -1,0 +1,30 @@
+{
+  "schema": "shieldkit-sdk/g1-development-setup/v1",
+  "product": "ShieldKit-SDK",
+  "status": "development-only local setup for post-strict-Fr V2 relation",
+  "claimBoundary": "Local snarkjs development-only setup. Not ceremony, Chipnet, G1 PASS, or release.",
+  "observedAt": "2026-07-24T03:49:38Z",
+  "r1csSha256": "sha256:6a797e696a4fe01f500b232270944f93e5e6f171906c37511748ab0f50df0e17",
+  "nConstraints": 651475,
+  "ptau": {
+    "ceremonyPower": 28,
+    "power": 20,
+    "sha256": "sha256:159d3f938d941e06767d99f30b9fe59a245400a4aae138cf8e411732d7a2f6cd",
+    "source": "hermez-powersOfTau28_hez_final_20"
+  },
+  "mode": "development-only",
+  "outputs": {
+    "final.zkey": {
+      "bytes": 339703080,
+      "sha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a"
+    },
+    "verification_key.json": {
+      "bytes": 3107,
+      "sha256": "sha256:e52d09c35f38131955cea0beb85737e6951384eef1b02857c391d74520c7a164"
+    },
+    "setup-metadata.json": {
+      "sha256": "sha256:99417756a1e57ce3f69fbe76827587ac6bf2b974a6a9f9faf68d4b122d714ccb"
+    }
+  },
+  "artifactRoot": ".cache/dev-setup-v2-strict/development-bundle"
+}

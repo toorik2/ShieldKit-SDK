@@ -5,3 +5,13 @@ coverage/
 dist/
 target/
 *.log
+
+# Project-local worktrees only — never create worktrees outside this repo
+.worktrees/*
+!.worktrees/README.md
+
+# Local handover / secrets — never commit without explicit user authorization
+HANDOVER.md
+**/*private*key*
+**/*.wif
+**/secrets/**

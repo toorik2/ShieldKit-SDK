@@ -1,6 +1,6 @@
 # G1 evidence status
 
-Updated: 2026-07-23
+Updated: 2026-07-24
 
 Gate verdict: **OPEN**
 
@@ -29,6 +29,8 @@ record, transparent fee input, canonical change output, carrier preparation,
 and at least five percent measured standardness headroom.
 
 Current decisive results:
+
+- **2026-07-24 ShieldKit-SDK post-`Num2Bits_strict` relation freeze** (`evidence/G1/relation-circuit/strict-fr-v2/`): dual-compile byte-identical R1CS/WASM/sym; three valid witnesses; 9/9 adversarial witness probes; package alias suite 4/4. Pre-repair R1CS/WASM hashes are non-authority. Not G1 PASS, setup, proof, or Chipnet.
 
 - the candidate relation now SHA-binds the exact 752-byte reference action
   packet and checks deposit, transfer, and withdrawal witnesses at 608,499
@@ -66,3 +68,14 @@ Current decisive results:
   comparison. Both bundles remain development-only; `exec0` remains 9,596 B,
   and neither bundle or deterministic comparison outpoint is a deployable
   genesis, BCHN, or Chipnet claim.
+
+
+## 2026-07-24 ShieldKit-SDK progress (post-strict-Fr)
+
+- Relation freeze: `evidence/G1/relation-circuit/strict-fr-v2/`
+- Dev setup: `evidence/G1/development-setup-v2-strict/`
+- Desktop prove: `evidence/G1/desktop-prove-v2-strict/`
+- PF7 fresh corpus: `evidence/G1/pf7-fresh-v2-strict/` (roles 0–6; ~55.3 kB context wire; unlocks ~9.27 kB)
+- Profile final: profileId `sha256:34d907599331997dfc67083742f0fcbb37b971687b1ae420658a172de2119c49`
+- Funding: **not ready** — complete settlement (inputs 7–9) still open (`evidence/G1/chipnet-funding-handoff-v2-strict/`)
+- Gate G1 remains **OPEN**
