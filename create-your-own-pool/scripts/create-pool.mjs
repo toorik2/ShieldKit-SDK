@@ -14,6 +14,8 @@
  *     --fund-txid <txid> --fund-vout 1 [--broadcast]
  *   # or auto-pick live fund (gettxout-verified; skips scantxoutset phantoms):
  *   npm run create-pool -- --out ./new-pool --with-genesis --scan-fund --broadcast
+ *   # privacy-ready capacity (default 16 live notes = 1.6 BCH reserve):
+ *   npm run create-pool -- --out ./new --with-genesis --scan-fund --max-notes 16 --broadcast
  */
 import { createHash } from 'node:crypto';
 import {
@@ -36,6 +38,12 @@ import {
   finalizeChipnetGenesisTransaction,
 } from '../packages/profile/genesis.mjs';
 import { resolveUnlockRoot, resolveLeanRoot, PIN_LENS } from '../packages/unlock-builder/index.mjs';
+import {
+  DEFAULT_MAX_NOTES,
+  resolvePoolCapacity,
+  capacityFromReserveCap,
+  capacitySummary,
+} from '../packages/kit/pool-capacity.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DEFAULT_PIN_ART = path.join(ROOT, '.cache/profile-build-live/artifacts');
@@ -213,6 +221,7 @@ async function withGenesis(out, opts) {
   const fundTxid = opts.fundTxid;
   const fundVout = Number(opts.fundVout);
   const categorySats = BigInt(opts.categorySats || '5000000');
+  const capacity = opts.capacity || resolvePoolCapacity(DEFAULT_MAX_NOTES);
 
   const utxo = bchnGetTxOut(fundTxid, fundVout);
   if (!utxo) throw new Error(`funding UTXO missing ${fundTxid}:${fundVout}`);
@@ -322,7 +331,7 @@ async function withGenesis(out, opts) {
     ],
     genesis: {
       categoryInputOutpoint: { txid: categoryTxid, vout: '0' },
-      reserveCapSatoshis: '10000000',
+      reserveCapSatoshis: capacity.reserveCapSatoshis,
     },
   });
 
@@ -382,6 +391,12 @@ async function withGenesis(out, opts) {
     categoryTxid,
     genesisTxid: finalized.transactionId,
     broadcast: !!opts.broadcast,
+    // Capacity is immutable at genesis (live anonymity set ceiling).
+    denominationSatoshis: capacity.denominationSatoshis,
+    reserveCapSatoshis: capacity.reserveCapSatoshis,
+    maxNotes: capacity.maxNotes,
+    maxLiveNotes: capacity.maxLiveNotes,
+    capacity: capacitySummary(capacity),
   };
   writeFileSync(path.join(out, 'instance.json'), JSON.stringify(instance, null, 2));
   writeFileSync(path.join(out, 'state.json'), JSON.stringify({
@@ -390,6 +405,11 @@ async function withGenesis(out, opts) {
       ? [{ txid: categoryTxid, vout: 1, sats: Number(change) }]
       : [],
     history: [],
+    capacity: {
+      maxLiveNotes: capacity.maxLiveNotes,
+      reserveCapSatoshis: capacity.reserveCapSatoshis,
+      denominationSatoshis: capacity.denominationSatoshis,
+    },
   }, null, 2));
   writeFileSync(path.join(out, '01-category-fund.json'), JSON.stringify({
     categoryTxid, categoryVout: 0, categorySats: categorySats.toString(), change: change.toString(),
@@ -408,6 +428,7 @@ async function withGenesis(out, opts) {
     categoryTxid,
     genesisTxid: finalized.transactionId,
     broadcast: !!opts.broadcast,
+    capacity,
   };
 }
 
@@ -421,6 +442,16 @@ async function main() {
     const categorySats = arg('category-sats', '5000000');
     // Need category + fee + non-dust change; default floor 12M for lab hot wallets.
     const minFund = Math.max(12_000_000, Number(categorySats) + 1_500_000);
+
+    // Capacity: --max-notes N  |  --reserve-cap <sats>  |  default 16 notes (1.6 BCH)
+    const capacity = arg('reserve-cap')
+      ? capacityFromReserveCap(arg('reserve-cap'))
+      : resolvePoolCapacity(arg('max-notes', String(DEFAULT_MAX_NOTES)));
+    console.error(JSON.stringify({
+      phase: 'pool-capacity',
+      ...capacity,
+      summary: capacitySummary(capacity),
+    }));
 
     let fundTxid = arg('fund-txid');
     let fundVout = arg('fund-vout', '1');
@@ -463,6 +494,7 @@ async function main() {
       fundTxid,
       fundVout,
       categorySats,
+      capacity,
       pinArtifacts: arg('pin-artifacts', DEFAULT_PIN_ART),
       broadcast: hasFlag('broadcast'),
     });
@@ -475,6 +507,11 @@ async function main() {
       categoryTxid: result.categoryTxid,
       genesisTxid: result.genesisTxid,
       fund: fundMeta,
+      capacity: result.capacity,
+      anonymity: {
+        maxLiveNotes: result.capacity.maxLiveNotes,
+        note: `Fill the pool with up to ${result.capacity.maxLiveNotes} deposits before a withdraw for a non-trivial live set`,
+      },
       broadcast: result.broadcast,
       unlockRoot,
       leanRoot,

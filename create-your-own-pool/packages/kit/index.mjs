@@ -17,4 +17,11 @@ export {
   InstanceError,
 } from '../profile/instance.mjs';
 export { completeAction, PIN_LENS } from './complete-action.mjs';
+export {
+  DENOMINATION_SATS,
+  DEFAULT_MAX_NOTES,
+  resolvePoolCapacity,
+  capacityFromReserveCap,
+  capacitySummary,
+} from './pool-capacity.mjs';
 // createDesktopComposition is internal (desktop.mjs) — not a product export.

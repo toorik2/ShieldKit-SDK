@@ -39,7 +39,21 @@ init (development-only | ceremony-production)
   → createKit / deposit | transfer | withdraw | recover
 ```
 
-New setup ⇒ **new profile + new genesis**. No hot-swap onto the playground.
+```bash
+# Privacy-ready Chipnet pool (default: 16 live notes = 1.6 BCH reserve cap)
+npm run create-pool -- --out ./my-pool --with-genesis --scan-fund --max-notes 16 --broadcast
+
+# Grow the live set (each deposit stacks an open note)
+npm run shieldkit -- deposit  --pool ./my-pool --wallets … --broadcast  # openNotes=1
+npm run shieldkit -- deposit  --pool ./my-pool --wallets … --broadcast  # openNotes=2
+npm run shieldkit -- deposit  --pool ./my-pool --wallets … --broadcast  # openNotes=3
+# Withdraw — wallet picks which of *your* notes; chain sees one of N live
+npm run shieldkit -- withdraw --pool ./my-pool --wallets … --broadcast  # openNotes=2
+```
+
+New setup ⇒ **new profile + new genesis**. No hot-swap onto the playground.  
+After genesis: **no admin / pause / upgrade key** — capacity and scripts are frozen.  
+Live anonymity set size = live notes at spend time (≤ `maxLiveNotes`), not historical deposits alone.
 
 ## Layout
 

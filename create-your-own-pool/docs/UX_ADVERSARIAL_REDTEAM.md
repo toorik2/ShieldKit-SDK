@@ -53,6 +53,7 @@ Method: attack the **user journey**, not crypto hardness.
 | B9 | Unlock `tsx` EADDRINUSE under deep `.cache/...` paths | **Fixed:** short `/tmp/sk-ul-*` TMPDIR in unlock-builder |
 | B10 | scantxoutset phantom spent UTXOs as fund | **Fixed:** create-pool `--scan-fund` / always gettxout-verify |
 | B11 | GATE_FAIL retries stuck on single fee | **Fixed:** scan-fees-on-retry + prefer ≥2 live fees upfront |
+| B12 | Genesis reserveCap=1 note ⇒ live anonymity set trivial | **Fixed:** default `--max-notes 16`; witness openNotes stacking; live multi-deposit e2e |
 
 **Verify:** `.cache/fix-unattended-d2w/` — D→T→W all `exit 0`, `historyLen=1` only after withdraw, no hand-edited state mid-cycle.  
 **Verify B10/B11:** `.cache/fix-scanfund-smoke/` — `staleSkipped:1` on create; transfer GATE_FAIL attempt1 → rescan → ok attempt2.

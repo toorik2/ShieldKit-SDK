@@ -156,107 +156,171 @@ async function materializeCycleNotes(reference, profileId, instanceId, seed) {
 }
 
 /**
- * Build one cycle continuing from `tip` tree/state.
- * `transferHops`: 0 = deposit→withdrawal (skip transfer); 1 = deposit→transfer→withdrawal (default).
- * Mutates tip in place.
+ * Append one deposit note onto `tip` (allows liveNoteCount > 0).
+ * This is the multi-note anonymity path: stack deposits before any withdraw.
+ * Mutates tip in place. Returns the deposit action object.
  */
-function advanceOneCycle(reference, profileId, instanceId, tip, material, digests, withdrawalScriptHash, transferHops = 1) {
-  if (transferHops !== 0 && transferHops !== 1) fail('transferHops must be 0 or 1 in this build');
-  const { note1, note2, outputNote1, outputNote2, leaf1, leaf2, nfLeaf1, nfLeaf2, key1, key2, depositOutput, transferOutput } = material;
+function advanceDepositOntoTip(reference, profileId, instanceId, tip, material, depositDigest) {
+  const { note1, outputNote1, leaf1, depositOutput } = material;
   const baseSeq = BigInt(tip.state.actionSequence);
   const baseLive = BigInt(tip.state.liveNoteCount);
   const baseReserve = BigInt(tip.state.reserveSats);
-  if (baseLive !== 0n || baseReserve !== 0n) fail('cycle advance requires empty live set (post-withdrawal tip)');
+  const maximum = BigInt(tip.state.maximumReserve);
+  if (baseReserve + DENOMINATION_SATS > maximum) {
+    fail(`deposit would exceed maximum reserve (live=${baseLive}, maxReserve=${maximum})`);
+  }
   const depIndex = tip.noteLeaves.length;
-  const xferIndex = depIndex + 1;
-  // Append path: existing leaves only (leaf not yet present).
+  if (String(depIndex) !== tip.state.nextLeafIndex) {
+    fail(`note leaf index desync tip.leaves=${depIndex} state.nextLeaf=${tip.state.nextLeafIndex}`);
+  }
   const depSiblings = noteTreeSiblings(reference, tip.noteLeaves, depIndex);
   const depositPost = reference.buildState({
     ...tip.state,
     noteRoot: frToHex(rootFromPath(reference, leaf1, BigInt(depIndex), depSiblings, DOMAIN_TAGS.NOTE_TREE_NODE)),
     nextLeafIndex: String(depIndex + 1),
     actionSequence: (baseSeq + 1n).toString(),
-    liveNoteCount: '1',
-    reserveSats: DENOMINATION_SATS.toString(),
+    liveNoteCount: (baseLive + 1n).toString(),
+    reserveSats: (baseReserve + DENOMINATION_SATS).toString(),
   });
   const deposit = {
     kind: 'deposit', networkId: 2, profileId, instanceId,
     preState: tip.state, postState: depositPost,
     depositSats: DENOMINATION_SATS.toString(), outputNote: outputNote1,
     noteAppendPath: { siblings: depSiblings }, outputRecord: depositOutput.record,
-    transactionContextDigest: digests.deposit,
+    transactionContextDigest: depositDigest,
   };
-  const afterDepositLeaves = [...tip.noteLeaves, leaf1];
-
-  if (transferHops === 0) {
-    // deposit → withdrawal (spend deposit note directly; no on-chain transfer)
-    const spendDepSiblings = noteTreeSiblings(reference, afterDepositLeaves, depIndex);
-    const nfPath1 = sparsePath(reference, key1, new Map(tip.nullifierLeaves));
-    const withdrawalPost = reference.buildState({
-      ...depositPost,
-      nullifierRoot: frToHex(rootFromPath(reference, nfLeaf1, key1, nfPath1, DOMAIN_TAGS.NULLIFIER_TREE_NODE)),
-      actionSequence: (baseSeq + 2n).toString(),
-      liveNoteCount: '0',
-      reserveSats: '0',
-    });
-    const withdrawal = {
-      kind: 'withdrawal', networkId: 2, profileId, instanceId,
-      preState: depositPost, postState: withdrawalPost,
-      spend: { note: note1, noteIndex: String(depIndex), noteSiblings: spendDepSiblings, nullifierSiblings: nfPath1 },
-      withdrawal: { amountSats: DENOMINATION_SATS.toString(), scriptHash: withdrawalScriptHash },
-      outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES),
-      transactionContextDigest: digests.withdrawal,
-    };
-    tip.noteLeaves = afterDepositLeaves;
-    tip.nullifierLeaves = new Map(tip.nullifierLeaves);
-    tip.nullifierLeaves.set(key1.toString(), nfLeaf1);
-    tip.state = withdrawalPost;
-    return { deposit, transfer: null, withdrawal, depositOutput, transferOutput, transferHops: 0 };
-  }
-
-  // Spend deposit note against depositPost tree (auth path includes self leaf slot).
-  const spendDepSiblings = noteTreeSiblings(reference, afterDepositLeaves, depIndex);
-  const xferSiblings = noteTreeSiblings(reference, afterDepositLeaves, xferIndex);
-  const nfPath1 = sparsePath(reference, key1, new Map(tip.nullifierLeaves));
-  const transferPost = reference.buildState({
-    ...depositPost,
-    noteRoot: frToHex(rootFromPath(reference, leaf2, BigInt(xferIndex), xferSiblings, DOMAIN_TAGS.NOTE_TREE_NODE)),
-    nullifierRoot: frToHex(rootFromPath(reference, nfLeaf1, key1, nfPath1, DOMAIN_TAGS.NULLIFIER_TREE_NODE)),
-    nextLeafIndex: String(xferIndex + 1),
-    actionSequence: (baseSeq + 2n).toString(),
+  tip.noteLeaves = [...tip.noteLeaves, leaf1];
+  tip.openNoteMeta = tip.openNoteMeta || [];
+  tip.openNoteMeta.push({
+    noteIndex: depIndex,
+    leaf: leaf1,
+    note1: material.note1,
+    key1: material.key1,
+    nfLeaf1: material.nfLeaf1,
+    witnessSeed: material.witnessSeedHex || null,
   });
-  const transfer = {
-    kind: 'transfer', networkId: 2, profileId, instanceId,
-    preState: depositPost, postState: transferPost,
-    spend: { note: note1, noteIndex: String(depIndex), noteSiblings: spendDepSiblings, nullifierSiblings: nfPath1 },
-    outputNote: outputNote2, noteAppendPath: { siblings: xferSiblings }, outputRecord: transferOutput.record,
-    transactionContextDigest: digests.transfer,
-  };
-  const afterTransferLeaves = [...afterDepositLeaves, leaf2];
-  const spendXferSiblings = noteTreeSiblings(reference, afterTransferLeaves, xferIndex);
-  const nullifiersAfterTransfer = new Map(tip.nullifierLeaves);
-  nullifiersAfterTransfer.set(key1.toString(), nfLeaf1);
-  const nfPath2 = sparsePath(reference, key2, nullifiersAfterTransfer);
+  tip.state = depositPost;
+  return deposit;
+}
+
+/**
+ * Withdraw the last open (live) note on tip. Mutates tip.
+ */
+function advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, withdrawalDigest) {
+  const meta = tip.openNoteMeta;
+  if (!meta?.length) fail('withdrawal requires at least one open live note');
+  const open = meta[meta.length - 1];
+  const baseSeq = BigInt(tip.state.actionSequence);
+  const baseLive = BigInt(tip.state.liveNoteCount);
+  const baseReserve = BigInt(tip.state.reserveSats);
+  if (baseLive < 1n || baseReserve < DENOMINATION_SATS) fail('withdrawal underflows live reserve');
+  const spendSiblings = noteTreeSiblings(reference, tip.noteLeaves, open.noteIndex);
+  const nfPath = sparsePath(reference, open.key1, new Map(tip.nullifierLeaves));
   const withdrawalPost = reference.buildState({
-    ...transferPost,
-    nullifierRoot: frToHex(rootFromPath(reference, nfLeaf2, key2, nfPath2, DOMAIN_TAGS.NULLIFIER_TREE_NODE)),
-    actionSequence: (baseSeq + 3n).toString(),
-    liveNoteCount: '0',
-    reserveSats: '0',
+    ...tip.state,
+    nullifierRoot: frToHex(rootFromPath(reference, open.nfLeaf1, open.key1, nfPath, DOMAIN_TAGS.NULLIFIER_TREE_NODE)),
+    actionSequence: (baseSeq + 1n).toString(),
+    liveNoteCount: (baseLive - 1n).toString(),
+    reserveSats: (baseReserve - DENOMINATION_SATS).toString(),
   });
   const withdrawal = {
     kind: 'withdrawal', networkId: 2, profileId, instanceId,
-    preState: transferPost, postState: withdrawalPost,
-    spend: { note: note2, noteIndex: String(xferIndex), noteSiblings: spendXferSiblings, nullifierSiblings: nfPath2 },
+    preState: tip.state, postState: withdrawalPost,
+    spend: {
+      note: open.note1,
+      noteIndex: String(open.noteIndex),
+      noteSiblings: spendSiblings,
+      nullifierSiblings: nfPath,
+    },
     withdrawal: { amountSats: DENOMINATION_SATS.toString(), scriptHash: withdrawalScriptHash },
     outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES),
-    transactionContextDigest: digests.withdrawal,
+    transactionContextDigest: withdrawalDigest,
   };
-  tip.noteLeaves = afterTransferLeaves;
-  tip.nullifierLeaves = nullifiersAfterTransfer;
-  tip.nullifierLeaves.set(key2.toString(), nfLeaf2);
+  tip.nullifierLeaves = new Map(tip.nullifierLeaves);
+  tip.nullifierLeaves.set(open.key1.toString(), open.nfLeaf1);
+  tip.openNoteMeta = meta.slice(0, -1);
   tip.state = withdrawalPost;
-  return { deposit, transfer, withdrawal, depositOutput, transferOutput, transferHops: 1 };
+  return withdrawal;
+}
+
+/**
+ * Transfer the last open note → new note (live count unchanged). Mutates tip.
+ */
+function advanceTransferOpenTip(reference, profileId, instanceId, tip, material, transferDigest) {
+  const meta = tip.openNoteMeta;
+  if (!meta?.length) fail('transfer requires at least one open live note');
+  const open = meta[meta.length - 1];
+  const { note2, outputNote2, leaf2, nfLeaf2, key2, transferOutput } = material;
+  const baseSeq = BigInt(tip.state.actionSequence);
+  const xferIndex = tip.noteLeaves.length;
+  const spendSiblings = noteTreeSiblings(reference, tip.noteLeaves, open.noteIndex);
+  const xferSiblings = noteTreeSiblings(reference, tip.noteLeaves, xferIndex);
+  const nfPath = sparsePath(reference, open.key1, new Map(tip.nullifierLeaves));
+  const transferPost = reference.buildState({
+    ...tip.state,
+    noteRoot: frToHex(rootFromPath(reference, leaf2, BigInt(xferIndex), xferSiblings, DOMAIN_TAGS.NOTE_TREE_NODE)),
+    nullifierRoot: frToHex(rootFromPath(reference, open.nfLeaf1, open.key1, nfPath, DOMAIN_TAGS.NULLIFIER_TREE_NODE)),
+    nextLeafIndex: String(xferIndex + 1),
+    actionSequence: (baseSeq + 1n).toString(),
+    // live + reserve unchanged
+  });
+  const transfer = {
+    kind: 'transfer', networkId: 2, profileId, instanceId,
+    preState: tip.state, postState: transferPost,
+    spend: {
+      note: open.note1,
+      noteIndex: String(open.noteIndex),
+      noteSiblings: spendSiblings,
+      nullifierSiblings: nfPath,
+    },
+    outputNote: outputNote2,
+    noteAppendPath: { siblings: xferSiblings },
+    outputRecord: transferOutput.record,
+    transactionContextDigest: transferDigest,
+  };
+  tip.noteLeaves = [...tip.noteLeaves, leaf2];
+  tip.nullifierLeaves = new Map(tip.nullifierLeaves);
+  tip.nullifierLeaves.set(open.key1.toString(), open.nfLeaf1);
+  tip.openNoteMeta = [
+    ...meta.slice(0, -1),
+    {
+      noteIndex: xferIndex,
+      leaf: leaf2,
+      note1: note2,
+      key1: key2,
+      nfLeaf1: nfLeaf2,
+      witnessSeed: material.witnessSeedHex || null,
+    },
+  ];
+  tip.state = transferPost;
+  return transfer;
+}
+
+/**
+ * Legacy single-note cycle: requires empty live set, ends empty after withdrawal.
+ * Used when openNotes is empty (classic D→T→W battery).
+ */
+function advanceOneCycle(reference, profileId, instanceId, tip, material, digests, withdrawalScriptHash, transferHops = 1) {
+  if (transferHops !== 0 && transferHops !== 1) fail('transferHops must be 0 or 1 in this build');
+  const baseLive = BigInt(tip.state.liveNoteCount);
+  const baseReserve = BigInt(tip.state.reserveSats);
+  if (baseLive !== 0n || baseReserve !== 0n) {
+    fail('full cycle advance requires empty live set (use openNotes stacking for multi-note)');
+  }
+  const deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit);
+  if (transferHops === 0) {
+    const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal);
+    return {
+      deposit, transfer: null, withdrawal,
+      depositOutput: material.depositOutput, transferOutput: material.transferOutput, transferHops: 0,
+    };
+  }
+  const transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer);
+  const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal);
+  return {
+    deposit, transfer, withdrawal,
+    depositOutput: material.depositOutput, transferOutput: material.transferOutput, transferHops: 1,
+  };
 }
 
 function finalizeActions(reference, maximumLiveNotes, actions, depositOutput, transferOutput) {
@@ -279,20 +343,24 @@ function finalizeActions(reference, maximumLiveNotes, actions, depositOutput, tr
 }
 
 /**
- * Generate a valid, deterministic three-action chain for one authenticated
- * development-only bundle. `transactionContextDigests` are supplied by the
- * fixed-point settlement builder and are never fabricated here.
+ * Generate relation-valid witness material for one authenticated development-only bundle.
  *
- * Optional `priorCycles`: array of `{ witnessSeed, transactionContextDigests }`
- * already settled on the same profile/instance. Trees and actionSequence continue
- * from that history so multi-cycle Chipnet batteries stay state-continuous.
+ * Modes:
+ * 1. **Full cycle** (default): empty tip → D→[T]→W ending empty. Uses `priorCycles` of completed full cycles.
+ * 2. **Open-note stack** (`priorOpenNotes`): live notes already on tip. Deposit stacks; transfer/withdraw act on LIFO open note.
+ *
+ * `transactionContextDigests` come from the fixed-point settlement builder (never fabricated here).
  */
 export async function generateFreshWitnessInputs(input) {
   const optionalPrior = input.priorCycles !== undefined;
+  const optionalOpen = input.priorOpenNotes !== undefined;
   const optionalHops = input.transferHops !== undefined;
+  const optionalKind = input.actionKind !== undefined;
   const required = ['bundleDirectory', 'expectedProfile', 'transactionContextDigests', 'withdrawalScriptHash', 'witnessSeed'];
   if (optionalPrior) required.push('priorCycles');
+  if (optionalOpen) required.push('priorOpenNotes');
   if (optionalHops) required.push('transferHops');
+  if (optionalKind) required.push('actionKind');
   exactKeys(input, 'fresh witness input', required);
   if (typeof input.bundleDirectory !== 'string' || input.bundleDirectory.length === 0) fail('bundleDirectory must be non-empty');
   exactKeys(input.expectedProfile, 'expectedProfile', ['instanceId', 'network', 'profileId']);
@@ -305,6 +373,8 @@ export async function generateFreshWitnessInputs(input) {
   hex32(input.withdrawalScriptHash, 'withdrawalScriptHash'); hex32(input.witnessSeed, 'witnessSeed');
   const transferHops = optionalHops ? Number(input.transferHops) : 1;
   if (transferHops !== 0 && transferHops !== 1) fail('transferHops must be 0 (deposit-withdraw) or 1 (full)');
+  const actionKind = optionalKind ? input.actionKind : null;
+  if (actionKind !== null && !KINDS.includes(actionKind)) fail('actionKind must be deposit|transfer|withdrawal');
   if (optionalPrior) {
     if (!Array.isArray(input.priorCycles)) fail('priorCycles must be an array');
     for (const [i, cycle] of input.priorCycles.entries()) {
@@ -319,6 +389,21 @@ export async function generateFreshWitnessInputs(input) {
       }
     }
   }
+  if (optionalOpen) {
+    if (!Array.isArray(input.priorOpenNotes)) fail('priorOpenNotes must be an array');
+    for (const [i, note] of input.priorOpenNotes.entries()) {
+      const keys = ['witnessSeed', 'depositDigest'];
+      if (note.phase !== undefined) keys.push('phase');
+      if (note.transferDigest !== undefined) keys.push('transferDigest');
+      exactKeys(note, `priorOpenNotes[${i}]`, keys);
+      hex32(note.witnessSeed, `priorOpenNotes[${i}].witnessSeed`);
+      hex32(note.depositDigest, `priorOpenNotes[${i}].depositDigest`);
+      if (note.phase !== undefined && note.phase !== 'deposit' && note.phase !== 'transfer') {
+        fail(`priorOpenNotes[${i}].phase must be deposit|transfer`);
+      }
+      if (note.transferDigest !== undefined) hex32(note.transferDigest, `priorOpenNotes[${i}].transferDigest`);
+    }
+  }
   const bundle = await loadVerifierProfileBundle(input.bundleDirectory, input.expectedProfile);
   if (bundle.manifest.setup.mode !== 'development-only' || bundle.manifest.setup.provenance.method !== 'local-initialization') fail('fresh witness pipeline accepts only authenticated development-only local profiles');
   if (bundle.manifest.network.name !== 'chipnet' || bundle.manifest.profile.relation.id !== 'shielded-action-v2' || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') fail('bundle does not select the pinned Chipnet V2 relation and packet ABI');
@@ -329,18 +414,73 @@ export async function generateFreshWitnessInputs(input) {
     state: reference.emptyState({ profileId, instanceId, maximumReserve }),
     noteLeaves: [],
     nullifierLeaves: new Map(),
+    openNoteMeta: [],
   };
+  // 1) Completed full cycles (end empty live set; tree retains spent leaves).
   for (const cycle of input.priorCycles ?? []) {
     const seed = Buffer.from(cycle.witnessSeed, 'hex');
     const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
+    material.witnessSeedHex = cycle.witnessSeed;
     const hops = cycle.transferHops === undefined ? 1 : Number(cycle.transferHops);
     advanceOneCycle(reference, profileId, instanceId, tip, material, cycle.transactionContextDigests, input.withdrawalScriptHash, hops);
   }
+  // 2) Live open notes currently in the pool (multi-note anonymity set).
+  for (const open of input.priorOpenNotes ?? []) {
+    const seed = Buffer.from(open.witnessSeed, 'hex');
+    const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
+    material.witnessSeedHex = open.witnessSeed;
+    advanceDepositOntoTip(reference, profileId, instanceId, tip, material, open.depositDigest);
+    if (open.phase === 'transfer') {
+      if (!open.transferDigest) fail('priorOpenNotes transfer phase requires transferDigest');
+      advanceTransferOpenTip(reference, profileId, instanceId, tip, material, open.transferDigest);
+    }
+  }
+
   const seed = Buffer.from(input.witnessSeed, 'hex');
   const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
-  const advanced = advanceOneCycle(reference, profileId, instanceId, tip, material, input.transactionContextDigests, input.withdrawalScriptHash, transferHops);
-  const actions = { deposit: advanced.deposit, transfer: advanced.transfer, withdrawal: advanced.withdrawal };
-  const result = finalizeActions(reference, maximumLiveNotes, actions, advanced.depositOutput, advanced.transferOutput);
+  material.witnessSeedHex = input.witnessSeed;
+  const digests = input.transactionContextDigests;
+  const openCount = (input.priorOpenNotes ?? []).length;
+  const stackMode = openCount > 0 || actionKind === 'deposit' || actionKind === 'transfer' || actionKind === 'withdrawal';
+
+  let actions;
+  let depositOutput = material.depositOutput;
+  let transferOutput = material.transferOutput;
+  let transferHopsOut = transferHops;
+
+  if (stackMode && (openCount > 0 || actionKind)) {
+    // Multi-note / single-action path: build only the requested action onto live tip.
+    const kind = actionKind || 'deposit';
+    actions = { deposit: null, transfer: null, withdrawal: null };
+    if (kind === 'deposit') {
+      actions.deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit);
+    } else if (kind === 'transfer') {
+      actions.transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer);
+    } else {
+      // Withdraw spends LIFO open note — seed must match that open note's deposit seed.
+      // Rebuild: prior open notes already applied; if witnessSeed matches last open, use its material.
+      const last = (input.priorOpenNotes ?? [])[(input.priorOpenNotes ?? []).length - 1];
+      if (!last) fail('withdrawal requires priorOpenNotes (live notes)');
+      if (last.witnessSeed !== input.witnessSeed) {
+        fail('withdrawal witnessSeed must equal the open note being spent (LIFO seed)');
+      }
+      // Tip already includes all priorOpenNotes including the one to spend; withdraw it.
+      actions.withdrawal = advanceWithdrawOpenTip(
+        reference, profileId, instanceId, tip, input.withdrawalScriptHash, digests.withdrawal,
+      );
+    }
+    transferHopsOut = null;
+  } else {
+    // Classic empty→full-cycle→empty battery.
+    const advanced = advanceOneCycle(
+      reference, profileId, instanceId, tip, material, digests, input.withdrawalScriptHash, transferHops,
+    );
+    actions = { deposit: advanced.deposit, transfer: advanced.transfer, withdrawal: advanced.withdrawal };
+    depositOutput = advanced.depositOutput;
+    transferOutput = advanced.transferOutput;
+  }
+
+  const result = finalizeActions(reference, maximumLiveNotes, actions, depositOutput, transferOutput);
   return Object.freeze({
     schema: 'shield.cash/fresh-witness-inputs/v2',
     qualification: 'development-only V2 relation witness material; no proof, PF7 verification, G2 settlement, Chipnet, or privacy claim',
@@ -348,6 +488,8 @@ export async function generateFreshWitnessInputs(input) {
     actions: Object.freeze(result),
     tipState: Object.freeze({ ...tip.state }),
     priorCycleCount: (input.priorCycles ?? []).length,
-    transferHops,
+    priorOpenNoteCount: (input.priorOpenNotes ?? []).length,
+    liveNoteCount: tip.state.liveNoteCount,
+    transferHops: transferHopsOut,
   });
 }

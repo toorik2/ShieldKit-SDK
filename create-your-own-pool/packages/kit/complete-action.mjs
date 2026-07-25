@@ -161,14 +161,22 @@ export async function completeAction(input) {
 
   const transferHops = input.transferHops ?? 1;
   const priorCycles = input.priorCycles || [];
-  const w0 = await generateFreshWitnessInputs({
+  const priorOpenNotes = input.priorOpenNotes || [];
+  // Multi-note stack mode when open notes exist OR caller requests single-kind action.
+  const stackMode = priorOpenNotes.length > 0 || input.actionKind != null;
+  const witnessCommon = {
     bundleDirectory,
     expectedProfile,
-    transactionContextDigests: digests,
     withdrawalScriptHash: input.withdrawalScriptHash,
     witnessSeed: input.witnessSeed,
     priorCycles,
-    transferHops,
+    ...(stackMode
+      ? { priorOpenNotes, actionKind: input.actionKind || kind, transferHops: 0 }
+      : { transferHops }),
+  };
+  const w0 = await generateFreshWitnessInputs({
+    ...witnessCommon,
+    transactionContextDigests: digests,
   });
   if (!w0.actions[kind]) fail('WITNESS', `witness missing action for ${kind}`);
 
@@ -191,13 +199,8 @@ export async function completeAction(input) {
   const plan0 = await planCompleteSettlement(planInput0);
   const digests1 = { ...digests, [kind]: plan0.context.digestHex };
   const w1 = await generateFreshWitnessInputs({
-    bundleDirectory,
-    expectedProfile,
+    ...witnessCommon,
     transactionContextDigests: digests1,
-    withdrawalScriptHash: input.withdrawalScriptHash,
-    witnessSeed: input.witnessSeed,
-    priorCycles,
-    transferHops,
   });
   const plan1 = await planCompleteSettlement({
     ...planInput0,

@@ -12,6 +12,7 @@ import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import {
   PIN_LENS, resolveUnlockRoot, resolveLeanRoot,
 } from '../packages/unlock-builder/index.mjs';
+import { capacityFromReserveCap, capacitySummary } from '../packages/kit/pool-capacity.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=10'];
@@ -155,6 +156,31 @@ async function main() {
     pinLens: PIN_LENS,
     feeKeyPolicy: 'A=feePrivateKey | B=feePublicKey+feeSignature',
   });
+
+  // Live-note capacity / anonymity ceiling (immutable at genesis)
+  try {
+    const reserveCap = loaded?.manifest?.genesis?.reserveCapSatoshis
+      || instance?.reserveCapSatoshis
+      || state?.capacity?.reserveCapSatoshis;
+    if (reserveCap) {
+      const cap = capacityFromReserveCap(reserveCap);
+      const grade = cap.maxLiveNotes <= 1 ? 'trivial'
+        : cap.maxLiveNotes < 8 ? 'thin' : 'configured';
+      push('capacity.liveNotes', true, {
+        ...capacitySummary(cap),
+        reserveCapSatoshis: cap.reserveCapSatoshis,
+        maxLiveNotes: cap.maxLiveNotes,
+        privacyGrade: grade,
+        warning: grade === 'trivial'
+          ? 'maxLiveNotes=1 ⇒ live anonymity set is trivial; create with --max-notes ≥ 8 (default 16)'
+          : null,
+      });
+    } else {
+      push('capacity.liveNotes', false, { error: 'reserveCap unknown (missing genesis/instance)' });
+    }
+  } catch (e) {
+    push('capacity.liveNotes', false, { error: e.message });
+  }
 
   const failed = checks.filter((c) => !c.ok);
   const critical = failed.filter((c) => ['instance.json', 'bundle/', 'bundle.load', 'stateTxid', 'unlock.vendor'].includes(c.id));

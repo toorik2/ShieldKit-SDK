@@ -246,15 +246,16 @@ async function main() {
   })();
 
   // Ensure inventory once up front when using feeUtxos path.
-  // Prefer ≥2 large live fees so GATE_FAIL retries have diversity.
+  // Prefer ≥2 live fees ≥ need (deposit needs 11.5M; T/W need 1.5M).
   if (!fixedFunding && !hasFlag('no-scan-fees')) {
     const liveLarge = countLiveFees(state, need, new Set());
     if (liveLarge < 2) {
       try {
-        const n = scanFeesIntoState(state, hot.address, 1_500_000);
+        const n = scanFeesIntoState(state, hot.address, need);
         console.error(JSON.stringify({
           phase: 'scan-fees-auto',
           reason: liveLarge === 0 ? 'no-live-fee' : 'fee-diversity',
+          need,
           beforeLarge: liveLarge,
           ...n,
         }));
@@ -265,10 +266,34 @@ async function main() {
   }
 
   const wsh = createHash('sha256').update(Buffer.from(hot.lockingBytecodeHex, 'hex')).digest('hex');
-  const digests = state.resumeDigests || {
+  // Multi-note open set (live anonymity). Each entry: { witnessSeed, depositDigest }.
+  state.openNotes = Array.isArray(state.openNotes) ? state.openNotes : [];
+  const digests = {
     deposit: ZERO32, transfer: ZERO32, withdrawal: ZERO32,
   };
-  let witnessSeed = state.resumeSeed || randomBytes(32).toString('hex');
+  // Deposit always uses a fresh seed and stacks onto openNotes.
+  // Transfer/withdraw act on LIFO open note (seed = that note's deposit seed).
+  let witnessSeed;
+  let priorOpenNotes = [];
+  const mapOpen = (n) => ({
+    witnessSeed: n.witnessSeed,
+    depositDigest: n.depositDigest,
+    ...(n.phase === 'transfer' ? { phase: 'transfer', transferDigest: n.transferDigest } : { phase: 'deposit' }),
+  });
+  if (kind === 'deposit') {
+    witnessSeed = randomBytes(32).toString('hex');
+    priorOpenNotes = state.openNotes.map(mapOpen);
+  } else if (kind === 'transfer' || kind === 'withdrawal') {
+    if (state.openNotes.length === 0) {
+      throw new Error(`${kind} requires openNotes (deposit first to grow the live set)`);
+    }
+    const target = state.openNotes[state.openNotes.length - 1];
+    witnessSeed = target.witnessSeed;
+    // Rebuild all open notes including the one we spend (LIFO).
+    priorOpenNotes = state.openNotes.map(mapOpen);
+  } else {
+    witnessSeed = randomBytes(32).toString('hex');
+  }
   const priorCycles = priorCyclesFromState(state);
   const unlockRoot = resolveUnlockRoot();
   const stabilizeUnlockTemplate = loadStab(kind) || undefined;
@@ -334,7 +359,9 @@ async function main() {
         withdrawalScriptHash: wsh,
         withdrawalLockingBytecode: Buffer.from(hot.lockingBytecodeHex, 'hex'),
         priorCycles,
-        transferHops: 1,
+        priorOpenNotes,
+        actionKind: kind,
+        transferHops: 0,
         digests,
         stabilizeUnlockTemplate,
       });
@@ -358,13 +385,14 @@ async function main() {
 
         // On GATE_FAIL: rescan hot wallet for fee diversity (not only when inventory empty).
         // Intermittent genesis OP_VERIFY often clears with a different funding UTXO.
-        if (gateClass && !hasFlag('no-scan-fees') && attempt < MAX_ATTEMPTS) {
+        if (retriable && !hasFlag('no-scan-fees') && attempt < MAX_ATTEMPTS) {
           try {
-            const n = scanFeesIntoState(state, hot.address, 1_500_000);
+            const n = scanFeesIntoState(state, hot.address, need);
             console.error(JSON.stringify({
               phase: 'scan-fees-on-retry',
               attempt,
-              reason: 'GATE_FAIL-fee-diversity',
+              reason: gateClass ? 'GATE_FAIL-fee-diversity' : 'retry-fee-refresh',
+              need,
               rejected: rejected.size,
               ...n,
             }));
@@ -428,35 +456,41 @@ async function main() {
   }
 
   state.stateTxid = result.settleTxid;
-  state.resumeDigests = result.digests;
-  state.resumeSeed = witnessSeed;
   state.history = state.history || [];
+  // Clear legacy mid-cycle resume fields (openNotes is the live-set model).
+  delete state.resumeSeed;
+  delete state.resumeDigests;
 
-  // Full cycle only: push priorCycles row without extra keys. Mid-cycle: digests only.
   const dig = result.digests || {};
-  const cycleDone = dig.deposit && dig.deposit !== ZERO32
-    && dig.transfer && dig.transfer !== ZERO32
-    && dig.withdrawal && dig.withdrawal !== ZERO32;
-  if (kind === 'withdrawal' && cycleDone) {
-    if (!state.history.some((h) => h.witnessSeed === witnessSeed)) {
-      state.history.push({
-        witnessSeed,
-        transactionContextDigests: {
-          deposit: dig.deposit,
-          transfer: dig.transfer,
-          withdrawal: dig.withdrawal,
-        },
-      });
-    }
-    // Next cycle gets a fresh seed.
-    delete state.resumeSeed;
-    delete state.resumeDigests;
+  if (kind === 'deposit') {
+    state.openNotes.push({
+      witnessSeed,
+      depositDigest: dig.deposit,
+      phase: 'deposit',
+      settleTxid: result.settleTxid,
+    });
+  } else if (kind === 'transfer') {
+    // LIFO spend + replace with transfer-output note (same seed, phase=transfer).
+    if (state.openNotes.length === 0) throw new Error('transfer with empty openNotes');
+    const prev = state.openNotes[state.openNotes.length - 1];
+    state.openNotes = state.openNotes.slice(0, -1);
+    state.openNotes.push({
+      witnessSeed,
+      depositDigest: prev.depositDigest,
+      transferDigest: dig.transfer,
+      phase: 'transfer',
+      settleTxid: result.settleTxid,
+    });
+  } else if (kind === 'withdrawal') {
+    if (state.openNotes.length === 0) throw new Error('withdrawal with empty openNotes');
+    state.openNotes = state.openNotes.slice(0, -1);
   }
 
   writeFileSync(statePath, JSON.stringify(state, null, 2));
   appendFileSync(path.join(pool, 'ledger.jsonl'), `${JSON.stringify({
     ts: new Date().toISOString(), kind, prepTxid: result.prepTxid, settleTxid: result.settleTxid,
     wire: result.wire, unlockMs: result.unlockMs, broadcast: doBroadcast,
+    openNotes: state.openNotes.length,
   })}\n`);
 
   console.log(JSON.stringify({
@@ -474,8 +508,8 @@ async function main() {
     broadcast: doBroadcast,
     workDir,
     feeUtxos: (state.feeUtxos || []).length,
-    historyLen: (state.history || []).length,
-    cycleDone: !!(kind === 'withdrawal' && cycleDone),
+    openNotes: state.openNotes.length,
+    liveAnonymitySet: state.openNotes.length,
   }, null, 2));
   process.exit(0);
 }
