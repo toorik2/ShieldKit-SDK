@@ -1,6 +1,0 @@
-{
-  "name": "@shield.cash/native-prover-adapter",
-  "private": true,
-  "type": "module",
-  "scripts": {"test": "node --test native-prover-adapter.test.mjs"}
-}

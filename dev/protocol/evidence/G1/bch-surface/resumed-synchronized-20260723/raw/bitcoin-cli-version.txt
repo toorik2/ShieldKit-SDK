@@ -1,1 +1,0 @@
-Bitcoin Cash Node RPC client version v29.0.0-89a591f

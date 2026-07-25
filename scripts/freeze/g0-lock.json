@@ -1,0 +1,124 @@
+{
+  "schema": "shield.cash/g0-lock/v1",
+  "freezeId": "g0-v3",
+  "freezeTag": "g0-v3",
+  "status": "PASS",
+  "frozenAt": "2026-07-23",
+  "baseline": {
+    "repository": "/home/toorik/Projects/ZK-Proofs/verifier.cash",
+    "candidate": "bn254-onetx-pf6-a3-r1",
+    "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "scoreBytes": 54949,
+    "wireBytes": 54739
+  },
+  "selectedVerifier": {
+    "candidate": "bn254-onetx-pf7-sub62-r1",
+    "commit": "26468ae29004d2401619032de2a6ec8de269a4d6",
+    "inputs": 7,
+    "measuredReferenceWireBytes": 54296,
+    "measuredReferenceScoreBytes": 54541,
+    "measuredMaxUnlockingBytes": 9176,
+    "perInputUnlockingLimitBytes": 10000,
+    "completeTransactionWireLimitBytes": 59000,
+    "percentageHeadroomRequired": false,
+    "largerGenericFallbackAllowed": false
+  },
+  "feeModel": {
+    "type": "transparent-input-with-change",
+    "transparentInputs": 1,
+    "canonicalChangeOutputs": 1,
+    "carrierValuesMayContribute": true,
+    "poolReserveSubsidy": false,
+    "relayerRequired": false
+  },
+  "verifierProfile": {
+    "interface": "shield.cash/verifier-profile/v1",
+    "selection": "profile-bound-at-genesis",
+    "developmentSetup": {
+      "allowed": true,
+      "mode": "development-only",
+      "initializer": "local"
+    },
+    "productionSetup": {
+      "required": true,
+      "mode": "ceremony-production",
+      "multiPartyRandomness": true,
+      "transcriptRequired": true
+    },
+    "replacement": {
+      "newProfileRequired": true,
+      "newGenesisRequired": true,
+      "hotSwapExistingInstance": false
+    }
+  },
+  "deploymentTarget": {
+    "network": "chipnet",
+    "workingEndToEndRequired": true,
+    "mainnetAuthorized": false,
+    "funding": "Ask the user only after a fresh local address, exact amount, and transaction plan are ready."
+  },
+  "lockedDecisions": [
+    "D-001",
+    "D-002",
+    "D-003",
+    "D-004",
+    "D-005",
+    "D-006",
+    "D-007",
+    "D-008",
+    "D-009",
+    "D-010",
+    "D-011",
+    "D-012",
+    "D-013",
+    "D-014",
+    "D-015",
+    "D-016"
+  ],
+  "documents": [
+    {
+      "path": "scripts/freeze/AGENTS.md",
+      "sha256": "c413e22e82abad23371a321deb9df520cec7a0e297a70d99614fc2711a129854"
+    },
+    {
+      "path": "docs/CHARTER.md",
+      "sha256": "c956ae1b66b7d5d6bbb0d1159d76193bc88f3624b575a93d704abfcef011e24f"
+    },
+    {
+      "path": "scripts/freeze/docs/KILL_GATES.md",
+      "sha256": "d2e3dd2a2947fe3cf2032e9e03d62155041134daeee9776b6d94ac815233374f"
+    },
+    {
+      "path": "scripts/freeze/docs/OPEN_QUESTIONS.md",
+      "sha256": "2bbc12e645383c6b2c0d62ed531769bbad9a3f998096cae027c963c76a6c203e"
+    },
+    {
+      "path": "docs/PRIVACY.md",
+      "sha256": "018c7919822a5edf8a16a517da6419ad09debe3aeac9a75b5a06e10e5a2a35f2"
+    },
+    {
+      "path": "scripts/freeze/docs/BUILD_PLAN.md",
+      "sha256": "af75a60790fdc403bda00715b1866062faa6b8fe4fbd9287764a1d36c05cafe8"
+    },
+    {
+      "path": "scripts/freeze/docs/CHANGE_CONTROL.md",
+      "sha256": "c9cd1c55a14fe005bef7aaccf21fee169f1928c890488f41810ccce009223585"
+    },
+    {
+      "path": "scripts/check-policy.mjs",
+      "sha256": "21f94ea9e6233175de10f2c8f56bd92ff9f2fc8efad708c4a9aef8e7f3e8b1ea"
+    },
+    {
+      "path": "scripts/freeze/evidence.schema.json",
+      "sha256": "bb960e96f9eb7b5a819dc75306630c0c30d26dc4f8ceae4f7d0b314f754a6297"
+    },
+    {
+      "path": "scripts/freeze/change.schema.json",
+      "sha256": "bf53b177ef20ead51e609d1049c3d5269ca4e92c59f487d70effadeb181b7ad6"
+    },
+    {
+      "path": "package.json",
+      "sha256": "9032e36cef3494f0b20d8ab2d0b3e3f7e140441aa1769b94cded6b821f3234e5"
+    }
+  ]
+}

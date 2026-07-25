@@ -56,10 +56,9 @@ Missing inputs → **`ok: false`** (fail-closed).
 
 ```text
 packages/     kit · profile · action · prove · recover
-scripts/      shieldkit CLI + tests
+scripts/      shieldkit CLI · domain tests · freeze check
 examples/     demo-profile (Chipnet lab)
 docs/         charter · privacy · architecture
-dev/          protocol freeze + lab archives (not app surface)
 ```
 
 | Open | Purpose |
@@ -67,8 +66,8 @@ dev/          protocol freeze + lab archives (not app surface)
 | [`packages/kit`](packages/kit) | App integration (`createKit`) |
 | [`packages/profile`](packages/profile) | Birth a pool (dev or ceremony) |
 | [`examples/demo-profile`](examples/demo-profile) | Lab profile pointer |
-| [`docs/`](docs) | Product & protocol docs |
-| [`dev/`](dev) | Ignore unless you maintain protocol/gates |
+| [`docs/`](docs) | Product docs |
+| [`scripts/freeze/`](scripts/freeze) | Protocol freeze only (not app API) |
 
 ---
 

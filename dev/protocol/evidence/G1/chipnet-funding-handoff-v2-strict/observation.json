@@ -1,8 +1,0 @@
-{
-  "schema": "shieldkit-sdk/chipnet-funding-handoff/v1",
-  "status": "not-ready-for-funding",
-  "reason": "complete ten-input settlement assembly and BCHN policy evidence still open",
-  "profileId": "sha256:34d907599331997dfc67083742f0fcbb37b971687b1ae420658a172de2119c49",
-  "instanceId": "sha256:1cce04acbd7b6b9fd9f40aac36edaf18024e7e77bbd23d044d9785692850cb3b",
-  "observedAt": "2026-07-24T03:57:44Z"
-}

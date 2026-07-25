@@ -24,10 +24,10 @@ const git = (...args) => {
   }
 };
 
-const lock = json('dev/protocol/policy/g0-lock.json');
-const gates = json('dev/protocol/policy/gates.json');
-const decisions = read('docs/OPEN_QUESTIONS.md').toString('utf8');
-const killGates = read('docs/KILL_GATES.md').toString('utf8');
+const lock = json('scripts/freeze/g0-lock.json');
+const gates = json('scripts/freeze/gates.json');
+const decisions = read('scripts/freeze/docs/OPEN_QUESTIONS.md').toString('utf8');
+const killGates = read('scripts/freeze/docs/KILL_GATES.md').toString('utf8');
 
 if (lock.schema !== 'shield.cash/g0-lock/v1') fail('unsupported lock schema');
 if (gates.schema !== 'shield.cash/gates/v1') fail('unsupported gates schema');
@@ -94,11 +94,11 @@ if (gates.gates.G0.status === 'PASS') {
     fail(`G0 is PASS but freeze tag ${lock.freezeTag} is missing`);
   }
   // Byte-compare lock only when the freeze tag still contains the *current* path.
-  // After a layout migration (policy/ → dev/protocol/policy/), re-tag or set
+  // After a layout migration (policy → scripts/freeze/), re-tag or set
   // SHIELD_FREEZE_CANDIDATE=g0-v3 until a new freeze tag is cut.
   if (tagged && !candidateFreeze) {
-    const frozenManifest = git('show', `${lock.freezeTag}:dev/protocol/policy/g0-lock.json`);
-    const current = read('dev/protocol/policy/g0-lock.json').toString('utf8').trim();
+    const frozenManifest = git('show', `${lock.freezeTag}:scripts/freeze/g0-lock.json`);
+    const current = read('scripts/freeze/g0-lock.json').toString('utf8').trim();
     if (frozenManifest && frozenManifest !== current) {
       fail(`PASS lock manifest differs from ${lock.freezeTag}`);
     }
