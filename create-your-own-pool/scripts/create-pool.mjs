@@ -51,7 +51,7 @@ const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectT
 
 function bchnSendHex(hex) {
   const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `cat > /tmp/sk-create-pool.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-create-pool.hex)"`], {
+    `cat > /tmp/sk-create-pool.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-create-pool.hex)" true`], {
     encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
   });
   if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
@@ -106,15 +106,33 @@ async function scaffoldOnly(out, bundleSrc) {
     mode: 'scaffold-existing-tip',
   };
   writeFileSync(path.join(out, 'instance.json'), JSON.stringify(instance, null, 2));
+  // U-03: wire tip when operator supplies --state-txid or when pin tip file exists
+  const tipFromArg = process.argv.includes('--state-txid')
+    ? process.argv[process.argv.indexOf('--state-txid') + 1]
+    : null;
+  const tipFile = path.join(ROOT, '.cache/live-battery/run-20260724/state.json');
+  let tip = tipFromArg || null;
+  if (!tip && existsSync(tipFile)) {
+    try {
+      const live = JSON.parse(readFileSync(tipFile, 'utf8'));
+      // only auto-wire if instance matches live profile tip instance
+      if (live.stateTxid && live.instanceId === instance.instanceId) tip = live.stateTxid;
+      else if (live.stateTxid && !live.instanceId) {
+        // live battery tip for same pin profile (common dev path)
+        tip = live.stateTxid;
+      }
+    } catch { /* ignore */ }
+  }
   writeFileSync(path.join(out, 'state.json'), JSON.stringify({
-    stateTxid: loaded.manifest.genesis?.stateNftCategory
-      ? null
-      : null,
-    tipNote: 'For scaffold mode, set stateTxid to current tip of this instance (or run --with-genesis).',
+    stateTxid: tip,
+    tipSource: tipFromArg ? 'cli' : (tip ? 'live-battery-auto' : null),
+    tipNote: tip
+      ? 'Tip wired for act. Override with --state-txid or after --with-genesis.'
+      : 'No tip: pass --state-txid <txid> or run create-pool --with-genesis --broadcast (U-03).',
     feeUtxos: [],
     history: [],
   }, null, 2));
-  return { instance, loaded };
+  return { instance, loaded, tip };
 }
 
 async function withGenesis(out, opts) {
@@ -359,17 +377,20 @@ async function main() {
   }
 
   const bundleSrc = path.resolve(arg('bundle', DEFAULT_PIN_BUNDLE));
-  const { instance } = await scaffoldOnly(out, bundleSrc);
+  const { instance, tip } = await scaffoldOnly(out, bundleSrc);
   console.log(JSON.stringify({
     ok: true,
     mode: 'scaffold',
     out,
     profileId: instance.profileId,
     instanceId: instance.instanceId,
+    stateTxid: tip,
     unlockRoot,
     leanRoot,
     pinLens: PIN_LENS,
-    next: 'npm run create-pool -- --out <new> --with-genesis --fund-txid … --broadcast',
+    next: tip
+      ? 'npm run shieldkit -- doctor --pool ' + out
+      : 'npm run create-pool -- --out <new> --with-genesis --fund-txid … --broadcast',
   }, null, 2));
 }
 

@@ -57,8 +57,10 @@ function sshRetry(label, fn) {
 
 function bchnSendHex(hex) {
   return sshRetry('sendraw', () => {
+    // allowhighfees=true: large multi-input settlements can trip absolute fee policy
+    // even at exact 1 sat/B (BCHN default max absolute fee is conservative).
     const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-standalone.hex)"`], {
+      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-standalone.hex)" true`], {
       encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
     });
     if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
@@ -69,7 +71,7 @@ function bchnSendHex(hex) {
 function bchnTestMempool(hex) {
   return sshRetry('testmempool', () => {
     const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-standalone.hex)\\"]"`], {
+      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-standalone.hex)\\"]" true`], {
       encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
     });
     if (r.status !== 0) throw new Error(`testmempool: ${r.stderr || r.stdout}`);
@@ -158,45 +160,90 @@ async function main() {
   let witnessSeed = state.resumeSeed || randomBytes(32).toString('hex');
 
   const ledger = [];
+  const MAX_ATTEMPTS = 4;
   for (const kind of KINDS) {
-    const fee = pickFee(state, minSatsFor(kind));
-    console.log(JSON.stringify({ fee: true, kind, txid: fee.txid.slice(0, 16), vout: fee.vout, sats: fee.sats }));
-    const workDir = path.join(OUT, kind);
-    mkdirSync(workDir, { recursive: true });
-    const template = loadStab(kind);
-
-    const result = await completeAction({
-      kind,
-      bundleDirectory: BUNDLE,
-      expectedProfile,
-      stateTxid,
-      feePrivateKey,
-      funding: {
-        txid: fee.txid,
-        vout: fee.vout,
-        sats: fee.sats,
-        publicKeyHex: hot.publicKeyHex,
-      },
-      workDir,
-      witnessSeed,
-      withdrawalScriptHash: wsh,
-      withdrawalLockingBytecode,
-      priorCycles,
-      transferHops: 1,
-      digests,
-      stabilizeUnlockTemplate: template || undefined,
-    });
-
-    if (JSON.stringify(result.lens) !== JSON.stringify(PIN_LENS)) {
-      throw new Error(`pin lens mismatch ${JSON.stringify(result.lens)}`);
+    let result = null;
+    let lastErr = null;
+    const rejected = new Set();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let fee;
+      try {
+        // park rejected fees so pickFee cannot reselect
+        const parked = [];
+        state.feeUtxos = (state.feeUtxos || []).filter((u) => {
+          const k = `${u.txid}:${u.vout}`;
+          if (rejected.has(k)) { parked.push(u); return false; }
+          return true;
+        });
+        fee = pickFee(state, minSatsFor(kind));
+        for (const u of parked) pushFee(state, u);
+      } catch (e) {
+        lastErr = e;
+        break;
+      }
+      console.log(JSON.stringify({ fee: true, kind, attempt, txid: fee.txid.slice(0, 16), vout: fee.vout, sats: fee.sats }));
+      const workDir = path.join(OUT, `${kind}-a${attempt}`);
+      mkdirSync(workDir, { recursive: true });
+      const template = loadStab(kind);
+      try {
+        result = await completeAction({
+          kind,
+          bundleDirectory: BUNDLE,
+          expectedProfile,
+          stateTxid,
+          feePrivateKey,
+          funding: {
+            txid: fee.txid,
+            vout: fee.vout,
+            sats: fee.sats,
+            publicKeyHex: hot.publicKeyHex,
+          },
+          workDir,
+          witnessSeed,
+          withdrawalScriptHash: wsh,
+          withdrawalLockingBytecode,
+          priorCycles,
+          transferHops: 1,
+          digests,
+          stabilizeUnlockTemplate: template || undefined,
+        });
+        if (JSON.stringify(result.lens) !== JSON.stringify(PIN_LENS)) {
+          throw new Error(`pin lens mismatch ${JSON.stringify(result.lens)}`);
+        }
+        if (!String(result.unlockRoot).includes(`${path.sep}vendor${path.sep}`)) {
+          throw new Error(`not standalone unlock root: ${result.unlockRoot}`);
+        }
+        // success path continues below
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        // Prefer alternate funding UTXO; if none, reuse same fee with fresh witness seed
+        // (prep not broadcast yet).
+        rejected.add(`${fee.txid}:${fee.vout}`);
+        const otherLarge = (state.feeUtxos || []).some((u) => u.sats >= minSatsFor(kind)
+          && !rejected.has(`${u.txid}:${u.vout}`) && gettxout(u.txid, u.vout));
+        if (!otherLarge) {
+          rejected.delete(`${fee.txid}:${fee.vout}`);
+          pushFee(state, fee);
+          witnessSeed = randomBytes(32).toString('hex');
+        }
+        console.log(JSON.stringify({
+          attempt_fail: true, kind, attempt,
+          error: String(e.message || e).slice(0, 160),
+          code: e.code,
+          rotateWitness: !otherLarge,
+        }));
+        // retry unlock/VM class failures
+        if (!/gateOk|OP_VERIFY|GATE_FAIL|BUILD_EXIT|unlock build|libauth|pin lens/i.test(String(e.message || e) + String(e.code || ''))) {
+          throw e;
+        }
+      }
     }
-    if (!String(result.unlockRoot).includes(`${path.sep}vendor${path.sep}`)) {
-      throw new Error(`not standalone unlock root: ${result.unlockRoot}`);
-    }
+    if (!result) throw lastErr || new Error(`${kind} failed after ${MAX_ATTEMPTS} attempts`);
 
     const prepAccept = bchnTestMempool(result.prepHex);
     if (!prepAccept[0]?.allowed) {
-      pushFee(state, fee);
       throw new Error(`${kind} prep mempool reject ${JSON.stringify(prepAccept)}`);
     }
     bchnSendHex(result.prepHex);
@@ -206,17 +253,25 @@ async function main() {
     }
     bchnSendHex(result.settleHex);
 
-    // harvest change to hot
+    // Harvest settle change + prep change (prep leftover is usually the large fee for next kinds).
     for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
       const o = result.complete.transaction.outputs[i];
       if (Buffer.from(o.lockingBytecode).toString('hex') === hot.lockingBytecodeHex) {
         pushFee(state, { txid: result.settleTxid, vout: i, sats: Number(o.valueSatoshis) });
       }
     }
+    if (Array.isArray(result.prepHotChange)) {
+      for (const u of result.prepHotChange) pushFee(state, u);
+    }
 
     digests = result.digests;
     stateTxid = result.settleTxid;
     state.stateTxid = stateTxid;
+    // Mid-cycle: digests only. Do NOT push history until full cycle completes
+    // (priorCycles must exclude the in-flight witnessSeed or nullifiers collide).
+    state.resumeDigests = digests;
+    state.resumeSeed = witnessSeed;
+    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
     const row = {
       kind,
       prepTxid: result.prepTxid,
@@ -235,8 +290,16 @@ async function main() {
     appendFileSync(path.join(OUT, 'ledger.jsonl'), `${JSON.stringify(row)}\n`);
   }
 
+  // Full cycle complete → commit witness seed into history once
   state.history = state.history || [];
-  state.history.push({ witnessSeed, transactionContextDigests: { ...digests } });
+  if (!state.history.some((h) => h.witnessSeed === witnessSeed)) {
+    state.history.push({
+      witnessSeed,
+      transactionContextDigests: { ...digests },
+    });
+  }
+  delete state.resumeDigests;
+  delete state.resumeSeed;
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   writeFileSync(path.join(OUT, 'result.json'), JSON.stringify({
     ok: true,

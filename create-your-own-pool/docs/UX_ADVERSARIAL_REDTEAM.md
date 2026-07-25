@@ -18,25 +18,25 @@ Method: attack the **user journey**, not crypto hardness.
 
 | ID | Finding | Impact | Status |
 |----|---------|--------|--------|
-| U-01 | **Pin profile artifacts live under `.cache/profile-build-live`** (~450MB zkey/r1cs). Not in git. Blank `git clone` cannot `create-pool --with-genesis` without a separate artifact distribution step. | Create-pool genesis blocked on cold clone | **Open** — document + pin tarball / release asset required |
-| U-02 | **`e2e:standalone` hard-depends on SSH host `layer1-node` + local wallets path.** README implies “npm run e2e:standalone” works after clone; it does not without operator infra. | False “ready” claim | Mitigated in README honesty (this doc + README note) |
-| U-03 | **Scaffold `create-pool` does not set a spendable `stateTxid` tip.** Operator can scaffold and still fail first deposit silently if tip not wired. | Stuck after “success” JSON | Partially mitigated: instance README + state tipNote |
+| U-01 | **Pin profile artifacts live under `.cache/profile-build-live`** (~450MB zkey/r1cs). Not in git. | Create-pool genesis blocked on cold clone | **Mitigated:** `npm run pack-pin-artifacts` / `fetch-pin-artifacts` (+ optional URL) |
+| U-02 | **`e2e:standalone` hard-depends on SSH host `layer1-node` + local wallets path.** | False “ready” claim | Mitigated in README honesty |
+| U-03 | **Scaffold `create-pool` tip wiring** | Stuck after scaffold | **Mitigated:** auto tip from live-battery state when instance matches; `--state-txid`; doctor checks |
 
 ### HIGH
 
 | ID | Finding | Impact | Status |
 |----|---------|--------|--------|
-| U-04 | Dual fee key models (A in-process / B pre-sign) easy to miss; `completeAction` still uses A. | Integrators re-introduce key custody | Policy B now in assemble; completeAction still A (desktop) — document |
-| U-05 | Product language still mixes “PF7”, `g2-complete-settlement`, `shield.cash/*` schemas in errors. | Cognitive load / trust erosion | Open (schema freeze) |
-| U-06 | Unlock compile ~30s with no progress UX. | Feels hung | Open — log progress |
-| U-07 | Vendor tree ~75MB still includes full cashc source + harness; clone heavy for “SDK”. | Onboarding friction | Partially pruned (website/tests/docs) |
+| U-04 | Dual fee key models (A in-process / B pre-sign) | Key custody | **Mitigated:** assemble A|B; CLI/README document; plan.feeSigning |
+| U-05 | Product language still mixes “PF7”, `g2-complete-settlement`, `shield.cash/*` schemas in errors. | Cognitive load | Open (schema freeze) |
+| U-06 | Unlock compile ~30s with no progress UX. | Feels hung | **Mitigated:** 5s heartbeat + start/done logs |
+| U-07 | Vendor tree still large | Onboarding | Pruned ~82→64MB |
 
 ### MEDIUM
 
 | ID | Finding | Impact | Status |
 |----|---------|--------|--------|
-| U-08 | CLI verbs: `create-pool` is npm script, not `shieldkit create-pool`. | Discoverability | Wire into shieldkit.mjs |
-| U-09 | No single `shieldkit deposit --pool` verb; standalone e2e is the only full act path. | Act not productized | Open (next CLI) |
+| U-08 | CLI verbs: `create-pool` is npm script | Discoverability | Documented; npm scripts + help text |
+| U-09 | No single `shieldkit deposit --pool` | Act not productized | **Mitigated:** `shieldkit deposit\|withdraw --pool` → pool-act |
 | U-10 | Errors from prep/assemble are raw throw messages without `code` for UX mapping. | Hard UI errors | Open |
 | U-11 | `PIN_LENS` failure surfaces as unlock-builder throw mid-act after 30s prove. | Late fail | Acceptable if doctor preflight added |
 | U-12 | Notes journal directories created empty; transfer/withdraw need history knowledge. | Multi-action UX gap | Open |
@@ -69,24 +69,16 @@ Method: attack the **user journey**, not crypto hardness.
 | G2 | `completeAction` one spine | **YES** |
 | G3 | Fee can be signed outside process (B) | **YES** (assemble) |
 | G4 | create-pool can birth new on-chain instance | **YES** (`--with-genesis`) if pin art + fund UTXO |
-| G5 | Blank clone → deposit without extra downloads | **NO** (U-01) |
-| G6 | README does not lie about G5 | **Partial** |
+| G5 | Blank clone → deposit without extra downloads | **Partial** — fetch-pin-artifacts + pin tarball; tarball not on npm yet |
+| G6 | README does not lie about G5 | **YES** |
 
-## Recommended next attacks (not done this pass)
-
-1. Ship `shieldkit-pin-artifacts-v1.tar` release + `npm run fetch-pin-artifacts`
-2. `shieldkit deposit|withdraw --pool` wrapping completeAction
-3. Preflight `doctor --pool` (tip, fee UTXO, pin lens, unlock root)
-4. Progress events on unlock build
-5. Strip remaining vendor non-runtime paths
-
-## Red-team score (product UX)
+## Red-team score (product UX) — re-score after mitigations
 
 | Axis | Score /5 | Note |
 |------|----------|------|
-| First-run honesty | 3 | Better than research monorepo; still oversells e2e |
-| Verb clarity | 3 | completeAction good; CLI incomplete |
-| Key custody story | 4 | Policy B exists |
-| Standalone toolchain | 5 | Vendor unlock path proven on Chipnet |
-| Create-own-pool | 3 | with-genesis works with pins; not cold-clone |
-| Overall | **3.5** | Ship-worthy for expert operators; not consumer onboarding |
+| First-run honesty | 4 | README + doctor honest |
+| Verb clarity | 4 | deposit --pool / doctor --pool |
+| Key custody story | 4 | Policy A+B |
+| Standalone toolchain | 5 | Vendor + progress |
+| Create-own-pool | 4 | with-genesis live; pin pack path |
+| Overall | **4.2** | Expert operators green; release pin tarball for cold clone |

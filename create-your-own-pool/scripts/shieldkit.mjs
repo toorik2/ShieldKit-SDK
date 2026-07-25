@@ -93,9 +93,17 @@ Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
   request-template --kind deposit --bundle <profile-dir>
   genesis-plan --bundle <dir> --category-input <json>
   genesis-finalize --bundle <dir> --category-input <json> --signature <64hex>
-  deposit|transfer|withdraw --bundle <your-pool> --request <prep.json>
+  # Full act (prove + verifier unlocks + assemble)
+  deposit|transfer|withdraw --pool <pool-dir> --wallets <json> [--broadcast]
+  # Offline prep-only (legacy)
+  deposit|transfer|withdraw --bundle <profile-dir> --request <prep.json>
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
-  doctor | profile-info | config-check | explorer
+  doctor [--pool <dir>] | profile-info | config-check | explorer
+
+  # Pin circuit artifacts (~450MB) for create-pool
+  npm run fetch-pin-artifacts
+  npm run create-pool -- --out ./my-pool
+  npm run create-pool -- --out ./new --with-genesis --fund-txid … --broadcast
 
   # Optional live demo
   playground doctor|profile-info|request-template|deposit|transfer|withdraw|recover
@@ -105,13 +113,16 @@ Flags:
   --version
   --network chipnet|mainnet
   --mode development-only|ceremony-production
+  --pool <pool-dir>   (full act / doctor preflight)
   --bundle <profile-dir>
+  --wallets / --broadcast / --funding-txid / --state-txid
   --config / --request / --history / --seed-hex / --kind / --category-input / --signature
   --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
   --i-understand-mainnet
   --allow-development-on-mainnet
 
-Docs: create-your-own-pool/docs/VERSIONING.md · PROFILES.md · CHARTER.md
+Fee keys: policy A feePrivateKey (desktop) · policy B feePublicKey+feeSignature
+Docs: create-your-own-pool/docs/VERSIONING.md · UX_ADVERSARIAL_REDTEAM.md · CHARTER.md
 `);
 }
 
@@ -307,7 +318,16 @@ function cmdConfigCheck() {
   }
 }
 
-function cmdDoctor() {
+async function cmdDoctor() {
+  // Pool preflight (UX red team doctor --pool)
+  if (arg('pool')) {
+    const { spawnSync } = await import('node:child_process');
+    const script = path.join(__dirname, 'pool-doctor.mjs');
+    const r = spawnSync(process.execPath, [script, ...process.argv.slice(3)], {
+      encoding: 'utf8', stdio: 'inherit',
+    });
+    process.exit(r.status ?? 1);
+  }
   let net;
   try {
     net = resolveNetwork(arg('network', defaultNetworkName()));
@@ -317,8 +337,8 @@ function cmdDoctor() {
   const { mode, deprecatedSetupModeFlag } = resolveMode();
   const report = {
     ...toolkitIdentity(),
-    verbs: ['init', 'deposit', 'transfer', 'withdraw', 'recover', 'doctor'],
-    domains: ['kit', 'profile', 'action', 'prove', 'recover'],
+    verbs: ['init', 'deposit', 'transfer', 'withdraw', 'recover', 'doctor', 'create-pool'],
+    domains: ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover'],
     network: net.name,
     mode,
     setupMode: mode,
@@ -457,6 +477,15 @@ async function cmdInit() {
 async function cmdAct(verb) {
   const kind = verb; // deposit | transfer | withdrawal mapping
   const requestKind = verb === 'withdraw' ? 'withdrawal' : verb;
+  // Full act spine against a pool directory (completeAction)
+  if (arg('pool')) {
+    const { spawnSync } = await import('node:child_process');
+    const script = path.join(__dirname, 'pool-act.mjs');
+    const r = spawnSync(process.execPath, [script, requestKind === 'withdrawal' ? 'withdraw' : requestKind, ...process.argv.slice(3)], {
+      encoding: 'utf8', stdio: 'inherit',
+    });
+    process.exit(r.status ?? 1);
+  }
   const requestPath = arg('request');
   const hasPool = playgroundMode() || arg('bundle');
   if (!hasPool || !requestPath) {
@@ -464,23 +493,14 @@ async function cmdAct(verb) {
       'INPUT_REQUIRED',
       playgroundMode()
         ? `${verb} requires --request <prep-request.json> (playground instance; set SHIELDKIT_PLAYGROUND_BUNDLE)`
-        : `${verb} requires --bundle <profile-dir> and --request <prep-request.json> (or: playground ${verb})`,
+        : `${verb} requires --pool <dir> [--wallets …] [--broadcast]  OR  --bundle <profile-dir> --request <prep.json>`,
       2,
       {
         verb,
         kind: requestKind,
-        path: playgroundMode() ? 'optional-example-playground' : 'your-pool',
-        requestShape: {
-          kind: requestKind,
-          bindingCarrierBaseValueSatoshis: 'string',
-          bindingLockingBytecode: 'hex',
-          fundingOutpointIndex: 'string',
-          fundingOutpointTransactionHashWire: 'hex',
-          fundingPublicKey: 'hex',
-          fundingSourceValueSatoshis: 'string',
-          settlementFeeFundingSatoshis: 'string',
-        },
-        next: 'sign preparationSigningRequest.digest; finalizeCompletePreparation; prove; assemble settlement; broadcast via your RPC',
+        fullAct: 'deposit --pool ./my-pool --wallets … --broadcast',
+        prepOnly: '--bundle + --request (signing digest only)',
+        next: 'prefer --pool full act; prep-only path still available for offline signing',
       },
     );
   }

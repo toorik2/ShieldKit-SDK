@@ -2,3 +2,7 @@
 /tmp/
 **/.cache/
 **/tmp-*/
+# runtime installs (npm install in this package)
+node_modules/
+# bulk host node_modules under vendor (install or rsync -L locally)
+vendor/**/node_modules/

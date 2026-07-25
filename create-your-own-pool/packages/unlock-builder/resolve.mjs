@@ -66,6 +66,8 @@ export function resolveLeanRoot(opts = {}) {
 
 export function resolveTsxBin(unlockRoot) {
   const candidates = [
+    // package-local first (blank-machine; no absolute symlinks to sibling repos)
+    path.join(PKG_ROOT, 'node_modules/.bin/tsx'),
     path.join(unlockRoot, 'harness/node_modules/.bin/tsx'),
     path.join(unlockRoot, 'node_modules/.bin/tsx'),
   ];

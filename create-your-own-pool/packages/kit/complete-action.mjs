@@ -279,6 +279,22 @@ export async function completeAction(input) {
 
   await writeFile(path.join(workDir, `${kind}-prep.hex`), prepHex);
   await writeFile(path.join(workDir, `${kind}-settlement.hex`), settleHex);
+
+  // Prep outputs locked to fee public key (hot) — typically settlementFeeFunding + large change.
+  const feePub = (await instantiateSecp256k1()).derivePublicKeyCompressed(feePrivateKey);
+  const feeLockHex = Buffer.concat([
+    Buffer.from([0x76, 0xa9, 0x14]),
+    createHash('ripemd160').update(createHash('sha256').update(feePub).digest()).digest(),
+    Buffer.from([0x88, 0xac]),
+  ]).toString('hex');
+  const prepHotChange = [];
+  for (let i = 0; i < prep.transaction.outputs.length; i++) {
+    const o = prep.transaction.outputs[i];
+    if (Buffer.from(o.lockingBytecode).toString('hex') === feeLockHex) {
+      prepHotChange.push({ txid: prepTxid, vout: i, sats: Number(o.valueSatoshis) });
+    }
+  }
+
   const meta = {
     kind,
     prepTxid,
@@ -290,6 +306,7 @@ export async function completeAction(input) {
     lens: unlocks.lens,
     digest: plan1.context.digestHex,
     unlockRoot: unlocks.unlockRoot,
+    prepHotChange,
   };
   await writeFile(path.join(workDir, `${kind}-settlement-meta.json`), JSON.stringify(meta, null, 2));
 

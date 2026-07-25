@@ -28,7 +28,10 @@ Mainnet **code path** is one config change (`network: 'mainnet'`) with WIP warni
 ## Secrets
 
 - Never commit seeds, WIFs, private keys, HANDOVER files, RPC passwords, or battery run state.
-- The kit does **not** accept or store private keys; the application holds keys and returns only signatures / broadcast results.
+- `.cache/` is gitignored (local wallets, pin arts, e2e state, run logs).
+- Default paths like `.cache/e2e-full-*/local-wallets.json` are **local only**; do not copy wallet JSON into the repo.
+- Product assemble supports fee **policy A** (`feePrivateKey` in-process, desktop CLI) and **policy B** (`feePublicKey` + pre-signed `feeSignature`). Prefer B when integrating wallets that keep keys outside the process.
+- Application code should hold keys; kit APIs should not persist secrets.
 
 ## Scope
 

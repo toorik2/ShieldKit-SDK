@@ -99,16 +99,47 @@ export function buildVerifierUnlocks(input) {
     nodePath,
   });
 
-  const t0 = Date.now();
-  const r = spawnSync(tsxBin, ['lanes/bn254-onetx/src/c7/build.ts'], {
-    cwd: unlockRoot,
-    env,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
+  const quiet = input.quiet === true || process.env.SHIELDKIT_UNLOCK_QUIET === '1';
+  const log = (obj) => {
+    if (!quiet) console.error(JSON.stringify(obj));
+  };
+  log({
+    phase: 'unlock-build-start',
+    unlockRoot,
+    leanRoot,
+    adapterSha256: adapterSha256.slice(0, 16),
+    packetSha256: packetSha256.slice(0, 16),
+    note: 'densFuel pin compile typically 25–40s',
   });
+
+  const t0 = Date.now();
+  // Heartbeat while compile runs (tsx is opaque; tick every 5s).
+  let heartbeat;
+  if (!quiet) {
+    heartbeat = setInterval(() => {
+      log({ phase: 'unlock-build-progress', elapsedMs: Date.now() - t0 });
+    }, 5000);
+  }
+  let r;
+  try {
+    r = spawnSync(tsxBin, ['lanes/bn254-onetx/src/c7/build.ts'], {
+      cwd: unlockRoot,
+      env,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
+  }
   const ms = Date.now() - t0;
   const logText = `${r.stdout || ''}${r.stderr || ''}`;
   writeFileSync(path.join(outDir, 'build.log'), logText);
+  log({
+    phase: 'unlock-build-spawn-done',
+    ms,
+    status: r.status,
+    logBytes: logText.length,
+  });
 
   if (r.status !== 0) {
     throw new UnlockBuilderError('BUILD_EXIT', `unlock build exit ${r.status}`, {
@@ -174,6 +205,14 @@ export function buildVerifierUnlocks(input) {
       }
     }
   }
+
+  log({
+    phase: 'unlock-build-ok',
+    ms,
+    lens,
+    wire: result.wire,
+    gateOk: true,
+  });
 
   return {
     ok: true,

@@ -11,6 +11,8 @@
     "version-check": "node create-your-own-pool/scripts/shieldkit.mjs --version",
     "unlock-builder:smoke": "node create-your-own-pool/packages/unlock-builder/smoke-golden.mjs",
     "create-pool": "node create-your-own-pool/scripts/create-pool.mjs",
+    "pack-pin-artifacts": "node create-your-own-pool/scripts/pack-pin-artifacts.mjs",
+    "fetch-pin-artifacts": "node create-your-own-pool/scripts/fetch-pin-artifacts.mjs",
     "e2e:standalone": "node create-your-own-pool/scripts/standalone-e2e-chipnet.mjs"
   }
 }
