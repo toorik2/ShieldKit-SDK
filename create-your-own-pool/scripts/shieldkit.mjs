@@ -16,6 +16,7 @@ import {
   PRODUCT_STATUS,
   productWarnings,
 } from '../packages/kit/network.mjs';
+import { TOOLKIT_VERSION, toolkitIdentity } from '../version.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -59,6 +60,7 @@ function okJson(body, code = 0) {
   const network = arg('network', defaultNetworkName());
   console.log(JSON.stringify({
     ok: true,
+    toolkitVersion: TOOLKIT_VERSION,
     productStatus: PRODUCT_STATUS,
     warnings: productWarnings({ network, setupMode: body.setupMode ?? body.mode ?? peekMode() }),
     ...body,
@@ -69,6 +71,7 @@ function okJson(body, code = 0) {
 function failJson(code, message, exitCode = 1, extra = {}) {
   console.log(JSON.stringify({
     ok: false,
+    toolkitVersion: TOOLKIT_VERSION,
     productStatus: PRODUCT_STATUS,
     error: { code, message },
     ...extra,
@@ -77,9 +80,10 @@ function failJson(code, message, exitCode = 1, extra = {}) {
 }
 
 function usage() {
-  console.log(`ShieldKit — create and run your own BCH shielded pool
+  console.log(`ShieldKit toolkit v${TOOLKIT_VERSION} — create and run your own BCH shielded pool
 
-${PRODUCT_STATUS.status}
+${PRODUCT_STATUS.status} · maturity: ${PRODUCT_STATUS.maturityLabel}
+${PRODUCT_STATUS.note}
 
 Product tree: create-your-own-pool/  (kit · profile · CLI)
 Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
@@ -95,6 +99,7 @@ Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
   (npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE)
 
 Flags:
+  --version
   --network chipnet|mainnet
   --mode development-only|ceremony-production
   --bundle <profile-dir>
@@ -102,7 +107,7 @@ Flags:
   --i-understand-mainnet
   --allow-development-on-mainnet
 
-Docs: create-your-own-pool/ · use-chipnet-demo-pool/ · create-your-own-pool/docs/
+Docs: create-your-own-pool/docs/VERSIONING.md · PROFILES.md · CHARTER.md
 `);
 }
 
@@ -221,9 +226,15 @@ async function cmdPlaygroundDoctor() {
       bundleError = { code: e.code || e.name, message: e.message };
     }
     const body = {
+      ...toolkitIdentity(),
       story: 'ShieldKit creates shielded pools. Demo is use-chipnet-demo-pool/; product is create-your-own-pool/.',
       product: 'create-your-own-pool/',
       playgroundRole: 'optional-demo-not-hosted-service',
+      maturityDisclaimer: [
+        'Unaudited — Work In Progress',
+        'development-only demo is not production privacy',
+        'toolkitVersion does not certify profile or instance',
+      ],
       instance: {
         id: instance.id,
         network: instance.network,
@@ -301,11 +312,17 @@ function cmdDoctor() {
   }
   const { mode, deprecatedSetupModeFlag } = resolveMode();
   const report = {
+    ...toolkitIdentity(),
     verbs: ['init', 'deposit', 'transfer', 'withdraw', 'recover', 'doctor'],
     domains: ['kit', 'profile', 'action', 'prove', 'recover'],
     network: net.name,
     mode,
     setupMode: mode,
+    maturityDisclaimer: [
+      'Unaudited — Work In Progress',
+      'toolkitVersion is code only — not profile/instance identity or privacy qualification',
+      'maturity labels are charter claims, never inferred from semver',
+    ],
     honesty: {
       developmentOnlyIsNotProductionPrivacy: true,
       ceremonyRequiredForProductionClaims: true,
@@ -313,6 +330,7 @@ function cmdDoctor() {
       hotSwapForbidden: true,
       mainnetIsOneConfigChange: true,
       mainnetUnauditedWip: true,
+      toolkitVersionIsNotProfileMatch: true,
     },
     feeSatPerByte: 1,
     unlockMaxBytes: 10000,
@@ -357,11 +375,17 @@ function cmdExplorer() {
 async function cmdProfileInfo() {
   const { kit } = await openKit();
   okJson({
+    ...toolkitIdentity(),
     network: kit.network.name,
     profileId: kit.profile.profileId,
     instanceId: kit.profile.instanceId,
     setupMode: kit.profile.setupMode,
     qualification: kit.qualification,
+    maturityDisclaimer: [
+      'Unaudited — Work In Progress',
+      'profileId/instanceId are content hashes — independent of toolkitVersion',
+      'setupMode development-only is not production privacy',
+    ],
     methods: [
       'planAction / planCompletePreparation',
       'preparationSigningRequest',
@@ -527,6 +551,10 @@ async function cmdRecover() {
 }
 
 const cmd = process.argv[2];
+if (cmd === '--version' || cmd === '-V' || cmd === 'version') {
+  console.log(JSON.stringify({ ok: true, ...toolkitIdentity() }, null, 2));
+  process.exit(0);
+}
 if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   usage();
   process.exit(0);

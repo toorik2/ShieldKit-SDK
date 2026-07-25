@@ -2,10 +2,12 @@
   "name": "shieldkit",
   "private": true,
   "version": "0.1.0",
+  "description": "ShieldKit toolkit 0.1.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "scripts": {
     "test": "node create-your-own-pool/scripts/run-domain-tests.mjs",
     "shieldkit": "node create-your-own-pool/scripts/shieldkit.mjs",
-    "fetch-playground-bundle": "node create-your-own-pool/scripts/fetch-playground-bundle.mjs"
+    "fetch-playground-bundle": "node create-your-own-pool/scripts/fetch-playground-bundle.mjs",
+    "version-check": "node create-your-own-pool/scripts/shieldkit.mjs --version"
   }
 }

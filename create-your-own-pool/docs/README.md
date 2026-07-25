@@ -10,6 +10,9 @@
 | [PRIVACY.md](PRIVACY.md) | Privacy model |
 | [PLAYGROUND.md](PLAYGROUND.md) | Live demo vs create-your-own-pool |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Short package map |
+| [VERSIONING.md](VERSIONING.md) | Toolkit semver vs profile/instance IDs |
+| [PROFILES.md](PROFILES.md) | Demo profile pin table |
+| [../../CHANGELOG.md](../../CHANGELOG.md) | Toolkit changelog only |
 
 ## Archive (not product shelf)
 

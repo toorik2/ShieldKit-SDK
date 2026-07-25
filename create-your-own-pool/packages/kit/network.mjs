@@ -18,11 +18,13 @@ const fail = (code, message) => {
   throw new AppKitNetworkError(code, message);
 };
 
-/** Product status banner for user-facing flows. */
+/** Product status banner for user-facing flows. Toolkit version is separate (see version.mjs). */
 export const PRODUCT_STATUS = Object.freeze({
   status: 'Unaudited — Work In Progress',
+  maturityLabel: 'evidence experiment',
   defaultNetwork: 'chipnet',
   mainnet: 'config-ready; not release-qualified; not production privacy by default',
+  note: 'Toolkit semver ≠ profileId ≠ instanceId ≠ production/privacy qualification',
 });
 
 /** @typedef {'chipnet' | 'mainnet'} NetworkName */
