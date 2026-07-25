@@ -77,41 +77,39 @@ function failJson(code, message, exitCode = 1, extra = {}) {
 }
 
 function usage() {
-  console.log(`ShieldKit — offline BCH shielded pool toolkit
+  console.log(`ShieldKit — creates shielded pools
 
 ${PRODUCT_STATUS.status}
 
-Verbs (fail-closed without required inputs):
-  init       --config <init.json>   run profile.init (dev|ceremony)
-  deposit    --bundle <dir> --request <prep.json>
-  transfer   --bundle <dir> --request <prep.json>
-  withdraw   --bundle <dir> --request <prep.json>
-  recover    --bundle <dir> --history <json> --seed-hex <64hex>
-  doctor     network / mode / honesty / broadcast gates
+The Chipnet playground is our pool. Your pool is the same thing with your genesis.
 
-Helpers:
-  config-check   Offline mainnet broadcast gates
-  explorer       --txid <64hex>
-  profile-info   --bundle <dir>
-  help
+App builders (use a pool):
+  playground doctor|profile-info|deposit|transfer|withdraw|recover
+  (binds official Chipnet instance — set SHIELDKIT_PLAYGROUND_BUNDLE)
+
+Pool creators (birth a pool):
+  init --config <init.json>
+
+Any instance:
+  deposit|transfer|withdraw --bundle <dir> --request <prep.json>
+  recover --bundle <dir> --history <json> --seed-hex <64hex>
+  doctor | profile-info | config-check | explorer
 
 Flags:
-  --network chipnet|mainnet     (mainnet = one config change; Unaudited WIP)
+  --network chipnet|mainnet
   --mode development-only|ceremony-production
-  --bundle <profile-dir>
-  --config <init-config.json>   for init
-  --request <prep-request.json> for deposit|transfer|withdraw
-  --history <history.json> --seed-hex <64hex>  for recover
+  --bundle <profile-dir>          (or playground bundle via env)
+  --config / --request / --history / --seed-hex
   --i-understand-mainnet
-  --allow-development-on-mainnet   (lab only)
-  --profile-id / --instance-id     optional overrides for profile-info / act
+  --allow-development-on-mainnet
 
-Mainnet: set --network mainnet (+ ceremony mode for production claims).
-Broadcast still requires --i-understand-mainnet.
-
-Architecture: packages/{kit,profile,action,prove,recover}
-Demo: examples/demo-profile/README.md
+Docs: examples/chipnet-playground · examples/create-your-pool · docs/PLAYGROUND.md
 `);
+}
+
+/** When true, openKit uses chipnet-playground instance. */
+function playgroundMode() {
+  return process.argv[2] === 'playground' || flag('playground');
 }
 
 async function loadJsonFile(filePath, label) {
@@ -131,6 +129,33 @@ async function loadJsonFile(filePath, label) {
 }
 
 async function openKit() {
+  const { createKit } = await import('../packages/kit/kit.mjs');
+  const extra = {
+    mainnetAcknowledged: flag('i-understand-mainnet'),
+    allowDevelopmentOnMainnet: flag('allow-development-on-mainnet'),
+  };
+
+  if (playgroundMode()) {
+    try {
+      const { loadInstance, instanceToKitConfig } = await import('../packages/profile/instance.mjs');
+      const instance = await loadInstance('chipnet-playground', {
+        bundleDirectory: arg('bundle') || undefined,
+      });
+      const kit = await createKit(instanceToKitConfig(instance, extra));
+      return {
+        kit,
+        loaded: instance.loaded,
+        network: instance.network,
+        instance,
+      };
+    } catch (e) {
+      failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2, {
+        hint: 'Set SHIELDKIT_PLAYGROUND_BUNDLE to the profile-bundle directory',
+        docs: 'examples/chipnet-playground/README.md',
+      });
+    }
+  }
+
   const network = arg('network', defaultNetworkName());
   try {
     resolveNetwork(network);
@@ -138,8 +163,9 @@ async function openKit() {
     failJson(e.code || 'UNKNOWN_NETWORK', e.message, 2);
   }
   const bundle = arg('bundle');
-  if (!bundle) failJson('BUNDLE_REQUIRED', '--bundle <profile-bundle-dir> is required', 2);
-  const { createKit } = await import('../packages/kit/kit.mjs');
+  if (!bundle) {
+    failJson('BUNDLE_REQUIRED', '--bundle <profile-bundle-dir> is required (or: shieldkit playground …)', 2);
+  }
   const { loadVerifierProfileBundle } = await import('../packages/profile/load.mjs');
   const abs = path.resolve(bundle);
   let loaded;
@@ -158,12 +184,66 @@ async function openKit() {
         profileId: arg('profile-id', loaded.profileId),
         instanceId: arg('instance-id', loaded.instanceId),
       },
-      mainnetAcknowledged: flag('i-understand-mainnet'),
-      allowDevelopmentOnMainnet: flag('allow-development-on-mainnet'),
+      ...extra,
     });
     return { kit, loaded, network: expectedNetwork };
   } catch (e) {
     failJson(e.code || e.name || 'KIT_ERROR', e.message || String(e), 2);
+  }
+}
+
+async function cmdPlaygroundDoctor() {
+  try {
+    const { loadInstance } = await import('../packages/profile/instance.mjs');
+    const instance = await loadInstance('chipnet-playground', {
+      loadBundle: false,
+    });
+    let bundleOk = false;
+    let bundleError = null;
+    let kitInfo = null;
+    try {
+      const full = await loadInstance('chipnet-playground', {
+        bundleDirectory: arg('bundle') || undefined,
+      });
+      bundleOk = true;
+      const { createKit } = await import('../packages/kit/kit.mjs');
+      const { instanceToKitConfig } = await import('../packages/profile/instance.mjs');
+      const kit = await createKit(instanceToKitConfig(full, {
+        mainnetAcknowledged: flag('i-understand-mainnet'),
+        allowDevelopmentOnMainnet: flag('allow-development-on-mainnet'),
+      }));
+      kitInfo = {
+        profileId: kit.profile.profileId,
+        instanceId: kit.profile.instanceId,
+        setupMode: kit.profile.setupMode,
+        network: kit.network.name,
+      };
+    } catch (e) {
+      bundleError = { code: e.code || e.name, message: e.message };
+    }
+    const body = {
+      story: 'ShieldKit creates shielded pools; the Chipnet playground is our pool; your pool is the same thing with your genesis.',
+      audience: 'app-builders',
+      instance: {
+        id: instance.id,
+        network: instance.network,
+        profileId: instance.profileId,
+        instanceId: instance.instanceId,
+        setupMode: instance.setupMode,
+        role: instance.role,
+        stateNftCategory: instance.stateNftCategory,
+      },
+      bundleOk,
+      bundleError,
+      kit: kitInfo,
+      next: bundleOk
+        ? ['playground deposit --request prep.json', 'You supply Chipnet RPC, fees, proofs, broadcast']
+        : ['export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle', 'see examples/chipnet-playground/README.md'],
+    };
+    if (bundleOk) okJson(body);
+    else failJson('PLAYGROUND_BUNDLE_MISSING', bundleError?.message || 'bundle not loaded', 2, body);
+  } catch (e) {
+    failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2);
   }
 }
 
@@ -297,8 +377,9 @@ async function cmdInit() {
       {
         mode,
         api: "import { init } from './packages/profile/init.mjs'",
-        example: 'examples/demo-profile/init.example.json',
+        example: 'examples/create-your-pool/init.example.json',
         note: 'new setup ⇒ new profile + new genesis; no hot-swap',
+        audience: 'pool-creators',
         ...(deprecatedSetupModeFlag ? { deprecation: '--setup-mode is deprecated; use --mode' } : {}),
       },
     );
@@ -332,14 +413,18 @@ async function cmdAct(verb) {
   const kind = verb; // deposit | transfer | withdrawal mapping
   const requestKind = verb === 'withdraw' ? 'withdrawal' : verb;
   const requestPath = arg('request');
-  if (!arg('bundle') || !requestPath) {
+  const hasPool = playgroundMode() || arg('bundle');
+  if (!hasPool || !requestPath) {
     failJson(
       'INPUT_REQUIRED',
-      `${verb} requires --bundle <profile-dir> and --request <prep-request.json>`,
+      playgroundMode()
+        ? `${verb} requires --request <prep-request.json> (playground instance; set SHIELDKIT_PLAYGROUND_BUNDLE)`
+        : `${verb} requires --bundle <profile-dir> and --request <prep-request.json> (or: playground ${verb})`,
       2,
       {
         verb,
         kind: requestKind,
+        audience: playgroundMode() ? 'app-builders' : 'pool-creators-or-builders',
         requestShape: {
           kind: requestKind,
           bindingCarrierBaseValueSatoshis: 'string',
@@ -398,10 +483,12 @@ async function cmdAct(verb) {
 async function cmdRecover() {
   const historyPath = arg('history');
   const seedHex = arg('seed-hex');
-  if (!arg('bundle') || !historyPath || !seedHex) {
+  if ((!playgroundMode() && !arg('bundle')) || !historyPath || !seedHex) {
     failJson(
       'INPUT_REQUIRED',
-      'recover requires --bundle <dir> --history <json> --seed-hex <64 hex bytes>',
+      playgroundMode()
+        ? 'recover requires --history <json> --seed-hex <64 hex> (playground; set SHIELDKIT_PLAYGROUND_BUNDLE)'
+        : 'recover requires --bundle <dir> --history <json> --seed-hex <64 hex bytes>',
       2,
       {
         verb: 'recover',
@@ -438,24 +525,50 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   process.exit(0);
 }
 
-const map = {
-  'config-check': cmdConfigCheck,
-  explorer: cmdExplorer,
-  'profile-info': cmdProfileInfo,
-  doctor: cmdDoctor,
-  init: cmdInit,
-  deposit: () => cmdAct('deposit'),
-  transfer: () => cmdAct('transfer'),
-  withdraw: () => cmdAct('withdraw'),
-  recover: cmdRecover,
-};
+// playground <sub>  →  bind official Chipnet instance, run sub-verb
+if (cmd === 'playground') {
+  const sub = process.argv[3] || 'doctor';
+  const playgroundMap = {
+    doctor: cmdPlaygroundDoctor,
+    'profile-info': cmdProfileInfo,
+    deposit: () => cmdAct('deposit'),
+    transfer: () => cmdAct('transfer'),
+    withdraw: () => cmdAct('withdraw'),
+    recover: cmdRecover,
+    help: () => {
+      usage();
+      process.exit(0);
+    },
+  };
+  if (!playgroundMap[sub]) {
+    failJson('UNKNOWN_COMMAND', `unknown playground command: ${sub}`, 64, {
+      commands: Object.keys(playgroundMap),
+    });
+  }
+  Promise.resolve(playgroundMap[sub]()).catch((e) => {
+    failJson(e.code || e.name || 'UNCAUGHT', e.message || String(e), 1);
+  });
+} else {
+  const map = {
+    'config-check': cmdConfigCheck,
+    explorer: cmdExplorer,
+    'profile-info': cmdProfileInfo,
+    doctor: cmdDoctor,
+    init: cmdInit,
+    deposit: () => cmdAct('deposit'),
+    transfer: () => cmdAct('transfer'),
+    withdraw: () => cmdAct('withdraw'),
+    recover: cmdRecover,
+    playground: cmdPlaygroundDoctor,
+  };
 
-if (!map[cmd]) {
-  failJson('UNKNOWN_COMMAND', `unknown command: ${cmd}`, 64, {
-    commands: Object.keys(map).concat(['help']),
+  if (!map[cmd]) {
+    failJson('UNKNOWN_COMMAND', `unknown command: ${cmd}`, 64, {
+      commands: Object.keys(map).concat(['help', 'playground doctor']),
+    });
+  }
+
+  Promise.resolve(map[cmd]()).catch((e) => {
+    failJson(e.code || e.name || 'UNCAUGHT', e.message || String(e), 1);
   });
 }
-
-Promise.resolve(map[cmd]()).catch((e) => {
-  failJson(e.code || e.name || 'UNCAUGHT', e.message || String(e), 1);
-});

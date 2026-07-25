@@ -1,0 +1,33 @@
+{
+  "id": "chipnet-playground",
+  "label": "ShieldKit official Chipnet playground",
+  "role": "playground",
+  "network": "chipnet",
+  "setupMode": "development-only",
+  "profileId": "sha256:79782441a9d56f7d8199d9812ba566daddad63e20142fc9e7d2a33c7a66e5bf7",
+  "instanceId": "sha256:d96968b889dfdcfd65f0e89953d94a2ac2f0ca60c03bfa23867ce4293b8bc1aa",
+  "stateNftCategory": "c54c3bfee893dda33a0a8b1f0e1408aa95e0b0bfb31bb9a057ffeb085b3bdbcc",
+  "reserveCapSatoshis": "10000000",
+  "denominationSatoshis": "10000000",
+  "categoryInputOutpoint": {
+    "txid": "c54c3bfee893dda33a0a8b1f0e1408aa95e0b0bfb31bb9a057ffeb085b3bdbcc",
+    "vout": "0"
+  },
+  "explorers": {
+    "tx": "https://chipnet.chaingraph.cash/tx/{txid}"
+  },
+  "profileBundle": {
+    "path": "bundle",
+    "note": "Place authenticated profile-bundle here, or set SHIELDKIT_PLAYGROUND_BUNDLE. ~455MB proving key — not stored in git.",
+    "provingKeySha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a",
+    "searchPaths": [
+      "SHIELDKIT_PLAYGROUND_BUNDLE env",
+      "examples/chipnet-playground/bundle",
+      ".cache/profile-build-live/profile-bundle"
+    ]
+  },
+  "warnings": [
+    "Shared Chipnet instance: deposit/transfer/withdraw with your own fee keys and RPC.",
+    "Not production privacy. Funds on Chipnet may still have value — use deliberately."
+  ]
+}

@@ -2,94 +2,110 @@
 
 **Private BCH transfers. Your pool. Your keys. Your app.**
 
-Offline toolkit for Bitcoin Cash: deposit → privately transfer → withdraw, with local proving.
+> **ShieldKit creates shielded pools.  
+> The Chipnet playground is our pool.  
+> Your pool is the same thing with your genesis.**
 
 | | |
 |--|--|
 | **Status** | Unaudited — Work In Progress |
 | **Default network** | Chipnet |
-| **Mainnet** | One config change (`network: 'mainnet'`) + WIP warnings; not a release claim |
-| **Production privacy** | Requires `ceremony-production` profile + **new genesis** |
+| **Mainnet** | One config change + WIP warnings — not a release claim |
+| **Production privacy** | `ceremony-production` + **new genesis** (no hot-swap) |
 
 ---
 
-## Install & CLI
+## Two doors, one SDK
+
+| You are… | You want… | Start here |
+|----------|-----------|------------|
+| **App builder** | Use a live pool in an app or CLI | [**Chipnet playground**](examples/chipnet-playground/) — *our* pool |
+| **Pool creator** | Birth a new pool | [**Create your own pool**](examples/create-your-pool/) — *your* genesis |
+
+Same APIs (`loadInstance` → `createKit`). Only the **instance binding** changes.
+
+---
+
+## Quick start
 
 ```bash
-npm test                          # domain unit tests
-node scripts/run-domain-tests.mjs # unit suite
+npm test
 node scripts/shieldkit.mjs --help
-node scripts/shieldkit.mjs doctor
+
+# App builders — official Chipnet playground
+export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle   # see playground README
+node scripts/shieldkit.mjs playground doctor
+node scripts/shieldkit.mjs playground profile-info
+
+# Pool creators
+node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
 ```
 
 ```js
-import { createKit } from './packages/kit/index.mjs';
+import { createKit, loadInstance, instanceToKitConfig } from './packages/kit/index.mjs';
 
-const kit = await createKit({
-  network: 'chipnet', // or 'mainnet'
-  bundleDirectory: './profile-bundle',
-  expectedProfile: { network: 'chipnet', profileId, instanceId },
-});
-// kit.warnings includes product status
+// Our pool
+const playground = await loadInstance('chipnet-playground');
+const kit = await createKit(instanceToKitConfig(playground));
+
+// Your pool (after init + genesis)
+// const mine = await loadInstance('./my-pool');
+// const kit = await createKit(instanceToKitConfig(mine));
+
 // kit.planAction(request) · kit.recoverAuthenticatedHistory(...)
+// kit.warnings includes product status
 ```
 
-You own: keys · frontend · RPC · broadcast.  
-ShieldKit does not store secrets or open network connections.
+You own: **keys · frontend · RPC · broadcast**.  
+ShieldKit does not store secrets or open sockets.
 
 ---
 
 ## Four verbs
 
-| Verb | Command | Library |
-|------|---------|---------|
-| **init** | `shieldkit init --config …` | `packages/profile` — setup → profile → load |
-| **act** | `shieldkit deposit\|transfer\|withdraw --bundle … --request …` | `createKit` → plan → sign → prove → settle |
-| **recover** | `shieldkit recover --bundle … --history … --seed-hex …` | `recoverAuthenticatedHistory` |
-| **doctor** | `shieldkit doctor` | honesty + mainnet gates |
+| Verb | App builder (playground) | Pool creator / any instance |
+|------|--------------------------|-----------------------------|
+| **init** | — | `init --config …` |
+| **act** | `playground deposit\|transfer\|withdraw --request …` | `deposit … --bundle … --request …` |
+| **recover** | `playground recover --history … --seed-hex …` | `recover --bundle …` |
+| **doctor** | `playground doctor` | `doctor` |
 
 Missing inputs → **`ok: false`** (fail-closed).
 
 ---
 
-## Repository map (this page is the product)
+## Repository map
 
 ```text
 packages/     kit · profile · action · prove · recover
 scripts/      shieldkit CLI · domain tests
-examples/     demo-profile (Chipnet lab)
-docs/         charter · privacy · architecture
+examples/
+  chipnet-playground/   our Chipnet pool (instance.json)
+  create-your-pool/     birth your own
+docs/         charter · privacy · architecture · playground model
 ```
-
-| Open | Purpose |
-|------|---------|
-| [`packages/kit`](packages/kit) | App integration (`createKit`) |
-| [`packages/profile`](packages/profile) | Birth a pool (dev or ceremony) |
-| [`examples/demo-profile`](examples/demo-profile) | Lab profile pointer |
-| [`docs/`](docs) | Product docs |
 
 ---
 
 ## Mainnet
 
 ```js
-network: 'mainnet'   // only required config change
+network: 'mainnet'
 ```
 
-Always shown: **Unaudited — Work In Progress**.  
-Broadcast: `--i-understand-mainnet`.  
-Real production claims: ceremony profile + new genesis (no hot-swap).
+Always: **Unaudited — Work In Progress**.  
+Broadcast: `--i-understand-mainnet`.
 
 ---
 
 ## Invariants
 
-- **1 sat/B** fees · unlock ≤ **10 000** B · settlement ≤ **59 000** B  
+- **1 sat/B** · unlock ≤ **10 000** B · settlement ≤ **59 000** B  
 - Verifier: `bn254-onetx-pf7-sub62-r1` (7 PF7)  
 - New setup ⇒ new profile + new genesis  
 
 ---
 
-## Safety & license
+## Safety & docs
 
-[SECURITY.md](SECURITY.md) · [docs/PRIVACY.md](docs/PRIVACY.md) · [LICENSE](LICENSE)
+[SECURITY.md](SECURITY.md) · [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/PLAYGROUND.md](docs/PLAYGROUND.md) · [LICENSE](LICENSE)

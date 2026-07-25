@@ -15,6 +15,7 @@ for (const f of readdirSync(setup)) {
   if (f.endsWith('.test.mjs')) files.push(path.join(setup, f));
 }
 files.push(
+  path.join(root, 'packages/profile/instance.test.mjs'),
   path.join(root, 'packages/action/packet.test.mjs'),
   path.join(root, 'packages/action/context.test.mjs'),
   path.join(root, 'packages/prove/authority.test.mjs'),

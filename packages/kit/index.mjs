@@ -10,4 +10,10 @@ export {
   productWarnings,
   AppKitNetworkError,
 } from './kit.mjs';
+export {
+  loadInstance,
+  instanceToKitConfig,
+  CHIPNET_PLAYGROUND_ID,
+  InstanceError,
+} from '../profile/instance.mjs';
 // createDesktopComposition is internal (desktop.mjs) — not a product export.

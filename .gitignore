@@ -16,3 +16,7 @@ HANDOVER.md
 **/secrets/**
 .grok/
 .local/
+
+# large profile artifacts (not in git)
+examples/chipnet-playground/bundle/
+.local/

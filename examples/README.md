@@ -1,13 +1,15 @@
-# Examples (not core product)
+# Examples
 
-Start at the root [README](../README.md) and **`packages/kit`**.
+> ShieldKit creates shielded pools; the Chipnet playground is our pool; your pool is the same thing with your genesis.
 
-| Path | Notes |
-|------|--------|
-| **[demo-profile/](demo-profile/)** | Chipnet lab bundle pointer + `init.example.json` |
-| Public golden path | `scripts/golden-path-cycle.mjs` + `scripts/shieldkit-smoke.mjs` |
-| Red-team | `scripts/shieldkit-redteam.mjs` |
-| Domain tests | `scripts/run-domain-tests.mjs` |
-| Live battery (lab) | `.cache/live-battery/` — gitignored |
+| Path | Audience | Purpose |
+|------|----------|---------|
+| **[chipnet-playground/](chipnet-playground/)** | **App builders** | Connect to the official Chipnet pool |
+| **[create-your-pool/](create-your-pool/)** | **Pool creators** | Init + genesis your own instance |
 
-Do not commit secrets, WIFs, or battery state with keys.
+Both use `loadInstance` → `createKit` — same spine.
+
+```bash
+node scripts/shieldkit.mjs playground doctor
+node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
+```

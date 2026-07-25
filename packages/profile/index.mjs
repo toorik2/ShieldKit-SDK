@@ -9,6 +9,14 @@ export {
 } from './load.mjs';
 export { init, ProfileInitError, SNARKJS_VERSION, getPinnedSnarkjsInfo } from './init.mjs';
 export {
+  loadInstance,
+  instanceToKitConfig,
+  playgroundInstancePath,
+  playgroundBundleSearchPaths,
+  CHIPNET_PLAYGROUND_ID,
+  InstanceError,
+} from './instance.mjs';
+export {
   initializeDevelopmentGroth16,
   LocalSetupError,
 } from './setup/development.mjs';
