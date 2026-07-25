@@ -8,6 +8,7 @@
     "test": "node create-your-own-pool/scripts/run-domain-tests.mjs",
     "shieldkit": "node create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node create-your-own-pool/scripts/fetch-playground-bundle.mjs",
-    "version-check": "node create-your-own-pool/scripts/shieldkit.mjs --version"
+    "version-check": "node create-your-own-pool/scripts/shieldkit.mjs --version",
+    "unlock-builder:smoke": "node create-your-own-pool/packages/unlock-builder/smoke-golden.mjs"
   }
 }

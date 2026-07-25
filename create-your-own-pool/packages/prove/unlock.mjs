@@ -1,6 +1,6 @@
 /**
- * In-tree PF7 unlock product surface.
- * Research dens-drop worktrees are not the product path.
+ * Unlock product surface (consume / measure).
+ * Compile unlocks: `@shieldkit/unlock-builder` → `buildVerifierUnlocks`.
  */
 export {
   measurePf7FixedPointCandidate,

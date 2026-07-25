@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packagesRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = new Set(['kit', 'profile', 'action', 'prove', 'recover']);
+const allowed = new Set(['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover']);
 
 test('product packages are only domain peers', () => {
   const peers = readdirSync(packagesRoot, { withFileTypes: true })
@@ -18,7 +18,7 @@ test('product packages are only domain peers', () => {
   for (const p of peers) {
     assert.ok(allowed.has(p), `unexpected top-level package peer: ${p}`);
   }
-  for (const need of ['kit', 'profile', 'action', 'prove', 'recover']) {
+  for (const need of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover']) {
     assert.ok(peers.includes(need), `missing domain ${need}`);
   }
   for (const gone of [
@@ -51,10 +51,12 @@ test('ceremony + development setup modules exist', () => {
   assert.ok(existsSync(path.join(packagesRoot, 'profile/init.mjs')));
   assert.ok(existsSync(path.join(packagesRoot, 'prove/unlock.mjs')));
   assert.ok(existsSync(path.join(packagesRoot, 'prove/groth16.mjs')));
+  assert.ok(existsSync(path.join(packagesRoot, 'unlock-builder/index.mjs')));
+  assert.ok(existsSync(path.join(packagesRoot, 'unlock-builder/build.mjs')));
 });
 
 test('package scope is @shieldkit/*', () => {
-  for (const name of ['kit', 'profile', 'action', 'prove', 'recover']) {
+  for (const name of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover']) {
     const pkg = JSON.parse(readFileSync(path.join(packagesRoot, name, 'package.json'), 'utf8'));
     assert.equal(pkg.name, `@shieldkit/${name}`);
   }

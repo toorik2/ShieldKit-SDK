@@ -1,0 +1,14 @@
+{
+  "name": "@shieldkit/unlock-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node-only verifier unlock builder (densFuel pin). Required for settlement; not browser-safe.",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
