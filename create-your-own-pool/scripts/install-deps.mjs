@@ -26,7 +26,8 @@ const STEPS = [
   },
   {
     dir: path.join(PKGS, 'prove'),
-    cmd: ['npm', 'install', '--no-fund', '--no-audit', '@bitauth/libauth@^3.1.0-next.8'],
+    cmd: ['npm', 'install', '--no-fund', '--no-audit',
+      '@bitauth/libauth@^3.1.0-next.8', '@noble/curves@^1.4.0', '@noble/hashes@^1.4.0', 'ffjavascript@^0.3.0'],
   },
 ];
 
