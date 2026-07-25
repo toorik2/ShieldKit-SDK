@@ -2,7 +2,7 @@
 
 Create and run your own shielded pool on Bitcoin Cash.
 
-After genesis: **no admin key** — rules and capacity are fixed on-chain. Your keys, your instance.
+After genesis: **no admin key** — rules and capacity are fixed on-chain.
 
 ---
 
