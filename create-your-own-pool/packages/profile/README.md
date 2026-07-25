@@ -39,4 +39,4 @@ node scripts/shieldkit.mjs init --config templates/init.development.json
 
 New setup ⇒ **new profile + new genesis**. No hot-swap. Mode laundering refused.
 
-**Optional live demo:** monorepo-root [`chipnet-playground/`](../../../chipnet-playground/) — `loadInstance('chipnet-playground')`. Not a second product.
+**Optional live demo:** monorepo-root [`use-chipnet-demo-pool/`](../../../use-chipnet-demo-pool/) — `loadInstance('use-chipnet-demo-pool')`. Not a second product.

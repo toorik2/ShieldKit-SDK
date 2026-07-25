@@ -4,13 +4,13 @@
 
 ```text
 create-your-own-pool/     product (this tree)
-chipnet-playground/       optional live demo instance
+use-chipnet-demo-pool/    optional Chipnet live demo
 ```
 
 ```text
 loadInstance(ref) → createKit(config)
         │
- ./my-pool/                 chipnet-playground/
+ ./my-pool/                 use-chipnet-demo-pool/
  (your genesis)             (optional demo)
 ```
 
@@ -31,7 +31,7 @@ loadInstance(ref) → createKit(config)
 - Offline: you hold keys, RPC, broadcast  
 - Fee 1 sat/B · unlock ≤10k B · settlement ≤59k B  
 - New setup ⇒ new profile + new genesis  
-- Playground = development-only demo, not a hosted service  
+- Demo pool = development-only, not a hosted service  
 
 ## More
 

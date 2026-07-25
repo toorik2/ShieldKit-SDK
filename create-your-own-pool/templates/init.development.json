@@ -16,5 +16,5 @@
   },
   "bundle": null,
   "load": false,
-  "_comment": "create-your-own-pool: packages/profile init → profile bundle + instance.json → genesis → createKit. Mirror chipnet-playground/instance.json fields with role:custom. Ceremony: mode ceremony-production + participants[] (packages/profile/setup/ceremony.mjs)."
+  "_comment": "create-your-own-pool: packages/profile init → profile bundle + instance.json → genesis → createKit. Mirror use-chipnet-demo-pool/instance.json fields with role:custom. Ceremony: mode ceremony-production + participants[] (packages/profile/setup/ceremony.mjs)."
 }

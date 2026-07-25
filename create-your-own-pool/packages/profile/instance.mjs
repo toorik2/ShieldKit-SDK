@@ -6,7 +6,7 @@
  *
  * loadInstance(ref) resolves either:
  *   - a directory containing instance.json (+ local profile bundle), or
- *   - the built-in id "chipnet-playground"
+ *   - built-in demo ids: use-chipnet-demo-pool | chipnet-playground | playground
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,11 +29,18 @@ const HASH = /^sha256:[0-9a-f]{64}$/;
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** create-your-own-pool/ (product tree) */
 const productRoot = path.resolve(here, '../..');
-/** monorepo root (sibling of chipnet-playground/) */
+/** monorepo root (sibling of use-chipnet-demo-pool/) */
 const monorepoRoot = path.resolve(here, '../../..');
 
-/** Built-in playground descriptor (coordinates only; bundle is local/downloaded). */
-export const CHIPNET_PLAYGROUND_ID = 'chipnet-playground';
+/** Built-in Chipnet demo instance id (folder: use-chipnet-demo-pool/). */
+export const CHIPNET_PLAYGROUND_ID = 'use-chipnet-demo-pool';
+/** @deprecated alias */
+export const CHIPNET_PLAYGROUND_ID_LEGACY = 'chipnet-playground';
+const PLAYGROUND_REFS = new Set([
+  CHIPNET_PLAYGROUND_ID,
+  CHIPNET_PLAYGROUND_ID_LEGACY,
+  'playground',
+]);
 
 /**
  * @typedef {object} InstanceDescriptor
@@ -53,7 +60,7 @@ export const CHIPNET_PLAYGROUND_ID = 'chipnet-playground';
  * Resolve path to the official playground instance.json in this monorepo.
  */
 export function playgroundInstancePath() {
-  return path.join(monorepoRoot, 'chipnet-playground/instance.json');
+  return path.join(monorepoRoot, 'use-chipnet-demo-pool/instance.json');
 }
 
 /**
@@ -63,7 +70,7 @@ export function playgroundBundleSearchPaths() {
   const env = process.env.SHIELDKIT_PLAYGROUND_BUNDLE;
   const paths = [];
   if (env) paths.push(path.resolve(env));
-  paths.push(path.join(monorepoRoot, 'chipnet-playground/bundle'));
+  paths.push(path.join(monorepoRoot, 'use-chipnet-demo-pool/bundle'));
   paths.push(path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle'));
   return paths;
 }
@@ -113,7 +120,7 @@ function validateDescriptor(raw, sourcePath) {
     reserveCapSatoshis: raw.reserveCapSatoshis ?? raw.genesis?.reserveCapSatoshis,
     categoryInputOutpoint: raw.categoryInputOutpoint ?? raw.genesis?.categoryInputOutpoint,
     label: raw.label ?? raw.id ?? 'pool',
-    role: raw.role ?? (raw.id === CHIPNET_PLAYGROUND_ID ? 'playground' : 'custom'),
+    role: raw.role ?? (PLAYGROUND_REFS.has(raw.id) ? 'playground' : 'custom'),
     denominationSatoshis: raw.denominationSatoshis ?? '10000000',
     explorers: raw.explorers ?? null,
     profileBundle: raw.profileBundle ?? null,
@@ -142,10 +149,9 @@ async function resolveBundleDirectory(descriptor, opts) {
     }
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
-      'Chipnet playground profile bundle not found. Fetch pinned release: '
-        + '`node create-your-own-pool/scripts/fetch-playground-bundle.mjs` '
-        + '(sha256 in chipnet-playground/instance.json), '
-        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See chipnet-playground/README.md.',
+      'Chipnet demo pool profile bundle not found. Fetch pinned release: '
+        + '`npm run fetch-playground-bundle` (sha256 in use-chipnet-demo-pool/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See use-chipnet-demo-pool/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json
@@ -164,7 +170,7 @@ async function resolveBundleDirectory(descriptor, opts) {
 /**
  * Load a pool instance descriptor and authenticate its profile bundle.
  *
- * @param {string} ref - "chipnet-playground" or path to instance dir / instance.json
+ * @param {string} ref - "use-chipnet-demo-pool" | "chipnet-playground" | "playground" | path
  * @param {object} [opts]
  * @param {string} [opts.bundleDirectory] - override profile bundle path
  * @param {boolean} [opts.loadBundle=true] - if false, return descriptor only
@@ -177,7 +183,7 @@ export async function loadInstance(ref, opts = {}) {
   const loadBundle = opts.loadBundle !== false;
 
   let instancePath;
-  if (ref === CHIPNET_PLAYGROUND_ID || ref === 'playground') {
+  if (PLAYGROUND_REFS.has(ref)) {
     instancePath = playgroundInstancePath();
   } else if (ref.endsWith('instance.json')) {
     instancePath = path.resolve(ref);

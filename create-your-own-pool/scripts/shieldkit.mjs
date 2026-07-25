@@ -82,7 +82,7 @@ function usage() {
 ${PRODUCT_STATUS.status}
 
 Product tree: create-your-own-pool/  (kit · profile · CLI)
-Optional demo: chipnet-playground/   (live Chipnet instance)
+Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Create and operate your pool
   init --config create-your-own-pool/templates/init.development.json
@@ -102,11 +102,11 @@ Flags:
   --i-understand-mainnet
   --allow-development-on-mainnet
 
-Docs: create-your-own-pool/ · chipnet-playground/ · create-your-own-pool/docs/
+Docs: create-your-own-pool/ · use-chipnet-demo-pool/ · create-your-own-pool/docs/
 `);
 }
 
-/** When true, openKit uses chipnet-playground instance. */
+/** When true, openKit uses use-chipnet-demo-pool instance. */
 function playgroundMode() {
   return process.argv[2] === 'playground' || flag('playground');
 }
@@ -137,7 +137,7 @@ async function openKit() {
   if (playgroundMode()) {
     try {
       const { loadInstance, instanceToKitConfig } = await import('../packages/profile/instance.mjs');
-      const instance = await loadInstance('chipnet-playground', {
+      const instance = await loadInstance('use-chipnet-demo-pool', {
         bundleDirectory: arg('bundle') || undefined,
       });
       const kit = await createKit(instanceToKitConfig(instance, extra));
@@ -150,7 +150,7 @@ async function openKit() {
     } catch (e) {
       failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2, {
         hint: 'npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE',
-        docs: 'chipnet-playground/README.md',
+        docs: 'use-chipnet-demo-pool/README.md',
       });
     }
   }
@@ -194,14 +194,14 @@ async function openKit() {
 async function cmdPlaygroundDoctor() {
   try {
     const { loadInstance } = await import('../packages/profile/instance.mjs');
-    const instance = await loadInstance('chipnet-playground', {
+    const instance = await loadInstance('use-chipnet-demo-pool', {
       loadBundle: false,
     });
     let bundleOk = false;
     let bundleError = null;
     let kitInfo = null;
     try {
-      const full = await loadInstance('chipnet-playground', {
+      const full = await loadInstance('use-chipnet-demo-pool', {
         bundleDirectory: arg('bundle') || undefined,
       });
       bundleOk = true;
@@ -221,7 +221,7 @@ async function cmdPlaygroundDoctor() {
       bundleError = { code: e.code || e.name, message: e.message };
     }
     const body = {
-      story: 'ShieldKit creates shielded pools. Demo is chipnet-playground/; product is create-your-own-pool/.',
+      story: 'ShieldKit creates shielded pools. Demo is use-chipnet-demo-pool/; product is create-your-own-pool/.',
       product: 'create-your-own-pool/',
       playgroundRole: 'optional-demo-not-hosted-service',
       instance: {

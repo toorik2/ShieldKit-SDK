@@ -18,5 +18,5 @@ HANDOVER.md
 .local/
 
 # large profile artifacts (not in git)
-chipnet-playground/bundle/
+use-chipnet-demo-pool/bundle/
 .local/

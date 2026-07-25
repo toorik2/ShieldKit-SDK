@@ -7,7 +7,7 @@ Status: product authority for **ShieldKit** (create-and-run-your-own-pool toolki
 Scope: product and protocol authority, not an implementation specification.
 
 > **Product story:** Primary path is **`create-your-own-pool/`**.  
-> Optional: **`chipnet-playground/`** live demo.
+> Optional: **`use-chipnet-demo-pool/`** live demo.
 
 ## 1. Mission
 

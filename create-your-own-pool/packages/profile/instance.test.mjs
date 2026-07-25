@@ -33,13 +33,13 @@ test('loadInstance playground alias', async () => {
 
 test('loadInstance path to instance.json', async () => {
   const instance = await loadInstance(playgroundInstancePath(), { loadBundle: false });
-  assert.equal(instance.id, 'chipnet-playground');
+  assert.equal(instance.id, 'use-chipnet-demo-pool');
 });
 
 test('missing bundle fails closed for playground with clear code', async () => {
   // Force miss by using nonexistent override
   await assert.rejects(
-    () => loadInstance('chipnet-playground', {
+    () => loadInstance('use-chipnet-demo-pool', {
       bundleDirectory: path.join(root, 'does-not-exist-bundle'),
     }),
     (e) => e instanceof InstanceError && (e.code === 'BUNDLE_AUTH_FAILED' || e.code === 'PLAYGROUND_BUNDLE_MISSING'),
@@ -61,7 +61,7 @@ test('full playground load when local lab bundle present', async (t) => {
     t.skip('lab profile bundle not present');
     return;
   }
-  const instance = await loadInstance('chipnet-playground', { bundleDirectory: lab });
+  const instance = await loadInstance('use-chipnet-demo-pool', { bundleDirectory: lab });
   assert.equal(instance.bundleDirectory, lab);
   assert.ok(instance.loaded);
   const cfg = instanceToKitConfig(instance);

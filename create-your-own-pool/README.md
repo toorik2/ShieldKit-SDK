@@ -3,7 +3,7 @@
 **This is the product.**  
 ShieldKit = toolkit to birth and run **your** BCH shielded pool.
 
-Optional live demo (sibling dir): [`../chipnet-playground/`](../chipnet-playground/).
+Optional live demo (sibling dir): [`../use-chipnet-demo-pool/`](../use-chipnet-demo-pool/).
 
 ## Start
 

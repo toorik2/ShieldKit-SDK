@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node create-your-own-pool/scripts/fetch-playground-bundle.mjs
- *   node create-your-own-pool/scripts/fetch-playground-bundle.mjs --out chipnet-playground/bundle
+ *   node create-your-own-pool/scripts/fetch-playground-bundle.mjs --out use-chipnet-demo-pool/bundle
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -19,7 +19,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 // scripts/ → create-your-own-pool/ → monorepo root
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const instancePath = path.join(monorepoRoot, 'chipnet-playground/instance.json');
+const instancePath = path.join(monorepoRoot, 'use-chipnet-demo-pool/instance.json');
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,7 +46,7 @@ async function main() {
     process.exit(1);
   }
 
-  const outDir = path.resolve(arg('out', path.join(monorepoRoot, 'chipnet-playground/bundle')));
+  const outDir = path.resolve(arg('out', path.join(monorepoRoot, 'use-chipnet-demo-pool/bundle')));
   const cacheDir = path.join(monorepoRoot, '.cache/playground-download');
   await mkdir(cacheDir, { recursive: true });
   const tarPath = path.join(cacheDir, 'chipnet-playground-profile-bundle.tar.gz');

@@ -1,6 +1,6 @@
 {
-  "id": "chipnet-playground",
-  "label": "ShieldKit Chipnet example pool",
+  "id": "use-chipnet-demo-pool",
+  "label": "ShieldKit Chipnet demo pool",
   "role": "playground",
   "network": "chipnet",
   "setupMode": "development-only",
@@ -28,7 +28,7 @@
     "fetch": "npm run fetch-playground-bundle",
     "searchPaths": [
       "SHIELDKIT_PLAYGROUND_BUNDLE env",
-      "chipnet-playground/bundle",
+      "use-chipnet-demo-pool/bundle",
       ".cache/profile-build-live/profile-bundle"
     ]
   },

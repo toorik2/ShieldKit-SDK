@@ -8,13 +8,13 @@ Your keys. Your frontend. Your instance.
 | Folder | Role |
 |--------|------|
 | **[`create-your-own-pool/`](create-your-own-pool/)** | **Product** — kit, profile, CLI, templates, docs |
-| **[`chipnet-playground/`](chipnet-playground/)** | **Optional demo** — fixed Chipnet live instance |
+| **[`use-chipnet-demo-pool/`](use-chipnet-demo-pool/)** | **Optional demo** — fixed Chipnet live instance |
 
 ```text
 ShieldKit-SDK/
   create-your-own-pool/   ← start here for real work
-  chipnet-playground/     ← optional try-first
-  README.md · package.json · SECURITY.md · LICENSE
+  use-chipnet-demo-pool/  ← optional try-first
+  README.md · package.json · SECURITY.md · LICENSE   ← GitHub/npm glue only
 ```
 
 | | |
@@ -54,7 +54,7 @@ const mine = await loadInstance('./my-pool');
 const kit = await createKit(instanceToKitConfig(mine));
 
 // Optional demo
-// const demo = await loadInstance('chipnet-playground');
+// const demo = await loadInstance('use-chipnet-demo-pool');
 ```
 
 You own: **keys · frontend · RPC · broadcast**.
