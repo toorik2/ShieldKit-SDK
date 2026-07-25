@@ -102,15 +102,11 @@
     },
     {
       "path": "docs/CHANGE_CONTROL.md",
-      "sha256": "25cd373307ce3f8895e2b45b50b8554983e15d777bc9d4d6fcb4bbc83543b2cb"
+      "sha256": "04fcb6b9752ef9258032eb4445c20bc3cea1cae454d9d8dabef22f0bf9972134"
     },
     {
       "path": "scripts/check-policy.mjs",
       "sha256": "41f0e4fa30956c7a89d01f033da516c09105e11bd2e91ac4ce4f58a6254ff8a1"
-    },
-    {
-      "path": ".github/workflows/policy.yml",
-      "sha256": "736a9d2989dc497ccc76af5a52e2ed7554dc3a6283387fe330863a28f1c823dd"
     },
     {
       "path": "dev/protocol/policy/evidence.schema.json",

@@ -68,3 +68,8 @@ Layout migration for GitHub product surface (not a protocol semantics change):
 - Product packages remain `packages/{kit,profile,action,prove,recover}`
 
 G0 freeze document *paths* updated in `dev/protocol/policy/g0-lock.json`. Decision IDs D-001–D-016 unchanged. Re-tag freeze when cutting a new PASS candidate.
+
+## 2026-07-25c — Remove GitHub Actions
+
+CI workflow `.github/workflows/policy.yml` removed. Protocol freeze checks run
+locally via `npm test` (`scripts/check-policy.mjs`). No hosted Actions dependency.

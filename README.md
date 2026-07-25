@@ -16,7 +16,7 @@ Offline toolkit for Bitcoin Cash: deposit → privately transfer → withdraw, w
 ## Install & CLI
 
 ```bash
-npm test                          # protocol freeze check
+npm test                          # protocol freeze check (local; no CI)
 node scripts/run-domain-tests.mjs # unit suite
 node scripts/shieldkit.mjs --help
 node scripts/shieldkit.mjs doctor
