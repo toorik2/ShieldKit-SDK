@@ -90,12 +90,15 @@ Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Create and operate your pool
   init --config create-your-own-pool/templates/init.development.json
+  request-template --kind deposit --bundle <profile-dir>
+  genesis-plan --bundle <dir> --category-input <json>
+  genesis-finalize --bundle <dir> --category-input <json> --signature <64hex>
   deposit|transfer|withdraw --bundle <your-pool> --request <prep.json>
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor | profile-info | config-check | explorer
 
   # Optional live demo
-  playground doctor|profile-info|deposit|transfer|withdraw|recover
+  playground doctor|profile-info|request-template|deposit|transfer|withdraw|recover
   (npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE)
 
 Flags:
@@ -103,7 +106,7 @@ Flags:
   --network chipnet|mainnet
   --mode development-only|ceremony-production
   --bundle <profile-dir>
-  --config / --request / --history / --seed-hex
+  --config / --request / --history / --seed-hex / --kind / --category-input / --signature
   --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
   --i-understand-mainnet
   --allow-development-on-mainnet
@@ -483,9 +486,12 @@ async function cmdAct(verb) {
   }
   const { kit } = await openKit();
   const request = await loadJsonFile(requestPath, '--request');
-  if (request.kind && request.kind !== requestKind) {
-    failJson('KIND_MISMATCH', `request.kind must be ${requestKind} for ${verb}`, 2, {
-      requestKind: request.kind,
+  // Accept common aliases: withdraw → withdrawal
+  const rawKind = request.kind;
+  const normalizedKind = rawKind === 'withdraw' ? 'withdrawal' : rawKind;
+  if (normalizedKind && normalizedKind !== requestKind) {
+    failJson('KIND_MISMATCH', `request.kind must be ${requestKind} for ${verb} (alias: withdraw→withdrawal)`, 2, {
+      requestKind: rawKind,
       expected: requestKind,
     });
   }
@@ -529,7 +535,7 @@ async function cmdRecover() {
     failJson(
       'INPUT_REQUIRED',
       playgroundMode()
-        ? 'recover requires --history <json> --seed-hex <64 hex> (playground; set SHIELDKIT_PLAYGROUND_BUNDLE)'
+        ? 'recover requires --history <json> --seed-hex <64 hex> (playground; fetch-playground-bundle or SHIELDKIT_PLAYGROUND_BUNDLE)'
         : 'recover requires --bundle <dir> --history <json> --seed-hex <64 hex bytes>',
       2,
       {
@@ -561,6 +567,144 @@ async function cmdRecover() {
   }
 }
 
+/**
+ * Emit a prep-request skeleton with binding lock filled from the loaded profile.
+ * Usage: request-template --kind deposit|transfer|withdrawal [--bundle … | playground]
+ */
+async function cmdRequestTemplate() {
+  const kindRaw = arg('kind', 'deposit');
+  const kind = kindRaw === 'withdraw' ? 'withdrawal' : kindRaw;
+  if (!['deposit', 'transfer', 'withdrawal'].includes(kind)) {
+    failJson('KIND_REQUIRED', '--kind must be deposit|transfer|withdrawal (alias withdraw)', 2);
+  }
+  if (!playgroundMode() && !arg('bundle')) {
+    failJson('BUNDLE_REQUIRED', 'request-template needs --bundle <dir> or playground mode', 2);
+  }
+  try {
+    const { kit } = await openKit();
+    // binding lock from PF7 verifier set in profile bundle
+    const { readFile } = await import('node:fs/promises');
+    const pathMod = await import('node:path');
+    const bundleDir = kit.profile.bundleDirectory;
+    if (!bundleDir) {
+      failJson('BUNDLE_PATH', 'cannot resolve profile bundle directory for request-template', 1);
+    }
+    const vsPath = pathMod.default.join(bundleDir, 'artifacts/verifier-set.bin');
+    // fallback: profile may expose via authority path
+    let bindingLockingBytecode;
+    let bindingCarrierBaseValueSatoshis = '1000';
+    try {
+      const raw = await readFile(vsPath, 'utf8');
+      const { parsePf7CarrierAuthority } = await import('../packages/prove/authority.mjs');
+      const authority = parsePf7CarrierAuthority(JSON.parse(raw));
+      bindingLockingBytecode = authority.settlementKernel.bindingLock.toString('hex');
+      bindingCarrierBaseValueSatoshis = authority.settlementKernel.artifact.constants.bindingCarrierBaseSatoshis;
+    } catch (e) {
+      failJson('TEMPLATE_BIND', `cannot load binding lock from profile: ${e.message}`, 1);
+    }
+    const template = {
+      kind,
+      bindingCarrierBaseValueSatoshis,
+      bindingLockingBytecode,
+      fundingOutpointIndex: '0',
+      fundingOutpointTransactionHashWire: '00'.repeat(32),
+      fundingPublicKey: '02' + '00'.repeat(32),
+      fundingSourceValueSatoshis: kind === 'deposit' ? '20100000' : '20100000',
+      settlementFeeFundingSatoshis: '100000',
+      _comment: 'Replace funding* with your fee UTXO + compressed pubkey. Sign with fee key — never pass private keys to the kit.',
+    };
+    okJson({
+      verb: 'request-template',
+      kind,
+      profileId: kit.profile.profileId,
+      instanceId: kit.profile.instanceId,
+      template,
+      writeHint: 'Save template JSON and fill funding fields, then: deposit|transfer|withdraw --request …',
+    });
+  } catch (e) {
+    failJson(e.code || e.name || 'TEMPLATE_FAILED', e.message || String(e), 1);
+  }
+}
+
+/**
+ * Offline genesis plan (no keys). Requires --bundle or playground + --category-input <json>.
+ * category-input shape: { lockingBytecode, outpointIndex, outpointTransactionHashWire, publicKey, token, valueSatoshis }
+ */
+async function cmdGenesisPlan() {
+  const catPath = arg('category-input');
+  if ((!playgroundMode() && !arg('bundle')) || !catPath) {
+    failJson(
+      'INPUT_REQUIRED',
+      'genesis plan requires --bundle <dir> (or playground) and --category-input <json>',
+      2,
+      {
+        categoryInputShape: {
+          lockingBytecode: '25-byte p2pkh hex',
+          outpointIndex: '0',
+          outpointTransactionHashWire: '32-byte txid wire hex',
+          publicKey: '33-byte compressed hex',
+          token: null,
+          valueSatoshis: 'decimal string',
+        },
+        note: 'category outpoint must match profile genesis (vout 0). Kit never accepts private keys.',
+      },
+    );
+  }
+  try {
+    const { kit } = await openKit();
+    const categoryInput = await loadJsonFile(catPath, '--category-input');
+    const plan = await kit.planGenesis({ categoryInput });
+    okJson({
+      verb: 'genesis-plan',
+      profileId: kit.profile.profileId,
+      instanceId: kit.profile.instanceId,
+      plan: {
+        schema: plan.schema,
+        qualification: plan.qualification,
+        signingDigestHex: plan.signing?.signingDigestHex,
+        measurements: plan.measurements,
+        profile: plan.profile,
+      },
+      next: [
+        'Sign signingDigestHex with category-input key (Schnorr BCH ALL|FORKID)',
+        'genesis-finalize --category-input … --signature <64-byte hex>',
+        'Broadcast resulting transactionHex via your Chipnet RPC',
+      ],
+    });
+  } catch (e) {
+    failJson(e.code || e.name || 'GENESIS_PLAN_FAILED', e.message || String(e), 1);
+  }
+}
+
+async function cmdGenesisFinalize() {
+  const catPath = arg('category-input');
+  const signature = arg('signature');
+  if ((!playgroundMode() && !arg('bundle')) || !catPath || !signature) {
+    failJson(
+      'INPUT_REQUIRED',
+      'genesis finalize requires --bundle (or playground), --category-input <json>, --signature <64hex>',
+      2,
+    );
+  }
+  try {
+    const { kit } = await openKit();
+    const categoryInput = await loadJsonFile(catPath, '--category-input');
+    const finalized = await kit.finalizeGenesis({ categoryInput }, signature);
+    okJson({
+      verb: 'genesis-finalize',
+      profileId: kit.profile.profileId,
+      instanceId: kit.profile.instanceId,
+      transactionId: finalized.transactionId,
+      transactionHex: finalized.transactionHex,
+      measurements: finalized.measurements,
+      qualification: finalized.qualification,
+      next: ['Broadcast transactionHex on Chipnet (e.g. sendrawtransaction)', 'Then operate with deposit/transfer/withdraw against this instance'],
+    });
+  } catch (e) {
+    failJson(e.code || e.name || 'GENESIS_FINALIZE_FAILED', e.message || String(e), 1);
+  }
+}
+
 const cmd = process.argv[2];
 if (cmd === '--version' || cmd === '-V' || cmd === 'version') {
   console.log(JSON.stringify({ ok: true, ...toolkitIdentity() }, null, 2));
@@ -577,6 +721,7 @@ if (cmd === 'playground') {
   const playgroundMap = {
     doctor: cmdPlaygroundDoctor,
     'profile-info': cmdProfileInfo,
+    'request-template': cmdRequestTemplate,
     deposit: () => cmdAct('deposit'),
     transfer: () => cmdAct('transfer'),
     withdraw: () => cmdAct('withdraw'),
@@ -601,6 +746,9 @@ if (cmd === 'playground') {
     'profile-info': cmdProfileInfo,
     doctor: cmdDoctor,
     init: cmdInit,
+    'request-template': cmdRequestTemplate,
+    'genesis-plan': cmdGenesisPlan,
+    'genesis-finalize': cmdGenesisFinalize,
     deposit: () => cmdAct('deposit'),
     transfer: () => cmdAct('transfer'),
     withdraw: () => cmdAct('withdraw'),

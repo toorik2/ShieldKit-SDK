@@ -7,6 +7,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/)-ish · SemVer **0.y.z** 
 
 ## [Unreleased]
 
+### Added
+
+- CLI `request-template`, `genesis-plan`, `genesis-finalize`; fetch falls back to `gh` for private release assets; withdraw/withdrawal alias; createKit exposes planGenesis/finalizeGenesis.
+- Lab `chain-e2e-chipnet.mjs` for Chipnet genesis + prep broadcast (local secrets + layer1-node).
+
+
 ### Changed
 
 - **development-only setup:** skip multi-hour `snarkjs powersoftau verify` when ptau matches trusted Hermez `final_20` pin (SHA-256). Loud stderr warning + metadata `ptau.verification` implications. Force full verify with `setup.verifyPtau: true` or CLI `--verify-ptau`. Ceremony path unchanged (always full verify).
