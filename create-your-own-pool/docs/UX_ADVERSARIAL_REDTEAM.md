@@ -41,6 +41,22 @@ Method: attack the **user journey**, not crypto hardness.
 | U-11 | `PIN_LENS` failure surfaces as unlock-builder throw mid-act after 30s prove. | Late fail | Acceptable if doctor preflight added |
 | U-12 | Notes journal directories created empty; transfer/withdraw need history knowledge. | Multi-action UX gap | Open |
 
+### LIVE E2E (2026-07-25) — pool-act unattended D→T→W
+
+| ID | Finding | Status |
+|----|---------|--------|
+| B1 | `pool-act` hung after `ok:true` (open handles) | **Fixed:** `process.exit(0)` |
+| B2/B3 | Mid-cycle `history.push` + extra `kind` → nullifier / exactKeys fail | **Fixed:** push only after full cycle; no `kind` |
+| B4 | Fee inventory collapsed (no prep change harvest) | **Fixed:** harvest `prepHotChange` + settle hot outs |
+| B7 | Manual fee inject between acts | **Fixed:** auto `scantxoutset` when inventory short; `--scan-fees` |
+| B8 | PF7 intermittent OP_VERIFY on genesis deposit | **Fixed:** 4× retry (e2e pattern) |
+| B9 | Unlock `tsx` EADDRINUSE under deep `.cache/...` paths | **Fixed:** short `/tmp/sk-ul-*` TMPDIR in unlock-builder |
+| B10 | scantxoutset phantom spent UTXOs as fund | **Fixed:** create-pool `--scan-fund` / always gettxout-verify |
+| B11 | GATE_FAIL retries stuck on single fee | **Fixed:** scan-fees-on-retry + prefer ≥2 live fees upfront |
+
+**Verify:** `.cache/fix-unattended-d2w/` — D→T→W all `exit 0`, `historyLen=1` only after withdraw, no hand-edited state mid-cycle.  
+**Verify B10/B11:** `.cache/fix-scanfund-smoke/` — `staleSkipped:1` on create; transfer GATE_FAIL attempt1 → rescan → ok attempt2.
+
 ### LOW
 
 | ID | Finding | Mitigation |

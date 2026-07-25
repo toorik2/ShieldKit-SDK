@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import {
-  existsSync, mkdirSync, readFileSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync,
 } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import {
   PIN_LENS, ROLE_NAMES, assertPinLens, buildLiveUnlockEnv,
@@ -63,13 +64,12 @@ export function buildVerifierUnlocks(input) {
   rmSync(outDir, { recursive: true, force: true });
   const buildDir = path.join(outDir, 'build');
   const genDir = path.join(outDir, 'generated');
-  const tmpDir = path.join(
-    outDir,
-    `tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  );
+  // tsx IPC uses unix sockets under TMPDIR; AF_UNIX sun_path ~108 bytes.
+  // Deep outDir paths (…/pool/runs/…/unlocks-…/tmp-…) overflow → EADDRINUSE/ENOENT.
+  // Always use a short system temp dir for the compile subprocess.
+  const tmpDir = mkdtempSync(path.join(os.tmpdir(), `sk-ul-${process.pid}-`));
   mkdirSync(buildDir, { recursive: true });
   mkdirSync(genDir, { recursive: true });
-  mkdirSync(tmpDir, { recursive: true });
 
   const adapterSha256 = sha256File(adapterPath);
   const packetSha256 = sha256File(packetPath);
@@ -130,6 +130,8 @@ export function buildVerifierUnlocks(input) {
     });
   } finally {
     if (heartbeat) clearInterval(heartbeat);
+    // Best-effort cleanup of short-lived TMPDIR (do not fail the build on rm).
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
   const ms = Date.now() - t0;
   const logText = `${r.stdout || ''}${r.stderr || ''}`;

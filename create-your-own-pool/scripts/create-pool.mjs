@@ -12,6 +12,8 @@
  *   npm run create-pool -- --out ./new-pool --with-genesis \
  *     --wallets .cache/e2e-full-20260725/local-wallets.json \
  *     --fund-txid <txid> --fund-vout 1 [--broadcast]
+ *   # or auto-pick live fund (gettxout-verified; skips scantxoutset phantoms):
+ *   npm run create-pool -- --out ./new-pool --with-genesis --scan-fund --broadcast
  */
 import { createHash } from 'node:crypto';
 import {
@@ -73,7 +75,72 @@ function bchnGetTxOut(txid, vout) {
   if (r.status !== 0) return null;
   const t = (r.stdout || '').trim();
   if (!t || t === 'null') return null;
-  return JSON.parse(t);
+  try { return JSON.parse(t); } catch { return null; }
+}
+
+/** Parse first top-level JSON object from mixed bitcoin-cli stdout. */
+function parseFirstJsonObject(raw) {
+  const start = raw.indexOf('{');
+  if (start < 0) throw new Error('no JSON object in output');
+  let depth = 0;
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return JSON.parse(raw.slice(start, i + 1));
+    }
+  }
+  throw new Error('unterminated JSON object');
+}
+
+function bchnScanAddr(address) {
+  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
+    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf scantxoutset start '["addr(${address})"]'`], {
+    encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+  });
+  if (r.status !== 0) throw new Error(`scantxoutset: ${r.stderr || r.stdout}`);
+  return parseFirstJsonObject(r.stdout || '');
+}
+
+/**
+ * Pick largest live funding UTXO ≥ minSats.
+ * Always gettxout-verifies scan hits — scantxoutset can return spent phantoms.
+ */
+function pickVerifiedFund(address, minSats) {
+  const scan = bchnScanAddr(address);
+  const rows = (scan.unspents || [])
+    .map((u) => ({
+      txid: u.txid,
+      vout: Number(u.vout),
+      scanSats: Math.round(Number(u.amount) * 1e8),
+    }))
+    .filter((u) => u.scanSats >= minSats)
+    .sort((a, b) => b.scanSats - a.scanSats);
+  let staleSkipped = 0;
+  for (const cand of rows) {
+    const u = bchnGetTxOut(cand.txid, cand.vout);
+    if (!u) {
+      staleSkipped++;
+      continue;
+    }
+    const sats = Math.round(Number(u.value) * 1e8);
+    if (sats < minSats) {
+      staleSkipped++;
+      continue;
+    }
+    return {
+      txid: cand.txid,
+      vout: cand.vout,
+      sats,
+      staleSkipped,
+      candidates: rows.length,
+    };
+  }
+  throw new Error(
+    `no live funding UTXO ≥ ${minSats} sats for ${address} `
+    + `(scan candidates=${rows.length}, phantoms_skipped=${staleSkipped}; pass --fund-txid)`,
+  );
 }
 
 function p2pkh(publicKey) {
@@ -350,13 +417,52 @@ async function main() {
   const leanRoot = resolveLeanRoot();
 
   if (hasFlag('with-genesis')) {
-    const fundTxid = arg('fund-txid');
-    if (!fundTxid) throw new Error('--with-genesis requires --fund-txid');
+    const walletsPath = arg('wallets', path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json'));
+    const categorySats = arg('category-sats', '5000000');
+    // Need category + fee + non-dust change; default floor 12M for lab hot wallets.
+    const minFund = Math.max(12_000_000, Number(categorySats) + 1_500_000);
+
+    let fundTxid = arg('fund-txid');
+    let fundVout = arg('fund-vout', '1');
+    let fundMeta = null;
+
+    if (!fundTxid || hasFlag('scan-fund')) {
+      if (!existsSync(path.resolve(walletsPath))) {
+        throw new Error(`--scan-fund / missing --fund-txid requires --wallets (${walletsPath})`);
+      }
+      const wallets = JSON.parse(readFileSync(path.resolve(walletsPath), 'utf8'));
+      const addr = wallets.hot?.address;
+      if (!addr) throw new Error('wallets.hot.address missing for --scan-fund');
+      fundMeta = pickVerifiedFund(addr, minFund);
+      fundTxid = fundMeta.txid;
+      fundVout = String(fundMeta.vout);
+      console.error(JSON.stringify({
+        phase: 'scan-fund',
+        address: addr,
+        minFund,
+        ...fundMeta,
+      }));
+    } else {
+      // Explicit fund: always re-verify live (never trust operator paste alone).
+      const utxo = bchnGetTxOut(fundTxid, Number(fundVout));
+      if (!utxo) {
+        throw new Error(
+          `funding UTXO missing/spent ${fundTxid}:${fundVout} `
+          + `(gettxout null — try --scan-fund to pick a live UTXO)`,
+        );
+      }
+      const sats = Math.round(Number(utxo.value) * 1e8);
+      if (sats < minFund) {
+        throw new Error(`funding UTXO too small: ${sats} < ${minFund} (need category+change)`);
+      }
+      fundMeta = { txid: fundTxid, vout: Number(fundVout), sats, verified: true };
+    }
+
     const result = await withGenesis(out, {
-      wallets: arg('wallets', path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json')),
+      wallets: walletsPath,
       fundTxid,
-      fundVout: arg('fund-vout', '1'),
-      categorySats: arg('category-sats', '5000000'),
+      fundVout,
+      categorySats,
       pinArtifacts: arg('pin-artifacts', DEFAULT_PIN_ART),
       broadcast: hasFlag('broadcast'),
     });
@@ -368,6 +474,7 @@ async function main() {
       instanceId: result.built.instanceId,
       categoryTxid: result.categoryTxid,
       genesisTxid: result.genesisTxid,
+      fund: fundMeta,
       broadcast: result.broadcast,
       unlockRoot,
       leanRoot,
