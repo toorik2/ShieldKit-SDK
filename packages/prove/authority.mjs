@@ -4,7 +4,7 @@ import {
   buildStateSettlementHelper,
   buildStateTrampolineLock,
   buildStateTrampolineUnlock,
-} from '../../bch/g2-compressed-covenants/compressed-covenants.mjs';
+} from '../bch/g2-compressed-covenants/compressed-covenants.mjs';
 
 export const PF7_CARRIER_SOURCE_ENCODING = 'libauth-transaction-outputs-v1';
 export const PF7_CARRIER_ROLES = Object.freeze([

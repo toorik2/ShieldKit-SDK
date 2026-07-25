@@ -221,7 +221,8 @@ shieldkit-sdk/
 │   └── G2/app-kit-polish-v1/ · live-chipnet-e2e-v1/ · …
 │
 ├── examples/                 pointers only — not core product
-├── circuits/ · bch/ · policy/ · spec/ · research/
+├── circuits/ · policy/ · spec/ · evidence/
+├── research/                 ← lab only (android, provenance, …)
 └── .cache/ · .worktrees/     local lab (gitignored / not for public clone story)
 ```
 

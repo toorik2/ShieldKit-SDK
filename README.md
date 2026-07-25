@@ -76,15 +76,23 @@ Always shown: **Unaudited — Work In Progress**.
 Broadcast: `--i-understand-mainnet`.  
 Production claims: `--mode ceremony-production` + ceremony-backed profile + new genesis.
 
-## Domains
+## Layout
 
-```
-packages/kit/       createKit
-packages/profile/   init · load · setup(dev|ceremony) · genesis
-packages/action/    prep · settlement · witness
-packages/prove/     groth16 · PF7 unlocks
-packages/recover/   notes / history
-packages/mobile/    optional
+```text
+packages/
+  kit/        createKit — app facade
+  profile/    init · load · setup(dev|ceremony) · genesis
+  action/     prep · settlement · witness
+  prove/      groth16 · PF7 unlocks
+  recover/    notes / history
+  mobile/     optional android/browser
+  bch/        covenant helpers (used by prove)
+scripts/      shieldkit CLI + tests
+examples/     demo-profile
+docs/         plan, charter, UX audit
+circuits/     relation source
+policy/ · spec/ · evidence/   # protocol freeze + gate dossiers
+research/     lab only (android, provenance, old notes) — not product
 ```
 
 ## Demo profile
