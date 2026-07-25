@@ -518,7 +518,7 @@ async function cmdAct(verb) {
       next: [
         'Sign signingRequest.digestHex with fee key (Schnorr); do not give kit the private key',
         'kit.finalizeCompletePreparation(request, signatureHex)',
-        'Local prove (packages/prove) + PF7 unlocks',
+        'Local prove (packages/prove) + build verifier unlocks',
         'Assemble settlement (packages/action assembleCompleteSettlement)',
         'kit.broadcastRaw(hex) only after assertCanBroadcast',
       ],
@@ -582,7 +582,7 @@ async function cmdRequestTemplate() {
   }
   try {
     const { kit } = await openKit();
-    // binding lock from PF7 verifier set in profile bundle
+    // binding lock from verifier set in profile bundle
     const { readFile } = await import('node:fs/promises');
     const pathMod = await import('node:path');
     const bundleDir = kit.profile.bundleDirectory;

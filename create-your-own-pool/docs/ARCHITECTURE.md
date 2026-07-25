@@ -21,7 +21,7 @@ loadInstance(ref) → createKit(config)
 | **packages/kit** | App entry: `createKit` |
 | **packages/profile** | `init` · genesis · `loadInstance` |
 | **packages/action** | Prep · settlement · witness |
-| **packages/prove** | Local Groth16 + PF7 (`lab/` / `internal/` = not public API) |
+| **packages/prove** | Local Groth16 + verifier unlocks (`lab/` / `internal/` = not public API) |
 | **packages/recover** | Notes from seed + history |
 | **scripts/** | CLI · domain tests · fetch-playground-bundle |
 | **templates/** | `init.development.json` |
