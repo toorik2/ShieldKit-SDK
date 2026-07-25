@@ -1,15 +1,15 @@
 # Examples
 
-> ShieldKit creates shielded pools; the Chipnet playground is our pool; your pool is the same thing with your genesis.
+> ShieldKit creates shielded pools. The Chipnet playground is a live **example**. Your pool is the same thing with **your** genesis.
 
-| Path | Audience | Purpose |
-|------|----------|---------|
-| **[chipnet-playground/](chipnet-playground/)** | **App builders** | Connect to the official Chipnet pool |
-| **[create-your-pool/](create-your-pool/)** | **Pool creators** | Init + genesis your own instance |
+| Path | Purpose |
+|------|---------|
+| **[chipnet-playground/](chipnet-playground/)** | Optional: try flows on our Chipnet demo instance |
+| **[create-your-pool/](create-your-pool/)** | Product path: birth and run **your** pool |
 
-Both use `loadInstance` → `createKit` — same spine.
+We do not offer a hosted pool for apps. The playground is only so you can play before you create yours.
 
 ```bash
-node scripts/shieldkit.mjs playground doctor
+node scripts/shieldkit.mjs playground doctor   # example instance
 node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
 ```

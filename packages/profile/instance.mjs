@@ -184,8 +184,8 @@ export async function loadInstance(ref, opts = {}) {
   ];
   if (descriptor.role === 'playground') {
     baseWarnings.push(
-      'Chipnet playground: official ShieldKit demo pool — development-only, not production privacy.',
-      'Same SDK as your own pool; only the genesis/instance binding differs.',
+      'Chipnet playground: live example only — not a hosted pool service for third-party apps.',
+      'development-only; not production privacy. Create your own pool for real use (same SDK, your genesis).',
     );
   }
   if (descriptor.setupMode === 'development-only') {

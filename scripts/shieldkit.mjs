@@ -77,33 +77,32 @@ function failJson(code, message, exitCode = 1, extra = {}) {
 }
 
 function usage() {
-  console.log(`ShieldKit — creates shielded pools
+  console.log(`ShieldKit — create and run your own BCH shielded pool
 
 ${PRODUCT_STATUS.status}
 
-The Chipnet playground is our pool. Your pool is the same thing with your genesis.
+Product: means to run YOUR pool (init → genesis → act/recover).
+Playground: optional live Chipnet EXAMPLE — not a hosted pool service.
 
-App builders (use a pool):
+  # Try the example (optional)
   playground doctor|profile-info|deposit|transfer|withdraw|recover
-  (binds official Chipnet instance — set SHIELDKIT_PLAYGROUND_BUNDLE)
+  (set SHIELDKIT_PLAYGROUND_BUNDLE)
 
-Pool creators (birth a pool):
+  # Create and operate your pool
   init --config <init.json>
-
-Any instance:
-  deposit|transfer|withdraw --bundle <dir> --request <prep.json>
-  recover --bundle <dir> --history <json> --seed-hex <64hex>
+  deposit|transfer|withdraw --bundle <your-pool> --request <prep.json>
+  recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor | profile-info | config-check | explorer
 
 Flags:
   --network chipnet|mainnet
   --mode development-only|ceremony-production
-  --bundle <profile-dir>          (or playground bundle via env)
+  --bundle <profile-dir>
   --config / --request / --history / --seed-hex
   --i-understand-mainnet
   --allow-development-on-mainnet
 
-Docs: examples/chipnet-playground · examples/create-your-pool · docs/PLAYGROUND.md
+Docs: examples/create-your-pool · examples/chipnet-playground · docs/PLAYGROUND.md
 `);
 }
 
@@ -222,8 +221,9 @@ async function cmdPlaygroundDoctor() {
       bundleError = { code: e.code || e.name, message: e.message };
     }
     const body = {
-      story: 'ShieldKit creates shielded pools; the Chipnet playground is our pool; your pool is the same thing with your genesis.',
-      audience: 'app-builders',
+      story: 'ShieldKit creates shielded pools. Playground is a live example; your product path is your own pool (your genesis).',
+      product: 'create-and-run-your-own-pool',
+      playgroundRole: 'optional-example-not-hosted-service',
       instance: {
         id: instance.id,
         network: instance.network,
@@ -237,8 +237,15 @@ async function cmdPlaygroundDoctor() {
       bundleError,
       kit: kitInfo,
       next: bundleOk
-        ? ['playground deposit --request prep.json', 'You supply Chipnet RPC, fees, proofs, broadcast']
-        : ['export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle', 'see examples/chipnet-playground/README.md'],
+        ? [
+          'optional: playground deposit --request prep.json (learn the flow)',
+          'then: create your own pool — examples/create-your-pool',
+          'You supply RPC, fees, proofs, broadcast',
+        ]
+        : [
+          'export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle (example only)',
+          'or skip playground and create your pool — examples/create-your-pool',
+        ],
     };
     if (bundleOk) okJson(body);
     else failJson('PLAYGROUND_BUNDLE_MISSING', bundleError?.message || 'bundle not loaded', 2, body);
@@ -379,7 +386,7 @@ async function cmdInit() {
         api: "import { init } from './packages/profile/init.mjs'",
         example: 'examples/create-your-pool/init.example.json',
         note: 'new setup ⇒ new profile + new genesis; no hot-swap',
-        audience: 'pool-creators',
+        path: 'create-your-own-pool',
         ...(deprecatedSetupModeFlag ? { deprecation: '--setup-mode is deprecated; use --mode' } : {}),
       },
     );
@@ -424,7 +431,7 @@ async function cmdAct(verb) {
       {
         verb,
         kind: requestKind,
-        audience: playgroundMode() ? 'app-builders' : 'pool-creators-or-builders',
+        path: playgroundMode() ? 'optional-example-playground' : 'your-pool',
         requestShape: {
           kind: requestKind,
           bindingCarrierBaseValueSatoshis: 'string',

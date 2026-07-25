@@ -1,10 +1,11 @@
 # ShieldKit
 
-**Private BCH transfers. Your pool. Your keys. Your app.**
+**Create and run your own BCH shielded pool.**  
+Your keys. Your frontend. Your instance.
 
 > **ShieldKit creates shielded pools.  
-> The Chipnet playground is our pool.  
-> Your pool is the same thing with your genesis.**
+> The Chipnet playground is a live example of a pool built with this kit.  
+> Your product is your own pool — same toolkit, your genesis.**
 
 | | |
 |--|--|
@@ -13,16 +14,19 @@
 | **Mainnet** | One config change + WIP warnings — not a release claim |
 | **Production privacy** | `ceremony-production` + **new genesis** (no hot-swap) |
 
+We do **not** offer a hosted pool for third-party apps. The playground is only so you can **try the kit** before standing up **yours**.
+
 ---
 
-## Two doors, one SDK
+## Path
 
-| You are… | You want… | Start here |
-|----------|-----------|------------|
-| **App builder** | Use a live pool in an app or CLI | [**Chipnet playground**](examples/chipnet-playground/) — *our* pool |
-| **Pool creator** | Birth a new pool | [**Create your own pool**](examples/create-your-pool/) — *your* genesis |
+| Step | What | Where |
+|------|------|--------|
+| **1. Try the example** | Play against our Chipnet demo instance (optional) | [`examples/chipnet-playground`](examples/chipnet-playground/) |
+| **2. Create your pool** | Init + genesis — the actual product job | [`examples/create-your-pool`](examples/create-your-pool/) |
+| **3. Operate** | deposit · transfer · withdraw · recover on **your** instance | `createKit` / CLI |
 
-Same APIs (`loadInstance` → `createKit`). Only the **instance binding** changes.
+Same APIs either way. Playground and “your pool” differ only by **instance binding**.
 
 ---
 
@@ -32,43 +36,41 @@ Same APIs (`loadInstance` → `createKit`). Only the **instance binding** change
 npm test
 node scripts/shieldkit.mjs --help
 
-# App builders — official Chipnet playground
-export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle   # see playground README
+# Optional — try the Chipnet example pool first
+export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle
 node scripts/shieldkit.mjs playground doctor
-node scripts/shieldkit.mjs playground profile-info
 
-# Pool creators
+# Product path — create and run your own
 node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
 ```
 
 ```js
 import { createKit, loadInstance, instanceToKitConfig } from './packages/kit/index.mjs';
 
-// Our pool
-const playground = await loadInstance('chipnet-playground');
-const kit = await createKit(instanceToKitConfig(playground));
+// Optional example instance (our Chipnet playground)
+// const example = await loadInstance('chipnet-playground');
+// const kit = await createKit(instanceToKitConfig(example));
 
 // Your pool (after init + genesis)
-// const mine = await loadInstance('./my-pool');
-// const kit = await createKit(instanceToKitConfig(mine));
+const mine = await loadInstance('./my-pool');
+const kit = await createKit(instanceToKitConfig(mine));
 
 // kit.planAction(request) · kit.recoverAuthenticatedHistory(...)
-// kit.warnings includes product status
 ```
 
 You own: **keys · frontend · RPC · broadcast**.  
-ShieldKit does not store secrets or open sockets.
+ShieldKit does not store secrets, host a pool service, or open sockets.
 
 ---
 
 ## Four verbs
 
-| Verb | App builder (playground) | Pool creator / any instance |
-|------|--------------------------|-----------------------------|
+| Verb | Example playground | Your pool |
+|------|--------------------|-----------|
 | **init** | — | `init --config …` |
-| **act** | `playground deposit\|transfer\|withdraw --request …` | `deposit … --bundle … --request …` |
-| **recover** | `playground recover --history … --seed-hex …` | `recover --bundle …` |
-| **doctor** | `playground doctor` | `doctor` |
+| **act** | `playground deposit --request …` | `deposit --bundle ./my-pool --request …` |
+| **recover** | `playground recover …` | `recover --bundle ./my-pool …` |
+| **doctor** | `playground doctor` | `doctor` / load your instance |
 
 Missing inputs → **`ok: false`** (fail-closed).
 
@@ -80,9 +82,9 @@ Missing inputs → **`ok: false`** (fail-closed).
 packages/     kit · profile · action · prove · recover
 scripts/      shieldkit CLI · domain tests
 examples/
-  chipnet-playground/   our Chipnet pool (instance.json)
-  create-your-pool/     birth your own
-docs/         charter · privacy · architecture · playground model
+  chipnet-playground/   live Chipnet *example* (not a hosted product)
+  create-your-pool/     create your own instance
+docs/
 ```
 
 ---

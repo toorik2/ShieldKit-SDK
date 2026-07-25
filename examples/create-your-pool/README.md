@@ -1,12 +1,14 @@
 # Create your own pool
 
-> **ShieldKit creates shielded pools. The Chipnet playground is our pool. Your pool is the same thing with your genesis.**
+> **This is the product path.**  
+> ShieldKit exists so you can create and run **your** shielded pool.  
+> The [Chipnet playground](../chipnet-playground/) is only a live example to try first.
 
 | | |
 |--|--|
-| **Who** | **Pool creators** |
-| **What** | Birth a new profile + instance (dev or ceremony), then use the **same** act/recover path |
-| **Not** | A different SDK |
+| **Who** | Anyone shipping their own instance |
+| **What** | Init (dev or ceremony) → genesis → operate with the same kit as the example |
+| **Not** | Depending on our playground for production |
 
 ---
 
@@ -16,47 +18,41 @@
 init (development-only | ceremony-production)
   → profile bundle + instance.json
   → genesis (on-chain)
-  → createKit / shieldkit deposit|transfer|withdraw|recover
+  → createKit / deposit | transfer | withdraw | recover
 ```
 
-Same shape as the playground: an **instance descriptor** + **profile bundle**.
+Same shape as the playground: **instance descriptor + profile bundle** — but **your** genesis.
 
 ---
 
 ## Steps
 
-1. **Init** (development-only for Chipnet lab):
+1. **Init**
 
 ```bash
-# fill paths/hashes first — see init.example.json
 node scripts/shieldkit.mjs init --config ./init.example.json
+# or: import { init } from '../../packages/profile/init.mjs'
 ```
 
-Or library: `import { init } from '../../packages/profile/init.mjs'`.
+2. Write **`instance.json`** next to your bundle (mirror playground fields; `role: "custom"`).
 
-2. **Emit `instance.json`** next to your bundle (same fields as playground; `role: "custom"`).
+3. **Genesis** — fund category input; plan/finalize via `packages/profile` genesis helpers.
 
-3. **Genesis** — plan/finalize with `packages/profile` genesis helpers; fund category input.
-
-4. **Operate** — identical to playground:
+4. **Operate**
 
 ```js
 import { loadInstance, instanceToKitConfig } from '../../packages/profile/instance.mjs';
 import { createKit } from '../../packages/kit/index.mjs';
 
-const mine = await loadInstance('./my-pool'); // directory with instance.json + bundle/
+const mine = await loadInstance('./my-pool');
 const kit = await createKit(instanceToKitConfig(mine));
 ```
 
 ---
 
-## After ceremony
+## Ceremony / mainnet
 
-Production privacy claims require `ceremony-production` + **new** genesis (new instance).  
-No hot-swap onto an existing playground or lab instance.
+Production privacy claims: `ceremony-production` + **new** genesis.  
+No hot-swap onto the playground or any existing instance.
 
----
-
-## Try ours first
-
-→ [`../chipnet-playground/`](../chipnet-playground/)
+Optional first step: [try the example playground](../chipnet-playground/).

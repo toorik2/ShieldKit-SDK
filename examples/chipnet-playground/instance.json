@@ -27,7 +27,8 @@
     ]
   },
   "warnings": [
-    "Shared Chipnet instance: deposit/transfer/withdraw with your own fee keys and RPC.",
-    "Not production privacy. Funds on Chipnet may still have value — use deliberately."
+    "Example instance only — not a hosted product for third-party apps.",
+    "Shared Chipnet demo: use your own fee keys and RPC. Not production privacy.",
+    "Create your own pool for real use (same kit, your genesis)."
   ]
 }

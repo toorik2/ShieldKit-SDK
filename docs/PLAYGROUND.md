@@ -1,31 +1,41 @@
-# Playground & your pool
+# Example playground & your pool
 
-**One-line product story**
+**Product story**
 
-> ShieldKit creates shielded pools; the Chipnet playground is our pool, and your pool is the same thing with your genesis.
+> ShieldKit creates shielded pools.  
+> The Chipnet playground is a **live example** of a pool built with this kit.  
+> Your product use-case is **your own pool** — same toolkit, your genesis.
 
-## Audiences (names)
+## What we sell (conceptually)
 
-| Name | Intent | Entry |
-|------|--------|--------|
-| **App builders** | Build against a live pool (ours or yours) | [`examples/chipnet-playground`](../examples/chipnet-playground/) |
-| **Pool creators** | Birth a new pool | [`examples/create-your-pool`](../examples/create-your-pool/) |
+| We provide | We do **not** provide |
+|------------|------------------------|
+| SDK/CLI to **create and operate** your pool | A hosted pool for third-party apps to “use as infrastructure” |
+| A Chipnet **example instance** to try the flows | Production privacy, mainnet playground, or shared SaaS anonymity |
 
-Avoid “tinkerer.” Both use the **same** SDK; only the **instance** differs.
+## How to think about the two paths
 
-## Instance model
+| Path | Purpose |
+|------|---------|
+| **Try the example** | Optional: deposit/transfer/recover against the official Chipnet demo so you see a real instance end-to-end |
+| **Create your pool** | The product job: `init` → genesis → operate **your** instance forever |
+
+Both use `loadInstance` → `createKit`. No second product.
 
 ```text
-loadInstance(ref) → createKit(instanceToKitConfig(instance))
-         │
-    chipnet-playground     ./my-pool/
-    (official Chipnet)     (your genesis)
+loadInstance(ref) → createKit(...)
+        │
+ chipnet-playground          ./my-pool/
+ (example only)              (your genesis — the point)
 ```
-
-An instance is coordinates + authenticated profile bundle + **chain tip you discover**.
 
 ## Honesty
 
-- Playground: **Chipnet**, **development-only**, **Unaudited — Work In Progress**
-- Not production privacy
-- Proving key ~455 MB: pin + external/local path, not git
+- Playground: Chipnet, **development-only**, Unaudited — Work In Progress  
+- Not production privacy; not a service you depend on for production  
+- After you learn the shape, run **your** pool
+
+## Entry points
+
+- Example: [`examples/chipnet-playground/`](../examples/chipnet-playground/)  
+- Create: [`examples/create-your-pool/`](../examples/create-your-pool/)
