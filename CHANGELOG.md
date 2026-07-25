@@ -5,6 +5,13 @@ Toolkit code only (`create-your-own-pool/`, root glue).
 
 Format: [Keep a Changelog](https://keepachangelog.com/)-ish · SemVer **0.y.z** until 1.0 (MINOR may break).
 
+## [Unreleased]
+
+### Changed
+
+- **development-only setup:** skip multi-hour `snarkjs powersoftau verify` when ptau matches trusted Hermez `final_20` pin (SHA-256). Loud stderr warning + metadata `ptau.verification` implications. Force full verify with `setup.verifyPtau: true` or CLI `--verify-ptau`. Ceremony path unchanged (always full verify).
+- Setup phase logs to stderr; snarkjs stdout/stderr streamed for long steps.
+
 ## [0.1.0] — 2026-07-25
 
 ### Added

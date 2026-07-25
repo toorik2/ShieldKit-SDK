@@ -12,7 +12,14 @@ import { promisify } from 'node:util';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import {
-  LocalSetupError, SNARKJS_VERSION, assertUnchangedSetupInputs, getPinnedSnarkjsInfo, hashFileStreaming, initializeDevelopmentGroth16,
+  LocalSetupError,
+  SNARKJS_VERSION,
+  TRUSTED_DEVELOPMENT_PTAU,
+  assertUnchangedSetupInputs,
+  getPinnedSnarkjsInfo,
+  hashFileStreaming,
+  initializeDevelopmentGroth16,
+  resolveDevelopmentPtauVerification,
 } from './development.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -76,6 +83,35 @@ function inputFor(data, destination) {
   };
 }
 
+test('resolveDevelopmentPtauVerification: Hermez pin defaults to hash-only; verifyPtau forces full', () => {
+  const hermez = TRUSTED_DEVELOPMENT_PTAU['hermez-powersOfTau28_hez_final_20'];
+  const base = {
+    ptauSource: hermez.source,
+    ptauSha256: hermez.sha256,
+    expectedPtauPower: hermez.power,
+  };
+  assert.equal(resolveDevelopmentPtauVerification(base).mode, 'hash-only');
+  assert.equal(resolveDevelopmentPtauVerification({ ...base, verifyPtau: true }).mode, 'full');
+  assert.equal(resolveDevelopmentPtauVerification({ ...base, verifyPtau: false }).mode, 'hash-only');
+  assert.equal(
+    resolveDevelopmentPtauVerification({
+      ptauSource: 'local-test-phase1-power-4',
+      ptauSha256: hermez.sha256,
+      expectedPtauPower: 4,
+    }).mode,
+    'full',
+  );
+  assert.throws(
+    () => resolveDevelopmentPtauVerification({
+      ptauSource: 'local-test-phase1-power-4',
+      ptauSha256: hermez.sha256,
+      expectedPtauPower: 4,
+      verifyPtau: false,
+    }),
+    /TRUSTED_DEVELOPMENT_PTAU/,
+  );
+});
+
 test('real pinned snarkjs development setup creates one verified local contribution', async (t) => {
   const data = await fixture(t); const destination = path.join(data.root, 'development-bundle');
   const result = await initializeDevelopmentGroth16(inputFor(data, destination));
@@ -89,6 +125,9 @@ test('real pinned snarkjs development setup creates one verified local contribut
   assert.equal(result.metadata.inputs.r1cs.nPublicInputs, 2);
   assert.equal(result.metadata.inputs.r1cs.nOutputs, 0);
   assert.equal(Number.isInteger(result.metadata.inputs.r1cs.nConstraints), true);
+  // tiny lab ptau is not a trusted Hermez pin → full verify path
+  assert.equal(result.metadata.inputs.ptau.verification.mode, 'full');
+  assert.equal(result.metadata.inputs.ptau.verification.snarkjsPowersoftauVerify, true);
   await lstat(path.join(destination, 'final.zkey')); await lstat(path.join(destination, 'verification_key.json'));
   await assert.rejects(() => lstat(path.join(destination, 'initial.zkey')));
   const serialized = JSON.parse(await readFile(path.join(destination, 'setup-metadata.json'), 'utf8'));

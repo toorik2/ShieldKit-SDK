@@ -104,6 +104,7 @@ Flags:
   --mode development-only|ceremony-production
   --bundle <profile-dir>
   --config / --request / --history / --seed-hex
+  --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
   --i-understand-mainnet
   --allow-development-on-mainnet
 
@@ -423,6 +424,13 @@ async function cmdInit() {
       configMode: input.mode,
     });
   }
+  // Force full snarkjs powersoftau verify (slow). Default development path may hash-only trusted Hermez pins.
+  if (flag('verify-ptau')) {
+    if (!input.setup || typeof input.setup !== 'object') {
+      failJson('SETUP_REQUIRED', '--verify-ptau requires config.setup object', 2);
+    }
+    input.setup = { ...input.setup, verifyPtau: true };
+  }
   try {
     const { init } = await import('../packages/profile/init.mjs');
     const result = await init(input);
@@ -434,6 +442,9 @@ async function cmdInit() {
       profileId: result.profileId,
       instanceId: result.instanceId,
       loaded: Boolean(result.loaded),
+      ptauVerification: result.setupMetadata?.inputs?.ptau?.verification
+        ?? result.setupMetadata?.setup?.material?.phase1?.verification
+        ?? null,
     });
   } catch (e) {
     failJson(e.name || 'INIT_FAILED', e.message || String(e), 1);

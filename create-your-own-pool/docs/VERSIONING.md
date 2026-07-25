@@ -35,6 +35,15 @@ Never tag a zkey as `v0.3.0`. Never reuse/overwrite release assets.
 
 Toolkit version does **not** imply any of these. Pre-1.0 default claim: **Unaudited — Work In Progress**.
 
+## Development ptau verification (setup)
+
+| Mode | When | Meaning |
+|------|------|---------|
+| **hash-only** (default for trusted pin) | `ptauSource` + file SHA-256 match `TRUSTED_DEVELOPMENT_PTAU` (e.g. Hermez `final_20`) | Integrity = pin match. **Does not** re-run multi-hour `snarkjs powersoftau verify`. |
+| **full** | unknown ptau, or `setup.verifyPtau: true` / CLI `--verify-ptau` | Full snarkjs Phase-1 check (slow for power 20). |
+
+**Ceremony / production path always full-verifies.** Hash-only is development-only convenience and is recorded in `setup-metadata.json` with explicit implications. Wrong pin ⇒ bad ptau accepted without transcript re-check.
+
 ## Related
 
 - [CHANGELOG.md](../../CHANGELOG.md) · [PROFILES.md](PROFILES.md) · [CHARTER.md](CHARTER.md)

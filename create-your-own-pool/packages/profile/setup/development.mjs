@@ -23,6 +23,29 @@ const snarkjsCliPath = path.join(snarkjsRoot, 'build', 'cli.cjs');
 const snarkjsPackagePath = path.join(snarkjsRoot, 'package.json');
 const fstatAsync = promisify(fstat);
 
+/**
+ * Well-known Phase-1 ptau pins for development-only.
+ * Hash match is the integrity check; full `snarkjs powersoftau verify` is optional (hours for power 20).
+ * Ceremony/production path always runs full verify (see ceremony.mjs).
+ */
+export const TRUSTED_DEVELOPMENT_PTAU = Object.freeze({
+  'hermez-powersOfTau28_hez_final_20': Object.freeze({
+    source: 'hermez-powersOfTau28_hez_final_20',
+    sha256: 'sha256:159d3f938d941e06767d99f30b9fe59a245400a4aae138cf8e411732d7a2f6cd',
+    power: 20,
+    note: 'Hermez / Perpetual Powers of Tau final_20 (community-distributed). Not a ShieldKit ceremony.',
+  }),
+});
+
+const PTAU_HASH_ONLY_IMPLICATIONS = Object.freeze([
+  'development-only: snarkjs powersoftau verify was skipped after SHA-256 pin match',
+  'you trust the pin identity (e.g. Hermez final_20) and that the file bytes match that pin',
+  'hash-only does NOT re-check the multi-party Phase-1 transcript or contribution chain',
+  'hash-only is NOT ceremony-production or mainnet qualification evidence',
+  'a wrong pin (or malicious pin) would accept a bad ptau without full verify',
+  'pass setup.verifyPtau=true or CLI --verify-ptau to force full snarkjs powersoftau verify',
+]);
+
 export class LocalSetupError extends Error {
   constructor(message) { super(message); this.name = 'LocalSetupError'; }
 }
@@ -102,7 +125,85 @@ function commandLabel(args) {
   return args.slice(0, 2).join(' ');
 }
 
-async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = false } = {}) {
+function phase(message) {
+  process.stderr.write(`[shieldkit setup] ${message}\n`);
+}
+
+/**
+ * Resolve ptau verification policy for development-only setup.
+ * @returns {{ mode: 'hash-only'|'full', trusted: object|null, reason: string }}
+ */
+export function resolveDevelopmentPtauVerification({
+  ptauSource,
+  ptauSha256,
+  expectedPtauPower,
+  verifyPtau,
+}) {
+  const trusted = TRUSTED_DEVELOPMENT_PTAU[ptauSource] ?? null;
+  const pinEligible = Boolean(
+    trusted
+    && trusted.sha256 === ptauSha256
+    && trusted.power === expectedPtauPower,
+  );
+
+  if (verifyPtau === true) {
+    return {
+      mode: 'full',
+      trusted,
+      reason: pinEligible
+        ? 'verifyPtau=true: full snarkjs powersoftau verify forced despite trusted pin'
+        : 'verifyPtau=true: full snarkjs powersoftau verify required',
+    };
+  }
+  if (verifyPtau === false) {
+    if (!pinEligible) {
+      fail(
+        'verifyPtau=false (hash-only) requires ptauSource + expectedPtauSha256 + power '
+          + 'to match a TRUSTED_DEVELOPMENT_PTAU pin (e.g. hermez-powersOfTau28_hez_final_20); '
+          + 'unknown ptau must use full verify (omit verifyPtau or set verifyPtau=true)',
+      );
+    }
+    return {
+      mode: 'hash-only',
+      trusted,
+      reason: 'verifyPtau=false: hash-only against trusted development pin',
+    };
+  }
+  // default: hash-only when pin-eligible, else full verify
+  if (pinEligible) {
+    return {
+      mode: 'hash-only',
+      trusted,
+      reason: 'default: trusted Hermez/final pin + SHA-256 match → skip multi-hour powersoftau verify',
+    };
+  }
+  return {
+    mode: 'full',
+    trusted: null,
+    reason: 'default: ptau is not a known development pin → full snarkjs powersoftau verify',
+  };
+}
+
+function warnPtauHashOnly(policy, ptauSha256) {
+  process.stderr.write(
+    [
+      '',
+      '╔══════════════════════════════════════════════════════════════════════╗',
+      '║  WARNING: development-only ptau check is HASH-ONLY                   ║',
+      '╚══════════════════════════════════════════════════════════════════════╝',
+      `  mode:        hash-only (snarkjs powersoftau verify SKIPPED)`,
+      `  ptau sha256: ${ptauSha256}`,
+      `  pin source:  ${policy.trusted?.source ?? '(none)'}`,
+      `  reason:      ${policy.reason}`,
+      '  Implications:',
+      ...PTAU_HASH_ONLY_IMPLICATIONS.map((line) => `    • ${line}`),
+      '  This setup remains development-only. It is not production privacy.',
+      '',
+    ].join('\n'),
+  );
+}
+
+async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = false, label = undefined } = {}) {
   const options = { cwd, env: {}, windowsHide: true, maxBuffer: 1024 * 1024 };
   if (capture && entropy !== undefined) fail('captured snarkjs commands cannot receive entropy');
   if (capture) {
@@ -115,6 +216,8 @@ async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = fals
       });
     });
   }
+  const started = Date.now();
+  phase(`start snarkjs ${label ?? commandLabel(args)} …`);
   await new Promise((resolve, reject) => {
     const child = execFile(process.execPath, [snarkjsCliPath, ...args], options);
     let settled = false; let suppliedEntropy = false; let output = ''; let entropyTransport;
@@ -124,7 +227,9 @@ async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = fals
       entropyTransport?.fill(0);
       if (error) reject(error); else resolve();
     };
+    // Stream snarkjs output so multi-minute/hour work is visible (progress honesty).
     child.stdout?.on('data', (chunk) => {
+      process.stderr.write(chunk);
       if (entropy === undefined || suppliedEntropy) return;
       output = `${output}${String(chunk)}`.slice(-512);
       if (output.includes('Enter a random text. (Entropy):')) {
@@ -135,7 +240,9 @@ async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = fals
         child.stdin.end(entropyTransport);
       }
     });
-    child.stderr?.resume();
+    child.stderr?.on('data', (chunk) => {
+      process.stderr.write(chunk);
+    });
     child.on('error', () => finish(new LocalSetupError(`snarkjs command failed: ${commandLabel(args)}`)));
     child.on('close', (code) => {
       if (code !== 0) finish(new LocalSetupError(`snarkjs command failed: ${commandLabel(args)}`));
@@ -144,6 +251,7 @@ async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = fals
     });
     if (entropy === undefined) child.stdin.end();
   });
+  phase(`done snarkjs ${label ?? commandLabel(args)} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
 }
 
 async function pinnedSnarkjsInfo(expected) {
@@ -257,15 +365,40 @@ function commandRecord(args) {
  * Execute exactly one local Groth16 Phase-2 contribution. The entropy is
  * supplied only through inherited stdin or an already-open private fd and is
  * never placed in argv, metadata, logs, or an environment dump.
+ *
+ * Optional input fields:
+ * - verifyPtau: true  → always run snarkjs powersoftau verify
+ * - verifyPtau: false → hash-only (requires TRUSTED_DEVELOPMENT_PTAU pin match)
+ * - omit verifyPtau   → hash-only if pin-eligible, else full verify
+ *
+ * Hash-only is development convenience only. Ceremony path never skips verify.
  */
 export async function initializeDevelopmentGroth16(input) {
-  exactKeys(input, 'local setup input', ['destination', 'r1csPath', 'ptauPath', 'ptauSource', 'expectedR1csSha256', 'expectedPtauSha256', 'expectedPtauPower', 'expectedSnarkjs', 'entropySource']);
+  if (input === null || Array.isArray(input) || typeof input !== 'object') fail('local setup input must be an object');
+  const required = [
+    'destination', 'r1csPath', 'ptauPath', 'ptauSource', 'expectedR1csSha256',
+    'expectedPtauSha256', 'expectedPtauPower', 'expectedSnarkjs', 'entropySource',
+  ];
+  for (const key of required) {
+    if (!Object.hasOwn(input, key)) fail(`local setup input missing ${key}`);
+  }
+  for (const key of Object.keys(input)) {
+    if (!required.includes(key) && key !== 'verifyPtau') {
+      fail(`local setup input has unknown property: ${key}`);
+    }
+  }
+  if (Object.hasOwn(input, 'verifyPtau') && typeof input.verifyPtau !== 'boolean') {
+    fail('verifyPtau must be a boolean when set');
+  }
   if (!Number.isInteger(input.expectedPtauPower) || input.expectedPtauPower < 1 || input.expectedPtauPower > 28) fail('expected ptau power must be an integer from 1 to 28');
   const ptauSource = text(input.ptauSource, 'ptau source');
+  phase('hashing r1cs + ptau (streaming) …');
   const r1csPath = await regularFile(input.r1csPath, 'r1cs path'); const ptauPath = await regularFile(input.ptauPath, 'ptau path');
   const r1cs = await readR1csCapacity(r1csPath);
   if (r1cs.nPublicInputs !== 2 || r1cs.nOutputs !== 0) fail('r1cs must use the shield.cash ABI: exactly 2 public inputs and 0 outputs');
   const r1csSha256 = await digestFile(r1csPath); const ptauSha256 = await digestFile(ptauPath);
+  phase(`r1cs sha256 ${r1csSha256}`);
+  phase(`ptau sha256 ${ptauSha256}`);
   if (hash(input.expectedR1csSha256, 'expected r1cs hash') !== r1csSha256) fail('r1cs hash mismatch');
   if (hash(input.expectedPtauSha256, 'expected ptau hash') !== ptauSha256) fail('ptau hash mismatch');
   const ptau = await readPtauCapacity(ptauPath);
@@ -275,7 +408,38 @@ export async function initializeDevelopmentGroth16(input) {
   const destination = safeDestination(input.destination);
   // Refuse collision before costly validation or any output creation.
   await assertNewDestination(destination);
-  await runPinnedSnarkjs(['powersoftau', 'verify', ptauPath]);
+
+  const ptauPolicy = resolveDevelopmentPtauVerification({
+    ptauSource,
+    ptauSha256,
+    expectedPtauPower: input.expectedPtauPower,
+    verifyPtau: input.verifyPtau,
+  });
+  let ptauVerificationRecord;
+  if (ptauPolicy.mode === 'hash-only') {
+    warnPtauHashOnly(ptauPolicy, ptauSha256);
+    ptauVerificationRecord = Object.freeze({
+      mode: 'hash-only',
+      snarkjsPowersoftauVerify: false,
+      trustedSource: ptauPolicy.trusted.source,
+      trustedSha256: ptauPolicy.trusted.sha256,
+      measuredSha256: ptauSha256,
+      reason: ptauPolicy.reason,
+      implications: PTAU_HASH_ONLY_IMPLICATIONS,
+    });
+    phase('ptau: hash-only (full powersoftau verify skipped)');
+  } else {
+    phase('ptau: full snarkjs powersoftau verify (can take a long time for high power) …');
+    await runPinnedSnarkjs(['powersoftau', 'verify', ptauPath], { label: 'powersoftau verify' });
+    ptauVerificationRecord = Object.freeze({
+      mode: 'full',
+      snarkjsPowersoftauVerify: true,
+      trustedSource: ptauPolicy.trusted?.source ?? null,
+      measuredSha256: ptauSha256,
+      reason: ptauPolicy.reason,
+    });
+  }
+
   let created = false; let entropy;
   try {
     await ensureNewDestination(destination); created = true;
@@ -285,10 +449,11 @@ export async function initializeDevelopmentGroth16(input) {
     const initialZkey = path.join(destination, 'initial.zkey'); const finalZkey = path.join(destination, 'final.zkey'); const verificationKey = path.join(destination, 'verification_key.json');
     const setupArgs = ['groth16', 'setup', r1csPath, ptauPath, initialZkey];
     const contributeArgs = ['zkey', 'contribute', initialZkey, finalZkey];
-    await runPinnedSnarkjs(setupArgs, { cwd: destination });
-    await runPinnedSnarkjs(contributeArgs, { cwd: destination, entropy });
-    await runPinnedSnarkjs(['zkey', 'verify', r1csPath, ptauPath, finalZkey], { cwd: destination });
-    await runPinnedSnarkjs(['zkey', 'export', 'verificationkey', finalZkey, verificationKey], { cwd: destination });
+    // Multi-thread MSM remains enabled inside snarkjs/ffjavascript (do not force singleThread).
+    await runPinnedSnarkjs(setupArgs, { cwd: destination, label: 'groth16 setup' });
+    await runPinnedSnarkjs(contributeArgs, { cwd: destination, entropy, label: 'zkey contribute' });
+    await runPinnedSnarkjs(['zkey', 'verify', r1csPath, ptauPath, finalZkey], { cwd: destination, label: 'zkey verify' });
+    await runPinnedSnarkjs(['zkey', 'export', 'verificationkey', finalZkey, verificationKey], { cwd: destination, label: 'export verification key' });
     await rm(initialZkey, { force: false });
     const finalZkeySha256 = await digestFile(finalZkey); const verificationKeySha256 = await digestFile(verificationKey);
     await assertUnchangedSetupInputs({ r1csPath, ptauPath, r1csSha256, ptauSha256 });
@@ -296,7 +461,7 @@ export async function initializeDevelopmentGroth16(input) {
       mode: 'development-only',
       provenance: { method: 'local-initialization', initializerCommitment },
       material: {
-        phase1: { ptauSource, ptauSha256 },
+        phase1: { ptauSource, ptauSha256, verification: ptauVerificationRecord },
         phase2: { initializationCommand: commandRecord(setupArgs), contributionCommand: commandRecord(contributeArgs), randomnessCommitment, finalZkeySha256 },
       },
       transcript: { status: 'not-applicable' }, contributions: [],
@@ -308,12 +473,16 @@ export async function initializeDevelopmentGroth16(input) {
           sha256: r1csSha256, requiredPower: r1cs.requiredPower,
           nConstraints: r1cs.nConstraints, nPublicInputs: r1cs.nPublicInputs, nOutputs: r1cs.nOutputs,
         },
-        ptau: { source: ptauSource, sha256: ptauSha256, power: ptau.power, ceremonyPower: ptau.ceremonyPower },
+        ptau: {
+          source: ptauSource, sha256: ptauSha256, power: ptau.power, ceremonyPower: ptau.ceremonyPower,
+          verification: ptauVerificationRecord,
+        },
       },
       outputs: { provingKey: { path: 'final.zkey', sha256: finalZkeySha256 }, verificationKey: { path: 'verification_key.json', sha256: verificationKeySha256 } },
       setup, toolchain: { generator: snarkjs },
     };
     await writeFile(path.join(destination, 'setup-metadata.json'), `${canonicalJson(metadata)}\n`, { mode: 0o600, flag: 'wx' });
+    phase(`setup complete → ${destination}`);
     return Object.freeze({ directory: destination, metadata: Object.freeze(metadata) });
   } catch (error) {
     if (created) await rm(destination, { recursive: true, force: true });

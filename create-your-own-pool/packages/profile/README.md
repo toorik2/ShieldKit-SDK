@@ -39,4 +39,6 @@ node scripts/shieldkit.mjs init --config templates/init.development.json
 
 New setup ⇒ **new profile + new genesis**. No hot-swap. Mode laundering refused.
 
+**development-only ptau:** trusted Hermez `final_20` pin defaults to **hash-only** (skips multi-hour `powersoftau verify`) with a loud warning + metadata implications. Force full verify: `setup.verifyPtau: true` or `shieldkit init --verify-ptau`. Ceremony always full-verifies.
+
 **Optional live demo:** monorepo-root [`use-chipnet-demo-pool/`](../../../use-chipnet-demo-pool/) — `loadInstance('use-chipnet-demo-pool')`. Not a second product.
