@@ -1,11 +1,17 @@
 /**
- * Chipnet chain access with ordered fallbacks:
- *   1) SHIELDKIT_RPC_URL  — Bitcoin JSON-RPC (http/https, optional user:pass@)
- *   2) SHIELDKIT_ELECTRUM — host:port or host (default TLS 50002)
- *   3) Public Chipnet Fulcrum TLS endpoints
- *   4) SSH host layer1-node (lab BCHN) — optional
+ * Chipnet chain access.
  *
- * Providers are untrusted. Verify critical results; no privacy claim for RPC queries.
+ * Average users need **no bitcoind**. Defaults are public Fulcrum (Electrum TLS).
+ * There is no reliable free public Chipnet bitcoind JSON-RPC; that path is optional
+ * only if you set SHIELDKIT_RPC_URL.
+ *
+ * Resolution order:
+ *   1) SHIELDKIT_RPC_URL  — your JSON-RPC (optional power-user)
+ *   2) SHIELDKIT_ELECTRUM — your Fulcrum host:port (optional)
+ *   3) Public Chipnet Fulcrum TLS  ← default for everyone else
+ *   4) SSH layer1-node (lab only)
+ *
+ * Providers are untrusted. No network-query privacy claim.
  */
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';

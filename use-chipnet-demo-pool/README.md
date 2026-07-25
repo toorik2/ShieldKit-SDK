@@ -81,24 +81,30 @@ npm run shieldkit -- playground request-template --kind deposit
 
 ---
 
-## RPC / chain access
+## Chain access — average user needs **no node**
 
-Ordered fallbacks (first that works wins):
+ShieldKit talks to Chipnet through an **abstract RPC layer**. Average users do **not** run `bitcoind` and do **not** need free public JSON-RPC (there isn’t a reliable one for Chipnet).
 
-| Priority | Source | Env |
-|----------|--------|-----|
-| 1 | Your Bitcoin JSON-RPC | `SHIELDKIT_RPC_URL=http://user:pass@host:48332` |
-| 2 | Your Electrum/Fulcrum | `SHIELDKIT_ELECTRUM=host:50002` |
-| 3 | **Public Chipnet Fulcrum** | `chipnet.bch.ninja:50002`, `chipnet.imaginary.cash:50002` |
-| 4 | Lab SSH `layer1-node` | operator kit only |
+| Who | What you use | Config |
+|-----|----------------|--------|
+| **Average demo user** | **Public Fulcrum (Electrum TLS)** — built in | nothing — just `npm run rpc:probe` |
+| Optional preference | Your own Fulcrum/Electrum | `SHIELDKIT_ELECTRUM=host:50002` |
+| Power user / operator | Your own BCHN JSON-RPC | `SHIELDKIT_RPC_URL=http://user:pass@host:48332` |
+| Lab only | SSH `layer1-node` | auto if host works |
+
+**Public defaults (tested):**
+
+- `chipnet.bch.ninja:50002` (TLS)  
+- `chipnet.imaginary.cash:50002` (TLS)
+
+These cover tip discovery, fee UTXO scan, broadcast, and doctor. They are **untrusted / rate-limited**; query privacy is out of claim.
 
 ```bash
 npm run rpc:probe
-# or
-SHIELDKIT_RPC_URL=http://127.0.0.1:48332 npm run rpc:probe
+# → backend: electrum · label: chipnet.bch.ninja:50002 · height: …
 ```
 
-Public endpoints are **untrusted** and rate-limited. Query privacy is out of scope.
+What still needs *you* (not RPC): a **funded Chipnet wallet** (≳ 11.5M sats for deposit) and local secrets in `wallets.json`.
 
 ---
 

@@ -15,12 +15,16 @@ Static page only (no wallet / no chain).
 ### 2. Try the live demo pool (**CLI**, not browser)
 → [`use-chipnet-demo-pool/`](./use-chipnet-demo-pool/)
 
+No bitcoind required — public Chipnet Fulcrum is the default chain access.
+
 ```bash
 npm install
 npm run fetch-playground-bundle
-npm run rpc:probe
+npm run rpc:probe          # should show electrum · chipnet.bch.ninja
 npm run shieldkit -- playground doctor
-# full act needs wallets + tip — see use-chipnet-demo-pool/README.md
+npm run shieldkit -- playground tip    # auto-discover State NFT tip
+# full act: wallets.json with funded Chipnet UTXO ≳ 11.5M sats
+# see use-chipnet-demo-pool/README.md
 ```
 
 ### 3. Create your own pool
