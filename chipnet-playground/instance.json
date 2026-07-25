@@ -25,10 +25,10 @@
       "sha256": "sha256:6813fcb7d102b2c9616a5918ca9eaa51ca1b2e3d6bd945bc2a308f3bf3317f6b",
       "bytesApprox": 198000000
     },
-    "fetch": "node scripts/fetch-playground-bundle.mjs",
+    "fetch": "npm run fetch-playground-bundle",
     "searchPaths": [
       "SHIELDKIT_PLAYGROUND_BUNDLE env",
-      "chipnet-playground-live-pool/bundle",
+      "chipnet-playground/bundle",
       ".cache/profile-build-live/profile-bundle"
     ]
   },

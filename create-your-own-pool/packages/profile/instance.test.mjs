@@ -10,7 +10,9 @@ import {
   playgroundInstancePath,
 } from './instance.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+// packages/profile → create-your-own-pool → monorepo
+const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = monorepoRoot;
 
 test('playground instance.json loads coordinates without bundle', async () => {
   const instance = await loadInstance(CHIPNET_PLAYGROUND_ID, { loadBundle: false });

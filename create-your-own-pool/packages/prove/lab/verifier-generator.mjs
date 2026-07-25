@@ -33,8 +33,8 @@ const HARNESS_LOCK_SHA256 = '123bfd3aa1497c01c40c71367a188efc7d435125d4d3539d5f7
 const HARNESS_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8', '@noble/curves': '2.2.0', tsx: '4.22.4', typescript: '6.0.3' });
 const HASH = /^[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
-// lab/ → prove/ → packages/ → repo root
-const repositoryRoot = path.resolve(packageDirectory, '../../..');
+// lab/ → prove/ → packages/ → create-your-own-pool/ → monorepo
+const repositoryRoot = path.resolve(packageDirectory, '../../../..');
 // Optional local PF7 provenance pins (not shipped in product tree).
 const provenanceFile = path.join(repositoryRoot, '.local/provenance/series.json');
 const seamProvenanceFile = path.join(repositoryRoot, '.local/provenance/seam-series.json');

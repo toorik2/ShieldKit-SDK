@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
  * Fetch + verify the Chipnet playground profile bundle (release asset).
- * Development-only example — not production privacy.
+ * Development-only demo — not production privacy.
  *
  * Usage:
- *   node scripts/fetch-playground-bundle.mjs
- *   node scripts/fetch-playground-bundle.mjs --out chipnet-playground-live-pool/bundle
- *   SHIELDKIT_PLAYGROUND_BUNDLE=... is set by printing export line on success
+ *   node create-your-own-pool/scripts/fetch-playground-bundle.mjs
+ *   node create-your-own-pool/scripts/fetch-playground-bundle.mjs --out chipnet-playground/bundle
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -18,8 +17,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const instancePath = path.join(root, 'chipnet-playground-live-pool/instance.json');
+// scripts/ → create-your-own-pool/ → monorepo root
+const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const instancePath = path.join(monorepoRoot, 'chipnet-playground/instance.json');
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,8 +46,8 @@ async function main() {
     process.exit(1);
   }
 
-  const outDir = path.resolve(arg('out', path.join(root, 'chipnet-playground-live-pool/bundle')));
-  const cacheDir = path.join(root, '.cache/playground-download');
+  const outDir = path.resolve(arg('out', path.join(monorepoRoot, 'chipnet-playground/bundle')));
+  const cacheDir = path.join(monorepoRoot, '.cache/playground-download');
   await mkdir(cacheDir, { recursive: true });
   const tarPath = path.join(cacheDir, 'chipnet-playground-profile-bundle.tar.gz');
 
@@ -67,14 +67,11 @@ async function main() {
 
   await rm(outDir, { recursive: true, force: true });
   await mkdir(path.dirname(outDir), { recursive: true });
-  // extract: tarball contains top-level profile-bundle/
   await execFileAsync('tar', ['-xzf', tarPath, '-C', cacheDir]);
   const extracted = path.join(cacheDir, 'profile-bundle');
   await rename(extracted, outDir);
 
-  // verify manifest present
   await stat(path.join(outDir, 'manifest.json'));
-  // optional: verify proving key hash if listed
   const pk = instance.profileBundle?.provingKeySha256;
   if (pk) {
     const pkPath = path.join(outDir, 'artifacts/final.zkey');
@@ -88,7 +85,7 @@ async function main() {
 
   console.log(outDir);
   console.error(`\nexport SHIELDKIT_PLAYGROUND_BUNDLE="${outDir}"`);
-  console.error('node scripts/shieldkit.mjs playground doctor');
+  console.error('node create-your-own-pool/scripts/shieldkit.mjs playground doctor');
 }
 
 main().catch((e) => {

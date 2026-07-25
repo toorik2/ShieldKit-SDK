@@ -27,7 +27,10 @@ const fail = (code, message) => {
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '../..');
+/** create-your-own-pool/ (product tree) */
+const productRoot = path.resolve(here, '../..');
+/** monorepo root (sibling of chipnet-playground/) */
+const monorepoRoot = path.resolve(here, '../../..');
 
 /** Built-in playground descriptor (coordinates only; bundle is local/downloaded). */
 export const CHIPNET_PLAYGROUND_ID = 'chipnet-playground';
@@ -50,7 +53,7 @@ export const CHIPNET_PLAYGROUND_ID = 'chipnet-playground';
  * Resolve path to the official playground instance.json in this monorepo.
  */
 export function playgroundInstancePath() {
-  return path.join(repoRoot, 'chipnet-playground-live-pool/instance.json');
+  return path.join(monorepoRoot, 'chipnet-playground/instance.json');
 }
 
 /**
@@ -60,9 +63,14 @@ export function playgroundBundleSearchPaths() {
   const env = process.env.SHIELDKIT_PLAYGROUND_BUNDLE;
   const paths = [];
   if (env) paths.push(path.resolve(env));
-  paths.push(path.join(repoRoot, 'chipnet-playground-live-pool/bundle'));
-  paths.push(path.join(repoRoot, '.cache/profile-build-live/profile-bundle'));
+  paths.push(path.join(monorepoRoot, 'chipnet-playground/bundle'));
+  paths.push(path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle'));
   return paths;
+}
+
+/** @deprecated use monorepoRoot via playground paths; kept for tests that expect a product root */
+export function productTreeRoot() {
+  return productRoot;
 }
 
 async function readJson(filePath) {
@@ -135,8 +143,9 @@ async function resolveBundleDirectory(descriptor, opts) {
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
       'Chipnet playground profile bundle not found. Fetch pinned release: '
-        + '`node scripts/fetch-playground-bundle.mjs` (sha256 in chipnet-playground-live-pool/instance.json), '
-        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See chipnet-playground-live-pool/README.md.',
+        + '`node create-your-own-pool/scripts/fetch-playground-bundle.mjs` '
+        + '(sha256 in chipnet-playground/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See chipnet-playground/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json

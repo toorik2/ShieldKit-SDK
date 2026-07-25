@@ -6,8 +6,9 @@ import { loadVerifierProfileBundle } from '../profile/load.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const BUNDLE = path.join(root, '.cache/profile-build-live/profile-bundle');
+// packages/kit → create-your-own-pool → monorepo
+const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const BUNDLE = path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle');
 
 async function liveCoords() {
   try {

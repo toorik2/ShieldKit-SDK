@@ -1,6 +1,6 @@
 # Docs
 
-**Start:** [../README.md](../README.md)
+**Start:** [../../README.md](../../README.md) · product: [../README.md](../README.md)
 
 ## Product shelf
 
