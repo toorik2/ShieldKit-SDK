@@ -29,4 +29,5 @@ export {
   PUBLIC_CHIPNET_ELECTRUM,
   CHIPNET_GENESIS_HASH,
 } from './chipnet-rpc.mjs';
+export { discoverStateTip } from './state-tip.mjs';
 // createDesktopComposition is internal (desktop.mjs) — not a product export.

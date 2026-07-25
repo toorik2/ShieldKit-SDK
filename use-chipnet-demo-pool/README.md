@@ -30,8 +30,24 @@ npm run shieldkit -- playground doctor
 This is **CLI**, not the explainer webpage. You need:
 
 1. **Fee wallet JSON** with a funded Chipnet P2PKH hot key  
-2. **Current State NFT tip** (`--state-txid` or `use-chipnet-demo-pool/state.json`)  
-3. Network (public Fulcrum by default)
+2. Network (public Fulcrum by default)  
+3. **Tip** — *not* a fixed kit constant. It **moves every settle**.
+
+**Tip handling (automatic):**
+
+```bash
+# Discover live tip from chain → writes use-chipnet-demo-pool/state.json
+npm run shieldkit -- playground tip
+
+# Or let deposit discover tip when state.json has no stateTxid
+npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --broadcast
+
+# Force re-scan before an act (if someone else settled)
+npm run shieldkit -- playground deposit --wallets ./wallets.json --refresh-tip --scan-fees --broadcast
+```
+
+`state.json` is a **local cache** of the last tip + your openNotes/fees.  
+Truth is always: *unspent State NFT for this instance’s category on Chipnet*.
 
 ```bash
 # wallets.json shape (keep secrets local — never commit)
@@ -43,10 +59,6 @@ This is **CLI**, not the explainer webpage. You need:
 #     "lockingBytecodeHex": "76a914…88ac"
 #   }
 # }
-
-# Write tip once (genesis or last settle txid), then acts update state.json
-echo '{"stateTxid":"<TIP_TXID>","feeUtxos":[],"history":[],"openNotes":[]}' \
-  > use-chipnet-demo-pool/state.json
 
 npm run shieldkit -- playground deposit \
   --wallets ./wallets.json --scan-fees --broadcast

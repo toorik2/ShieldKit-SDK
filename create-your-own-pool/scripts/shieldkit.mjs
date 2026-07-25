@@ -107,9 +107,9 @@ Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Optional live demo (CLI only — not a web wallet)
   npm install && npm run fetch-playground-bundle
-  playground doctor|profile-info|request-template
-  playground deposit|transfer|withdraw --wallets <json> [--scan-fees] [--broadcast]
-  (RPC: public Chipnet Fulcrum by default; SHIELDKIT_RPC_URL / SHIELDKIT_ELECTRUM override)
+  playground doctor|tip|profile-info|request-template
+  playground deposit|transfer|withdraw --wallets <json> [--scan-fees] [--broadcast] [--refresh-tip]
+  (RPC: public Chipnet Fulcrum by default; tip auto-discovered from chain when missing)
 
 Flags:
   --version
@@ -210,6 +210,71 @@ async function openKit() {
     return { kit, loaded, network: expectedNetwork };
   } catch (e) {
     failJson(e.code || e.name || 'KIT_ERROR', e.message || String(e), 2);
+  }
+}
+
+/**
+ * Resolve live State NFT tip for playground (or --pool) from chain.
+ * Tip is not a constant — it moves every SETTLE; local state.json only caches it.
+ */
+async function cmdTip() {
+  try {
+    const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const poolDir = arg('pool')
+      ? path.resolve(arg('pool'))
+      : path.join(monorepoRoot, 'use-chipnet-demo-pool');
+    const { existsSync, readFileSync, writeFileSync } = await import('node:fs');
+    const instancePath = path.join(poolDir, 'instance.json');
+    const bundleDir = path.join(poolDir, 'bundle');
+    const statePath = path.join(poolDir, 'state.json');
+    if (!existsSync(instancePath) || !existsSync(bundleDir)) {
+      failJson('POOL_MISSING', 'need use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
+    }
+    const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
+    const { createChipnetRpc } = await import('../packages/kit/chipnet-rpc.mjs');
+    const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
+    const { parsePf7CarrierAuthority } = await import('../packages/prove/authority.mjs');
+    const rpc = await createChipnetRpc();
+    const vs = JSON.parse(readFileSync(path.join(bundleDir, 'artifacts/verifier-set.bin'), 'utf8'));
+    const authority = parsePf7CarrierAuthority(vs);
+    const tip = await discoverStateTip({
+      rpc,
+      stateLockingBytecode: authority.settlementKernel.stateLock,
+      stateNftCategory: instance.stateNftCategory,
+      instanceId: instance.instanceId,
+    });
+    const prev = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+    const next = {
+      ...prev,
+      stateTxid: tip.stateTxid,
+      tipMeta: {
+        vout: tip.vout,
+        height: tip.height,
+        actionSequence: tip.actionSequence,
+        discoveredAt: new Date().toISOString(),
+        source: 'chain-discover',
+      },
+      feeUtxos: prev.feeUtxos || [],
+      history: prev.history || [],
+      openNotes: prev.openNotes || [],
+    };
+    if (!flag('no-write')) {
+      writeFileSync(statePath, JSON.stringify(next, null, 2));
+    }
+    okJson({
+      verb: 'tip',
+      pool: poolDir,
+      backend: rpc.backend,
+      label: rpc.label,
+      stateTxid: tip.stateTxid,
+      vout: tip.vout,
+      height: tip.height,
+      actionSequence: tip.actionSequence,
+      wrote: !flag('no-write') ? statePath : null,
+      note: 'Tip moves every settle. Re-run tip / --refresh-tip before acting if others used the pool.',
+    });
+  } catch (e) {
+    failJson(e.code || e.name || 'TIP_FAILED', e.message || String(e), 1);
   }
 }
 
@@ -768,6 +833,7 @@ if (cmd === 'playground') {
   const sub = process.argv[3] || 'doctor';
   const playgroundMap = {
     doctor: cmdPlaygroundDoctor,
+    tip: cmdTip,
     'profile-info': cmdProfileInfo,
     'request-template': cmdRequestTemplate,
     deposit: () => cmdAct('deposit'),

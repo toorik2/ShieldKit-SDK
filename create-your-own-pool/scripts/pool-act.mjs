@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
 import { createChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
+import { discoverStateTip } from '../packages/kit/state-tip.mjs';
+import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -205,15 +207,7 @@ async function main() {
   const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
   const state = existsSync(statePath)
     ? JSON.parse(readFileSync(statePath, 'utf8'))
-    : { stateTxid: null, feeUtxos: [], history: [] };
-
-  const stateTxid = arg('state-txid', state.stateTxid);
-  if (!stateTxid) {
-    throw new Error(
-      'stateTxid missing — set state.json or --state-txid to the current State NFT tip txid '
-      + '(genesis settle or last settle). Explorer: chipnet.chaingraph.cash',
-    );
-  }
+    : { stateTxid: null, feeUtxos: [], history: [], openNotes: [] };
 
   const wallets = JSON.parse(readFileSync(walletsPath, 'utf8'));
   const hot = wallets.hot;
@@ -228,6 +222,43 @@ async function main() {
     instanceId: instance.instanceId || loaded.manifest.genesis.instanceId,
     network: instance.network || 'chipnet',
   };
+
+  // Tip: CLI override → state.json cache → chain discovery (moves every settle).
+  let stateTxid = arg('state-txid', state.stateTxid || null);
+  const wantRefresh = hasFlag('refresh-tip') || !stateTxid;
+  if (wantRefresh) {
+    const vsPath = path.join(bundleDir, 'artifacts/verifier-set.bin');
+    if (!existsSync(vsPath)) throw new Error('bundle missing artifacts/verifier-set.bin for tip discovery');
+    const authority = parsePf7CarrierAuthority(JSON.parse(readFileSync(vsPath, 'utf8')));
+    const category = (instance.stateNftCategory || loaded.manifest?.genesis?.stateNftCategory || '').toLowerCase();
+    const tip = await discoverStateTip({
+      rpc,
+      stateLockingBytecode: authority.settlementKernel.stateLock,
+      stateNftCategory: category,
+      instanceId: expectedProfile.instanceId,
+    });
+    stateTxid = tip.stateTxid;
+    state.stateTxid = tip.stateTxid;
+    state.tipMeta = {
+      vout: tip.vout,
+      height: tip.height,
+      actionSequence: tip.actionSequence,
+      discoveredAt: new Date().toISOString(),
+      source: 'chain-discover',
+    };
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    console.error(JSON.stringify({
+      phase: 'tip-discover',
+      stateTxid: tip.stateTxid,
+      vout: tip.vout,
+      height: tip.height,
+      actionSequence: tip.actionSequence,
+      unspentMatches: tip.unspentMatches,
+    }));
+  }
+  if (!stateTxid) {
+    throw new Error('stateTxid missing after discovery — pass --state-txid explicitly');
+  }
 
   // Optional / auto hot-wallet scan into fee inventory (RPC-verified).
   if (hasFlag('scan-fees') || hasFlag('scan-fees-always')) {

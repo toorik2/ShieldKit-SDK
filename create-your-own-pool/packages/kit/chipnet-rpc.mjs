@@ -217,6 +217,8 @@ export async function createChipnetRpc(opts = {}) {
       return {
         backend: 'electrum',
         label: `${ep.host}:${ep.port}`,
+        /** @internal tip discovery / advanced */
+        _electrumCall: call,
         async gettxout(txid, vout) {
           // No native gettxout — treat as unspent if listed under any known scripts is unavailable.
           // Fallback: try get raw + assume spent if broadcast path fails. Prefer list from scan.
