@@ -92,8 +92,18 @@ async function validateMetadata(metadataPath, metadata) {
   hash(metadata.inputs.r1cs.sha256, 'local setup metadata r1cs hash');
   if (!Number.isInteger(metadata.inputs.r1cs.requiredPower) || !Number.isInteger(metadata.inputs.r1cs.nConstraints)) fail('local setup metadata r1cs counts are invalid');
   if (metadata.inputs.r1cs.nPublicInputs !== 2 || metadata.inputs.r1cs.nOutputs !== 0) fail('local setup metadata does not use the current shield.cash ABI');
-  exactKeys(metadata.inputs.ptau, 'local setup metadata ptau', ['source', 'sha256', 'power', 'ceremonyPower']);
+  // optional verification: hash-only vs full snarkjs powersoftau verify (dev convenience record)
+  exactKeys(metadata.inputs.ptau, 'local setup metadata ptau', [
+    'source', 'sha256', 'power', 'ceremonyPower',
+    ...(Object.hasOwn(metadata.inputs.ptau, 'verification') ? ['verification'] : []),
+  ]);
   string(metadata.inputs.ptau.source, 'local setup metadata ptau source'); hash(metadata.inputs.ptau.sha256, 'local setup metadata ptau hash');
+  if (Object.hasOwn(metadata.inputs.ptau, 'verification')) {
+    const v = metadata.inputs.ptau.verification;
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) fail('local setup ptau verification must be an object');
+    if (v.mode !== 'hash-only' && v.mode !== 'full') fail('local setup ptau verification.mode must be hash-only or full');
+    if (typeof v.snarkjsPowersoftauVerify !== 'boolean') fail('local setup ptau verification.snarkjsPowersoftauVerify must be boolean');
+  }
   exactKeys(metadata.outputs, 'local setup metadata outputs', ['provingKey', 'verificationKey']);
   exactKeys(metadata.outputs.provingKey, 'local setup proving key output', ['path', 'sha256']);
   exactKeys(metadata.outputs.verificationKey, 'local setup verification key output', ['path', 'sha256']);
@@ -107,7 +117,10 @@ async function validateMetadata(metadataPath, metadata) {
   if (metadata.setup.provenance.method !== 'local-initialization') fail('local setup provenance must be local-initialization');
   hash(metadata.setup.provenance.initializerCommitment, 'local setup initializer commitment');
   exactKeys(metadata.setup.material, 'local setup material', ['phase1', 'phase2']);
-  exactKeys(metadata.setup.material.phase1, 'local setup phase1', ['ptauSource', 'ptauSha256']);
+  exactKeys(metadata.setup.material.phase1, 'local setup phase1', [
+    'ptauSource', 'ptauSha256',
+    ...(Object.hasOwn(metadata.setup.material.phase1, 'verification') ? ['verification'] : []),
+  ]);
   if (metadata.setup.material.phase1.ptauSource !== metadata.inputs.ptau.source || metadata.setup.material.phase1.ptauSha256 !== metadata.inputs.ptau.sha256) fail('local setup phase1 metadata mismatch');
   exactKeys(metadata.setup.material.phase2, 'local setup phase2', ['initializationCommand', 'contributionCommand', 'randomnessCommitment', 'finalZkeySha256']);
   hash(metadata.setup.material.phase2.randomnessCommitment, 'local setup randomness commitment');

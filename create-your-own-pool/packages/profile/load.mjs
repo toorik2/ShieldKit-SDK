@@ -240,12 +240,20 @@ function validateSetupCommand(command, label) {
  */
 function validateSetupMaterial(material, mode, artifactByPath, contributions = undefined) {
   exactKeys(material, 'setup material', ['phase1', 'phase2']);
-  exactKeys(material.phase1, 'setup material phase1', ['ptauSource', 'ptauSha256']);
+  exactKeys(material.phase1, 'setup material phase1', [
+    'ptauSource', 'ptauSha256',
+    ...(Object.hasOwn(material.phase1, 'verification') ? ['verification'] : []),
+  ]);
   const ptauSource = string(material.phase1.ptauSource, 'setup material ptau source');
   if (ptauSource.length === 0 || ptauSource.length > 1024 || ptauSource.includes('\0')) {
     fail('setup material ptau source must contain 1 to 1024 characters without NUL');
   }
   hash(material.phase1.ptauSha256, 'setup material ptau hash');
+  if (Object.hasOwn(material.phase1, 'verification')) {
+    const v = material.phase1.verification;
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) fail('setup material phase1 verification must be an object');
+    if (v.mode !== 'hash-only' && v.mode !== 'full') fail('setup material phase1 verification.mode must be hash-only or full');
+  }
   const finalZkeyHash = [...artifactByPath.values()].find((artifact) => artifact.kind === 'proving-key')?.sha256;
   if (!finalZkeyHash) fail('setup material requires proving-key artifact');
   if (mode === 'development-only') {

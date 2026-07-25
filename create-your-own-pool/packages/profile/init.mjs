@@ -75,18 +75,13 @@ export async function init(input) {
     const setupMetadataPath = path.join(setupResult.directory, 'setup-metadata.json');
     const setupMetaBytes = await readFile(setupMetadataPath);
     const setupMetadataSha256 = digest(setupMetaBytes);
+    // proving-key / verification-key must be descriptors only (id, kind, path).
+    // bridgeLocalSetupToProfile injects sources from the local setup directory.
+    // Pre-filling source here breaks bridge exactKeys and is ignored/wrong.
     const artifacts = (bundle.artifacts || []).map((a) => {
-      if (a.kind === 'proving-key' && !a.source) {
-        return {
-          ...a,
-          source: { sourcePath: path.join(setupResult.directory, 'final.zkey') },
-        };
-      }
-      if (a.kind === 'verification-key' && !a.source) {
-        return {
-          ...a,
-          source: { sourcePath: path.join(setupResult.directory, 'verification_key.json') },
-        };
+      if (a.kind === 'proving-key' || a.kind === 'verification-key') {
+        const { source: _drop, expectedSha256: _drop2, ...rest } = a;
+        return rest;
       }
       return a;
     });
