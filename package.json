@@ -5,6 +5,8 @@
   "description": "ShieldKit toolkit 0.1.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "scripts": {
+    "postinstall": "node create-your-own-pool/scripts/install-deps.mjs",
+    "install:deps": "node create-your-own-pool/scripts/install-deps.mjs",
     "test": "node create-your-own-pool/scripts/run-domain-tests.mjs",
     "shieldkit": "node create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node create-your-own-pool/scripts/fetch-playground-bundle.mjs",
@@ -13,6 +15,7 @@
     "create-pool": "node create-your-own-pool/scripts/create-pool.mjs",
     "pack-pin-artifacts": "node create-your-own-pool/scripts/pack-pin-artifacts.mjs",
     "fetch-pin-artifacts": "node create-your-own-pool/scripts/fetch-pin-artifacts.mjs",
-    "e2e:standalone": "node create-your-own-pool/scripts/standalone-e2e-chipnet.mjs"
+    "e2e:standalone": "node create-your-own-pool/scripts/standalone-e2e-chipnet.mjs",
+    "rpc:probe": "node create-your-own-pool/scripts/rpc-probe.mjs"
   }
 }

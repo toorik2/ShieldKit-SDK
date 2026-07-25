@@ -1,32 +1,33 @@
 #!/usr/bin/env node
 /**
  * Full act against a pool directory: deposit | transfer | withdraw.
- * Uses completeAction + optional BCHN broadcast (layer1-node).
+ * Uses completeAction + Chipnet RPC (public Electrum / JSON-RPC / lab layer1).
  *
  * Usage:
  *   node create-your-own-pool/scripts/pool-act.mjs deposit --pool ./my-pool \
- *     --wallets .cache/e2e-full-20260725/local-wallets.json [--broadcast] [--scan-fees]
+ *     --wallets ./wallets.json [--broadcast] [--scan-fees]
  *
  * Funding: --funding-txid/--funding-vout or first eligible state.feeUtxos entry.
- * State machine (matches standalone-e2e-chipnet):
- *   - mid-cycle: update resumeDigests/resumeSeed only (no history push)
- *   - after full D→T→W digests: push { witnessSeed, transactionContextDigests } once
- *   - harvest settle hot outs + prepHotChange into feeUtxos
+ * RPC: SHIELDKIT_RPC_URL | SHIELDKIT_ELECTRUM | public Fulcrum | layer1-node SSH.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
+import { createChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=20'];
 const ZERO32 = '00'.repeat(32);
+
+/** @type {Awaited<ReturnType<typeof createChipnetRpc>> | null} */
+let rpc = null;
+/** @type {{ address?: string, lockingBytecodeHex?: string }} */
+let hotCtx = {};
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -36,56 +37,45 @@ function hasFlag(name) {
   return process.argv.includes(`--${name}`);
 }
 
-function bchnSendHex(hex) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `cat > /tmp/sk-pool-act.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-pool-act.hex)" true`], {
-    encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
-  return (r.stdout || '').trim();
+async function bchnSendHex(hex) {
+  return rpc.sendrawtransaction(hex);
 }
 
-function bchnTestMempool(hex) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `cat > /tmp/sk-pool-act.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-pool-act.hex)\\"]"`], {
-    encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`testmempool: ${r.stderr || r.stdout}`);
-  return JSON.parse(r.stdout);
+async function bchnTestMempool(hex) {
+  return rpc.testmempoolaccept(hex);
 }
 
-function gettxout(txid, vout) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf gettxout ${txid} ${vout} true`], { encoding: 'utf8' });
-  if (r.status !== 0) return null;
-  const t = (r.stdout || '').trim();
-  if (!t || t === 'null') return null;
-  try { return JSON.parse(t); } catch { return null; }
-}
-
-/** Parse first top-level JSON object from bitcoin-cli / mixed stdout. */
-function parseFirstJsonObject(raw) {
-  const start = raw.indexOf('{');
-  if (start < 0) throw new Error('no JSON object in output');
-  let depth = 0;
-  for (let i = start; i < raw.length; i++) {
-    const ch = raw[i];
-    if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) return JSON.parse(raw.slice(start, i + 1));
+async function gettxout(txid, vout) {
+  // Electrum path: re-check against hot wallet UTXO set when available.
+  if (rpc.backend === 'electrum' && (hotCtx.lockingBytecodeHex || hotCtx.address)) {
+    const list = await rpc.scanAddress(hotCtx.address, hotCtx.lockingBytecodeHex);
+    const hit = list.find((u) => u.txid === txid && Number(u.vout) === Number(vout));
+    if (!hit) return null;
+    return { value: hit.sats / 1e8, confirmations: 1 };
+  }
+  const u = await rpc.gettxout(txid, vout);
+  if (!u) return null;
+  if (u._partial && u.value == null) {
+    // Unknown spent-status on partial backend — treat as live only if scan finds it.
+    if (hotCtx.lockingBytecodeHex || hotCtx.address) {
+      const list = await rpc.scanAddress(hotCtx.address, hotCtx.lockingBytecodeHex);
+      const hit = list.find((x) => x.txid === txid && Number(x.vout) === Number(vout));
+      if (!hit) return null;
+      return { value: hit.sats / 1e8, confirmations: 1 };
     }
   }
-  throw new Error('unterminated JSON object');
+  return u;
 }
 
-function scantxoutsetAddr(address) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf scantxoutset start '["addr(${address})"]'`], {
-    encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`scantxoutset: ${r.stderr || r.stdout}`);
-  return parseFirstJsonObject(r.stdout || '');
+async function scantxoutsetAddr(address) {
+  const unspents = await rpc.scanAddress(address, hotCtx.lockingBytecodeHex);
+  return {
+    unspents: unspents.map((u) => ({
+      txid: u.txid,
+      vout: u.vout,
+      amount: u.sats / 1e8,
+    })),
+  };
 }
 
 function minSats(kind) {
@@ -140,15 +130,16 @@ function loadStab(kind) {
  * Prunes dead entries already in state.feeUtxos.
  * @returns {{ added: number, stale: number, pruned: number, feeCount: number, large: number }}
  */
-function scanFeesIntoState(state, hotAddress, minKeep = 1_500_000) {
+async function scanFeesIntoState(state, hotAddress, minKeep = 1_500_000) {
   let pruned = 0;
-  state.feeUtxos = (state.feeUtxos || []).filter((u) => {
-    if (gettxout(u.txid, u.vout)) return true;
-    pruned++;
-    return false;
-  });
+  const kept = [];
+  for (const u of state.feeUtxos || []) {
+    if (await gettxout(u.txid, u.vout)) kept.push(u);
+    else pruned++;
+  }
+  state.feeUtxos = kept;
 
-  const scan = scantxoutsetAddr(hotAddress);
+  const scan = await scantxoutsetAddr(hotAddress);
   const rows = (scan.unspents || [])
     .map((u) => ({
       txid: u.txid,
@@ -161,7 +152,7 @@ function scanFeesIntoState(state, hotAddress, minKeep = 1_500_000) {
   let added = 0;
   let stale = 0;
   for (const cand of rows) {
-    const u = gettxout(cand.txid, cand.vout);
+    const u = await gettxout(cand.txid, cand.vout);
     if (!u) {
       stale++;
       continue;
@@ -180,10 +171,13 @@ function scanFeesIntoState(state, hotAddress, minKeep = 1_500_000) {
   return { added, stale, pruned, feeCount, large };
 }
 
-function countLiveFees(state, need, rejected) {
-  return (state.feeUtxos || []).filter((u) => u.sats >= need
-    && !rejected.has(`${u.txid}:${u.vout}`)
-    && gettxout(u.txid, u.vout)).length;
+async function countLiveFees(state, need, rejected) {
+  let n = 0;
+  for (const u of state.feeUtxos || []) {
+    if (u.sats < need || rejected.has(`${u.txid}:${u.vout}`)) continue;
+    if (await gettxout(u.txid, u.vout)) n += 1;
+  }
+  return n;
 }
 
 async function main() {
@@ -205,16 +199,28 @@ async function main() {
     throw new Error('pool must contain instance.json and bundle/');
   }
 
+  rpc = await createChipnetRpc();
+  console.error(JSON.stringify({ phase: 'rpc', backend: rpc.backend, label: rpc.label }));
+
   const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
   const state = existsSync(statePath)
     ? JSON.parse(readFileSync(statePath, 'utf8'))
     : { stateTxid: null, feeUtxos: [], history: [] };
 
   const stateTxid = arg('state-txid', state.stateTxid);
-  if (!stateTxid) throw new Error('stateTxid missing — set state.json or --state-txid (U-03)');
+  if (!stateTxid) {
+    throw new Error(
+      'stateTxid missing — set state.json or --state-txid to the current State NFT tip txid '
+      + '(genesis settle or last settle). Explorer: chipnet.chaingraph.cash',
+    );
+  }
 
   const wallets = JSON.parse(readFileSync(walletsPath, 'utf8'));
   const hot = wallets.hot;
+  if (!hot?.privateKeyHex || !hot?.publicKeyHex || !hot?.lockingBytecodeHex) {
+    throw new Error('wallets.hot needs privateKeyHex, publicKeyHex, lockingBytecodeHex, address');
+  }
+  hotCtx = { address: hot.address, lockingBytecodeHex: hot.lockingBytecodeHex };
   const feePrivateKey = Buffer.from(hot.privateKeyHex, 'hex');
   const loaded = await loadVerifierProfileBundle(bundleDir);
   const expectedProfile = {
@@ -223,35 +229,36 @@ async function main() {
     network: instance.network || 'chipnet',
   };
 
-  // Optional / auto hot-wallet scan into fee inventory (BCHN SSH, gettxout-verified).
+  // Optional / auto hot-wallet scan into fee inventory (RPC-verified).
   if (hasFlag('scan-fees') || hasFlag('scan-fees-always')) {
-    const n = scanFeesIntoState(state, hot.address, 1_500_000);
+    const n = await scanFeesIntoState(state, hot.address, 1_500_000);
     console.error(JSON.stringify({ phase: 'scan-fees', ...n }));
   }
 
   const need = minSats(kind);
-  const fixedFunding = (() => {
+  let fixedFunding = null;
+  {
     const fTx = arg('funding-txid');
-    if (!fTx) return null;
-    const funding = {
-      txid: fTx,
-      vout: Number(arg('funding-vout', '0')),
-      sats: Number(arg('funding-sats', '0')),
-      publicKeyHex: hot.publicKeyHex,
-    };
-    const u = gettxout(funding.txid, funding.vout);
-    if (!u) throw new Error(`funding UTXO missing/spent on chain ${funding.txid}:${funding.vout}`);
-    funding.sats = Math.round(u.value * 1e8);
-    return funding;
-  })();
+    if (fTx) {
+      fixedFunding = {
+        txid: fTx,
+        vout: Number(arg('funding-vout', '0')),
+        sats: Number(arg('funding-sats', '0')),
+        publicKeyHex: hot.publicKeyHex,
+      };
+      const u = await gettxout(fixedFunding.txid, fixedFunding.vout);
+      if (!u) throw new Error(`funding UTXO missing/spent on chain ${fixedFunding.txid}:${fixedFunding.vout}`);
+      fixedFunding.sats = Math.round(u.value * 1e8);
+    }
+  }
 
   // Ensure inventory once up front when using feeUtxos path.
   // Prefer ≥2 live fees ≥ need (deposit needs 11.5M; T/W need 1.5M).
   if (!fixedFunding && !hasFlag('no-scan-fees')) {
-    const liveLarge = countLiveFees(state, need, new Set());
+    const liveLarge = await countLiveFees(state, need, new Set());
     if (liveLarge < 2) {
       try {
-        const n = scanFeesIntoState(state, hot.address, need);
+        const n = await scanFeesIntoState(state, hot.address, need);
         console.error(JSON.stringify({
           phase: 'scan-fees-auto',
           reason: liveLarge === 0 ? 'no-live-fee' : 'fee-diversity',
@@ -310,7 +317,7 @@ async function main() {
     try {
       if (fixedFunding) {
         // Re-verify fixed funding each attempt (mempool races).
-        const u = gettxout(fixedFunding.txid, fixedFunding.vout);
+        const u = await gettxout(fixedFunding.txid, fixedFunding.vout);
         if (!u) throw new Error(`funding UTXO missing/spent ${fixedFunding.txid}:${fixedFunding.vout}`);
         funding = {
           ...fixedFunding,
@@ -325,7 +332,11 @@ async function main() {
           return true;
         });
         const sorted = [...(state.feeUtxos || [])].sort((a, b) => b.sats - a.sats);
-        const pick = sorted.find((u) => u.sats >= need && gettxout(u.txid, u.vout));
+        let pick = null;
+        for (const u of sorted) {
+          if (u.sats < need) continue;
+          if (await gettxout(u.txid, u.vout)) { pick = u; break; }
+        }
         for (const u of parked) pushFee(state, u);
         if (!pick) throw new Error(`no fee UTXO ≥ ${need} in state.json (pass --funding-txid or --scan-fees)`);
         funding = { ...pick, publicKeyHex: hot.publicKeyHex };
@@ -344,7 +355,7 @@ async function main() {
         priorCycles: priorCycles.length,
         resume: !!state.resumeSeed,
         funding: { txid: funding.txid.slice(0, 16), vout: funding.vout, sats: funding.sats },
-        liveLargeFees: fixedFunding ? null : countLiveFees(state, need, rejected),
+        liveLargeFees: fixedFunding ? null : await countLiveFees(state, need, rejected),
       }));
 
       result = await completeAction({
@@ -387,7 +398,7 @@ async function main() {
         // Intermittent genesis OP_VERIFY often clears with a different funding UTXO.
         if (retriable && !hasFlag('no-scan-fees') && attempt < MAX_ATTEMPTS) {
           try {
-            const n = scanFeesIntoState(state, hot.address, need);
+            const n = await scanFeesIntoState(state, hot.address, need);
             console.error(JSON.stringify({
               phase: 'scan-fees-on-retry',
               attempt,
@@ -404,7 +415,7 @@ async function main() {
           }
         }
 
-        let otherLarge = countLiveFees(state, need, rejected) > 0;
+        let otherLarge = (await countLiveFees(state, need, rejected)) > 0;
         if (!otherLarge) {
           // No alternate: put fee back and optionally rotate witness (not mid-cycle).
           rejected.delete(k);
@@ -437,12 +448,16 @@ async function main() {
 
   const doBroadcast = hasFlag('broadcast');
   if (doBroadcast) {
-    const prepA = bchnTestMempool(result.prepHex);
-    if (!prepA[0]?.allowed) throw new Error(`prep mempool reject ${JSON.stringify(prepA)}`);
-    bchnSendHex(result.prepHex);
-    const setA = bchnTestMempool(result.settleHex);
-    if (!setA[0]?.allowed) throw new Error(`settle mempool reject ${JSON.stringify(setA)}`);
-    bchnSendHex(result.settleHex);
+    const prepA = await bchnTestMempool(result.prepHex);
+    if (prepA?.[0] && prepA[0].allowed === false) {
+      throw new Error(`prep mempool reject ${JSON.stringify(prepA)}`);
+    }
+    await bchnSendHex(result.prepHex);
+    const setA = await bchnTestMempool(result.settleHex);
+    if (setA?.[0] && setA[0].allowed === false) {
+      throw new Error(`settle mempool reject ${JSON.stringify(setA)}`);
+    }
+    await bchnSendHex(result.settleHex);
     // Harvest settle change + prep change (prep leftover is usually next fee).
     for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
       const o = result.complete.transaction.outputs[i];

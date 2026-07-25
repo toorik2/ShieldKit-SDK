@@ -105,9 +105,11 @@ Optional demo: use-chipnet-demo-pool/   (live Chipnet instance)
   npm run create-pool -- --out ./my-pool
   npm run create-pool -- --out ./new --with-genesis --fund-txid … --broadcast
 
-  # Optional live demo
-  playground doctor|profile-info|request-template|deposit|transfer|withdraw|recover
-  (npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE)
+  # Optional live demo (CLI only — not a web wallet)
+  npm install && npm run fetch-playground-bundle
+  playground doctor|profile-info|request-template
+  playground deposit|transfer|withdraw --wallets <json> [--scan-fees] [--broadcast]
+  (RPC: public Chipnet Fulcrum by default; SHIELDKIT_RPC_URL / SHIELDKIT_ELECTRUM override)
 
 Flags:
   --version
@@ -115,7 +117,7 @@ Flags:
   --mode development-only|ceremony-production
   --pool <pool-dir>   (full act / doctor preflight)
   --bundle <profile-dir>
-  --wallets / --broadcast / --funding-txid / --state-txid
+  --wallets / --broadcast / --scan-fees / --funding-txid / --state-txid
   --config / --request / --history / --seed-hex / --kind / --category-input / --signature
   --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
   --i-understand-mainnet
@@ -477,13 +479,38 @@ async function cmdInit() {
 async function cmdAct(verb) {
   const kind = verb; // deposit | transfer | withdrawal mapping
   const requestKind = verb === 'withdraw' ? 'withdrawal' : verb;
-  // Full act spine against a pool directory (completeAction)
-  if (arg('pool')) {
+  // Full act spine: --pool … or playground + --wallets (pool-act)
+  const playgroundFullAct = playgroundMode() && (arg('wallets') || flag('broadcast') || flag('scan-fees'));
+  if (arg('pool') || playgroundFullAct) {
     const { spawnSync } = await import('node:child_process');
+    const { existsSync } = await import('node:fs');
+    const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const script = path.join(__dirname, 'pool-act.mjs');
-    const r = spawnSync(process.execPath, [script, requestKind === 'withdrawal' ? 'withdraw' : requestKind, ...process.argv.slice(3)], {
-      encoding: 'utf8', stdio: 'inherit',
-    });
+    const poolDir = arg('pool')
+      ? path.resolve(arg('pool'))
+      : path.join(monorepoRoot, 'use-chipnet-demo-pool');
+    if (!existsSync(path.join(poolDir, 'bundle'))) {
+      failJson('POOL_BUNDLE', 'pool missing bundle/ — for playground: npm run fetch-playground-bundle', 2, {
+        pool: poolDir,
+      });
+    }
+    // Forward user flags except the leading "playground" token and verb aliases.
+    const skip = new Set(['playground', verb, 'deposit', 'transfer', 'withdraw', 'withdrawal']);
+    const forwarded = [];
+    const argv = process.argv.slice(2);
+    for (let i = 0; i < argv.length; i++) {
+      const a = argv[i];
+      if (skip.has(a)) continue;
+      if (a === '--pool') { i += 1; continue; } // we set pool explicitly
+      forwarded.push(a);
+    }
+    const poolActArgv = [
+      script,
+      requestKind === 'withdrawal' ? 'withdraw' : requestKind,
+      '--pool', poolDir,
+      ...forwarded,
+    ];
+    const r = spawnSync(process.execPath, poolActArgv, { encoding: 'utf8', stdio: 'inherit' });
     process.exit(r.status ?? 1);
   }
   const requestPath = arg('request');
@@ -492,15 +519,16 @@ async function cmdAct(verb) {
     failJson(
       'INPUT_REQUIRED',
       playgroundMode()
-        ? `${verb} requires --request <prep-request.json> (playground instance; set SHIELDKIT_PLAYGROUND_BUNDLE)`
-        : `${verb} requires --pool <dir> [--wallets …] [--broadcast]  OR  --bundle <profile-dir> --request <prep.json>`,
+        ? `${verb} needs --wallets <json> [--broadcast] for full act, or --request <prep.json> for prep-only`
+        : `${verb} requires --pool <dir> --wallets … [--broadcast]  OR  --bundle + --request (prep-only)`,
       2,
       {
         verb,
         kind: requestKind,
-        fullAct: 'deposit --pool ./my-pool --wallets … --broadcast',
-        prepOnly: '--bundle + --request (signing digest only)',
-        next: 'prefer --pool full act; prep-only path still available for offline signing',
+        fullAct: 'npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --broadcast',
+        prepOnly: 'playground deposit --request prep.json',
+        feeNote: 'Deposit needs a fee UTXO ≳ 11.5M sats (0.1 BCH + carriers + fee). See use-chipnet-demo-pool/README.md',
+        rpc: 'Public Chipnet Fulcrum used by default; override with SHIELDKIT_RPC_URL or SHIELDKIT_ELECTRUM',
       },
     );
   }

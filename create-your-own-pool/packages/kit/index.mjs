@@ -24,4 +24,9 @@ export {
   capacityFromReserveCap,
   capacitySummary,
 } from './pool-capacity.mjs';
+export {
+  createChipnetRpc,
+  PUBLIC_CHIPNET_ELECTRUM,
+  CHIPNET_GENESIS_HASH,
+} from './chipnet-rpc.mjs';
 // createDesktopComposition is internal (desktop.mjs) — not a product export.
