@@ -9,7 +9,7 @@ After genesis: **no admin key** — rules and capacity are fixed on-chain. Your 
 ## Pick a path
 
 ### 1. Learn about this system
-→ [`explainer/learn-about-this-system.html`](./explainer/learn-about-this-system.html)
+→ [`local-explainer-webpage/learn-about-this-system.html`](./local-explainer-webpage/learn-about-this-system.html)
 
 ### 2. Try the live demo pool
 → [`use-chipnet-demo-pool/`](./use-chipnet-demo-pool/)
