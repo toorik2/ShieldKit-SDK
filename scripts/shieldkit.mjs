@@ -81,18 +81,18 @@ function usage() {
 
 ${PRODUCT_STATUS.status}
 
-Product: means to run YOUR pool (init → genesis → act/recover).
-Playground: optional live Chipnet EXAMPLE — not a hosted pool service.
-
-  # Try the example (optional)
-  playground doctor|profile-info|deposit|transfer|withdraw|recover
-  (set SHIELDKIT_PLAYGROUND_BUNDLE)
+Product: packages/profile + packages/kit (init → genesis → act/recover).
+Demo: optional Chipnet live pool — chipnet-playground-live-pool/ (not a hosted service).
 
   # Create and operate your pool
-  init --config <init.json>
+  init --config templates/init.development.json
   deposit|transfer|withdraw --bundle <your-pool> --request <prep.json>
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor | profile-info | config-check | explorer
+
+  # Optional live demo
+  playground doctor|profile-info|deposit|transfer|withdraw|recover
+  (node scripts/fetch-playground-bundle.mjs  or  SHIELDKIT_PLAYGROUND_BUNDLE)
 
 Flags:
   --network chipnet|mainnet
@@ -102,7 +102,7 @@ Flags:
   --i-understand-mainnet
   --allow-development-on-mainnet
 
-Docs: examples/create-your-pool · examples/chipnet-playground · docs/PLAYGROUND.md
+Docs: packages/profile · chipnet-playground-live-pool · docs/PLAYGROUND.md
 `);
 }
 
@@ -149,8 +149,8 @@ async function openKit() {
       };
     } catch (e) {
       failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2, {
-        hint: 'Set SHIELDKIT_PLAYGROUND_BUNDLE to the profile-bundle directory',
-        docs: 'examples/chipnet-playground/README.md',
+        hint: 'node scripts/fetch-playground-bundle.mjs  or  SHIELDKIT_PLAYGROUND_BUNDLE',
+        docs: 'chipnet-playground-live-pool/README.md',
       });
     }
   }
@@ -221,9 +221,9 @@ async function cmdPlaygroundDoctor() {
       bundleError = { code: e.code || e.name, message: e.message };
     }
     const body = {
-      story: 'ShieldKit creates shielded pools. Playground is a live example; your product path is your own pool (your genesis).',
-      product: 'create-and-run-your-own-pool',
-      playgroundRole: 'optional-example-not-hosted-service',
+      story: 'ShieldKit creates shielded pools. Playground is a live demo; product is packages/profile + kit (your genesis).',
+      product: 'packages/profile + packages/kit',
+      playgroundRole: 'optional-demo-not-hosted-service',
       instance: {
         id: instance.id,
         network: instance.network,
@@ -239,12 +239,12 @@ async function cmdPlaygroundDoctor() {
       next: bundleOk
         ? [
           'optional: playground deposit --request prep.json (learn the flow)',
-          'then: create your own pool — examples/create-your-pool',
+          'product: packages/profile init + genesis — templates/init.development.json',
           'You supply RPC, fees, proofs, broadcast',
         ]
         : [
-          'export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle (example only)',
-          'or skip playground and create your pool — examples/create-your-pool',
+          'node scripts/fetch-playground-bundle.mjs  (or SHIELDKIT_PLAYGROUND_BUNDLE)',
+          'or skip demo: packages/profile init — templates/init.development.json',
         ],
     };
     if (bundleOk) okJson(body);
@@ -384,9 +384,9 @@ async function cmdInit() {
       {
         mode,
         api: "import { init } from './packages/profile/init.mjs'",
-        example: 'examples/create-your-pool/init.example.json',
+        template: 'templates/init.development.json',
         note: 'new setup ⇒ new profile + new genesis; no hot-swap',
-        path: 'create-your-own-pool',
+        path: 'packages/profile + packages/kit',
         ...(deprecatedSetupModeFlag ? { deprecation: '--setup-mode is deprecated; use --mode' } : {}),
       },
     );

@@ -8,7 +8,7 @@
 |-----|-----|
 | [CHARTER.md](CHARTER.md) | Product + protocol authority |
 | [PRIVACY.md](PRIVACY.md) | Privacy model |
-| [PLAYGROUND.md](PLAYGROUND.md) | Example playground vs create-your-own-pool |
+| [PLAYGROUND.md](PLAYGROUND.md) | Live demo vs create-your-own-pool |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Short package map |
 
 ## Archive (not product shelf)

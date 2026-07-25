@@ -1,25 +1,42 @@
 # `@shieldkit/profile`
 
-**Init spine:** setup → build → load → genesis.
+**Product spine:** init → build/load → genesis → `loadInstance` → hand off to `createKit`.
+
+This package **is** “create your own pool.” There is no separate examples path for that.
 
 ```js
-import { init, loadProfile, planGenesis } from './index.mjs';
+import { init, loadInstance, instanceToKitConfig, planGenesis } from './index.mjs';
+import { createKit } from '../kit/index.mjs';
 
-// development-only or ceremony-production (same pipeline)
-const result = await init({
+// 1) Birth a profile (development-only or ceremony-production)
+const born = await init({
   mode: 'development-only', // | 'ceremony-production'
-  setup: { /* r1cs, ptau, entropy… */ },
+  setup: { /* r1cs, ptau, entropy… — see templates/init.development.json */ },
   bundle: { /* destination, profile, toolchain, network, genesis, artifacts */ },
   load: true,
 });
+
+// 2) Write instance.json next to your profile bundle (role: "custom"), run genesis
+
+// 3) Operate
+const mine = await loadInstance('./my-pool');
+const kit = await createKit(instanceToKitConfig(mine));
+```
+
+```bash
+node scripts/shieldkit.mjs init --config templates/init.development.json
+# then: genesis, then deposit/transfer/withdraw/recover with --bundle ./my-pool
 ```
 
 | Export | Role |
 |--------|------|
-| `init` | Single pipeline setup(mode)→build→load |
+| `init` | setup(mode) → build → load |
 | `loadProfile` / `loadVerifierProfileBundle` | Authenticated bundle load |
-| `initializeDevelopmentGroth16` | Dev Phase-2 (internal to init) |
+| `loadInstance` / `instanceToKitConfig` | Instance binding (your dir or built-in playground id) |
+| `initializeDevelopmentGroth16` | Dev Phase-2 (via init) |
 | `initializeCeremonyGroth16` | ≥2 contribs + transcript |
-| `planGenesis` / `finalizeGenesis` | Offline genesis plan (network from profile) |
+| `planGenesis` / `finalizeGenesis` | Offline genesis plan |
 
 New setup ⇒ **new profile + new genesis**. No hot-swap. Mode laundering refused.
+
+**Optional live demo:** repo-root [`chipnet-playground-live-pool/`](../../chipnet-playground-live-pool/) — `loadInstance('chipnet-playground')`. Not a second product.

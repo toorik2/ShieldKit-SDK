@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node scripts/fetch-playground-bundle.mjs
- *   node scripts/fetch-playground-bundle.mjs --out examples/chipnet-playground/bundle
+ *   node scripts/fetch-playground-bundle.mjs --out chipnet-playground-live-pool/bundle
  *   SHIELDKIT_PLAYGROUND_BUNDLE=... is set by printing export line on success
  */
 import { createHash } from 'node:crypto';
@@ -19,7 +19,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const instancePath = path.join(root, 'examples/chipnet-playground/instance.json');
+const instancePath = path.join(root, 'chipnet-playground-live-pool/instance.json');
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,7 +46,7 @@ async function main() {
     process.exit(1);
   }
 
-  const outDir = path.resolve(arg('out', path.join(root, 'examples/chipnet-playground/bundle')));
+  const outDir = path.resolve(arg('out', path.join(root, 'chipnet-playground-live-pool/bundle')));
   const cacheDir = path.join(root, '.cache/playground-download');
   await mkdir(cacheDir, { recursive: true });
   const tarPath = path.join(cacheDir, 'chipnet-playground-profile-bundle.tar.gz');

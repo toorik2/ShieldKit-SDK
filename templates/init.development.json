@@ -16,5 +16,5 @@
   },
   "bundle": null,
   "load": false,
-  "_comment": "After init, package a profile bundle and write instance.json (see chipnet-playground/instance.json). Ceremony mode uses participants[] — packages/profile/setup/ceremony.mjs."
+  "_comment": "Product path: packages/profile init → profile bundle + instance.json next to it → genesis → createKit. Mirror fields from chipnet-playground-live-pool/instance.json with role:custom. Ceremony: mode ceremony-production + participants[] (packages/profile/setup/ceremony.mjs)."
 }

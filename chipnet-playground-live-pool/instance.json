@@ -28,7 +28,7 @@
     "fetch": "node scripts/fetch-playground-bundle.mjs",
     "searchPaths": [
       "SHIELDKIT_PLAYGROUND_BUNDLE env",
-      "examples/chipnet-playground/bundle",
+      "chipnet-playground-live-pool/bundle",
       ".cache/profile-build-live/profile-bundle"
     ]
   },

@@ -3,9 +3,8 @@
 **Create and run your own BCH shielded pool.**  
 Your keys. Your frontend. Your instance.
 
-> **Primary:** create your own pool.  
-> **Optional:** try the Chipnet example first.  
-> **Start:** `packages/kit` (+ `profile` for init/instance).
+> **Primary:** create your own pool — `packages/kit` + `packages/profile`.  
+> **Optional:** try the Chipnet live demo — `chipnet-playground-live-pool/`.
 
 | | |
 |--|--|
@@ -22,11 +21,11 @@ We do **not** offer a hosted pool for third-party apps. The playground is only s
 
 | Step | What | Where |
 |------|------|--------|
-| **1. Create your pool** | Init + genesis — the product job | [`examples/create-your-pool`](examples/create-your-pool/) |
-| **2. (Optional) Try the example** | Play against our Chipnet demo instance | [`examples/chipnet-playground`](examples/chipnet-playground/) |
-| **3. Operate** | deposit · transfer · withdraw · recover on **your** instance | `createKit` / CLI |
+| **1. Create your pool** | Init + genesis + operate | **`packages/profile`** + **`packages/kit`** |
+| **2. (Optional) Try live demo** | Fixed Chipnet example instance | [`chipnet-playground-live-pool/`](chipnet-playground-live-pool/) |
+| **3. Operate** | deposit · transfer · withdraw · recover | `createKit` / CLI |
 
-Same APIs either way. Playground and “your pool” differ only by **instance binding**.
+Config sketch: [`templates/init.development.json`](templates/init.development.json).
 
 ---
 
@@ -36,11 +35,12 @@ Same APIs either way. Playground and “your pool” differ only by **instance b
 npm test
 node scripts/shieldkit.mjs --help
 
-# Product path — create and run your own
-node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
+# Product — create and run your own
+node scripts/shieldkit.mjs init --config templates/init.development.json
+# → package profile bundle, write instance.json, genesis, then:
 
-# Optional — try the Chipnet example pool first
-node scripts/fetch-playground-bundle.mjs   # pin + sha256 in instance.json
+# Optional — try the Chipnet live pool first
+node scripts/fetch-playground-bundle.mjs
 node scripts/shieldkit.mjs playground doctor
 ```
 
@@ -51,11 +51,9 @@ import { createKit, loadInstance, instanceToKitConfig } from './packages/kit/ind
 const mine = await loadInstance('./my-pool');
 const kit = await createKit(instanceToKitConfig(mine));
 
-// Optional example instance (our Chipnet playground)
+// Optional live demo
 // const example = await loadInstance('chipnet-playground');
 // const kit = await createKit(instanceToKitConfig(example));
-
-// kit.planAction(request) · kit.recoverAuthenticatedHistory(...)
 ```
 
 You own: **keys · frontend · RPC · broadcast**.  
@@ -65,12 +63,12 @@ ShieldKit does not store secrets, host a pool service, or open sockets.
 
 ## Four verbs
 
-| Verb | Your pool | Example playground |
-|------|-----------|--------------------|
-| **init** | `init --config …` | — |
+| Verb | Your pool | Live demo |
+|------|-----------|-----------|
+| **init** | `init --config templates/init.development.json` | — |
 | **act** | `deposit --bundle ./my-pool --request …` | `playground deposit --request …` |
 | **recover** | `recover --bundle ./my-pool …` | `playground recover …` |
-| **doctor** | `doctor` / load your instance | `playground doctor` |
+| **doctor** | load your instance | `playground doctor` |
 
 Missing inputs → **`ok: false`** (fail-closed).
 
@@ -79,15 +77,15 @@ Missing inputs → **`ok: false`** (fail-closed).
 ## Repository map
 
 ```text
-packages/     kit · profile · action · prove · recover
-scripts/      shieldkit CLI · domain tests · fetch-playground-bundle
-examples/
-  create-your-pool/     create your own instance  ← primary
-  chipnet-playground/   live Chipnet *example* (optional)
+packages/
+  kit/        app entry: createKit
+  profile/    init · genesis · loadInstance   ← create-your-pool lives here
+  action/ · prove/ · recover/
+templates/    init.development.json
+chipnet-playground-live-pool/   optional Chipnet demo instance (not product)
+scripts/      shieldkit CLI · fetch-playground-bundle · domain tests
 docs/         CHARTER · PRIVACY · PLAYGROUND · ARCHITECTURE
 ```
-
-**Start coding:** `packages/kit` · instance/init: `packages/profile`.
 
 ---
 

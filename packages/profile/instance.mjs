@@ -50,7 +50,7 @@ export const CHIPNET_PLAYGROUND_ID = 'chipnet-playground';
  * Resolve path to the official playground instance.json in this monorepo.
  */
 export function playgroundInstancePath() {
-  return path.join(repoRoot, 'examples/chipnet-playground/instance.json');
+  return path.join(repoRoot, 'chipnet-playground-live-pool/instance.json');
 }
 
 /**
@@ -60,7 +60,7 @@ export function playgroundBundleSearchPaths() {
   const env = process.env.SHIELDKIT_PLAYGROUND_BUNDLE;
   const paths = [];
   if (env) paths.push(path.resolve(env));
-  paths.push(path.join(repoRoot, 'examples/chipnet-playground/bundle'));
+  paths.push(path.join(repoRoot, 'chipnet-playground-live-pool/bundle'));
   paths.push(path.join(repoRoot, '.cache/profile-build-live/profile-bundle'));
   return paths;
 }
@@ -135,8 +135,8 @@ async function resolveBundleDirectory(descriptor, opts) {
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
       'Chipnet playground profile bundle not found. Fetch pinned release: '
-        + '`node scripts/fetch-playground-bundle.mjs` (sha256 in examples/chipnet-playground/instance.json), '
-        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See examples/chipnet-playground/README.md.',
+        + '`node scripts/fetch-playground-bundle.mjs` (sha256 in chipnet-playground-live-pool/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See chipnet-playground-live-pool/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json
