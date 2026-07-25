@@ -35,11 +35,11 @@ There is **no post-genesis control plane**. Successors require a **new profile +
 
 Interactive explainer: covenants, State NFT tip, PREP → SETTLE, live anonymity set, fees, recovery.
 
-**→ [`explainer/`](./explainer/)**
+**→ [`explainer/learn-about-this-system.html`](./explainer/learn-about-this-system.html)**
 
 ```bash
 python3 -m http.server 8765 --directory explainer
-# open http://127.0.0.1:8765/
+# open http://127.0.0.1:8765/learn-about-this-system.html
 ```
 
 Docs: [CHARTER](./create-your-own-pool/docs/CHARTER.md) · [PRIVACY](./create-your-own-pool/docs/PRIVACY.md) · [ARCHITECTURE](./create-your-own-pool/docs/ARCHITECTURE.md)
@@ -104,7 +104,7 @@ Capacity is immutable at genesis. Grow the **live** set before privacy matters.
 ## Repo map
 
 ```text
-explainer/                 # learn — interactive system site
+explainer/                 # learn — learn-about-this-system.html
 use-chipnet-demo-pool/     # try  — optional Chipnet demo instance
 create-your-own-pool/      # build — product (kit · profile · action · prove · recover)
   packages/kit/            # createKit · completeAction

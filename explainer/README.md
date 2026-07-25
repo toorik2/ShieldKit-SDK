@@ -13,7 +13,8 @@ python3 -m http.server 8765 --directory explainer
 npx --yes serve explainer -l 8765
 ```
 
-Open **http://127.0.0.1:8765/**
+Open **http://127.0.0.1:8765/learn-about-this-system.html**  
+(`index.html` redirects there.)
 
 ## GitHub Pages (optional)
 
