@@ -1,0 +1,167 @@
+{
+  "schema": "shieldkit-sdk/live-battery/v1",
+  "status": "PARTIAL",
+  "ts": "2026-07-24T10:17:55.297136+00:00",
+  "profileId": "sha256:79782441a9d56f7d8199d9812ba566daddad63e20142fc9e7d2a33c7a66e5bf7",
+  "instanceId": "sha256:d96968b889dfdcfd65f0e89953d94a2ac2f0ca60c03bfa23867ce4293b8bc1aa",
+  "category": "c54c3bfee893dda33a0a8b1f0e1408aa95e0b0bfb31bb9a057ffeb085b3bdbcc",
+  "phaseA": "GREEN evidence/G2/live-chipnet-e2e-v1",
+  "battery": {
+    "fullCyclesCompleted": [
+      1,
+      3,
+      4
+    ],
+    "fullCycleCount": 3,
+    "targetFullCycles": 20,
+    "partialCycles": {},
+    "okActions": 9,
+    "errorRows": 12,
+    "failureTaxonomy": {
+      "bchn_reject": 1,
+      "funding_shortfall": 3,
+      "driver_bug": 1,
+      "pf7_dens_fail": 5,
+      "other": 2
+    }
+  },
+  "measurements": {
+    "wireBytes": {
+      "min": 56964,
+      "max": 56998
+    },
+    "maxUnlock": {
+      "min": 9350,
+      "max": 9350
+    },
+    "proveMs": {
+      "min": 9852,
+      "max": 10865,
+      "n": 8
+    },
+    "pf7Ms": {
+      "min": 29454,
+      "max": 32578,
+      "n": 8
+    }
+  },
+  "shippedFixes": [
+    "packages/fresh-witness-inputs: priorCycles multi-cycle tree/state continuity + unit test",
+    "battery driver: saveState after each action; resumeDigests/resumeSeed"
+  ],
+  "knownIssues": [
+    "Some valid snarkjs proofs fail PF7 genesis OP_VERIFY (op~198k); rebuild with different fee UTXO/digest often succeeds",
+    "Deposit prep requires >=~10.1M sats funding (denomination on binding); needs cold\u2192hot 0.12 BCH top-ups",
+    "Volume minima (20/10/10) not yet met \u2014 harness green for 3 full battery cycles after Phase A"
+  ],
+  "coldTreasuryBch": 99.34997843,
+  "ledgerPath": ".cache/live-battery/run-20260724/ledger.jsonl",
+  "okRows": [
+    {
+      "cycle": 1,
+      "kind": "transfer",
+      "prepTxid": "00100723ad2e2c7063c0a5bcddc6efb55c6b5329dc1822714d2f7f38d7a192b8",
+      "settleTxid": "32a03f86220c37d7cad88a0ce5189eddee7bdc4fc50b9e74448e3ac3c623c96d",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "proveMs": 10315,
+      "pf7Ms": 31429,
+      "digest": "8024972103ce59d593c99c71c0a03f74cee25d044a27393c04ccb41404918ed5"
+    },
+    {
+      "cycle": 1,
+      "kind": "withdrawal",
+      "prepTxid": "91e83fd0cda6b5ecf39bf7270949a1cfdf2d292c33e634f97fe35889dfd7b0b1",
+      "settleTxid": "eee0cbb130eb8fd86a079adfbec7b182b17b6397ecae987d8bcd7dafae8f88b1",
+      "wire": 56998,
+      "maxUnlock": 9350,
+      "fee": "56998",
+      "proveMs": 10432,
+      "pf7Ms": 32114,
+      "digest": "61cdb92551c86e4de7af79d754f9fbf414bb858be0801d2d101970a5100c1b1d"
+    },
+    {
+      "cycle": 1,
+      "kind": "deposit",
+      "prepTxid": "5c52287cc9610d0122a87ae606ff4caac2886f1d7a695ab2922f1cc151795ecc",
+      "settleTxid": "da0d2c1fafe2aa7f7bda52e23d77b1d1f5c1040727b11f0c35cfb0a055ea6913",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "digest": "39170af290ccf49cf6bc0772022294c0ff496121ad0e1b302b24f3fd6b58f133"
+    },
+    {
+      "cycle": 3,
+      "kind": "deposit",
+      "prepTxid": "5e099e14e23dbcfba5af7bfb5cd04fca4fc39619ebb252963d9615240bdba3c8",
+      "settleTxid": "e84019e478abcc399a4b90a7eca22e514ad458c79fda6dc7c2e30f39bc48713b",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "proveMs": 10865,
+      "pf7Ms": 32578,
+      "digest": "a12242c5e0367bceca2892a172c1596261874231b59b650a217e54f200e508cb"
+    },
+    {
+      "cycle": 3,
+      "kind": "transfer",
+      "prepTxid": "42528d9e83a7c4907a0b04cec4dd05d5278ff7283895e518a24c3fc797482861",
+      "settleTxid": "e48c7077bdda041f5ff6b27b034e90c0620b233a444ad778f29f2a043e4e878e",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "proveMs": 10539,
+      "pf7Ms": 31715,
+      "digest": "a58c13366fec43cbe2d8dfe6db9f449d8e473a225c2742d2f4e36a56db24c88e"
+    },
+    {
+      "cycle": 3,
+      "kind": "withdrawal",
+      "prepTxid": "79a9612695450ab2b6481380cc97898c0e41360dae769ed14b7bf66d32884137",
+      "settleTxid": "a6803a0aeca7b3887422f6abc40124eebd264db31b03e51b23ca74755919679f",
+      "wire": 56998,
+      "maxUnlock": 9350,
+      "fee": "56998",
+      "proveMs": 10572,
+      "pf7Ms": 31480,
+      "digest": "c8f805ea1a2404a22432fa9efe668c4807db71a9be396d783f0b589ba4dbb700"
+    },
+    {
+      "cycle": 4,
+      "kind": "deposit",
+      "prepTxid": "7b5c5491863c53dfe7fb149d3a44845c987af75ef4258b9c4ba5758cfb68a79c",
+      "settleTxid": "a23ecfe5a6a0ed1a596bf9b93728da710cf245b0a8b548f9c33129a250dd5764",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "proveMs": 10517,
+      "pf7Ms": 32530,
+      "digest": "a66455f09425d9d08f0abcbb12809f827a762b266ff5e9c27c0d4dac4b92b892"
+    },
+    {
+      "cycle": 4,
+      "kind": "transfer",
+      "prepTxid": "b53afb4d30bd8644e9ea8e20ec681a5584541fbb90888d4419ad533620e4ac3d",
+      "settleTxid": "34359892e55c42ee7c8d1105b108b087fbc0e5a22543e2f4a3c6efb651c6fc9a",
+      "wire": 56964,
+      "maxUnlock": 9350,
+      "fee": "56964",
+      "proveMs": 10445,
+      "pf7Ms": 31911,
+      "digest": "86919511060bc9b9c48e0a1f451a2c9167f2e48f77d8625c5bd22cf2a7e70dab"
+    },
+    {
+      "cycle": 4,
+      "kind": "withdrawal",
+      "prepTxid": "77056a36c3246f798102c858ba7943772b4a8b494a230a6ccb09acbf9ef4d15c",
+      "settleTxid": "7d0486ae9fbc5c799f394fa75a5d616e787f36bd8c25285b2060dc7cb9f5c1d3",
+      "wire": 56998,
+      "maxUnlock": 9350,
+      "fee": "56998",
+      "proveMs": 9852,
+      "pf7Ms": 29454,
+      "digest": "414c87b07405169b0401cc70c916f67a80110cc13a14a996fb82ce0056701e7d"
+    }
+  ]
+}

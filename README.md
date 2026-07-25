@@ -1,89 +1,103 @@
-# shield.cash
+# ShieldKit-SDK
 
-Status: Gate G0 frozen; Phase B feasibility work may begin. No pool, circuit,
-covenant, SDK, service, deployment, or release artifact exists yet.
+Offline **BCH shielded-transfer toolkit**: birth a pool, act, recover.
 
-## Mission
+> **Unaudited — Work In Progress.**  
+> Local setup is permanently **`development-only`** unless you run a ceremony. That is **not** production privacy.  
+> **Mainnet** = one config change (`network: 'mainnet'` / `--network mainnet`) plus warnings and broadcast ack — **not** a release claim.  
+> Production privacy claims need **`ceremony-production`** + **new genesis**. Default network: **Chipnet**.
 
-Define a narrow, auditable Bitcoin Cash shielded-transfer standard that wallets
-and applications integrate into, backed by:
+## Four verbs
 
-- a local wallet and prover SDK;
-- deterministic BCH transaction construction;
-- a versioned verifier-bundle interface separating development setup from
-  ceremony-backed profiles;
-- independently verifiable protocol profiles;
-- a rigorous conformance and adversarial-testing lab; and
-- optional, replaceable infrastructure with no protocol authority.
+| Verb | CLI | Library |
+|------|-----|---------|
+| **init** | `shieldkit init --config init.json` | `profile.init({ mode, setup, bundle })` |
+| **act** | `shieldkit deposit\|transfer\|withdraw --bundle … --request …` | `kit.planAction` → sign → finalize → prove → assemble |
+| **recover** | `shieldkit recover --bundle … --history … --seed-hex …` | `kit.recoverAuthenticatedHistory` |
+| **doctor** | `shieldkit doctor --network … --mode …` | `assertBroadcastAllowed` / `productWarnings` |
 
-The primary developer workflow is integration with compatible shared pool
-instances. Launching a new pool, supplying a custom circuit, or depending on a
-shield.cash-operated service is not the primary workflow.
+Missing required inputs → **`ok: false`** (fail-closed; no fake success).
 
-## Current phase
+```bash
+# Policy freeze (g0)
+npm test
 
-The product boundary is frozen by Gate G0. Work now proceeds through the
-evidence-first feasibility and protocol gates in
-[the kill-gate specification](docs/KILL_GATES.md). Passing G0 permits Phase B
-experiments; it is not a protocol, safety, or release qualification.
+# Domain/unit suite (recommended before PR)
+node scripts/run-domain-tests.mjs
 
-The governing documents are:
+node scripts/shieldkit.mjs doctor
+node scripts/shieldkit.mjs config-check --network chipnet
+node scripts/shieldkit.mjs config-check --network mainnet   # refuse without flags
+node scripts/shieldkit.mjs deposit                          # ok:false — shows required inputs
+node scripts/shieldkit.mjs --help
+```
 
-- [Protocol charter](docs/CHARTER.md) — mission, invariants, scope, roles, and
-  authority.
-- [Kill gates](docs/KILL_GATES.md) — quantitative evidence required to continue
-  or promote.
-- [Open decisions](docs/OPEN_QUESTIONS.md) — locked, provisional, and unresolved
-  architectural choices.
-- [Privacy claim](docs/PRIVACY.md) — the exact V1 blockchain-unlinkability claim
-  and its public leakage matrix.
-- [Roadmap](docs/ROADMAP.md) — dependency-driven work plan without
-  calendar-based promotion.
-- [Build plan](docs/BUILD_PLAN.md) — executable work packages and completion
-  conditions.
-- [Change control](docs/CHANGE_CONTROL.md) — the mandatory process for changing
-  frozen decisions.
+## Library
 
-## Evidence boundary
+```js
+import { createKit, PRODUCT_STATUS } from './packages/kit/index.mjs';
 
-The previous implementation was preserved intact at:
+const kit = await createKit({
+  network: 'chipnet', // or 'mainnet' (WIP warnings always attached)
+  bundleDirectory: '/path/to/profile-bundle',
+  expectedProfile: {
+    network: 'chipnet',
+    profileId: 'sha256:…',
+    instanceId: 'sha256:…',
+  },
+});
+// kit.warnings includes "Unaudited — Work In Progress"
+// kit.planAction(request) / planCompletePreparation
+// kit.recoverAuthenticatedHistory({ accountSeed, history })
+```
 
-`/home/toorik/Projects/ZK-Proofs/shield.cash-evidence-20260723T121421Z`
+You supply: keys, RPC/broadcast, proof/PF7 unlocks. Kit holds no secrets.
 
-That directory is an evidence laboratory, not a source tree or protocol
-authority. No code or artifact may be copied from it into this repository
-without:
+### `createKit` methods
 
-1. an accepted protocol requirement;
-2. an explicit provenance record;
-3. independent reproduction against the current BCH network rules; and
-4. the same conformance treatment as a new implementation.
+| Method | Purpose |
+|--------|---------|
+| `planAction` / `planCompletePreparation` | Plan prep tx for deposit/transfer/withdrawal |
+| `preparationSigningRequest` | Fee-input Schnorr digest |
+| `finalizeCompletePreparation` | Attach signature |
+| `planWitnessBoundSettlements` | Settlement planning after prove |
+| `recoverAuthenticatedHistory` | Seed + history → notes |
+| `broadcastRaw` | Optional; mainnet gated |
+| `assertCanBroadcast` / `explorerTxUrl` | Safety helpers |
 
-Historical results, projections, synthetic fixtures, digest-only circuits,
-incomplete ceremonies, or locally patched harnesses cannot satisfy a gate.
+## Mainnet (one config change)
 
-## Non-negotiable product boundary
+```js
+network: 'mainnet'          // app / createKit
+// CLI: --network mainnet
+```
 
-- No generic privacy framework in V1.
-- No “deploy your own pool” hero workflow.
-- No mandatory shield.cash indexer, relayer, prover, broadcaster, coordinator,
-  artifact server, frontend, or RPC endpoint.
-- shield.cash publishes specifications, SDKs, artifacts, conformance tooling,
-  documentation, and reference source; it does not operate public transaction
-  infrastructure or a consumer transaction application.
-- No server receives wallet spending secrets in the required protocol flow.
-- No implementation is protocol authority.
-- No safety, privacy, standardness, or release claim without exact evidence
-  required by the relevant gate.
+Always shown: **Unaudited — Work In Progress**.  
+Broadcast: `--i-understand-mainnet`.  
+Production claims: `--mode ceremony-production` + ceremony-backed profile + new genesis.
 
-## Immediate objective
+## Domains
 
-Execute Phase B: reproduce the BCH and verifier envelope, define the exact
-protocol kernel, and kill or promote one complete candidate using real evidence.
-The engineering target is a working end-to-end protocol instance on BCH
-Chipnet. Its first profile may use a locally generated Groth16 setup only when
-the complete bundle is marked `development-only`. Wallet and protocol logic
-must load authenticated, profile-bound verifier material rather than hardcode
-keys or scripts. A later multi-party-ceremony bundle uses the same interface but
-creates a new profile and genesis; it cannot alter the development instance.
-Mainnet deployment is outside the current authorization.
+```
+packages/kit/       createKit
+packages/profile/   init · load · setup(dev|ceremony) · genesis
+packages/action/    prep · settlement · witness
+packages/prove/     groth16 · PF7 unlocks
+packages/recover/   notes / history
+packages/mobile/    optional
+```
+
+## Demo profile
+
+See **[examples/demo-profile/](examples/demo-profile/)** (Chipnet lab path + `init.example.json`).
+
+## Docs
+
+- [Beautiful plan](docs/BEAUTIFUL_PLAN.md) · [UX red-team](docs/UX_REDTEAM_AUDIT.md)  
+- [SECURITY](SECURITY.md) · [Charter](docs/CHARTER.md) · [Privacy](docs/PRIVACY.md)
+
+## Invariants
+
+- Fee + change @ **1 sat/B**; unlock ≤ **10 000** B; settlement ≤ **59 000** B  
+- Verifier: `bn254-onetx-pf7-sub62-r1` (7 PF7)  
+- New setup ⇒ new profile + new genesis (no hot-swap)
