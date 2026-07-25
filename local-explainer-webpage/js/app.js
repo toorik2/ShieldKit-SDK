@@ -5,6 +5,9 @@ import {
   privacySvg,
   covenantStateSvg,
   lifecycleSvg,
+  verifierSvg,
+  pairingSvg,
+  provePathSvg,
 } from './diagrams.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -78,6 +81,9 @@ mount('diag-flow', flowSvg('deposit'));
 mount('diag-privacy', privacySvg());
 mount('diag-covenant', covenantStateSvg());
 mount('diag-lifecycle', lifecycleSvg('genesis'));
+mount('diag-verifier', verifierSvg());
+mount('diag-pairing', pairingSvg());
+mount('diag-prove-path', provePathSvg());
 
 /* Hotspot details on system map */
 const HOT = {

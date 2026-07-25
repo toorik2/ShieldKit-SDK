@@ -618,6 +618,62 @@ pre.code .n { color: var(--green); }
   background: #070c14;
 }
 
+/* Collapsible deep-dive folds */
+.fold {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+.fold > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 1rem 1.15rem;
+  user-select: none;
+  transition: background 0.15s var(--ease);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary:hover { background: rgba(255, 255, 255, 0.03); }
+.fold-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.fold-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(46, 230, 200, 0.35);
+  background: rgba(46, 230, 200, 0.08);
+  color: var(--cyan);
+  font-size: 0.75rem;
+  transition: transform 0.2s var(--ease);
+}
+.fold[open] > summary .fold-mark { transform: rotate(90deg); }
+.fold-hint {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.fold-body {
+  padding: 0 1.15rem 1.25rem;
+  border-top: 1px solid var(--stroke);
+  animation: fadeUp 0.35s var(--ease);
+}
+.fold-body h3 { margin-top: 1.1rem; }
+.fold-body .diagram { margin-top: 0.75rem; }
+
 /* Footer */
 .site-foot {
   margin-top: 2rem;

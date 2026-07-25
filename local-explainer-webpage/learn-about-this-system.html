@@ -30,15 +30,16 @@
         <a href="#covenants"><span class="idx">05</span> Covenants &amp; state</a>
         <a href="#actions"><span class="idx">06</span> Actions</a>
         <a href="#settle"><span class="idx">07</span> Settlement</a>
-        <a href="#lab"><span class="idx">08</span> Live set lab</a>
-        <a href="#privacy"><span class="idx">09</span> Hidden vs public</a>
+        <a href="#verifier"><span class="idx">08</span> Verifier</a>
+        <a href="#lab"><span class="idx">09</span> Live set lab</a>
+        <a href="#privacy"><span class="idx">10</span> Hidden vs public</a>
         <div class="nav-group">Rules</div>
-        <a href="#fees"><span class="idx">10</span> Fees</a>
-        <a href="#limits"><span class="idx">11</span> Limits</a>
-        <a href="#concurrency"><span class="idx">12</span> Concurrency</a>
+        <a href="#fees"><span class="idx">11</span> Fees</a>
+        <a href="#limits"><span class="idx">12</span> Limits</a>
+        <a href="#concurrency"><span class="idx">13</span> Concurrency</a>
         <div class="nav-group">Build</div>
-        <a href="#cli"><span class="idx">13</span> Operate</a>
-        <a href="#stack"><span class="idx">14</span> Code map</a>
+        <a href="#cli"><span class="idx">14</span> Operate</a>
+        <a href="#stack"><span class="idx">15</span> Code map</a>
       </div>
     </nav>
 
@@ -370,6 +371,136 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         <div class="diagram" id="diag-settle"></div>
         <p id="role-hint" style="text-align:center;color:var(--text-faint);font-size:0.88rem;min-height:1.4em;margin:0.5rem 0 0">Hover an input</p>
         <canvas id="settleCanvas" width="900" height="280" aria-label="Sequential input verification illustration"></canvas>
+      </section>
+
+      <!-- VERIFIER (collapsed by default) -->
+      <section class="panel reveal" id="verifier">
+        <div class="kicker">Deep dive · optional</div>
+        <details class="fold">
+          <summary>
+            <span class="fold-title">
+              <span class="fold-mark">▸</span>
+              The verifier — Groth16, BN254, densFuel
+            </span>
+            <span class="fold-hint">Collapsed by default · math under the hood</span>
+          </summary>
+          <div class="fold-body">
+            <p class="lead" style="margin-top:0.85rem">
+              ShieldKit does not run an EVM. A <strong>Groth16 proof</strong> is built offline;
+              Bitcoin Cash checks it with a <strong>split densFuel verifier</strong> (PF7) baked into seven P2SH32 unlocks.
+            </p>
+
+            <div class="diagram" id="diag-verifier"></div>
+
+            <h3 style="margin-top:1.2rem">One sentence each</h3>
+            <div class="grid grid-3" style="margin-bottom:1rem">
+              <div class="card">
+                <h3>Relation</h3>
+                <p><code>shielded-action-v2</code> — one circuit for deposit, transfer, and withdraw. Witness holds secrets; public inputs are tiny.</p>
+              </div>
+              <div class="card">
+                <h3>Proof system</h3>
+                <p><strong>Groth16</strong> over <strong>BN254</strong> (alt_bn128). Proof is a few group elements; verify is a pairing equation.</p>
+              </div>
+              <div class="card">
+                <h3>On chain</h3>
+                <p><strong>densFuel / PF7</strong> — seven verifier inputs, not one giant script. Unlock sizes stay under BCH limits (~10kB each).</p>
+              </div>
+            </div>
+
+            <h3>What the chain actually checks</h3>
+            <div class="diagram" id="diag-pairing"></div>
+            <table class="t" style="margin-top:1rem">
+              <thead>
+                <tr><th>Piece</th><th>Where</th><th>What it binds</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Public inputs</td>
+                  <td class="mono">2 × u128</td>
+                  <td>Limbs of <code>SHA256(752-byte SCAR packet)</code> — not note secrets</td>
+                </tr>
+                <tr>
+                  <td>SCAR packet</td>
+                  <td>Binding unlock</td>
+                  <td>pre/post state, cm/nf, record, boundary, context digest</td>
+                </tr>
+                <tr>
+                  <td>Context digest</td>
+                  <td>SCCT</td>
+                  <td>Exact 10-input / output settlement shape (proof tied to this tx)</td>
+                </tr>
+                <tr>
+                  <td>Pairing check</td>
+                  <td>PF7 unlocks</td>
+                  <td>Proof π verifies under the profile’s fixed verification key</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3 style="margin-top:1.25rem">Curves &amp; hashes (field guide)</h3>
+            <div class="grid grid-2">
+              <div class="card">
+                <h3>BN254 (proof curve)</h3>
+                <p>
+                  Pairing-friendly curve used by Groth16. Field prime ≈ 254 bits.
+                  Snarks live here: proof points, VK, public inputs as field elements.
+                </p>
+                <p class="mono" style="margin-top:0.55rem;font-size:0.78rem;color:var(--text-faint)">
+                  aka alt_bn128 · same family as many Ethereum snarks
+                </p>
+              </div>
+              <div class="card">
+                <h3>BabyJubJub (wallet curve)</h3>
+                <p>
+                  Embedded curve for spend / recovery scalars.
+                  <code>SP = [sk]Base8</code>, <code>RP = [rk]Base8</code>.
+                  Authority <code>ak</code> Poseidon-binds both points.
+                </p>
+              </div>
+              <div class="card">
+                <h3>Poseidon (in-circuit hash)</h3>
+                <p>
+                  SNARK-friendly sponge for note commitments, nullifiers, Merkle nodes, and pool state commitment.
+                  Domain-separated tags (note, nullifier, trees, pool state).
+                </p>
+              </div>
+              <div class="card">
+                <h3>SHA-256 (out-of-circuit bridge)</h3>
+                <p>
+                  Compresses the full action packet to two public limbs so the circuit stays small
+                  while the covenant still sees the full SCAR bytes in the binding unlock.
+                </p>
+              </div>
+            </div>
+
+            <h3 style="margin-top:1.25rem">Trees the relation talks about</h3>
+            <div class="grid grid-2">
+              <div class="card">
+                <h3>Note tree · depth 32</h3>
+                <p>Append-only commitments. Deposit/transfer add a leaf; withdraw does not grow the note tree.</p>
+              </div>
+              <div class="card">
+                <h3>Nullifier tree · depth 128 (sparse)</h3>
+                <p>Spent markers. Key = low 128 bits of canonical Fr encoding of <code>nf</code>. Double-spend = second insert fails.</p>
+              </div>
+            </div>
+
+            <h3 style="margin-top:1.25rem">Prove offline · verify on BCH</h3>
+            <div class="diagram" id="diag-prove-path"></div>
+            <div class="callout" style="margin-top:1rem">
+              <strong>Setup honesty.</strong> Local / Chipnet profiles are <code>development-only</code> (not multi-party ceremony).
+              Production privacy claims need a ceremony-backed profile and a new genesis.
+              Changing the circuit, VK, or densFuel pin ⇒ new profile — never a hot-swap.
+            </div>
+
+            <pre class="code" style="margin-top:1rem"><span class="c">// Mental model (not executable)</span>
+prove(witness, zkey) → π
+public = limbs(SHA256(SCAR_packet))
+on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
+<span class="c">// secrets never enter public inputs</span></pre>
+          </div>
+        </details>
       </section>
 
       <!-- LAB -->

@@ -156,6 +156,103 @@ export function covenantStateSvg() {
   </svg>`;
 }
 
+/** Groth16 + densFuel overview */
+export function verifierSvg() {
+  return `<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verifier stack">
+    <rect width="920" height="300" rx="16" fill="#070c14"/>
+    <text x="460" y="28" text-anchor="middle" fill="#eef3fb" font-size="14" font-weight="650">From secrets to a BCH-checked proof</text>
+
+    <rect x="36" y="48" width="200" height="200" rx="14" fill="#161022" stroke="#b49cff" stroke-width="1.5"/>
+    <text x="136" y="78" text-anchor="middle" fill="#b49cff" font-size="12" font-weight="650">WITNESS</text>
+    <text x="136" y="108" text-anchor="middle" fill="#eef3fb" font-size="12">sk · ρ · r</text>
+    <text x="136" y="130" text-anchor="middle" fill="#eef3fb" font-size="12">paths · records</text>
+    <text x="136" y="152" text-anchor="middle" fill="#64748b" font-size="11">never on chain</text>
+    <text x="136" y="190" text-anchor="middle" fill="#64748b" font-size="11">BabyJub + Poseidon</text>
+    <text x="136" y="212" text-anchor="middle" fill="#64748b" font-size="11">in the circuit</text>
+
+    <path d="M248 148 L300 148" stroke="#2ee6c8" stroke-width="2.5" marker-end="url(#vm)"/>
+    <defs><marker id="vm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2ee6c8"/></marker></defs>
+
+    <rect x="312" y="48" width="220" height="200" rx="14" fill="#121c2c" stroke="#2ee6c8" stroke-width="1.5"/>
+    <text x="422" y="78" text-anchor="middle" fill="#2ee6c8" font-size="12" font-weight="650">GROTH16 · BN254</text>
+    <text x="422" y="112" text-anchor="middle" fill="#eef3fb" font-size="12">relation v2</text>
+    <text x="422" y="134" text-anchor="middle" fill="#eef3fb" font-size="12">prove ~10s local</text>
+    <text x="422" y="168" text-anchor="middle" fill="#f0c14b" font-size="12">π  +  public limbs</text>
+    <text x="422" y="200" text-anchor="middle" fill="#64748b" font-size="11">public = SHA256(SCAR)</text>
+    <text x="422" y="220" text-anchor="middle" fill="#64748b" font-size="11">two u128 limbs only</text>
+
+    <path d="M544 148 L596 148" stroke="#2ee6c8" stroke-width="2.5" marker-end="url(#vm)"/>
+
+    <rect x="608" y="48" width="276" height="200" rx="14" fill="#0f1a14" stroke="#6eb6ff" stroke-width="1.5"/>
+    <text x="746" y="78" text-anchor="middle" fill="#6eb6ff" font-size="12" font-weight="650">BCH densFuel · PF7</text>
+    <text x="746" y="112" text-anchor="middle" fill="#eef3fb" font-size="12">7 P2SH32 unlocks</text>
+    <text x="746" y="134" text-anchor="middle" fill="#eef3fb" font-size="12">exec0–4 · gen · term</text>
+    <text x="746" y="168" text-anchor="middle" fill="#eef3fb" font-size="12">pairing check on-chain</text>
+    <text x="746" y="200" text-anchor="middle" fill="#64748b" font-size="11">+ binding packet + state tip</text>
+    <text x="746" y="220" text-anchor="middle" fill="#64748b" font-size="11">consensus does the math</text>
+  </svg>`;
+}
+
+/** Pairing / public-input bridge */
+export function pairingSvg() {
+  return `<svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Public input bridge">
+    <rect width="920" height="220" rx="16" fill="#070c14"/>
+    <text x="460" y="30" text-anchor="middle" fill="#eef3fb" font-size="13" font-weight="650">Tiny public surface · fat private witness</text>
+
+    <rect x="40" y="55" width="260" height="130" rx="12" fill="#161022" stroke="#b49cff"/>
+    <text x="170" y="90" text-anchor="middle" fill="#b49cff" font-size="12" font-weight="650">PRIVATE</text>
+    <text x="170" y="120" text-anchor="middle" fill="#eef3fb" font-size="12">full witness</text>
+    <text x="170" y="142" text-anchor="middle" fill="#64748b" font-size="11">thousands of field values</text>
+    <text x="170" y="164" text-anchor="middle" fill="#64748b" font-size="11">only in the prover</text>
+
+    <text x="340" y="125" text-anchor="middle" fill="#2ee6c8" font-size="20">→</text>
+
+    <rect x="380" y="55" width="200" height="130" rx="12" fill="#152238" stroke="#2ee6c8"/>
+    <text x="480" y="90" text-anchor="middle" fill="#2ee6c8" font-size="12" font-weight="650">PUBLIC</text>
+    <text x="480" y="120" text-anchor="middle" fill="#eef3fb" font-size="12">limb₀ · limb₁</text>
+    <text x="480" y="148" text-anchor="middle" fill="#64748b" font-size="11">SHA256(SCAR) split</text>
+    <text x="480" y="168" text-anchor="middle" fill="#64748b" font-size="11">into two Fr limbs</text>
+
+    <text x="620" y="125" text-anchor="middle" fill="#2ee6c8" font-size="20">→</text>
+
+    <rect x="660" y="55" width="220" height="130" rx="12" fill="#121c2c" stroke="#f0c14b"/>
+    <text x="770" y="90" text-anchor="middle" fill="#f0c14b" font-size="12" font-weight="650">PACKET ON WIRE</text>
+    <text x="770" y="120" text-anchor="middle" fill="#eef3fb" font-size="12">752 B SCAR</text>
+    <text x="770" y="142" text-anchor="middle" fill="#64748b" font-size="11">in binding unlock</text>
+    <text x="770" y="164" text-anchor="middle" fill="#64748b" font-size="11">covenant re-hashes</text>
+  </svg>`;
+}
+
+/** Offline prove → on-chain verify path */
+export function provePathSvg() {
+  const steps = [
+    ['1', 'Witness', '#b49cff'],
+    ['2', 'Prove', '#2ee6c8'],
+    ['3', 'Unlock\ndensFuel', '#f0c14b'],
+    ['4', 'Assemble\nSETTLE', '#6eb6ff'],
+    ['5', 'Broadcast', '#ff7a93'],
+  ];
+  const boxes = steps.map(([n, label, c], i) => {
+    const x = 40 + i * 175;
+    const lines = label.split('\n');
+    const texts = lines.map((ln, j) =>
+      `<text x="${x + 75}" y="${120 + j * 16}" text-anchor="middle" fill="#eef3fb" font-size="12.5">${ln}</text>`
+    ).join('');
+    return `<g>
+      <rect x="${x}" y="70" width="150" height="100" rx="12" fill="#121c2c" stroke="${c}" stroke-width="1.5"/>
+      <circle cx="${x + 28}" cy="98" r="12" fill="none" stroke="${c}"/>
+      <text x="${x + 28}" y="102" text-anchor="middle" fill="${c}" font-size="11" font-weight="650">${n}</text>
+      ${texts}
+    </g>`;
+  }).join('');
+  return `<svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg">
+    <rect width="920" height="210" rx="16" fill="#070c14"/>
+    <text x="460" y="36" text-anchor="middle" fill="#eef3fb" font-size="13" font-weight="650">Operator path · prove stays local</text>
+    ${boxes}
+    <text x="460" y="195" text-anchor="middle" fill="#64748b" font-size="11">Miners / nodes only evaluate unlocks — they never see ρ, r, or sk</text>
+  </svg>`;
+}
+
 /** Lifecycle stages for covenants section */
 export function lifecycleSvg(stage = 'genesis') {
   const stages = {
