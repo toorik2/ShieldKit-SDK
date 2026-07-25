@@ -1,0 +1,52 @@
+{
+  "name": "@cashscript/utils",
+  "version": "0.14.0-next.1",
+  "description": "CashScript utilities and types",
+  "keywords": [
+    "bitcoin cash",
+    "cashscript",
+    "sdk",
+    "smart contracts",
+    "cashtokens"
+  ],
+  "homepage": "https://cashscript.org",
+  "bugs": {
+    "url": "https://github.com/CashScript/cashscript/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CashScript/cashscript.git"
+  },
+  "license": "MIT",
+  "author": "Rosco Kalis <roscokalis@gmail.com>",
+  "contributors": [
+    "Mathieu Geukens <mr-zwets@protonmail.com>"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "directories": {
+    "lib": "src",
+    "test": "test"
+  },
+  "scripts": {
+    "build": "yarn clean && yarn compile",
+    "clean": "rm -rf ./dist",
+    "compile": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --ext .ts --ignore-path ../../.eslintignore",
+    "prepare": "yarn build",
+    "prepublishOnly": "yarn test && yarn lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "^3.1.0-next.8"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.15",
+    "eslint": "^8.54.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.15"
+  },
+  "gitHead": "bf02a4b641d5d03c035d052247a545109c17b708"
+}

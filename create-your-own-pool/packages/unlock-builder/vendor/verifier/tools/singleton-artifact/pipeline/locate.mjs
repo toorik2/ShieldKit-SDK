@@ -1,0 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { globalCse } from './global_cse.mjs';
+import { twistDerive } from './twist_derive.mjs';
+import { parse } from './asm.mjs';
+import { dissect } from './program.mjs';
+const P=21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+const X=4965661367192848881n; const inv2=(P+1n)/2n; const sixx2=6n*X*X;
+const CANON='/tmp/claude-1000/-home-toorik-Projects-verifier-cash/fa6e3d58-5aaa-4eaf-bef3-80ed05b22fa9/scratchpad/expderiv-blob/optimized.hex';
+const orig=Uint8Array.from(Buffer.from(readFileSync(CANON,'utf8').trim(),'hex'));
+const {bytes:pooled}=globalCse(orig,{poolId:13});
+const {bytes:twist}=twistDerive(pooled,{deriveId:15});
+const d=dissect(twist);
+const valOf=o=>o.data?BigInt('0x'+(Buffer.from(o.data).reverse().toString('hex')||'0')):null;
+const report=(ops,loc)=>{ops.forEach((o,i)=>{const v=valOf(o);if(v===inv2)console.log(loc,'i='+i,'INV2 (len'+o.data.length+')');if(v===X)console.log(loc,'i='+i,'X (len'+o.data.length+')');if(v===sixx2)console.log(loc,'i='+i,'6X^2 (len'+o.data.length+')');});};
+for(const id of d.order)report(parse(d.bodies.get(id)),'def#'+id);
+report(d.mainOps,'MAIN');
+console.log('twistLen',twist.length);

@@ -1,0 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url'; import { dirname, join } from 'node:path';
+import { dissect, decompileProgram, recompileProgram } from './program.mjs';
+const here = dirname(fileURLToPath(import.meta.url));
+const raw = JSON.parse(readFileSync(join(here,'baseline.json'),'utf8'));
+const baseline = Uint8Array.from(Buffer.from(raw.debug?.bytecode||raw.bytecodeHex||raw.hex,'hex'));
+const d = dissect(baseline);
+const arity = JSON.parse(readFileSync(join(here,'arity.json'),'utf8'));
+const ir = decompileProgram(d, arity, 10);
+const r = recompileProgram(d, ir, arity);
+const exact = Buffer.from(r.bytes).equals(Buffer.from(baseline));
+const badBodies = r.perBody.filter(b=>!b.exact).map(b=>b.id);
+console.log('round-trip byte-exact:', exact, '| mainExact:', r.mainExact, '| non-exact bodies:', badBodies.length?badBodies.join(','):'none');

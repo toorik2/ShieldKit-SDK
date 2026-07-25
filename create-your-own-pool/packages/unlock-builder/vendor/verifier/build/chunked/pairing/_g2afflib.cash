@@ -1,0 +1,32 @@
+
+// S3 g2check affine point ops (reducing tower, point-ONLY: g2check computes [x0]B, no line fold).
+// Prover WITNESSES slope lam; slope is verified so lam is uniquely forced (2y!=0 / Rx!=Qx guarded),
+// the derived next point equals 2R (dbl) / R+Q (add) and is pinned forward as covenant state.
+function g2AffDbl(int xa,int xb, int ya,int yb, int la,int lb) returns (int,int,int,int) {
+    (int x2a,int x2b) = fp2Sqr(xa,xb);
+    (int c1a,int c1b) = fp2Scale(x2a,x2b,3);      // 3x^2
+    (int y2a,int y2b) = fp2Add(ya,yb,ya,yb);      // 2y
+    (int cka,int ckb) = fp2Mul(la,lb,y2a,y2b);    // lam*2y
+    require(cka == c1a); require(ckb == c1b);     // slope: lam*2y == 3x^2 (2y != 0)
+    (int l2a,int l2b) = fp2Sqr(la,lb);
+    (int txa,int txb) = fp2Add(xa,xb,xa,xb);      // 2x
+    (int xna,int xnb) = fp2Sub(l2a,l2b, txa,txb); // xn = lam^2 - 2x
+    (int dxa,int dxb) = fp2Sub(xa,xb, xna,xnb);   // x - xn
+    (int lya,int lyb) = fp2Mul(la,lb, dxa,dxb);
+    (int yna,int ynb) = fp2Sub(lya,lyb, ya,yb);   // yn = lam*(x-xn) - y
+    return xna,xnb, yna,ynb;
+}
+function g2AffAdd(int Rxa,int Rxb,int Rya,int Ryb, int Qxa,int Qxb,int Qya,int Qyb, int la,int lb) returns (int,int,int,int) {
+    require(Rxa != Qxa || Rxb != Qxb);            // R != +-Q (Rx != Qx)
+    (int t1a,int t1b) = fp2Sub(Rxa,Rxb, Qxa,Qxb); // Rx - Qx
+    (int t0a,int t0b) = fp2Sub(Rya,Ryb, Qya,Qyb); // Ry - Qy
+    (int cka,int ckb) = fp2Mul(la,lb, t1a,t1b);   // lam*(Rx-Qx)
+    require(cka == t0a); require(ckb == t0b);     // slope: lam*(Rx-Qx) == Ry-Qy
+    (int l2a,int l2b) = fp2Sqr(la,lb);
+    (int s1a,int s1b) = fp2Sub(l2a,l2b, Rxa,Rxb);
+    (int xna,int xnb) = fp2Sub(s1a,s1b, Qxa,Qxb); // xn = lam^2 - Rx - Qx
+    (int dxa,int dxb) = fp2Sub(Rxa,Rxb, xna,xnb); // Rx - xn
+    (int lya,int lyb) = fp2Mul(la,lb, dxa,dxb);
+    (int yna,int ynb) = fp2Sub(lya,lyb, Rya,Ryb); // yn = lam*(Rx-xn) - Ry
+    return xna,xnb, yna,ynb;
+}

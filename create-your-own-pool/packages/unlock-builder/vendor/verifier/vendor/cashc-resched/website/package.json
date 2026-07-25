@@ -1,0 +1,39 @@
+{
+  "name": "cashscript.org",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "docusaurus start",
+    "start:next": "NEXT=true docusaurus start",
+    "build": "docusaurus build",
+    "build:next": "NEXT=true docusaurus build",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy"
+  },
+  "dependencies": {
+    "@branchup/docusaurus-plugin-simple-analytics": "^1.1.0",
+    "@docusaurus/core": "^3.9.2",
+    "@docusaurus/plugin-client-redirects": "^3.9.2",
+    "@docusaurus/preset-classic": "^3.9.2",
+    "classnames": "^2.5.1",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@docusaurus/tsconfig": "^3.9.2",
+    "typescript": "^5.9.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

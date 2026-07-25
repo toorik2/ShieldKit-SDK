@@ -1,0 +1,20 @@
+{
+  "rows": 256,
+  "built": 256,
+  "gateOk": 256,
+  "seamChains": 256,
+  "bothUnder": 256,
+  "manual10": 256,
+  "manualAllAccept": 256,
+  "perInput10": 256,
+  "perInputAllAccept": 256,
+  "maxUnlock": 9591,
+  "minScore": 81084,
+  "maxScore": 81347,
+  "minWire": 79719,
+  "maxWire": 79982,
+  "minSigmaUnlock": 79269,
+  "maxSigmaUnlock": 79532,
+  "capOverflows": 0,
+  "gateThrows": 0
+}

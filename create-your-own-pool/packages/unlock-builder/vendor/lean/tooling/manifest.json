@@ -1,0 +1,349 @@
+{
+  "schema": "leanbch/tooling-manifest/v1",
+  "version": 1,
+  "documentation": "TOOLS.md",
+  "trustArtifacts": [
+    { "path": "Meta/necessity.json", "generatedBy": "necessity", "required": true },
+    { "path": "tools/health/index.json", "generatedBy": "health-map", "required": true },
+    { "path": "TRUST_MANIFEST.md", "generatedBy": "opt-ci", "required": true }
+  ],
+  "tools": [
+    {
+      "id": "vm",
+      "category": "execution",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Executable BCH-2026 Script VM with extended opcodes and metered state.",
+      "entrypoints": [
+        "LeanBCH/VM/Eval.lean",
+        "LeanBCH/VM/Extended.lean",
+        "LeanBCH/VM/State.lean"
+      ],
+      "interface": ["runExt", "runScript", "stepExt"]
+    },
+    {
+      "id": "consensus",
+      "category": "verification",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Consensus verification for one input or a complete transaction.",
+      "entrypoints": ["LeanBCH/VM/Verify.lean"],
+      "interface": ["verifyInput", "verifyTransaction", "txValid", "verifyTokens"]
+    },
+    {
+      "id": "standardness",
+      "category": "verification",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "BCH-2026 relay-policy classification and standardness verification.",
+      "entrypoints": ["LeanBCH/VM/Standard.lean"],
+      "interface": ["classify", "verifyStandard", "policy2026"]
+    },
+    {
+      "id": "op-cost-model",
+      "category": "measurement",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Machine-checked five-metric operation-cost model and in-Lean meter.",
+      "entrypoints": [
+        "LeanBCH/Cost/Metrics.lean",
+        "LeanBCH/VM/Meter.lean",
+        "LeanBCH/Epoch.lean"
+      ],
+      "interface": ["operationCost", "evalCost", "runMeter", "maxOperationCost"]
+    },
+    {
+      "id": "cost-meter",
+      "category": "measurement",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Fast libauth BCH-2026 measurement loop for large scripts and optimizer work.",
+      "entrypoints": ["optimizer/cost.mjs"],
+      "prerequisites": ["optimizer/node_modules/@bitauth/libauth"],
+      "interface": ["measureRun", "measureBody", "measureAllBodies", "classifyBound", "decompose"]
+    },
+    {
+      "id": "transaction-codec",
+      "category": "transactions",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Byte-exact transaction encoding, decoding, evaluation context, and sighash construction.",
+      "entrypoints": [
+        "LeanBCH/Tx/Wire.lean",
+        "LeanBCH/Tx/Sighash.lean",
+        "LeanBCH/Tx/Types.lean"
+      ],
+      "interface": ["encodeTransaction", "decodeTransaction", "decodeProgram", "encodeSigningSerialization"]
+    },
+    {
+      "id": "crypto-oracle",
+      "category": "transactions",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Native SHA-1, SHA-256, RIPEMD-160 constructions and the explicit secp256k1 oracle seam.",
+      "entrypoints": ["LeanBCH/Crypto.lean", "LeanBCH/Oracle.lean"],
+      "interface": ["sha256", "sha1", "ripemd160", "hash256", "hash160", "Secp256k1.reject"]
+    },
+    {
+      "id": "core-build",
+      "category": "verification",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Build the dependency-free core BCH VM and consensus model.",
+      "entrypoints": ["LeanBCH.lean"],
+      "command": ["lake", "build", "LeanBCH"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "optimizer-proofs",
+      "category": "optimization",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Kernel-checked scheduler, fold, invoke-CSE, codec, and decompiler soundness theorems.",
+      "entrypoints": ["LeanBCH/Opt.lean"],
+      "interface": ["schedule_refines", "invoke_cse", "parse_encode", "decompile_end_to_end"]
+    },
+    {
+      "id": "optimizer",
+      "category": "optimization",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Dialect-aware optimizer CLI with gate and trust report.",
+      "entrypoints": ["optimizer/cli.mjs"],
+      "prerequisites": ["optimizer/node_modules/@bitauth/libauth"],
+      "command": ["node", "optimizer/cli.mjs"],
+      "sideEffects": "caller-output",
+      "isolateTmp": true,
+      "argumentPolicy": {
+        "inputPositions": [0],
+        "inputOptions": ["--cashc"],
+        "outputPositions": [1],
+        "outputOptions": ["--report"],
+        "requireOutputPositions": [1],
+        "requireOutputOptions": ["--report"],
+        "outputRoot": ".vc"
+      },
+      "timeoutMs": 300000,
+      "writes": "Caller-selected output and report paths. Run through vc exec for legacy temporary isolation."
+    },
+    {
+      "id": "chunk-planner",
+      "category": "optimization",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "A1-safe interval-DP re-chunk planner with compile verification and boundary search.",
+      "entrypoints": ["optimizer/chunkplan.mjs"],
+      "interface": ["planOptimal", "compileVerify", "localBoundarySearch", "plan", "runSelfTest"]
+    },
+    {
+      "id": "optimizer-proof-build",
+      "category": "proofs",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Build the kernel-checked optimizer proof layer.",
+      "entrypoints": ["LeanBCH/Opt.lean"],
+      "command": ["lake", "build", "LeanBCHOpt"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 900000
+    },
+    {
+      "id": "fold-table-check",
+      "category": "proofs",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Regenerate the complete fold table in memory and require byte identity with the tracked theorem table.",
+      "entrypoints": ["tools/foldgen/foldgen.py", "LeanBCH/Opt/FoldTable.lean"],
+      "command": ["python3", "tools/foldgen/foldgen.py", "--check", "LeanBCH/Opt/FoldTable.lean"],
+      "sideEffects": "none",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "chunk-planner-selftest",
+      "category": "optimization",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Pure planner optimality and invariant self-test.",
+      "entrypoints": ["optimizer/chunkplan.mjs"],
+      "command": ["node", "optimizer/chunkplan.mjs"],
+      "sideEffects": "none",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "floor-provers",
+      "category": "proofs",
+      "kind": "library",
+      "stability": "stable",
+      "required": true,
+      "summary": "Machine-checked movement, copy, rank, tower, and operation-cost lower bounds.",
+      "entrypoints": [
+        "LeanBCH/Opt/NlcsFloor.lean",
+        "LeanBCH/Opt/MovementFloor.lean",
+        "LeanBCH/Opt/Floor.lean",
+        "LeanBCH/Opt/Fp12OpCostFloor.lean"
+      ],
+      "interface": ["movement_lower_bound_nlcs", "movement_lower_bound", "copy_floor"]
+    },
+    {
+      "id": "xcheck-input-0",
+      "category": "differential",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Independent Lean decode, consensus acceptance, token, transaction, and full-cost check for input 0.",
+      "entrypoints": ["xcheck_arg.lean"],
+      "command": ["lake", "env", "lean", "--run", "xcheck_arg.lean"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "xcheck-any-input",
+      "category": "differential",
+      "kind": "command",
+      "stability": "experimental",
+      "required": false,
+      "summary": "Generalized independent Lean check for a caller-selected transaction input.",
+      "entrypoints": ["xcheck_idxN.lean"],
+      "command": ["lake", "env", "lean", "--run", "xcheck_idxN.lean"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "validation-build",
+      "category": "differential",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Build-time known-answer and 26-vector cost-differential checks.",
+      "entrypoints": ["LeanBCH/Validation.lean", "conformance/cost/gen.mjs"],
+      "command": ["lake", "build", "LeanBCHValidation"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "conformance",
+      "category": "differential",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Run the official BCH-2026 vmb corpus through the LeanBCH VM.",
+      "entrypoints": ["conformance/run.mjs", "conformance/Runner.lean"],
+      "command": ["node", "conformance/run.mjs"],
+      "sideEffects": "toolkit-cache",
+      "isolateTmp": true,
+      "timeoutMs": 1800000
+    },
+    {
+      "id": "vmbconf-build",
+      "category": "differential",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Build the compiled official-corpus conformance runner.",
+      "entrypoints": ["conformance/Runner.lean"],
+      "command": ["lake", "build", "vmbconf"],
+      "sideEffects": "toolkit-cache",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "necessity",
+      "category": "trust",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Compute the transitive proof-term closure and axiom footprint.",
+      "entrypoints": ["Meta/Necessity.lean", "Meta/Headlines.lean"],
+      "command": ["lake", "build", "Meta"],
+      "sideEffects": "toolkit",
+      "timeoutMs": 600000,
+      "writes": "Meta/necessity.json"
+    },
+    {
+      "id": "health-map",
+      "category": "trust",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Map module dependencies and enforce the optimizer-to-VM interface boundary.",
+      "entrypoints": ["tools/health/map.mjs"],
+      "command": ["node", "tools/health/map.mjs"],
+      "sideEffects": "toolkit",
+      "timeoutMs": 120000,
+      "writes": "REPORT.md and tools/health/index.json"
+    },
+    {
+      "id": "kat-count",
+      "category": "trust",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Count build-time checks and lint for vacuous KATs.",
+      "entrypoints": ["tools/health/katcount.mjs"],
+      "command": ["node", "tools/health/katcount.mjs", "--lint"],
+      "sideEffects": "none",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "trust-manifest",
+      "category": "trust",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Regenerate the skeptic-facing trust manifest from necessity and health artifacts.",
+      "entrypoints": ["tools/manifest/gen.mjs"],
+      "command": ["node", "tools/manifest/gen.mjs"],
+      "sideEffects": "toolkit",
+      "timeoutMs": 120000,
+      "writes": "TRUST_MANIFEST.md"
+    },
+    {
+      "id": "opt-ci",
+      "category": "trust",
+      "kind": "command",
+      "stability": "stable",
+      "required": true,
+      "summary": "Run the six-gate optimizer and proof health suite.",
+      "entrypoints": ["tools/opt-ci/verify.sh"],
+      "command": ["bash", "tools/opt-ci/verify.sh"],
+      "sideEffects": "toolkit",
+      "timeoutMs": 3600000,
+      "writes": "Regenerates tracked trust and health artifacts; use only in an owned clean LeanBCH worktree."
+    },
+    {
+      "id": "bn254-build-adapter",
+      "category": "integration",
+      "kind": "library",
+      "stability": "experimental",
+      "required": false,
+      "summary": "Portable adapter for the external verifier.cash BN254 build environment.",
+      "entrypoints": ["optimizer/bn254_adapter.mjs"],
+      "interface": ["resolveBn254Adapter", "rewriteGeneratedLazyImport"]
+    },
+    {
+      "id": "planck-gold",
+      "category": "differential",
+      "kind": "command",
+      "stability": "experimental",
+      "required": false,
+      "summary": "Planck gold-reference VM coprocess: JSON-lines step/eval/cost over stdin/stdout.",
+      "entrypoints": ["planck_gold.lean"],
+      "command": ["lake", "exe", "planck_gold"],
+      "sideEffects": "none",
+      "timeoutMs": 600000
+    }
+  ]
+}

@@ -1,0 +1,513 @@
+{
+  "artifact": "BLS12-381 Groth16 grouped-residue native-standard verifier — 315,318 B crown",
+  "numInputs": 36,
+  "numGroups": 4,
+  "groupSizes": [
+    9,
+    9,
+    9,
+    9
+  ],
+  "groupBytes": [
+    80922,
+    82431,
+    82043,
+    70494
+  ],
+  "totalBytes": 315318,
+  "fullScore": 316946,
+  "totalOperationCost": 246630270,
+  "maxStepOperationCost": 7435167,
+  "budgetPerInput": 8032800,
+  "category": "bebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebebe",
+  "groups": [
+    {
+      "lo": 0,
+      "hi": 8,
+      "inToken": {
+        "capability": "mutable",
+        "commitment": ""
+      },
+      "outToken": {
+        "capability": "mutable",
+        "commitment": "8c51104a9f96a7d2207c1a40b7d88ad923a1084432aa8ac615a148064527accf"
+      },
+      "outLocking": "aa2014536bd1d2ccecc7e1863e3bf02f249c92de596b3e519b9c92ef46d16d4c116387"
+    },
+    {
+      "lo": 9,
+      "hi": 17,
+      "inToken": {
+        "capability": "mutable",
+        "commitment": "8c51104a9f96a7d2207c1a40b7d88ad923a1084432aa8ac615a148064527accf"
+      },
+      "outToken": {
+        "capability": "mutable",
+        "commitment": "295af2f90800de0b9c8454f2f2999c1171e093fceaa3656b2886fca643ab1274"
+      },
+      "outLocking": "aa2030e6bf82ac4b1a9412aba80b39e7a064fa89873ce7ca65f4974e48635b29aad487"
+    },
+    {
+      "lo": 18,
+      "hi": 26,
+      "inToken": {
+        "capability": "mutable",
+        "commitment": "295af2f90800de0b9c8454f2f2999c1171e093fceaa3656b2886fca643ab1274"
+      },
+      "outToken": {
+        "capability": "mutable",
+        "commitment": "cd00a86aef1718e8599d341241279b92870f4c2bfd9776c978dfda3cb14457ff"
+      },
+      "outLocking": "aa203acc85787c195683804ef2bba9ef8b5b15afc917b216f506636dc2d12959405e87"
+    },
+    {
+      "lo": 27,
+      "hi": 35,
+      "inToken": {
+        "capability": "mutable",
+        "commitment": "cd00a86aef1718e8599d341241279b92870f4c2bfd9776c978dfda3cb14457ff"
+      },
+      "outToken": null,
+      "outLocking": null
+    }
+  ],
+  "vectorsPointer": {
+    "path": "harness/src/bch/groth16-bls12381-grouped-residue-vectors.json",
+    "sha256": "5463649d0d79d9697e1c71deb8db78781681f47b5a86ce846b1eeb388ab54025",
+    "gitCommit": "afc4bc49"
+  },
+  "steps": [
+    {
+      "index": 0,
+      "group": 0,
+      "label": "ECIP vk_x divisor certificate -> assemble vk_x",
+      "checkpoint": "vk_x",
+      "lockingBytes": 35,
+      "unlockingBytes": 8015,
+      "operationCost": 6362601,
+      "accepted": true,
+      "lockingSpk": "aa20f64b122aa8a97e88ddab88fcbb6d858ff578e32f896022c62f2404e0b106394d87",
+      "redeemSha256": "f64b122aa8a97e88ddab88fcbb6d858ff578e32f896022c62f2404e0b106394d"
+    },
+    {
+      "index": 1,
+      "group": 0,
+      "label": "miller ops[0,9) + validate inputs (on-curve A/B/C)",
+      "checkpoint": "validate-inputs",
+      "lockingBytes": 35,
+      "unlockingBytes": 9072,
+      "operationCost": 7210677,
+      "accepted": true,
+      "lockingSpk": "aa20ff86b0e023826355af806e9bdafe345e2c8dc69c35ad091f48c9bc2b2add72f187",
+      "redeemSha256": "ff86b0e023826355af806e9bdafe345e2c8dc69c35ad091f48c9bc2b2add72f1"
+    },
+    {
+      "index": 2,
+      "group": 0,
+      "label": "miller ops[9,19)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9354,
+      "operationCost": 7435167,
+      "accepted": true,
+      "lockingSpk": "aa202bb2dcef646df3d92f678e45e32f9141df5b3eecbb8df25c695051863a8b5bcb87",
+      "redeemSha256": "2bb2dcef646df3d92f678e45e32f9141df5b3eecbb8df25c695051863a8b5bcb"
+    },
+    {
+      "index": 3,
+      "group": 0,
+      "label": "miller ops[19,29)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9055,
+      "operationCost": 7195663,
+      "accepted": true,
+      "lockingSpk": "aa20ae50ed10d25420bfa89664628b2593310e49ae7fa61559fd76c08015b136601f87",
+      "redeemSha256": "ae50ed10d25420bfa89664628b2593310e49ae7fa61559fd76c08015b136601f"
+    },
+    {
+      "index": 4,
+      "group": 0,
+      "label": "miller ops[29,38)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8882,
+      "operationCost": 7056757,
+      "accepted": true,
+      "lockingSpk": "aa20d110474214d5e267a4600a5ff85542682b429e695a5684c57ca7c1760d784b3c87",
+      "redeemSha256": "d110474214d5e267a4600a5ff85542682b429e695a5684c57ca7c1760d784b3c"
+    },
+    {
+      "index": 5,
+      "group": 0,
+      "label": "miller ops[38,48)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8995,
+      "operationCost": 7148404,
+      "accepted": true,
+      "lockingSpk": "aa201b95d2054f75d5cf6ed0d44de12150967cd0332ad774673014ff7110c2db73fe87",
+      "redeemSha256": "1b95d2054f75d5cf6ed0d44de12150967cd0332ad774673014ff7110c2db73fe"
+    },
+    {
+      "index": 6,
+      "group": 0,
+      "label": "miller ops[48,58)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9249,
+      "operationCost": 7350952,
+      "accepted": true,
+      "lockingSpk": "aa20e8adb69d450f003e715468c6d23529339589f5d015657d37e9e82d58ca88839c87",
+      "redeemSha256": "e8adb69d450f003e715468c6d23529339589f5d015657d37e9e82d58ca88839c"
+    },
+    {
+      "index": 7,
+      "group": 0,
+      "label": "miller ops[58,68)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8995,
+      "operationCost": 7146855,
+      "accepted": true,
+      "lockingSpk": "aa200505015392dc7f2c17032366e36fcc722d813519b47c335fed7ce1138fb68b1d87",
+      "redeemSha256": "0505015392dc7f2c17032366e36fcc722d813519b47c335fed7ce1138fb68b1d"
+    },
+    {
+      "index": 8,
+      "group": 0,
+      "label": "miller ops[68,77)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8830,
+      "operationCost": 7018499,
+      "accepted": true,
+      "lockingSpk": "aa206e6df8e072ea616ee7fc0f4eef28a44c96ca585d950f8ba32fc62ca7b346651a87",
+      "redeemSha256": "6e6df8e072ea616ee7fc0f4eef28a44c96ca585d950f8ba32fc62ca7b346651a"
+    },
+    {
+      "index": 9,
+      "group": 1,
+      "label": "miller ops[77,87)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9005,
+      "operationCost": 7155408,
+      "accepted": true,
+      "lockingSpk": "aa2014536bd1d2ccecc7e1863e3bf02f249c92de596b3e519b9c92ef46d16d4c116387",
+      "redeemSha256": "14536bd1d2ccecc7e1863e3bf02f249c92de596b3e519b9c92ef46d16d4c1163"
+    },
+    {
+      "index": 10,
+      "group": 1,
+      "label": "miller ops[87,97)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8979,
+      "operationCost": 7135306,
+      "accepted": true,
+      "lockingSpk": "aa205b0b91fc375fdb728879eeb34977bab9368f233b6d7697c88f496108623596a987",
+      "redeemSha256": "5b0b91fc375fdb728879eeb34977bab9368f233b6d7697c88f496108623596a9"
+    },
+    {
+      "index": 11,
+      "group": 1,
+      "label": "miller ops[97,107)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9267,
+      "operationCost": 7365199,
+      "accepted": true,
+      "lockingSpk": "aa2037c2d0c21a8fe52a51b14d67344c0b3cf1daa7036af9bdb3ff58e322d23d023987",
+      "redeemSha256": "37c2d0c21a8fe52a51b14d67344c0b3cf1daa7036af9bdb3ff58e322d23d0239"
+    },
+    {
+      "index": 12,
+      "group": 1,
+      "label": "miller ops[107,117)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8980,
+      "operationCost": 7136034,
+      "accepted": true,
+      "lockingSpk": "aa20359c5e9fc55c9b35aae80838e46f5ef3fa6fddab737eb372db717ee207c066b387",
+      "redeemSha256": "359c5e9fc55c9b35aae80838e46f5ef3fa6fddab737eb372db717ee207c066b3"
+    },
+    {
+      "index": 13,
+      "group": 1,
+      "label": "miller ops[117,127)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9266,
+      "operationCost": 7364681,
+      "accepted": true,
+      "lockingSpk": "aa20b49576cd0eeda4fdca5487cc9131d107ff0b140bbda9471c7f67e0c21a38146e87",
+      "redeemSha256": "b49576cd0eeda4fdca5487cc9131d107ff0b140bbda9471c7f67e0c21a38146e"
+    },
+    {
+      "index": 14,
+      "group": 1,
+      "label": "miller ops[127,137)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8980,
+      "operationCost": 7136393,
+      "accepted": true,
+      "lockingSpk": "aa20776aacdd1158d2b6de55a2e91f462a83799e6b5e4b05af416b8287ecd8839f4287",
+      "redeemSha256": "776aacdd1158d2b6de55a2e91f462a83799e6b5e4b05af416b8287ecd8839f42"
+    },
+    {
+      "index": 15,
+      "group": 1,
+      "label": "miller ops[137,147)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9266,
+      "operationCost": 7364625,
+      "accepted": true,
+      "lockingSpk": "aa20666224aa63f3c8cfa44a3127302875d7f31bf810079aeecfe708a79156343ffa87",
+      "redeemSha256": "666224aa63f3c8cfa44a3127302875d7f31bf810079aeecfe708a79156343ffa"
+    },
+    {
+      "index": 16,
+      "group": 1,
+      "label": "miller ops[147,157)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8981,
+      "operationCost": 7137379,
+      "accepted": true,
+      "lockingSpk": "aa2096d27bb80beb101898d1027b04bc738f217cc5613d9233ce74a93763a9268f9d87",
+      "redeemSha256": "96d27bb80beb101898d1027b04bc738f217cc5613d9233ce74a93763a9268f9d"
+    },
+    {
+      "index": 17,
+      "group": 1,
+      "label": "miller ops[157,167)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9232,
+      "operationCost": 7340426,
+      "accepted": true,
+      "lockingSpk": "aa202837b0d523355ea19b450b2cc70a70ffd10f376db9730503c65bd520709c207087",
+      "redeemSha256": "2837b0d523355ea19b450b2cc70a70ffd10f376db9730503c65bd520709c2070"
+    },
+    {
+      "index": 18,
+      "group": 2,
+      "label": "miller ops[167,177)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8987,
+      "operationCost": 7141936,
+      "accepted": true,
+      "lockingSpk": "aa2030e6bf82ac4b1a9412aba80b39e7a064fa89873ce7ca65f4974e48635b29aad487",
+      "redeemSha256": "30e6bf82ac4b1a9412aba80b39e7a064fa89873ce7ca65f4974e48635b29aad4"
+    },
+    {
+      "index": 19,
+      "group": 2,
+      "label": "miller ops[177,187)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9267,
+      "operationCost": 7365042,
+      "accepted": true,
+      "lockingSpk": "aa20b13f753cb43c1ac173f14baf607c4adb0e8bf293e069fb6c99740a37ba7e383a87",
+      "redeemSha256": "b13f753cb43c1ac173f14baf607c4adb0e8bf293e069fb6c99740a37ba7e383a"
+    },
+    {
+      "index": 20,
+      "group": 2,
+      "label": "miller ops[187,197)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8979,
+      "operationCost": 7133419,
+      "accepted": true,
+      "lockingSpk": "aa202172ad55824eb8fc2cd03bb089c65f690598b118a9d08f3980185f38ad89092587",
+      "redeemSha256": "2172ad55824eb8fc2cd03bb089c65f690598b118a9d08f3980185f38ad890925"
+    },
+    {
+      "index": 21,
+      "group": 2,
+      "label": "miller ops[197,206)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8532,
+      "operationCost": 6778113,
+      "accepted": true,
+      "lockingSpk": "aa20c3d3616426a234bc266b3730b32b5d3d475634503b13d87eaf16b7539854429e87",
+      "redeemSha256": "c3d3616426a234bc266b3730b32b5d3d475634503b13d87eaf16b7539854429e"
+    },
+    {
+      "index": 22,
+      "group": 2,
+      "label": "miller ops[206,216)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9344,
+      "operationCost": 7427821,
+      "accepted": true,
+      "lockingSpk": "aa2043c9e707d2fa1106f29b4fc71634fab0134bb6dbb51455f976e98a17b63c9ff487",
+      "redeemSha256": "43c9e707d2fa1106f29b4fc71634fab0134bb6dbb51455f976e98a17b63c9ff4"
+    },
+    {
+      "index": 23,
+      "group": 2,
+      "label": "miller ops[216,226)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9252,
+      "operationCost": 7353105,
+      "accepted": true,
+      "lockingSpk": "aa2024fb1986b0945023e58d18dc0d77b62090211396ac3daa3687e60fb61a67e5fd87",
+      "redeemSha256": "24fb1986b0945023e58d18dc0d77b62090211396ac3daa3687e60fb61a67e5fd"
+    },
+    {
+      "index": 24,
+      "group": 2,
+      "label": "miller ops[226,236)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8995,
+      "operationCost": 7148190,
+      "accepted": true,
+      "lockingSpk": "aa202d67e44853983e3694935d57f05c1666c7cce6264d48fd665608c633def610a187",
+      "redeemSha256": "2d67e44853983e3694935d57f05c1666c7cce6264d48fd665608c633def610a1"
+    },
+    {
+      "index": 25,
+      "group": 2,
+      "label": "miller ops[236,246)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9250,
+      "operationCost": 7351715,
+      "accepted": true,
+      "lockingSpk": "aa208c4b896c774c107b73f26e46248b5321571fd5e4629155e8f5c2c71ffaeb61f087",
+      "redeemSha256": "8c4b896c774c107b73f26e46248b5321571fd5e4629155e8f5c2c71ffaeb61f0"
+    },
+    {
+      "index": 26,
+      "group": 2,
+      "label": "miller ops[246,256)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8962,
+      "operationCost": 7124311,
+      "accepted": true,
+      "lockingSpk": "aa208c773a50283c356db71de9b7298a9dcf6da1f7f0d0d021f84f9c423e4eb6586587",
+      "redeemSha256": "8c773a50283c356db71de9b7298a9dcf6da1f7f0d0d021f84f9c423e4eb65865"
+    },
+    {
+      "index": 27,
+      "group": 3,
+      "label": "miller ops[256,266)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 9258,
+      "operationCost": 7358123,
+      "accepted": true,
+      "lockingSpk": "aa203acc85787c195683804ef2bba9ef8b5b15afc917b216f506636dc2d12959405e87",
+      "redeemSha256": "3acc85787c195683804ef2bba9ef8b5b15afc917b216f506636dc2d12959405e"
+    },
+    {
+      "index": 28,
+      "group": 3,
+      "label": "miller ops[266,276)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8997,
+      "operationCost": 7136447,
+      "accepted": true,
+      "lockingSpk": "aa20bd1ad94766def5191844e35a07b061c49c1772bfd1ea0ccdcad374a8f4305dc387",
+      "redeemSha256": "bd1ad94766def5191844e35a07b061c49c1772bfd1ea0ccdcad374a8f4305dc3"
+    },
+    {
+      "index": 29,
+      "group": 3,
+      "label": "miller ops[276,277) -> boundary fF",
+      "checkpoint": "miller-boundary",
+      "lockingBytes": 35,
+      "unlockingBytes": 4824,
+      "operationCost": 1285317,
+      "accepted": true,
+      "lockingSpk": "aa204e3f006403e17d9c8c890e9d212106ef12a3580f35f2eb89687b05a5f11e8cf387",
+      "redeemSha256": "4e3f006403e17d9c8c890e9d212106ef12a3580f35f2eb89687b05a5f11e8cf3"
+    },
+    {
+      "index": 30,
+      "group": 3,
+      "label": "residue walk[0,11)",
+      "checkpoint": "residue-witness",
+      "lockingBytes": 35,
+      "unlockingBytes": 8806,
+      "operationCost": 6994933,
+      "accepted": true,
+      "lockingSpk": "aa20d019a372125a8e44f4b151b8b73d90227b2c08c928d4f855af2d0d9db96e89e487",
+      "redeemSha256": "d019a372125a8e44f4b151b8b73d90227b2c08c928d4f855af2d0d9db96e89e4"
+    },
+    {
+      "index": 31,
+      "group": 3,
+      "label": "residue walk[11,24)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8526,
+      "operationCost": 6770262,
+      "accepted": true,
+      "lockingSpk": "aa2038685078a138876edbc2e70cfa5da318ee58480ee2b30133aa5466c9f914b61e87",
+      "redeemSha256": "38685078a138876edbc2e70cfa5da318ee58480ee2b30133aa5466c9f914b61e"
+    },
+    {
+      "index": 32,
+      "group": 3,
+      "label": "residue walk[24,38)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8345,
+      "operationCost": 6625890,
+      "accepted": true,
+      "lockingSpk": "aa204e16d3f1fdf431b92a8524e5886a4462c6205240d226a8f1cd59f60f17b5870e87",
+      "redeemSha256": "4e16d3f1fdf431b92a8524e5886a4462c6205240d226a8f1cd59f60f17b5870e"
+    },
+    {
+      "index": 33,
+      "group": 3,
+      "label": "residue walk[38,51)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 8525,
+      "operationCost": 6766145,
+      "accepted": true,
+      "lockingSpk": "aa2080989759d1028ee33245f47c9b95f55b6a2f69d1f5255c1ac2d51cfc0c1a265f87",
+      "redeemSha256": "80989759d1028ee33245f47c9b95f55b6a2f69d1f5255c1ac2d51cfc0c1a265f"
+    },
+    {
+      "index": 34,
+      "group": 3,
+      "label": "residue walk[51,63)",
+      "checkpoint": null,
+      "lockingBytes": 35,
+      "unlockingBytes": 7243,
+      "operationCost": 5733534,
+      "accepted": true,
+      "lockingSpk": "aa2061fc66319f9507846a380304dd5eb813a5a328155dfb599d5470b894104641f587",
+      "redeemSha256": "61fc66319f9507846a380304dd5eb813a5a328155dfb599d5470b894104641f5"
+    },
+    {
+      "index": 35,
+      "group": 3,
+      "label": "residue finalize -> verdict",
+      "checkpoint": "verify",
+      "lockingBytes": 35,
+      "unlockingBytes": 5563,
+      "operationCost": 4074941,
+      "accepted": true,
+      "lockingSpk": "aa20826476f2e71718da75c324d8022d836066896b38fb5b0fa4d49dc44070ce0ab187",
+      "redeemSha256": "826476f2e71718da75c324d8022d836066896b38fb5b0fa4d49dc44070ce0ab1"
+    }
+  ]
+}

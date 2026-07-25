@@ -1,0 +1,143 @@
+import { themes as prismThemes } from 'prism-react-renderer';
+import type { Config } from '@docusaurus/types';
+import type { Options as ClassicPresetOptions } from '@docusaurus/preset-classic';
+import { FLIPSTARTER_URL, GITHUB_URL, KALIS_URL, TELEGRAM_URL, TWITTER_URL } from './src/constants';
+
+const config: Config = {
+  title: 'CashScript',
+  tagline: 'Smart contracts for Bitcoin Cash',
+  url: process.env.NEXT ? 'https://next.cashscript.org' : 'https://cashscript.org',
+  baseUrl: '/',
+  favicon: 'img/favicon.ico',
+  organizationName: 'CashScript',
+  projectName: 'cashscript',
+  themeConfig: {
+    prism: {
+      theme: prismThemes.nightOwlLight,
+      darkTheme: prismThemes.nightOwl,
+      additionalLanguages: ['solidity', 'antlr4'],
+    },
+    image: 'img/logo.svg',
+    metadata: [
+      { name: 'algolia-site-verification', content: '434B800C3E7E420F' },
+    ],
+    navbar: {
+      logo: {
+        alt: 'CashScript',
+        src: 'img/logo.svg',
+      },
+      items: [
+        { to: '/docs/basics/about', label: 'Docs', position: 'right' },
+        {
+          href: process.env.NEXT ? 'https://next.playground.cashscript.org' : 'https://playground.cashscript.org',
+          label: 'Playground',
+          position: 'right',
+        },
+        {
+          href: GITHUB_URL,
+          label: 'GitHub',
+          position: 'right',
+        },
+      ],
+      style: 'dark',
+    },
+    footer: {
+      style: 'light',
+      links: [
+        {
+          title: 'Docs',
+          items: [
+            {
+              label: 'Getting Started',
+              to: '/docs/basics/getting-started',
+            },
+            {
+              label: 'Examples',
+              to: '/docs/language/examples',
+            },
+          ],
+        },
+        {
+          title: 'Community',
+          items: [
+            {
+              label: 'Telegram',
+              href: TELEGRAM_URL,
+            },
+            {
+              label: 'Showcase',
+              to: '/docs/showcase',
+            },
+          ],
+        },
+        {
+          title: 'Social',
+          items: [
+            {
+              label: 'Kalis.me',
+              href: KALIS_URL,
+            },
+            {
+              label: 'Twitter',
+              href: TWITTER_URL,
+            },
+          ],
+        },
+        {
+          title: 'Supporters',
+          items: [
+            {
+              to: '/supporters',
+              label: 'Supporters',
+            },
+            {
+              label: 'Flipstarter',
+              href: FLIPSTARTER_URL,
+            },
+          ],
+        },
+      ],
+      copyright: `<b>Donations:</b> bitcoincash:qz6uftqp7dyc4ca9e94d7wsle06u0z2ccc223dkpl8`,
+    },
+    algolia: {
+      apiKey: '8b4fca20b2070c3e69e3110dde8ada71',
+      appId: 'XBVJRKV38F',
+      indexName: process.env.NEXT ? 'next_cashscript' : 'cashscript'
+    },
+  },
+  presets: [
+    [
+      'classic',
+      {
+        theme: {
+          customCss: './src/css/custom.css',
+        },
+        docs: {
+          sidebarPath: './sidebars.ts',
+        },
+      } as ClassicPresetOptions,
+    ],
+  ],
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        fromExtensions: ['html'],
+        redirects: [
+          { from: ['/docs', '/docs/about', '/docs/basics'], to: '/docs/basics/about' },
+          { from: '/docs/language', to: '/docs/language/contracts' },
+          { from: '/docs/sdk', to: '/docs/sdk/instantiation' },
+          { from: '/docs/sdk/transactions', to: '/docs/sdk/legacy-transaction-builder' },
+          { from: '/docs/sdk/transactions-advanced', to: '/docs/sdk/transaction-builder' },
+          { from: '/docs/guides', to: '/docs/guides/covenants' },
+          { from: '/docs/guides/syntax-highlighting', to: '/docs/language/syntax-highlighting' },
+          { from: '/docs/getting-started', to: '/docs/basics/getting-started' },
+          { from: '/docs/examples', to: '/docs/language/examples' },
+        ],
+      },
+    ],
+    ['@branchup/docusaurus-plugin-simple-analytics', {}],
+  ],
+};
+
+export default config;

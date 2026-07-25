@@ -1,0 +1,279 @@
+{
+ "artifact": "BN254 Groth16 native-standard chunked-covenant verifier — 170,366 B SOUND CROWN (Path A, A1-certified). Supersedes the 212,913 B baseline.",
+ "date": "2026-07-10",
+ "source": {
+  "repo": "github.com/toorik2/verifier.cash — local /home/toorik/Projects/verifier.cash/build (crown env chunked/pairing/)",
+  "branch": "path-a-sub200k",
+  "head_commit": "447d46c6ab68cdc2114da7aa74e334fdd2e31da6 (path-a: T1-A + DP-CLOSE non-realizing; integrated 170366 B)",
+  "builder": "build/chunked/pairing/unified_affine.mjs (default/proof#0 path; ELIG_INSTANCE unset => byte-identical). SAVE_DIR dump for artifacts."
+ },
+ "compiler": {
+  "repo": "mr-zwets/cashscript rescheduling fork, vendored at /home/toorik/Projects/verifier.cash/vendor/cashc-resched (build/node_modules/cashc)",
+  "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+ },
+ "vm": "libauth createVirtualMachineBch2026(false); buildCovStep P2SH32 byte convention; TARGET_UNLOCK=10000; OP_COST_TARGET default 7,700,000. Cross-checked vs LeanBCH in-Lean consensus twin (verifyInput + fullOpCost).",
+ "totals": {
+  "totalBytes": 170366,
+  "chunkCount": 19,
+  "byStage": {
+   "vkx": 6703,
+   "miller": 159963,
+   "tail": 3700
+  },
+  "maxOperationCost": 7689046,
+  "opBudgetConsensus": 8032800,
+  "opBudgetMargin": 343754,
+  "internalChainOk": true,
+  "startSeam": true,
+  "endSeam": true
+ },
+ "topology": "19 chunks: 1 vkx_ecip (T3-2 Liam-Eagen/garaga ECIP vk_x principal-divisor certificate = covenant ROOT + T5-1 relocated on-twist/on-G1/input-canonicality validators) -> 17 miller (affine, T4-KP k*P-specialized, MODSTRIP; the G2-subgroup check folded into the final window) -> 1 residue tail (terminal). g2check stage DELETED (T5-1).",
+ "levers": {
+  "baseline": {
+   "bytes": 212913,
+   "note": "pre-Path-A sound crown (working baseline; P4 not in this tree)"
+  },
+  "T2-A+MODSTRIP": {
+   "integrated": 211034,
+   "delta": -1879,
+   "note": "InvokeCSE golf (tail+ml_19, undomint byte-exact-undo cert) + %Pmod dead-strip on canonical pass-through limbs"
+  },
+  "T4-KP": {
+   "integrated": 194550,
+   "delta": -16484,
+   "note": "miller k*P specialization: bake each distinct k*P literal; semantics-null (byte-identical to runtime), P2SH32"
+  },
+  "T5-1": {
+   "integrated": 179536,
+   "delta": -15014,
+   "note": "delete g2check stage; subgroup check folded into final miller window (R_end == -psi^3(B)); on-twist/on-G1/input-canon relocated to vkx genesis (MANDATORY)"
+  },
+  "T3-2": {
+   "integrated": 170366,
+   "delta": -9170,
+   "note": "ECIP vk_x certificate replaces the 8-chunk jacobian MSM with one divisor-identity chunk (garaga CryptoExperts-audited ref)"
+  },
+  "T1-A+DP-CLOSE": {
+   "integrated": 170366,
+   "delta": 0,
+   "note": "NON-REALIZING on the deployed 19-chunk affine topology (DP repack byte-negative +1,958; T1-A envelope is a score/tx-overhead saving needing OP_INPUTBYTECODE re-arch, banked-as-measured). Net covenant bytes unchanged."
+  },
+  "FINAL": {
+   "bytes": 170366,
+   "delta_vs_baseline": -42547
+  }
+ },
+ "gates": {
+  "build": "PASS — clean rebuild TOTAL 170,366 / 19 chunks / internalChainOk=true / every chunk worst-case op <= 8,032,800 (max 7689046, margin 343754). All chunks accept.",
+  "a1_forge_battery": "PASS — see a1-certificate.json (thread-escape, chain-binding, splice/genesis, residue-tail, T5-1 cofactor, T3-2 divisor, modstrip, trajectory, canon; integrated DIFF=1 per-chunk differential). Honest ACCEPTS; every forgery REJECTS.",
+  "p2sh": "PASS — zero a914 (P2SH20) in the deployed crown; 18 aa20 (P2SH32) successor pins (17 miller + vkx; tail terminal). No P2SH20 anywhere.",
+  "runtimeGeneral": "PASS — all 19 chunk contracts have EMPTY constructors (no baked proof; only the fixed VK). Empirically: proof#1 (inputs 439832/401604) accepts end-to-end (internalChainOk=true, byte-identical lockings, maxOp 7,688,654); worst-case dense near-r inputs (~2^253-1) accepts end-to-end (internalChainOk=true, byte-identical lockings, maxOp 7,688,990). Same lockings verify >=2 distinct valid proofs.",
+  "dual_vm": "PASS — deployed miller chunk ml_7[146,167): LeanBCH verifyInput=true, fullOpCost=7,687,371 == libauth accept=true, opCost=7,687,371. Both consensus VMs agree on accept AND op-cost."
+ },
+ "files": {
+  "chunks.json": {
+   "sha256": "f04f04dff08b10a6bf0a11e01b28e1d3aef0eb2f280c7fa2e7f19a7d6409abaa",
+   "desc": "19 entries: per-chunk source name, redeem hex, locking P2SH32 spk hex, minimal accepting unlock hex, in/out commits, op cost"
+  },
+  "measurement.json": {
+   "sha256": "ddf0312362dcd01e05126b34a3421d316bdfb5267c344f6cb769329c563a8255",
+   "desc": "builder final JSON (default proof#0 path) — total 170,366 / 19 chunks / internalChainOk=true"
+  },
+  "a1-certificate.json": {
+   "desc": "A1 forge-battery verdicts on the integrated crown"
+  },
+  "chunks/": "19 .cash covenant sources exactly as compiled (reverse-threaded, real successor P2SH32 spks embedded)"
+ },
+ "per_chunk": [
+  {
+   "index": 0,
+   "name": "vkx_ecip[cert]",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 6668,
+   "operationCost": 5366810,
+   "inCommit": "ff3d2cfc6da57cadf765f9b6711cacc03ba81d0c0cb544caa644e1d5fa927ab8",
+   "outCommit": "8a088b52120390829469a1ec06bb28702f76c5a16905992464283436fb05973f"
+  },
+  {
+   "index": 1,
+   "name": "ml_0[0,20)G",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9335,
+   "operationCost": 7500256,
+   "inCommit": "8a088b52120390829469a1ec06bb28702f76c5a16905992464283436fb05973f",
+   "outCommit": "2728178a199a4482ed1ddf1f29fe2b6e7874ea39a30a87e13e1fc68204699765"
+  },
+  {
+   "index": 2,
+   "name": "ml_1[20,41)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9393,
+   "operationCost": 7546699,
+   "inCommit": "2728178a199a4482ed1ddf1f29fe2b6e7874ea39a30a87e13e1fc68204699765",
+   "outCommit": "d9ffb41160f5ca1a7d6d501a71df8c0805bebbdb4b5656096a32ebd1b67eadf0"
+  },
+  {
+   "index": 3,
+   "name": "ml_2[41,62)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9389,
+   "operationCost": 7543391,
+   "inCommit": "d9ffb41160f5ca1a7d6d501a71df8c0805bebbdb4b5656096a32ebd1b67eadf0",
+   "outCommit": "5e7158bac885893dc853d8e01ba8f1098d0c76f8a833272e4e110b9a939a169e"
+  },
+  {
+   "index": 4,
+   "name": "ml_3[62,83)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9569,
+   "operationCost": 7687651,
+   "inCommit": "5e7158bac885893dc853d8e01ba8f1098d0c76f8a833272e4e110b9a939a169e",
+   "outCommit": "f35c16bdba925146f7fe87426cebde02c3c27230ba6103386393890032688e6e"
+  },
+  {
+   "index": 5,
+   "name": "ml_4[83,104)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9394,
+   "operationCost": 7547721,
+   "inCommit": "f35c16bdba925146f7fe87426cebde02c3c27230ba6103386393890032688e6e",
+   "outCommit": "888e8e1d87105e19c1cd07b23acfb7f3a67d9d40df7564529cc73742dedfb7ae"
+  },
+  {
+   "index": 6,
+   "name": "ml_5[104,125)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9403,
+   "operationCost": 7555022,
+   "inCommit": "888e8e1d87105e19c1cd07b23acfb7f3a67d9d40df7564529cc73742dedfb7ae",
+   "outCommit": "d85434fcbe645b5a65e02a4c1f3f90e7c8b0c02fca9ecf4f5f2dbe09c9e01b82"
+  },
+  {
+   "index": 7,
+   "name": "ml_6[125,146)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9520,
+   "operationCost": 7648311,
+   "inCommit": "d85434fcbe645b5a65e02a4c1f3f90e7c8b0c02fca9ecf4f5f2dbe09c9e01b82",
+   "outCommit": "547064d7f1c5ef5d903e81d1a9da8b15f6cd8ba20b4c774ab02e349a889e5ab6"
+  },
+  {
+   "index": 8,
+   "name": "ml_7[146,167)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9569,
+   "operationCost": 7687371,
+   "inCommit": "547064d7f1c5ef5d903e81d1a9da8b15f6cd8ba20b4c774ab02e349a889e5ab6",
+   "outCommit": "f3b28094bb4329e6aa2339bba7f503916cc050b4ea3d66ce64b29dfc77cfdf8d"
+  },
+  {
+   "index": 9,
+   "name": "ml_8[167,188)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9394,
+   "operationCost": 7547611,
+   "inCommit": "f3b28094bb4329e6aa2339bba7f503916cc050b4ea3d66ce64b29dfc77cfdf8d",
+   "outCommit": "fe8121b4f16ee0fd6a1f6b4a757743eed61e8e0b5d0caf117d96f763844d8b0d"
+  },
+  {
+   "index": 10,
+   "name": "ml_9[188,209)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9537,
+   "operationCost": 7661975,
+   "inCommit": "fe8121b4f16ee0fd6a1f6b4a757743eed61e8e0b5d0caf117d96f763844d8b0d",
+   "outCommit": "fb400c108b6c3f25b62b79112fb210a6ec6d0d42bdadeb338b8b948f82aa92b7"
+  },
+  {
+   "index": 11,
+   "name": "ml_10[209,230)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9387,
+   "operationCost": 7542019,
+   "inCommit": "fb400c108b6c3f25b62b79112fb210a6ec6d0d42bdadeb338b8b948f82aa92b7",
+   "outCommit": "eeaa39737d9cf15acdc68159edca112e1f3bced2d883119141b9a5713770d6ab"
+  },
+  {
+   "index": 12,
+   "name": "ml_11[230,251)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9570,
+   "operationCost": 7688537,
+   "inCommit": "eeaa39737d9cf15acdc68159edca112e1f3bced2d883119141b9a5713770d6ab",
+   "outCommit": "9ceb85afce1bfb25553c5ee93f45669c60b77cb7fde57be69da294791dfeb81c"
+  },
+  {
+   "index": 13,
+   "name": "ml_12[251,272)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9395,
+   "operationCost": 7548253,
+   "inCommit": "9ceb85afce1bfb25553c5ee93f45669c60b77cb7fde57be69da294791dfeb81c",
+   "outCommit": "95b63ab624dc51a883b832dff50e6c630b9ac0e0b5bc4a13fdaeed0d61aaf66c"
+  },
+  {
+   "index": 14,
+   "name": "ml_13[272,293)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9403,
+   "operationCost": 7554419,
+   "inCommit": "95b63ab624dc51a883b832dff50e6c630b9ac0e0b5bc4a13fdaeed0d61aaf66c",
+   "outCommit": "1934a7a714551c1c7917be6282b7f0db5f17cabb3ad6d957ec5213245f03fc2b"
+  },
+  {
+   "index": 15,
+   "name": "ml_14[293,314)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9571,
+   "operationCost": 7689046,
+   "inCommit": "1934a7a714551c1c7917be6282b7f0db5f17cabb3ad6d957ec5213245f03fc2b",
+   "outCommit": "99bf8a6ea2109ecc2b908166e6c5ef80e5025abc6df7b21e7506f39335fd7c14"
+  },
+  {
+   "index": 16,
+   "name": "ml_15[314,335)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9524,
+   "operationCost": 7651352,
+   "inCommit": "99bf8a6ea2109ecc2b908166e6c5ef80e5025abc6df7b21e7506f39335fd7c14",
+   "outCommit": "ddc31632a3468bff40b2ee266d5ea82c50b2b8d0d93b156c0c9388cf44346965"
+  },
+  {
+   "index": 17,
+   "name": "ml_16[335,348)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 8015,
+   "operationCost": 5936320,
+   "inCommit": "ddc31632a3468bff40b2ee266d5ea82c50b2b8d0d93b156c0c9388cf44346965",
+   "outCommit": "8fa941694316dd580b8cb3b60c6d139a1a24fc4c46e9abb0f5af217bd75e03f5"
+  },
+  {
+   "index": 18,
+   "name": "tail",
+   "stage": "tail",
+   "lockingBytes": 35,
+   "unlockingBytes": 3665,
+   "operationCost": 2453147,
+   "inCommit": "8fa941694316dd580b8cb3b60c6d139a1a24fc4c46e9abb0f5af217bd75e03f5",
+   "outCommit": null
+  }
+ ]
+}

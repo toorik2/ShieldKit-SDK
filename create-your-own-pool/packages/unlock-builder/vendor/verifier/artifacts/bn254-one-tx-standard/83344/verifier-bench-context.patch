@@ -1,0 +1,59 @@
+diff --git src/harness/benchmark.ts src/harness/benchmark.ts
+index 85172c6..294deb1 100644
+--- src/harness/benchmark.ts
++++ src/harness/benchmark.ts
+@@ -24,6 +24,8 @@ import { bchPairingBls12381Singleton } from '../implementations/bch-pairing-bls1
+ import { bchPairingChunked } from '../implementations/bch-pairing-chunked.js';
+ import { bchPairingIntratx } from '../implementations/bch-pairing-intratx.js';
+ import { bchGroth16Intratx } from '../implementations/bch-groth16-intratx.js';
++import { bchGroth16IntratxDirectState } from '../implementations/bch-groth16-intratx-direct-state.js';
++import { bchGroth16IntratxDirectStateStrict } from '../implementations/bch-groth16-intratx-direct-state-strict.js';
+ import { bchGroth16IntratxAuthenticatedP2s } from '../implementations/bch-groth16-intratx-authenticated-p2s.js';
+ import { bchGroth16IntratxResidue } from '../implementations/bch-groth16-intratx-residue.js';
+ import { bchGroth16IntratxGeneral } from '../implementations/bch-groth16-intratx-general.js';
+@@ -84,7 +86,7 @@ const limitReason = (error: string): string => {
+   return 'limit';
+ };
+
+-export const REGISTRY: Implementation[] = [nchain, scryptBn256, bchGroth16Singleton, bchGroth16SingletonOpcodeOptimized, bchGroth16SingletonGenpow, bchGroth16SingletonMinOp, bchGroth16Bls12381Singleton, bchGroth16Bls12381SingletonOpcodeOptimized, bchGroth16Bls12381SingletonGenpow, bchGroth16Bls12381SingletonMinOp, bchGroth16Chunked, bchGroth16ChunkedCovenant, bchGroth16ChunkedCovenantResidue, bchVkxScalarmult, bchVkxSingleton, bchVkxBls12381Singleton, bchVkxChunkedTwoloop, bchVkxChunkedShamir, bchVkxChunkedCovenant, bchVkxBls12381ChunkedCovenant, bchPairingSingleton, bchPairingBls12381Singleton, bchPairingChunked, bchPairingBls12381Chunked, bchGroth16Bls12381Chunked, bchGroth16Bls12381ChunkedCovenant, bchGroth16Bls12381ChunkedCovenantResidue, bchPairingIntratx, bchGroth16Intratx, bchGroth16IntratxAuthenticatedP2s, bchGroth16IntratxResidue, bchGroth16IntratxResidueLarge, bchGroth16IntratxGeneral, bchGroth16Grouped, bchGroth16GroupedResidue, bchPairingBls12381Intratx, bchGroth16Bls12381Intratx, bchGroth16Bls12381IntratxResidue, bchGroth16Bls12381IntratxResidueLarge, bchGroth16Bls12381Grouped, bchGroth16Bls12381GroupedResidue, bchMultistepDemo];
++export const REGISTRY: Implementation[] = [nchain, scryptBn256, bchGroth16Singleton, bchGroth16SingletonOpcodeOptimized, bchGroth16SingletonGenpow, bchGroth16SingletonMinOp, bchGroth16Bls12381Singleton, bchGroth16Bls12381SingletonOpcodeOptimized, bchGroth16Bls12381SingletonGenpow, bchGroth16Bls12381SingletonMinOp, bchGroth16Chunked, bchGroth16ChunkedCovenant, bchGroth16ChunkedCovenantResidue, bchVkxScalarmult, bchVkxSingleton, bchVkxBls12381Singleton, bchVkxChunkedTwoloop, bchVkxChunkedShamir, bchVkxChunkedCovenant, bchVkxBls12381ChunkedCovenant, bchPairingSingleton, bchPairingBls12381Singleton, bchPairingChunked, bchPairingBls12381Chunked, bchGroth16Bls12381Chunked, bchGroth16Bls12381ChunkedCovenant, bchGroth16Bls12381ChunkedCovenantResidue, bchPairingIntratx, bchGroth16Intratx, bchGroth16IntratxDirectState, bchGroth16IntratxDirectStateStrict, bchGroth16IntratxAuthenticatedP2s, bchGroth16IntratxResidue, bchGroth16IntratxResidueLarge, bchGroth16IntratxGeneral, bchGroth16Grouped, bchGroth16GroupedResidue, bchPairingBls12381Intratx, bchGroth16Bls12381Intratx, bchGroth16Bls12381IntratxResidue, bchGroth16Bls12381IntratxResidueLarge, bchGroth16Bls12381Grouped, bchGroth16Bls12381GroupedResidue, bchMultistepDemo];
+
+ // Zero-padding accounting: the chunked/intra-tx steps append one big all-zero push to each
+ // unlocking purely to buy op-cost budget ((41+len)*800). Its full encoded length (push
+diff --git src/harness/vm.ts src/harness/vm.ts
+index 36329de..e583f4b 100644
+--- src/harness/vm.ts
++++ src/harness/vm.ts
+@@ -134,7 +134,14 @@ export interface CovenantContext {
+  * against it, so `tx.inputs[i].unlockingBytecode` resolves to the real sibling. */
+ export interface IntraTxContext {
+   index: number;
+-  inputs: { lockingBytecode: Uint8Array; unlockingBytecode: Uint8Array }[];
++  inputs: {
++    lockingBytecode: Uint8Array;
++    unlockingBytecode: Uint8Array;
++    /** Optional introspection fields for fixed-deployment benchmark profiles. */
++    valueSatoshis?: bigint;
++    sequenceNumber?: number;
++    outpointTransactionHash?: Uint8Array;
++  }[];
+ }
+
+ /** Grouped (multi-tx, multi-input) context — the hybrid of intra-tx and covenant. The
+@@ -175,13 +182,13 @@ export const evaluatePair = (
+   });
+   const intraTxProgram = intraTx && {
+     inputIndex: intraTx.index,
+-    sourceOutputs: intraTx.inputs.map((i) => ({ lockingBytecode: i.lockingBytecode, valueSatoshis: 1000n })),
++    sourceOutputs: intraTx.inputs.map((i) => ({ lockingBytecode: i.lockingBytecode, valueSatoshis: i.valueSatoshis ?? 1000n })),
+     transaction: {
+       version: 2,
+       inputs: intraTx.inputs.map((i, n) => ({
+-        outpointTransactionHash: new Uint8Array(32),
++        outpointTransactionHash: i.outpointTransactionHash ?? new Uint8Array(32),
+         outpointIndex: n,
+-        sequenceNumber: 0,
++        sequenceNumber: i.sequenceNumber ?? 0,
+         unlockingBytecode: i.unlockingBytecode,
+       })),
+       // a single OP_RETURN output keeps the synthetic tx well-formed (no value carried)

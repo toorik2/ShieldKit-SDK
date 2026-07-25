@@ -1,0 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { dissect, runSubroutine } from './program.mjs';
+import { twistDerive, B2C0, B2C1 } from './twist_derive.mjs';
+const orig=Uint8Array.from(Buffer.from(readFileSync('./optimized-pooled-5892.hex','utf8').trim(),'hex'));
+const {bytes,deriveId,hits,bodyLen}=twistDerive(orig,{deriveId:15});
+console.log('pooled',orig.length,'-> twist',bytes.length,'delta',orig.length-bytes.length,'hits',hits,'bodyLen',bodyLen);
+const dt=dissect(bytes);
+const r=runSubroutine(dt,deriveId,[]);
+console.log('derive define output stack:', r.error?('ERR '+r.error):r.stack.map(String).join(' | '));
+console.log('want b2c1|b2c0:', B2C1.toString(),'|',B2C0.toString());
+console.log('MATCH:', !r.error && r.stack.length===2 && r.stack[0]===B2C1 && r.stack[1]===B2C0);

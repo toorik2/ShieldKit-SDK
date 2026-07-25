@@ -1,0 +1,16 @@
+pragma cashscript ^0.14.0;
+
+// BLS12-381 singleton harness `finalexp` — arithmetic from the shared lib/ libraries (see lib/README.md).
+import "./lib/FinalExp.cash";
+
+contract FinalExp() {
+    function spend(
+            int A0,int A1,int A2,int A3,int A4,int A5,int A6,int A7,int A8,int A9,int A10,int A11,
+            int M0,int M1,int M2,int M3,int M4,int M5,int M6,int M7,int M8,int M9,int M10,int M11
+        ) {
+            (int o0,int o1,int o2,int o3,int o4,int o5,int o6,int o7,int o8,int o9,int o10,int o11) =
+                finalExp(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11);
+            require(o0==M0); require(o1==M1); require(o2==M2); require(o3==M3); require(o4==M4); require(o5==M5);
+            require(o6==M6); require(o7==M7); require(o8==M8); require(o9==M9); require(o10==M10); require(o11==M11);
+        }
+}

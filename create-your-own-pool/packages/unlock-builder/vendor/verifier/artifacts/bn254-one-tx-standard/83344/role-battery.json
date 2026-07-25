@@ -1,0 +1,3643 @@
+{
+  "schema": "verifier.cash/repair-role-battery/v1",
+  "candidate": "/tmp/verifier-cash-resume-r25-envelope-20260717",
+  "total": 52,
+  "globalAccepts": [],
+  "targetAccepts": [
+    "swap-exec-1-2",
+    "swap-exec-2-3",
+    "swap-exec-3-4",
+    "swap-exec-4-5",
+    "swap-exec-5-6",
+    "replace-exec-1-with-0",
+    "replace-exec-1-with-2",
+    "replace-exec-1-with-3",
+    "replace-exec-1-with-4",
+    "replace-exec-1-with-5",
+    "replace-exec-1-with-6",
+    "replace-exec-2-with-0",
+    "replace-exec-2-with-1",
+    "replace-exec-2-with-3",
+    "replace-exec-2-with-4",
+    "replace-exec-2-with-5",
+    "replace-exec-2-with-6",
+    "replace-exec-3-with-0",
+    "replace-exec-3-with-1",
+    "replace-exec-3-with-2",
+    "replace-exec-3-with-4",
+    "replace-exec-3-with-5",
+    "replace-exec-3-with-6",
+    "replace-exec-4-with-0",
+    "replace-exec-4-with-1",
+    "replace-exec-4-with-2",
+    "replace-exec-4-with-3",
+    "replace-exec-4-with-5",
+    "replace-exec-4-with-6",
+    "replace-exec-5-with-0",
+    "replace-exec-5-with-1",
+    "replace-exec-5-with-2",
+    "replace-exec-5-with-3",
+    "replace-exec-5-with-4",
+    "replace-exec-5-with-6",
+    "replace-exec-6-with-0",
+    "replace-exec-6-with-1",
+    "replace-exec-6-with-2",
+    "replace-exec-6-with-3",
+    "replace-exec-6-with-4",
+    "replace-exec-6-with-5",
+    "swap-genesis-finalize",
+    "swap-finalize-fused",
+    "drop-genesis-append-fused",
+    "drop-genesis-append-finalize"
+  ],
+  "results": [
+    {
+      "id": "swap-exec-0-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298313
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299488
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673387
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26235
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29181
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-exec-1-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 35808
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 38754
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-exec-2-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 45925
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 48871
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-exec-3-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 55170
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 58116
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-exec-4-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64247
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67193
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-exec-5-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 74097
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 77043
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295417
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295420
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294348
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295440
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295836
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295420
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295381
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673387
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26235
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29181
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 291849
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 292924
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 291852
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 292944
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 293340
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 292924
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 292885
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5671515
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 25611
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 28557
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295517
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295500
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294428
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295520
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295916
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295500
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295461
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673447
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26255
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29201
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297497
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297084
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296012
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297104
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297500
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297084
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297045
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5674635
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26651
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29597
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295417
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295420
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294348
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295440
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295836
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295420
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295381
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673387
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26235
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29181
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-0-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295222
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295264
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294192
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295284
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295680
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295264
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295225
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673270
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 26196
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 29142
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302381
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302384
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300140
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301232
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301628
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301212
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301173
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 37156
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 40102
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296989
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294748
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294748
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295840
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296236
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295820
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295781
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 35808
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 38754
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299565
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298416
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297324
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298416
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298812
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298396
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298357
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 36452
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 39398
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301149
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300396
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298908
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300000
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300396
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299980
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299941
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 36848
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 39794
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": true,
+          "error": "",
+          "opCost": 1481570
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 180074
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-1-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299329
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298121
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297088
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298180
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298576
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298160
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298121
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 36393
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 39339
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 304877
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 303708
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 304880
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 303728
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 304124
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 303708
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 303669
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 46629
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 49575
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301981
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300832
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301228
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300773
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 45905
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 48851
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302061
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300892
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300912
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300912
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301308
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300892
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300853
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 45925
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 48871
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 303645
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302476
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302892
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302496
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302892
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302476
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302437
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 46321
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 49267
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301981
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300832
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301228
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300812
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300773
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 45905
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 48851
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-2-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301825
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300656
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300617
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300676
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301072
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300656
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300617
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 45866
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 48812
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302301
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301132
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300060
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302304
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301548
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301132
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301093
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 55478
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 58424
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299405
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297164
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298652
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298197
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 54754
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 57700
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296909
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295740
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294668
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294668
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296156
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295740
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295701
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 54130
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 57076
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301069
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299900
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298828
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300316
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300316
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299900
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299861
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 55170
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 58116
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299405
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297164
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298652
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298236
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298197
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 54754
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 57700
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-3-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299249
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298080
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297008
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298041
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298496
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298080
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298041
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 54715
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 57661
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300717
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299548
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298476
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299568
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300720
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299548
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299509
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64971
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67917
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297821
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295580
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296672
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296613
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64247
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67193
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295325
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294156
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 293084
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294176
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 293084
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294156
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294117
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 63623
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 66569
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297901
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296732
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295660
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296752
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296752
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296732
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296693
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64267
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67213
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297821
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295580
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296672
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296652
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296613
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64247
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67193
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-4-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297665
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296496
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295424
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296516
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296457
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296496
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296457
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 64208
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 67154
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302381
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301212
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300140
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301232
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301628
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302384
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301173
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 74860
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 77806
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299485
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297244
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298336
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298732
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298316
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298277
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 205496
+        },
+        {
+          "index": 9,
+          "accept": true,
+          "error": "",
+          "opCost": 4081824
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296989
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295820
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294748
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295840
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296236
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294748
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295781
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 73512
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 76458
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299565
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298396
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297324
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298416
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298812
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298416
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298357
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 74156
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 77102
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301149
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299980
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298908
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300000
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300396
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300396
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299941
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 74552
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 77498
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-5-with-6",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299329
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298160
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297088
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298180
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298576
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298121
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298121
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 74097
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 77043
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-0",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302537
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301368
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300296
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301388
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301784
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301368
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 302540
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 84333
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 87279
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-1",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299641
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297400
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298492
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298888
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 83609
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 86555
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-2",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297145
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295976
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294904
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295996
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 296392
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 295976
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 294904
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 82985
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 85931
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-3",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299721
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298552
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297480
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298572
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298968
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298552
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298572
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 83629
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 86575
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-4",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 301305
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300136
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299064
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300156
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300552
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300136
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 300552
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 84025
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 86971
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "replace-exec-6-with-5",
+      "parentTxid": "9fccadd0fc91b57db64df72276b3a527b9de4d283980a5c5547ad8ac76a18bfd",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 299641
+        },
+        {
+          "index": 1,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 2,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 297400
+        },
+        {
+          "index": 3,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298492
+        },
+        {
+          "index": 4,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298888
+        },
+        {
+          "index": 5,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 298472
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 83609
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 86555
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-genesis-finalize",
+      "parentTxid": "d71dd6fa7f201c7dc66b10dd12ef3349aa11aada29600a443bf8fec2a9f817c9",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": true,
+          "error": "",
+          "opCost": 7611978
+        },
+        {
+          "index": 1,
+          "accept": true,
+          "error": "",
+          "opCost": 7005201
+        },
+        {
+          "index": 2,
+          "accept": true,
+          "error": "",
+          "opCost": 6421084
+        },
+        {
+          "index": 3,
+          "accept": true,
+          "error": "",
+          "opCost": 7022682
+        },
+        {
+          "index": 4,
+          "accept": true,
+          "error": "",
+          "opCost": 7010780
+        },
+        {
+          "index": 5,
+          "accept": true,
+          "error": "",
+          "opCost": 7012978
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6996917
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 10964
+        },
+        {
+          "index": 8,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 19809
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "swap-finalize-fused",
+      "parentTxid": "4ece780372fd8de9f0c0a3990e31b47d844a1512adc1b296553947c9a32a384d",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": true,
+          "error": "",
+          "opCost": 7611978
+        },
+        {
+          "index": 1,
+          "accept": true,
+          "error": "",
+          "opCost": 7005201
+        },
+        {
+          "index": 2,
+          "accept": true,
+          "error": "",
+          "opCost": 6421084
+        },
+        {
+          "index": 3,
+          "accept": true,
+          "error": "",
+          "opCost": 7022682
+        },
+        {
+          "index": 4,
+          "accept": true,
+          "error": "",
+          "opCost": 7010780
+        },
+        {
+          "index": 5,
+          "accept": true,
+          "error": "",
+          "opCost": 7012978
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6989507
+        },
+        {
+          "index": 7,
+          "accept": true,
+          "error": "",
+          "opCost": 5695988
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 14382
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 10964
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "drop-genesis-append-fused",
+      "parentTxid": "99b182fffc206f0b7d9fa32eb88cdd16a18837300f490683068cfddae7f4c9b9",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": true,
+          "error": "",
+          "opCost": 7611978
+        },
+        {
+          "index": 1,
+          "accept": true,
+          "error": "",
+          "opCost": 7005201
+        },
+        {
+          "index": 2,
+          "accept": true,
+          "error": "",
+          "opCost": 6421084
+        },
+        {
+          "index": 3,
+          "accept": true,
+          "error": "",
+          "opCost": 7022682
+        },
+        {
+          "index": 4,
+          "accept": true,
+          "error": "",
+          "opCost": 7010780
+        },
+        {
+          "index": 5,
+          "accept": true,
+          "error": "",
+          "opCost": 7012978
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6989507
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 10964
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 14382
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 19809
+        }
+      ],
+      "globalAccept": false
+    },
+    {
+      "id": "drop-genesis-append-finalize",
+      "parentTxid": "ebf912cbaf1137bf2dcad1999bd81dbd9198772b47996f8ba3b1e020b2038d78",
+      "txValid": true,
+      "tokenValid": true,
+      "rows": [
+        {
+          "index": 0,
+          "accept": true,
+          "error": "",
+          "opCost": 7611978
+        },
+        {
+          "index": 1,
+          "accept": true,
+          "error": "",
+          "opCost": 7005201
+        },
+        {
+          "index": 2,
+          "accept": true,
+          "error": "",
+          "opCost": 6421084
+        },
+        {
+          "index": 3,
+          "accept": true,
+          "error": "",
+          "opCost": 7022682
+        },
+        {
+          "index": 4,
+          "accept": true,
+          "error": "",
+          "opCost": 7010780
+        },
+        {
+          "index": 5,
+          "accept": true,
+          "error": "",
+          "opCost": 7012978
+        },
+        {
+          "index": 6,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6989507
+        },
+        {
+          "index": 7,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 10964
+        },
+        {
+          "index": 8,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 14382
+        },
+        {
+          "index": 9,
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 10964
+        }
+      ],
+      "globalAccept": false
+    }
+  ]
+}

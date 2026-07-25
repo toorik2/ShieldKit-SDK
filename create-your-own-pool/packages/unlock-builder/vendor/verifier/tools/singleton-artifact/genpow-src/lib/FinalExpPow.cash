@@ -1,0 +1,32 @@
+pragma cashscript ^0.13.0;
+
+// GENERIC-POW final exponentiation: f^E, E = (p^12-1)/r (2790-bit constant).
+// Op is FREE on the singleton, so the entire cyclotomic/Frobenius/inverse final-exp
+// machinery is replaced by one square-and-multiply loop using fp12Mul/fp12Sqr only.
+import "./Fp12.cash";
+
+library FinalExpPow {
+    function finalExpPow(int A0,int A1,int A2,int A3,int A4,int A5,int A6,int A7,int A8,int A9,int A10,int A11)
+        returns (int,int,int,int,int,int,int,int,int,int,int,int) {
+        int R0=1; int R1=0; int R2=0; int R3=0; int R4=0; int R5=0; int R6=0; int R7=0; int R8=0; int R9=0; int R10=0; int R11=0;
+        int B0=A0; int B1=A1; int B2=A2; int B3=A3; int B4=A4; int B5=A5; int B6=A6; int B7=A7; int B8=A8; int B9=A9; int B10=A10; int B11=A11;
+        int x = 4965661367192848881;
+        int x2 = x * x;
+        int x3 = x2 * x;
+        int x4 = x2 * x2;
+        int p = 36 * x4 + 36 * x3 + 24 * x2 + 6 * x + 1;
+        int r = p - 6 * x2;
+        int p2 = p * p;
+        int p4 = p2 * p2;
+        int e = (p4 * p4 * p4 - 1) / r;
+        for (int i = 0; i < 2790; i = i + 1) {
+            if (((e >> i) % 2) == 1) {
+                (R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11) =
+                    fp12Mul(R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11, B0,B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11);
+            }
+            (B0,B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11) =
+                fp12Sqr(B0,B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11);
+        }
+        return R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11;
+    }
+}

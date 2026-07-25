@@ -1,0 +1,155 @@
+{
+  "built": true,
+  "gateOk": true,
+  "wire": 79719,
+  "score": 81084,
+  "sigmaLock": 1365,
+  "sigmaUnlock": 79269,
+  "seamChains": true,
+  "bothUnder": true,
+  "gateThrow": "",
+  "manual": [
+    {
+      "i": 0,
+      "name": "exec0",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9591
+    },
+    {
+      "i": 1,
+      "name": "exec1",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8867
+    },
+    {
+      "i": 2,
+      "name": "exec2",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8243
+    },
+    {
+      "i": 3,
+      "name": "exec3",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8887
+    },
+    {
+      "i": 4,
+      "name": "exec4",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9283
+    },
+    {
+      "i": 5,
+      "name": "exec5",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8867
+    },
+    {
+      "i": 6,
+      "name": "exec6",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8868
+    },
+    {
+      "i": 7,
+      "name": "genesis",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8902
+    },
+    {
+      "i": 8,
+      "name": "finalize",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 2515
+    },
+    {
+      "i": 9,
+      "name": "fused",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 5246
+    }
+  ],
+  "perInput": [
+    {
+      "index": 0,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 9591,
+      "looksFiller": false
+    },
+    {
+      "index": 1,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8867,
+      "looksFiller": false
+    },
+    {
+      "index": 2,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8243,
+      "looksFiller": false
+    },
+    {
+      "index": 3,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8887,
+      "looksFiller": false
+    },
+    {
+      "index": 4,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 9283,
+      "looksFiller": false
+    },
+    {
+      "index": 5,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8867,
+      "looksFiller": false
+    },
+    {
+      "index": 6,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8868,
+      "looksFiller": false
+    },
+    {
+      "index": 7,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 8902,
+      "looksFiller": false
+    },
+    {
+      "index": 8,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 2515,
+      "looksFiller": false
+    },
+    {
+      "index": 9,
+      "accepts": true,
+      "reason": "real+VM-accepts",
+      "unlockingLen": 5246,
+      "looksFiller": false
+    }
+  ]
+}

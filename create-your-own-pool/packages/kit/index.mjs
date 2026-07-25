@@ -16,4 +16,5 @@ export {
   CHIPNET_PLAYGROUND_ID,
   InstanceError,
 } from '../profile/instance.mjs';
+export { completeAction, PIN_LENS } from './complete-action.mjs';
 // createDesktopComposition is internal (desktop.mjs) — not a product export.

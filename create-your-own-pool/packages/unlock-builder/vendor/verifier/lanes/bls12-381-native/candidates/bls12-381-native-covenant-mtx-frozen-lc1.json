@@ -1,0 +1,60 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bls12-381-native-covenant-mtx-frozen-lc1",
+  "lane": "bls12-381-native",
+  "status": "measured",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BLS12-381",
+    "structure": "multi-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "7270e006852db43fecca1417bf185c789e4c5132",
+    "bch": "BCH-2026"
+  },
+  "build": {
+    "adapter": "artifact-bundle",
+    "artifactRoot": ".",
+    "files": {
+      "vectors": "harness/src/bch/groth16-bls12381-grouped-residue-vectors.json",
+      "step-metadata": "artifacts/bls-native-standard/315318/steps.json",
+      "forge-transcript": "artifacts/bls-native-standard/315318/transcript-forge-battery.log",
+      "leanbch-transcript": "artifacts/bls-native-standard/315318/transcript-dualvm-leanbch.log"
+    }
+  },
+  "judge": {
+    "profile": "frozen-native-grouped-fixed-vk",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "expected": {
+      "scriptBytes": 315318,
+      "txOverheadBytes": 1826,
+      "score": 317144,
+      "inputCount": 36,
+      "transactionCount": 4,
+      "artifactHashes": {
+        "vectors": "5463649d0d79d9697e1c71deb8db78781681f47b5a86ce846b1eeb388ab54025",
+        "step-metadata": "26c1d9ea5aae1686011bf21ec6c1ee37fcb9bc4ef7a2037544385939a01ac7d4",
+        "forge-transcript": "fe14ba97e8afe3a9462b35d87d31feba8fbc41dd70cdfe8cc62ef9c8f7b3e7b8",
+        "leanbch-transcript": "7949a4abed1f8c94e38c9ef9ecfbb0602bd848ed36f2d8675efebaa18d48ebe0"
+      }
+    }
+  },
+  "provenance": {
+    "sourceCommit": "afc4bc49",
+    "scope": "[BLS12-381 NativeCovenant (local frozen); bls12-381-covenant-mtx-frozen-lc1] Frozen historical A1-certified grouped crown. This manifest evaluates its concrete four-transaction token topology and corrects transaction-overhead scoring; promotion remains closed pending fresh control-plane evidence."
+  },
+  "identity": {
+    "humanName": "BLS12-381 NativeCovenant (local frozen)",
+    "construction": "covenant",
+    "topology": "mtx",
+    "stateModel": "frozen",
+    "revision": "lc1",
+    "slug": "bls12-381-covenant-mtx-frozen-lc1"
+  }
+}

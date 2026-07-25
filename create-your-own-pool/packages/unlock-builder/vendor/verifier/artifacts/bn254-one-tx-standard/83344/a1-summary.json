@@ -1,0 +1,3019 @@
+{
+  "counts": {
+    "completeness": {
+      "total": 1,
+      "executed": 1,
+      "skipped": 0,
+      "noOp": 0,
+      "globalFalseAccepts": 0,
+      "targetOnlyFalseAccepts": 0
+    },
+    "encoding": {
+      "total": 19,
+      "executed": 19,
+      "skipped": 0,
+      "noOp": 0,
+      "globalFalseAccepts": 0,
+      "targetOnlyFalseAccepts": 0
+    },
+    "semantic": {
+      "total": 16,
+      "executed": 16,
+      "skipped": 0,
+      "noOp": 0,
+      "globalFalseAccepts": 0,
+      "targetOnlyFalseAccepts": 0
+    },
+    "intraTx": {
+      "total": 38,
+      "executed": 38,
+      "skipped": 0,
+      "noOp": 0,
+      "globalFalseAccepts": 0,
+      "targetOnlyFalseAccepts": 0
+    },
+    "deployment": {
+      "total": 15,
+      "executed": 15,
+      "skipped": 0,
+      "noOp": 0,
+      "globalFalseAccepts": 0,
+      "targetOnlyFalseAccepts": 3
+    }
+  },
+  "falseAccepts": [],
+  "standardFalseAccepts": [],
+  "targetOnlyFalseAccepts": [
+    "0080-deploy-source-output-value",
+    "0082-deploy-sequence",
+    "0083-deploy-outpoint-hash"
+  ],
+  "noOps": [],
+  "dual": [
+    {
+      "id": "0000-honest-BASE",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=7 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=5695988",
+      "lean": {
+        "index": 7,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695988
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695988
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0000-honest-BASE",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0000-honest-BASE IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0001-encoding-OP_0-payload-flip",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0001-encoding-OP_0-payload-flip IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0002-encoding-DIRECT-payload-flip",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0002-encoding-DIRECT-payload-flip IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0003-encoding-PUSHDATA1-payload-flip",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0003-encoding-PUSHDATA1-payload-flip IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0004-encoding-PUSHDATA2-payload-flip",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0004-encoding-PUSHDATA2-payload-flip IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2116",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2116
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2111
+      }
+    },
+    {
+      "id": "0005-encoding-DIRECT-nonminimal-PUSHDATA1",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0005-encoding-DIRECT-nonminimal-PUSHDATA1 IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0006-encoding-PUSHDATA1-nonminimal-PUSHDATA2",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0006-encoding-PUSHDATA1-nonminimal-PUSHDATA2 IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0007-encoding-PUSHDATA2-nonminimal-PUSHDATA4",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0007-encoding-PUSHDATA2-nonminimal-PUSHDATA4 IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2116",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2116
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2111
+      }
+    },
+    {
+      "id": "0008-encoding-synthetic-OP_1NEGATE",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0008-encoding-synthetic-OP_1NEGATE IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2118",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2118
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2113
+      }
+    },
+    {
+      "id": "0009-encoding-synthetic-OP_1_TO_16",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0009-encoding-synthetic-OP_1_TO_16 IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2118",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2118
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2113
+      }
+    },
+    {
+      "id": "0010-encoding-synthetic-PUSHDATA4",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0010-encoding-synthetic-PUSHDATA4 IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2116",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2116
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2111
+      }
+    },
+    {
+      "id": "0011-boundary-direct-extend",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0011-boundary-direct-extend IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0012-boundary-direct-truncate",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0012-boundary-direct-truncate IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0013-boundary-pd1-extend",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0013-boundary-pd1-extend IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0014-boundary-pd2-extend",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0014-boundary-pd2-extend IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2116",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2116
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2111
+      }
+    },
+    {
+      "id": "0015-boundary-pd2-truncate",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0015-boundary-pd2-truncate IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=2116",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2116
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 2111
+      }
+    },
+    {
+      "id": "0020-semantic-off-curve-A",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0020-semantic-off-curve-A IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0021-semantic-off-curve-C",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0021-semantic-off-curve-C IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0022-semantic-off-twist-B",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0022-semantic-off-twist-B IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0023-semantic-wrong-subgroup-B",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0023-semantic-wrong-subgroup-B IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0024-semantic-infinity-A",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0024-semantic-infinity-A IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0025-semantic-wrong-input",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0025-semantic-wrong-input IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=4892",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4892
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4892
+      }
+    },
+    {
+      "id": "0026-semantic-forged-slope",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0026-semantic-forged-slope IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=4892",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4892
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4892
+      }
+    },
+    {
+      "id": "0027-semantic-forged-quotient",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0027-semantic-forged-quotient IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0028-semantic-forged-residue",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0028-semantic-forged-residue IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0029-semantic-forged-transcript",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0029-semantic-forged-transcript IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5693",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5693
+      }
+    },
+    {
+      "id": "0030-semantic-compensating-multi-field",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0030-semantic-compensating-multi-field IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0033-semantic-field-p",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0033-semantic-field-p IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10494",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10494
+      }
+    },
+    {
+      "id": "0036-intraTx-sibling-splice-0-into-1",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0036-intraTx-sibling-splice-0-into-1 IDX=1 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=302385",
+      "lean": {
+        "index": 1,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 302385
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 302384
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=14078",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 14078
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 14077
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=1 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10662",
+      "lean": {
+        "index": 1,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10662
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10661
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=2 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5666161",
+      "lean": {
+        "index": 2,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5666161
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5666160
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=3 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10020",
+      "lean": {
+        "index": 3,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10020
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10019
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=4 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10059",
+      "lean": {
+        "index": 4,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10059
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10058
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=5 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10475",
+      "lean": {
+        "index": 5,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10475
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10474
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=6 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10079",
+      "lean": {
+        "index": 6,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10079
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10078
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9435",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9435
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9434
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10059",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10059
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10058
+      }
+    },
+    {
+      "id": "0045-intraTx-reorder-reverse",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0045-intraTx-reorder-reverse IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10782",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10782
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10781
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=6 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=6996918",
+      "lean": {
+        "index": 6,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6996918
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6996917
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10662",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10662
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10661
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5691846",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5691846
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5691845
+      }
+    },
+    {
+      "id": "0046-intraTx-reorder-adjacent",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0046-intraTx-reorder-adjacent IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=19810",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 19810
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 19809
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9655",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9655
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9654
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=1 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9031",
+      "lean": {
+        "index": 1,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9031
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9030
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=2 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9675",
+      "lean": {
+        "index": 2,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9675
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9674
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=3 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10071",
+      "lean": {
+        "index": 3,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10071
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10070
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=4 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9655",
+      "lean": {
+        "index": 4,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9655
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9654
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=5 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9616",
+      "lean": {
+        "index": 5,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9616
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9615
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=6 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5673388",
+      "lean": {
+        "index": 6,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5673388
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5673387
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10258",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10258
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10257
+      }
+    },
+    {
+      "id": "0047-intraTx-drop-0",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0047-intraTx-drop-0 IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=13676",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13676
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13675
+      }
+    },
+    {
+      "id": "0057-intraTx-duplicate-witness-1",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0057-intraTx-duplicate-witness-1 IDX=1 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=302385",
+      "lean": {
+        "index": 1,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 302385
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 302384
+      }
+    },
+    {
+      "id": "0066-intraTx-cross-fixture-substitution",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0066-intraTx-cross-fixture-substitution IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5695987",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695987
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 25400
+      }
+    },
+    {
+      "id": "0067-intraTx-boundary-fragment-reorder",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0067-intraTx-boundary-fragment-reorder IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=260",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 260
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 0
+      }
+    },
+    {
+      "id": "0068-intraTx-boundary-fragment-truncate",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0068-intraTx-boundary-fragment-truncate IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=260",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 260
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 0
+      }
+    },
+    {
+      "id": "0069-intraTx-boundary-fragment-extend",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0069-intraTx-boundary-fragment-extend IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=12192",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 12192
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 12192
+      }
+    },
+    {
+      "id": "0070-intraTx-local-suffix-substitution",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0070-intraTx-local-suffix-substitution IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=192762",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 192762
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13372
+      }
+    },
+    {
+      "id": "0071-intraTx-external-body-substitution",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0071-intraTx-external-body-substitution IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=260",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 260
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 0
+      }
+    },
+    {
+      "id": "0072-intraTx-input-index-dependency",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0072-intraTx-input-index-dependency IDX=0 leanVerifyInput=false txValid=false verifyTokens=true leanFullOpCost=10781",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": false,
+        "tokenValid": true,
+        "opCost": 10781
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": false,
+        "tokenValid": true,
+        "opCost": 10780
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10379",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10379
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10378
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=1 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9655",
+      "lean": {
+        "index": 1,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9655
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9654
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=2 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9031",
+      "lean": {
+        "index": 2,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9031
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9030
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=3 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9675",
+      "lean": {
+        "index": 3,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9675
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9674
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=4 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10071",
+      "lean": {
+        "index": 4,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10071
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10070
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=5 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9655",
+      "lean": {
+        "index": 5,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9655
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9654
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=6 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=9616",
+      "lean": {
+        "index": 6,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9616
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 9615
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5677267",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5677267
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5677266
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=8 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10258",
+      "lean": {
+        "index": 8,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10258
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10257
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=9 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=13676",
+      "lean": {
+        "index": 9,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13676
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13675
+      }
+    },
+    {
+      "id": "0073-intraTx-input-count-dependency",
+      "index": 10,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0073-intraTx-input-count-dependency IDX=10 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=13676",
+      "lean": {
+        "index": 10,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13676
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 13675
+      }
+    },
+    {
+      "id": "0074-deploy-p2sh-header",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0074-deploy-p2sh-header IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=19160",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 19160
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 19160
+      }
+    },
+    {
+      "id": "0075-deploy-p2sh-redeem-hash",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0075-deploy-p2sh-redeem-hash IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5695987",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695987
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 25400
+      }
+    },
+    {
+      "id": "0076-deploy-redeem-header",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0076-deploy-redeem-header IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5219139",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5219139
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5219053
+      }
+    },
+    {
+      "id": "0077-deploy-redeem-body",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0077-deploy-redeem-body IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5256052",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5256052
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5256051
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5678679",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5678679
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5678678
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0078-deploy-tx-output-lock",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0078-deploy-tx-output-lock IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0079-deploy-source-output-lock",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0079-deploy-source-output-lock IDX=0 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=10933",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10933
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 10932
+      }
+    },
+    {
+      "id": "0080-deploy-source-output-value",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0080-deploy-source-output-value IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5678276",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5678276
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5678275
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0081-deploy-tx-output-value",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0081-deploy-tx-output-value IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0082-deploy-sequence",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0082-deploy-sequence IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0083-deploy-outpoint-hash",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0083-deploy-outpoint-hash IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0084-deploy-outpoint-index",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0084-deploy-outpoint-index IDX=0 leanVerifyInput=false txValid=false verifyTokens=true leanFullOpCost=10781",
+      "lean": {
+        "index": 0,
+        "accept": false,
+        "txValid": false,
+        "tokenValid": true,
+        "opCost": 10781
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": false,
+        "tokenValid": true,
+        "opCost": 10780
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5676964",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5676964
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5676963
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0085-deploy-tx-version",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0085-deploy-tx-version IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=7 leanVerifyInput=false txValid=true verifyTokens=true leanFullOpCost=5677872",
+      "lean": {
+        "index": 7,
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5677872
+      },
+      "libauth": {
+        "accept": false,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5677871
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0086-deploy-tx-locktime",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0086-deploy-tx-locktime IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=7 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=5695988",
+      "lean": {
+        "index": 7,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695988
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 5695988
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0087-deploy-token-valid-control",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0087-deploy-token-valid-control IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "opCost": 4081824
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 0,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=0 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=7611978",
+      "lean": {
+        "index": 0,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7611978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7611978
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 1,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=1 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=7005201",
+      "lean": {
+        "index": 1,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7005201
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7005201
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 2,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=2 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=6421084",
+      "lean": {
+        "index": 2,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 6421084
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 6421084
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 3,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=3 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=7022682",
+      "lean": {
+        "index": 3,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7022682
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7022682
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 4,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=4 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=7010780",
+      "lean": {
+        "index": 4,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7010780
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7010780
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 5,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=5 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=7012978",
+      "lean": {
+        "index": 5,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7012978
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 7012978
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 6,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=6 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=6991138",
+      "lean": {
+        "index": 6,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 6991138
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 6991138
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 7,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=7 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=5695988",
+      "lean": {
+        "index": 7,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 5695988
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 5695988
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 8,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=8 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=1481570",
+      "lean": {
+        "index": 8,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 1481570
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 1481570
+      }
+    },
+    {
+      "id": "0088-deploy-token-invalid-control",
+      "index": 9,
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-resume-r25-a1-20260717b/lean-cases/0088-deploy-token-invalid-control IDX=9 leanVerifyInput=true txValid=true verifyTokens=false leanFullOpCost=4081824",
+      "lean": {
+        "index": 9,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 4081824
+      },
+      "libauth": {
+        "accept": true,
+        "txValid": true,
+        "tokenValid": false,
+        "opCost": 4081824
+      }
+    }
+  ],
+  "coverage": {
+    "pushRecordClassesObserved": {
+      "PUSHDATA2": 41,
+      "DIRECT": 286,
+      "OP_0": 29,
+      "PUSHDATA1": 1
+    },
+    "encodingClassesExercised": [
+      "OP_0",
+      "DIRECT",
+      "PUSHDATA1",
+      "PUSHDATA2",
+      "PUSHDATA4",
+      "OP_1NEGATE",
+      "OP_1_TO_16"
+    ],
+    "encodingClassesMissing": [],
+    "fixture": "/tmp/verifier-cash-resume-r25-20260717",
+    "denseCoordinates": "dense-0025|oracle=py_ecc.bn128|corpus=256/256|buildSweep=256/256|argBytes=320"
+  }
+}

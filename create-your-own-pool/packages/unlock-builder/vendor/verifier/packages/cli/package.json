@@ -1,0 +1,9 @@
+{
+  "name": "@verifier-cash/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "vc": "./src/vc.mjs"
+  }
+}

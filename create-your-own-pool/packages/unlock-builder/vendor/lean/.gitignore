@@ -1,0 +1,10 @@
+/.lake
+tools/health/index.json
+tools/health/REPORT.md
+
+# Agent worktrees (linked worktrees of this repo)
+.claude/worktrees/
+.worktrees/
+
+# Autonomous-session scratchpad
+AUTONOMOUS_PROGRESS.md

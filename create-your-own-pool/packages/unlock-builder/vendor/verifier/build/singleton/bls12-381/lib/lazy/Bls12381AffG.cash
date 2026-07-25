@@ -1,0 +1,63 @@
+pragma cashscript ^0.14.0;
+
+// L10 witnessed-affine EC check-back for pair0 (BLS12-381 Miller). BLS analog of bn254's
+// _afflib.cash. The prover WITNESSES the slope lam; the next point is DERIVED (division-free)
+// and the slope VERIFIED, so lam is uniquely forced and the next affine point equals 2R
+// (doubling) / R+Q (add). Outputs xn,yn reduced to [0,p). Line coeffs (c0,c1,c2) equal the
+// projective pointDouble/pointAdd at Z=1 (the affine-normalized line); the folded f then differs
+// from the all-projective f only by an Fp* factor (dies under ^h in finalExp), and the residue
+// witness (c,cInv,w) is recomputed from THIS affine boundary at build time (residueWitness
+// VERIFIES c^lambda == g_aff*w, so a malformed boundary fails loudly).
+//
+// M-twist BLS: line uses mul014; twist b' = 4 + 4u, so the affine double constant term
+// c0 = 3*b' - y^2 = (12 + 12u) - y^2.
+// Imports Bls12381LazyG.cash so a miller chunk that imports THIS file transitively gets the
+// full lazy tower (fp2*/fp12*/line) + LazyG's psi/r2* (genesis on-curve + final subgroup checks).
+import "./Bls12381LazyG.cash";
+
+// affine tangent double at (xa,xb,ya,yb) with witnessed slope (la,lb):
+//   slope: lam*(2y) == 3x^2   (2y != 0 for y != 0, guaranteed for prime-order-subgroup B != O)
+//   c0 = (12+12u) - y^2 ; c1 = 3x^2 ; c2 = -2y ; xn = lam^2 - 2x ; yn = lam*(x-xn) - y
+function affDbl(int xa,int xb, int ya,int yb, int la,int lb) returns (int,int,int,int,int,int, int,int,int,int) {
+    int Pm = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787;
+    (int x2a,int x2b) = fp2Sqr(xa,xb);
+    (int c1a,int c1b) = fp2Scale(x2a,x2b,3);                       // c1 = 3x^2
+    (int cka,int ckb) = fp2Mul(la,lb, addFp(ya,ya), addFp(yb,yb)); // lam*2y
+    require(cka % Pm == c1a % Pm); require(ckb % Pm == c1b % Pm);  // slope: lam*2y == 3x^2 (forces lam; 2y != 0)
+    (int c2a,int c2b) = fp2Neg(addFp(ya,ya), addFp(yb,yb));        // c2 = -2y
+    (int yya,int yyb) = fp2Sqr(ya,yb);
+    int rc0a = subFp(12, yya);                                    // c0 = 12 - y^2.c0
+    int rc0b = subFp(12, yyb);                                    // c0 = 12 - y^2.c1
+    (int l2a,int l2b) = fp2Sqr(la,lb);
+    int xna = subFp(l2a, addFp(xa,xa)) % Pm;                      // xn = lam^2 - 2x
+    int xnb = subFp(l2b, addFp(xb,xb)) % Pm;
+    (int lya,int lyb) = fp2Mul(la,lb, subFp(xa,xna), subFp(xb,xnb)); // lam*(x-xn)
+    int yna = subFp(lya, ya) % Pm;                               // yn = lam*(x-xn) - y
+    int ynb = subFp(lyb, yb) % Pm;
+    return rc0a,rc0b,c1a,c1b,c2a,c2b, xna,xnb,yna,ynb;
+}
+
+// affine chord add of R=(Rx,Ry) + Q=(Qx,Qy) with witnessed slope (la,lb):
+//   guard Rx != Qx (so R != +-Q); slope: lam*(Rx-Qx) == Ry-Qy
+//   c0 = t0*Qx - t1*Qy ; c1 = -t0 ; c2 = t1  (t0=Ry-Qy, t1=Rx-Qx)
+//   xn = lam^2 - Rx - Qx ; yn = lam*(Rx-xn) - Ry
+function affAdd(int Rxa,int Rxb,int Rya,int Ryb, int Qxa,int Qxb,int Qya,int Qyb, int la,int lb) returns (int,int,int,int,int,int, int,int,int,int) {
+    int Pm = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787;
+    require((Rxa - Qxa) % Pm != 0 || (Rxb - Qxb) % Pm != 0);      // R != +-Q (Rx != Qx)
+    (int t1a,int t1b) = fp2Sub(Rxa,Rxb,Qxa,Qxb);                  // t1 = Rx-Qx
+    (int t0a,int t0b) = fp2Sub(Rya,Ryb,Qya,Qyb);                  // t0 = Ry-Qy
+    (int cka,int ckb) = fp2Mul(la,lb, t1a,t1b);                   // lam*(Rx-Qx)
+    require(cka % Pm == t0a % Pm); require(ckb % Pm == t0b % Pm); // slope: lam*(Rx-Qx) == Ry-Qy (forces lam)
+    (int q0a,int q0b) = fp2Mul(t0a,t0b, Qxa,Qxb);
+    (int q1a,int q1b) = fp2Mul(t1a,t1b, Qya,Qyb);
+    (int c0a,int c0b) = fp2Sub(q0a,q0b,q1a,q1b);                  // c0 = t0*Qx - t1*Qy
+    (int c1a,int c1b) = fp2Neg(t0a,t0b);                          // c1 = -t0
+    int c2a = t1a; int c2b = t1b;                                 // c2 = t1
+    (int l2a,int l2b) = fp2Sqr(la,lb);
+    int xna = subFp(subFp(l2a, Rxa), Qxa) % Pm;                   // xn = lam^2 - Rx - Qx
+    int xnb = subFp(subFp(l2b, Rxb), Qxb) % Pm;
+    (int lya,int lyb) = fp2Mul(la,lb, subFp(Rxa,xna), subFp(Rxb,xnb)); // lam*(Rx-xn)
+    int yna = subFp(lya, Rya) % Pm;                              // yn = lam*(Rx-xn) - Ry
+    int ynb = subFp(lyb, Ryb) % Pm;
+    return c0a,c0b,c1a,c1b,c2a,c2b, xna,xnb,yna,ynb;
+}

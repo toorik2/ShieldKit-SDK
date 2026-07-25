@@ -1,0 +1,440 @@
+{
+ "artifact": "BN254 Groth16 native-standard chunked-covenant verifier \u2014 212,913 B sound crown BASELINE (byte-verify reproduction)",
+ "date": "2026-07-10",
+ "source": {
+  "repo": "github.com/mr-zwets/groth16_cashscript local clone /home/toorik/Projects/verifier.cash/build (unpushed crown commits; origin push 403 \u2014 never push there)",
+  "head_at_build": "23e4767ff1d63b41daef4d35cf7a407fdfe7466f",
+  "crown_commit": "6dbe42c (crown: OP_2SWAP/2DUP peephole; sound bytes=212913)",
+  "bank_commit": "b17adea (bank: crown source + A1 evidence chain)",
+  "builder": "chunked/pairing/unified_affine.mjs (run 1 on a PRISTINE tree; run 2 with the additive SAVE_DIR dump only)"
+ },
+ "compiler": {
+  "repo": "mr-zwets/cashscript branch compiler-optimizations, vendored at /home/toorik/Projects/verifier.cash/vendor/cashc-resched",
+  "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+  "verified_by": "groth16_cashscript/env-setup.sh (pin + dist + symlink + import check): OK"
+ },
+ "vm": "libauth createVirtualMachineBch2026(false); buildCovStep P2SH32 byte convention; TARGET_UNLOCK=10000; OP_COST_TARGET default 7700000",
+ "totals": {
+  "totalBytes": 212913,
+  "chunkCount": 32,
+  "byStage": {
+   "g2check": 12487,
+   "vkx": 15617,
+   "miller": 180509,
+   "tail": 4300
+  },
+  "maxOperationCost": 7651999,
+  "opBudgetConsensus": 8032800,
+  "internalChainOk": true,
+  "startSeam": true,
+  "endSeam": true
+ },
+ "reproduction": {
+  "run1": "pristine HEAD 23e4767, PEEPHOLE default ON: TOTAL 212,913 / 32 chunks / internalChainOk=true / max op 7,651,999 \u2014 EXACT match to crown commit 6dbe42c records (bytes + max op)",
+  "run2": "same + SAVE_DIR artifact dump: log line-identical to run 1; all 32 emitted .cash sources byte-identical to run 1 snapshots (determinism)",
+  "run3_ab": "PEEPHOLE=0: TOTAL 214,175 \u2014 EXACT match to predecessor crown commit 2df5835; byStage g2check 12,535 / vkx 15,676 / miller 181,643 / tail 4,321. Proves the previously noted stage splits (12,535/15,676/4,322) were recorded from the PRE-peephole table; tail differs from that note by 1 byte (4,321 vs 4,322) \u2014 g2check/vkx exact.",
+  "per_stage_crown": {
+   "g2check": 12487,
+   "vkx": 15617,
+   "miller": 180509,
+   "tail": 4300
+  }
+ },
+ "files": {
+  "chunks.json": {
+   "sha256": "9497adce3d91c26fd13aa6b72a77b16d093a84d15a9213f295d19814e48727dd",
+   "desc": "32 entries: per-chunk source name, redeem hex, locking spk hex, minimal accepting unlock hex, commits, op cost"
+  },
+  "measurement.json": {
+   "sha256": "f2aedd746a0fcf7ef4688a540eafc2daea3e81a27b78ac00db1fc0c163423836",
+   "desc": "builder final JSON (run 1 == run 2)"
+  },
+  "chunks/": "32 .cash covenant sources exactly as compiled (reverse-threaded, real successor spks embedded)"
+ },
+ "per_chunk": [
+  {
+   "index": 0,
+   "name": "g2_0[0,25)",
+   "stage": "g2check",
+   "lockingBytes": 35,
+   "unlockingBytes": 4538,
+   "operationCost": 3662897,
+   "inCommit": "b0ada4322dc41b27d6ca5d556a0dc25d633d564aff9705cdf104ae2fb5ec6d6a",
+   "outCommit": "4ca2a66e970e41df8f94b87914d5df37af276da95a0cb9ae713140a4a4f06eac",
+   "lockingSpk": "aa2088b1636b5795d5bd91915029fbf26f86525b6e5b164fca677f9dbf5487bc921987",
+   "redeemSha256": "1f49a26944bb683f9530a83656e3372e0f0ebcde4625f84dc982bc80f7b6fb9c"
+  },
+  {
+   "index": 1,
+   "name": "g2_1[25,50)",
+   "stage": "g2check",
+   "lockingBytes": 35,
+   "unlockingBytes": 4560,
+   "operationCost": 3680074,
+   "inCommit": "4ca2a66e970e41df8f94b87914d5df37af276da95a0cb9ae713140a4a4f06eac",
+   "outCommit": "e6efbc80e17d95a0baaa2b7fd513af52d8dfcb574d78eb581ac96b76cf4d279c",
+   "lockingSpk": "aa20c29a30234b0234c5c78377eceec962ddd7cda4a5223f7e1dda5c1490e3e12c2387",
+   "redeemSha256": "94fd9f3c57a1bd1a34efb98749cb8a9613c1e31b38df248e9e560caf540f10d6"
+  },
+  {
+   "index": 2,
+   "name": "g2_2[50,63)",
+   "stage": "g2check",
+   "lockingBytes": 35,
+   "unlockingBytes": 3284,
+   "operationCost": 2659728,
+   "inCommit": "e6efbc80e17d95a0baaa2b7fd513af52d8dfcb574d78eb581ac96b76cf4d279c",
+   "outCommit": "ff3d2cfc6da57cadf765f9b6711cacc03ba81d0c0cb544caa644e1d5fa927ab8",
+   "lockingSpk": "aa2095ceac330d7516f148341df268769e3545dd065cf91862eb808482010480921287",
+   "redeemSha256": "fa03bc26fa34fd75d481584860bf23846e0997092125f9a927586defc8002548"
+  },
+  {
+   "index": 3,
+   "name": "vkx_0[0,37)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1590,
+   "operationCost": 911015,
+   "inCommit": "ff3d2cfc6da57cadf765f9b6711cacc03ba81d0c0cb544caa644e1d5fa927ab8",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa2002d80ab7798ff08b5cae34df6c56eb07e577d829c6e09da00567c8bfa85a4c1387",
+   "redeemSha256": "de09a0b97433806311c3e887ea7c26c450c3ea8f4978b049e04f5eecfda5eb88"
+  },
+  {
+   "index": 4,
+   "name": "vkx_1[37,73)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1598,
+   "operationCost": 889216,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa20c8b835891d5d534815411ab2f9901f3c0c6e46b011b048469d06e38cb5c7609887",
+   "redeemSha256": "f4712a9e2ade1c575887272e2de1cd08512f975c4eb4d2761d4c790bcccf226d"
+  },
+  {
+   "index": 5,
+   "name": "vkx_2[73,109)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1598,
+   "operationCost": 889216,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa2088a847c01021bc4c215bd63a5e93be501424aadea05adbeda5eb4a02214001e987",
+   "redeemSha256": "4ef1449f7c207e8f67f6f19ddaba8abfdb2993fc0b53925b10fd6d13f3f51ce3"
+  },
+  {
+   "index": 6,
+   "name": "vkx_3[109,145)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1598,
+   "operationCost": 889140,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa20995c1008e7bc9cc59b0bd6cd0a772a83bb19d1a1b979682f0d5a90860677b72a87",
+   "redeemSha256": "6986874941966be3e24e64549faa71387f52991011d2b0ff040577da73090fba"
+  },
+  {
+   "index": 7,
+   "name": "vkx_4[145,181)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1597,
+   "operationCost": 889035,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa201d5ae36d60aedb671f8802128407ecf6f564075e3a48067094ed0eaf6a7ab72887",
+   "redeemSha256": "c860415afb0d008b8243fe6bfe71c1f825a83c45a24e510774023dde13273998"
+  },
+  {
+   "index": 8,
+   "name": "vkx_5[181,217)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1597,
+   "operationCost": 889035,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "lockingSpk": "aa2029497959104fd63bbab754014c28b6448a417e9a046660680055eac36d78447d87",
+   "redeemSha256": "7374394bc008f67013d4e8e218b9b256f755fffd6ae22b4261b795d0beec0fe9"
+  },
+  {
+   "index": 9,
+   "name": "vkx_6[217,253)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 3957,
+   "operationCost": 3198116,
+   "inCommit": "e678d07923c503fe10158ed4629127348559efb0609c981e45f7e2bdcc12d8a9",
+   "outCommit": "2fcfd3aa9a5738123fe66c7a3b061d3c12e198346794951beb37f6f0c88b9af5",
+   "lockingSpk": "aa20a22db6f64ef2018f5c048e7e43fa32ea9409d1c5225cde64f30c8df0c75cd39887",
+   "redeemSha256": "4ee97c0d4e4f31fabe2c028e698d8ec67b9bcd622e724baada41619c40004572"
+  },
+  {
+   "index": 10,
+   "name": "vkx_7[253,254)",
+   "stage": "vkx",
+   "lockingBytes": 35,
+   "unlockingBytes": 1802,
+   "operationCost": 365914,
+   "inCommit": "2fcfd3aa9a5738123fe66c7a3b061d3c12e198346794951beb37f6f0c88b9af5",
+   "outCommit": "8a088b52120390829469a1ec06bb28702f76c5a16905992464283436fb05973f",
+   "lockingSpk": "aa20fe15d2e13c0af606146ae22840727faa64406875eed4da2873102f843739218487",
+   "redeemSha256": "879b974f4b725a98f58ef14fc75909d8156bb15e56c4831a1bde6f47e4bb180c"
+  },
+  {
+   "index": 11,
+   "name": "ml_0[0,18)G",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9119,
+   "operationCost": 7327463,
+   "inCommit": "8a088b52120390829469a1ec06bb28702f76c5a16905992464283436fb05973f",
+   "outCommit": "098e9a4373bf406705941c19f9ab0c248c7089dda75d5e5f176ff3a4cb05bbd5",
+   "lockingSpk": "aa2087a33ace45999099de3c85418347d6519ad6d584511de9ddf051133ff4393aa787",
+   "redeemSha256": "75e477500d310178d55afd993603bbc0748a338e75ebf5e27d3d25ddd7938c78"
+  },
+  {
+   "index": 12,
+   "name": "ml_1[18,37)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9311,
+   "operationCost": 7481504,
+   "inCommit": "098e9a4373bf406705941c19f9ab0c248c7089dda75d5e5f176ff3a4cb05bbd5",
+   "outCommit": "c83ccf611ce4f3a8691f18d9c010040b7fc410a54daa938cb4e1d40bd4ba00e6",
+   "lockingSpk": "aa208a87b722e4bf745884b7cfd6f300ee151bad106f757e6bbc3177302949ce81a887",
+   "redeemSha256": "6253622bee2cd1e2d062a50fd98b6d291bd0c95482719bbcbd27ac8ccae495dd"
+  },
+  {
+   "index": 13,
+   "name": "ml_2[37,55)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9452,
+   "operationCost": 7594215,
+   "inCommit": "c83ccf611ce4f3a8691f18d9c010040b7fc410a54daa938cb4e1d40bd4ba00e6",
+   "outCommit": "9ab8c217513c49aef9746df99a6720509ca13485985c69453d097f94a5e80dae",
+   "lockingSpk": "aa20f6f1e85fa64036d4f52dc70dfdcc3271fe99bdfbcbc82294337af7510bed743d87",
+   "redeemSha256": "ec3188d6a57056913484fecd495c508fca33c783933b505028d8be773deeafac"
+  },
+  {
+   "index": 14,
+   "name": "ml_3[55,74)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9523,
+   "operationCost": 7650594,
+   "inCommit": "9ab8c217513c49aef9746df99a6720509ca13485985c69453d097f94a5e80dae",
+   "outCommit": "d4c030125f2e6d5a23f77149f9e3dcbbc1512dc8742774d5dde43019e9cdc588",
+   "lockingSpk": "aa209fa22949e31d6499f5e0b0f4d2c80c8b11ea7fc20c713f49a5868ab481f8a36787",
+   "redeemSha256": "b0fcce136574d2daff72aca75f180066c4ea519fae8687c135bce2d02adc39a2"
+  },
+  {
+   "index": 15,
+   "name": "ml_4[74,93)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9374,
+   "operationCost": 7531904,
+   "inCommit": "d4c030125f2e6d5a23f77149f9e3dcbbc1512dc8742774d5dde43019e9cdc588",
+   "outCommit": "20b6caccf52dd7321b23c52f1dec5f32885d94837064eadbc30a0f6165e75903",
+   "lockingSpk": "aa2084f24a103d06fac597b5ca974ccbe61bad23fc0c01107311d7ca837631a5674d87",
+   "redeemSha256": "4410e2e5ed18b10f2c86a4239c772dffac4b4a914c96a624753b9fefb51e4fa1"
+  },
+  {
+   "index": 16,
+   "name": "ml_5[93,111)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9266,
+   "operationCost": 7444946,
+   "inCommit": "20b6caccf52dd7321b23c52f1dec5f32885d94837064eadbc30a0f6165e75903",
+   "outCommit": "8a97317ee07702e848ec6b25472c62a733a6c3b875143aa78fb0b894274fbabc",
+   "lockingSpk": "aa202e6cac31d8282240f26f81a998edf0a42b475b11b2ffdad169284f268424a74b87",
+   "redeemSha256": "a0075dbfd5467d163439085f7b6199177339457f37b4eacd959fe1d68d6c1dcf"
+  },
+  {
+   "index": 17,
+   "name": "ml_6[111,130)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9314,
+   "operationCost": 7483476,
+   "inCommit": "8a97317ee07702e848ec6b25472c62a733a6c3b875143aa78fb0b894274fbabc",
+   "outCommit": "4894af728df21806e6028b67e5fd11d72e31c0b6f431fb5c666641e2db5e4afe",
+   "lockingSpk": "aa2089680d9a11d47de60f5b451f6e0dcdc93a5fe1f1657ed342f5145d97f348b14387",
+   "redeemSha256": "86c86c5ac40697d50dfbd080c5129fb00293520cc77990b59c9e4888f74561a0"
+  },
+  {
+   "index": 18,
+   "name": "ml_7[130,149)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9375,
+   "operationCost": 7532625,
+   "inCommit": "4894af728df21806e6028b67e5fd11d72e31c0b6f431fb5c666641e2db5e4afe",
+   "outCommit": "e872aeb39460654d1dbbb08b9f7fb9e45348915b53b422a0b0f3704199aac15d",
+   "lockingSpk": "aa20aee80d34da321d0163946829af6ef3b8335d9b84e1b701fba32075688fe8b78887",
+   "redeemSha256": "018c6dbf45ac68364fc1a462b7fb3c2560dbafb3cbd6a382197dc0e37e94b174"
+  },
+  {
+   "index": 19,
+   "name": "ml_8[149,167)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9266,
+   "operationCost": 7445171,
+   "inCommit": "e872aeb39460654d1dbbb08b9f7fb9e45348915b53b422a0b0f3704199aac15d",
+   "outCommit": "f3b28094bb4329e6aa2339bba7f503916cc050b4ea3d66ce64b29dfc77cfdf8d",
+   "lockingSpk": "aa20c1dfd8002942d3e31eb10a471a059c2a69bd89f5b2270ada9ed39608bcc947b087",
+   "redeemSha256": "d0004957f6e3cf2e5fa690913f331faf7fc09b4471256bfe324b43d908c8f437"
+  },
+  {
+   "index": 20,
+   "name": "ml_9[167,185)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9270,
+   "operationCost": 7448742,
+   "inCommit": "f3b28094bb4329e6aa2339bba7f503916cc050b4ea3d66ce64b29dfc77cfdf8d",
+   "outCommit": "f4323d2ee3c5feaea3645a3b642ccd4042f5a231aa35532bfbb14794ce561be7",
+   "lockingSpk": "aa20bafda800347507a345adfc27a542669df6703cd485d7d57f4826ccb187b8c4ff87",
+   "redeemSha256": "2f0477f52eb341b45b1ba22c301da8b565594f95e5ec4eadb4cef5c5a18974c9"
+  },
+  {
+   "index": 21,
+   "name": "ml_10[185,204)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9152,
+   "operationCost": 7354053,
+   "inCommit": "f4323d2ee3c5feaea3645a3b642ccd4042f5a231aa35532bfbb14794ce561be7",
+   "outCommit": "98b712bd9c3b58b0b5a2d4f2c6ddf53b8aae617a73846ae096c59daeb4f6ef72",
+   "lockingSpk": "aa20f3f252b739163ffccf0958758dd4be40724c9d50e3fd0af38c0eb5b3ba2f4b5087",
+   "redeemSha256": "0e2303751307b667a19729787d42c8b83eefd0a2e00b628fd095289e925ce612"
+  },
+  {
+   "index": 22,
+   "name": "ml_11[204,222)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9482,
+   "operationCost": 7618275,
+   "inCommit": "98b712bd9c3b58b0b5a2d4f2c6ddf53b8aae617a73846ae096c59daeb4f6ef72",
+   "outCommit": "ab765f2440d490e5c9103de19795147fee97f0ca4bdf67696b5454625126d81d",
+   "lockingSpk": "aa201a066b6571648206bea186f95d88838a42a17390e1983614cbf55e2808462b1687",
+   "redeemSha256": "82294b54557b4dba18d9ee0f1212ebb7b6d179a7997355613d210f8394c10400"
+  },
+  {
+   "index": 23,
+   "name": "ml_12[222,241)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9524,
+   "operationCost": 7651999,
+   "inCommit": "ab765f2440d490e5c9103de19795147fee97f0ca4bdf67696b5454625126d81d",
+   "outCommit": "c1666ce7308600e310e9c4195e3671a7acecd7d4f1ae05b55d9ecdadabe0529d",
+   "lockingSpk": "aa207f2c06762e798ecb40b9b24b187f028c6d25c9f5a42611b869b2156ccf35bcc887",
+   "redeemSha256": "5c1aa8f0b8e739a20832f34813621b235dd4f0f3e91b196e042ceeb5dd99579c"
+  },
+  {
+   "index": 24,
+   "name": "ml_13[241,260)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9355,
+   "operationCost": 7516464,
+   "inCommit": "c1666ce7308600e310e9c4195e3671a7acecd7d4f1ae05b55d9ecdadabe0529d",
+   "outCommit": "93f13c5375430d33b22e1ec44c010663b08ead9afe5db6d46a6e271aded68c8d",
+   "lockingSpk": "aa20564d87b8137c28f4bbff7a8301fcef9adbdf4142992cb62dee19b96a2c352bf787",
+   "redeemSha256": "2a2f0b7a938d1be818f883db70f0466d5d1e21fee59c105008d3d987d372b1a1"
+  },
+  {
+   "index": 25,
+   "name": "ml_14[260,279)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9517,
+   "operationCost": 7645608,
+   "inCommit": "93f13c5375430d33b22e1ec44c010663b08ead9afe5db6d46a6e271aded68c8d",
+   "outCommit": "b39f21d0726c9c2db60d99dbd1e4a894f18d3b17e4681698db1934cf348d3083",
+   "lockingSpk": "aa20197123a4defaffacbcc326c4a409cfb103c43923b64c0fc79c9aff00de5b766f87",
+   "redeemSha256": "392058927058d2211b2d4168f4f92e3fd238bca72126287ec5f6920bf8b95c3d"
+  },
+  {
+   "index": 26,
+   "name": "ml_15[279,298)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9524,
+   "operationCost": 7651563,
+   "inCommit": "b39f21d0726c9c2db60d99dbd1e4a894f18d3b17e4681698db1934cf348d3083",
+   "outCommit": "68342542b2d1cb9bbc4be2bcba180c8e24848cfef1c979625aad8a30e1829cc6",
+   "lockingSpk": "aa20c4e323f7125e11d799b59274467724fa29ae2a24ae1878e0932a3426ff379ab187",
+   "redeemSha256": "fb56aff1fced3c289205703e991e917a0d6a045091ede1b4a57fca9da42ad905"
+  },
+  {
+   "index": 27,
+   "name": "ml_16[298,316)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9484,
+   "operationCost": 7619241,
+   "inCommit": "68342542b2d1cb9bbc4be2bcba180c8e24848cfef1c979625aad8a30e1829cc6",
+   "outCommit": "1635eb49a5bcc45d2fe9bc1a860b5cb84791ecc7576d29c985e06f691436540c",
+   "lockingSpk": "aa20bc67a01464cf7914410370c84cc22dd36e94b7158d9a2c898ec06484c9a040b087",
+   "redeemSha256": "d749df651875e9ccc89b90fae6560159b859e0075a969eb93e97cb920749016b"
+  },
+  {
+   "index": 28,
+   "name": "ml_17[316,335)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 9349,
+   "operationCost": 7511820,
+   "inCommit": "1635eb49a5bcc45d2fe9bc1a860b5cb84791ecc7576d29c985e06f691436540c",
+   "outCommit": "ddc31632a3468bff40b2ee266d5ea82c50b2b8d0d93b156c0c9388cf44346965",
+   "lockingSpk": "aa2098333cfe9053bbc9ae875d0b35eb1256ea101f0915576b08df71cc7fe271815687",
+   "redeemSha256": "38d845fb5bc60f5ccaaeb1014ab2dae8364d968fc200a290991cdc7edc41adbb"
+  },
+  {
+   "index": 29,
+   "name": "ml_18[335,347)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 7641,
+   "operationCost": 6144869,
+   "inCommit": "ddc31632a3468bff40b2ee266d5ea82c50b2b8d0d93b156c0c9388cf44346965",
+   "outCommit": "a1124d0c22d131aa3d61b644d269d88ea8dcbaa66c52447c3fef4e592924f814",
+   "lockingSpk": "aa20788e98ca49ccea5fabf9e0083f0d52d8b3422bf1c95eef24f53551c58341678687",
+   "redeemSha256": "10720f05c180a319277caa288755962ff16d5ef479ef120ccad78a2e1612269c"
+  },
+  {
+   "index": 30,
+   "name": "ml_19[347,348)",
+   "stage": "miller",
+   "lockingBytes": 35,
+   "unlockingBytes": 3511,
+   "operationCost": 651062,
+   "inCommit": "a1124d0c22d131aa3d61b644d269d88ea8dcbaa66c52447c3fef4e592924f814",
+   "outCommit": "8fa941694316dd580b8cb3b60c6d139a1a24fc4c46e9abb0f5af217bd75e03f5",
+   "lockingSpk": "aa20001c3cb3aa474c8350ed23e79c7a66fe7b3c0596d87687c505a1f041659532ae87",
+   "redeemSha256": "667f177ef0fef976eefc212bd36668e3ee7e51b5854a5e84a0cb7d6d26e5ab25"
+  },
+  {
+   "index": 31,
+   "name": "tail",
+   "stage": "tail",
+   "lockingBytes": 35,
+   "unlockingBytes": 4265,
+   "operationCost": 2439981,
+   "inCommit": "8fa941694316dd580b8cb3b60c6d139a1a24fc4c46e9abb0f5af217bd75e03f5",
+   "outCommit": null,
+   "lockingSpk": "aa20a24d625966cf44ed42b10f3cccb069c53a84f8812fc7956fdf5e10241a05b08d87",
+   "redeemSha256": "297818c786608b6c8c30a9ae9e07d7bec87bc6345398474e8939ceccf1396724"
+  }
+ ]
+}

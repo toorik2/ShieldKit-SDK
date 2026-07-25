@@ -1,0 +1,39 @@
+{
+  "name": "groth16_contract",
+  "version": "1.0.0",
+  "description": "Groth16 zk-SNARK verifier in CashScript over BN254 and BLS12-381, with singleton and BCH-limit-viable chunked forms.",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#repo-paths": "./repo-paths.mjs"
+  },
+  "scripts": {
+    "test": "pnpm run test:bn254 && pnpm run test:bls && pnpm run check:vectors",
+    "test:bn254": "node singleton/bn254/verify.mjs",
+    "test:bls": "node singleton/bls12-381/verify.mjs",
+    "gen:vectors": "node bn254-vkx/vkx_ref.mjs",
+    "check:vectors": "node bn254-vkx/vkx_sim.mjs",
+    "gen:twoloop": "node chunked/twoloop/gen_chunks.mjs",
+    "gen:shamir": "node chunked/shamir/gen_chunks.mjs",
+    "gen:chunked:bls": "node chunked/bls12-381/generate.mjs",
+    "gen:chunked:pairing": "node chunked/pairing/generate.mjs",
+    "vectors:twoloop": "node chunked/twoloop/gen_chunks.mjs && node chunked/twoloop/build_vectors.mjs",
+    "vectors:shamir": "node chunked/shamir/build_vectors.mjs"
+  },
+  "keywords": [
+    "groth16",
+    "zk-snark",
+    "cashscript",
+    "bch",
+    "bn254",
+    "bls12-381"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.2",
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
+    "@noble/curves": "2.2.0",
+    "cashc": "link:../vendor/cashc-resched/packages/cashc"
+  }
+}

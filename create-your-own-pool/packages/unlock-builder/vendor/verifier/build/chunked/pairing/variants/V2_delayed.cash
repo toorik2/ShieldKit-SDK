@@ -1,0 +1,81 @@
+pragma cashscript ^0.14.0;
+
+// V2: FULLY-DELAYED-REDUCTION fp12Sqr. Carries signed wide integers through the whole
+// complex-squaring / Karatsuba-fp6Mul tree with NO per-product OP_MOD and NO per-op bias.
+// Reduces ONLY the 12 output limbs: reduceOut(x) = (x + BIG*p) % p, where BIG*p (65 bytes) is
+// a compile-time bias chosen (via interval analysis, lazy2_bound.mjs: max |neg| ~1059 p^2) so
+// x + BIG*p >= 0 for every input in [0,p)^12 => the mod lands in [0,p). Outputs are FULLY reduced
+// (a strict superset of the old lazy contract), so this is a sound drop-in for fp12Sqr.
+
+// wide signed fp2 multiply: r = a*b in Fp2=Fp[u]/(u^2+1), no reduction, no bias
+function fp2MulW(int a0, int a1, int b0, int b1) returns (int, int) {
+    int w0 = a0 * b0;
+    int w1 = a1 * b1;
+    return w0 - w1, (a0 + a1) * (b0 + b1) - w0 - w1;
+}
+
+// wide signed multiply by xi = (9 + u)
+function fp2MulXiW(int a0, int a1) returns (int, int) {
+    return 9 * a0 - a1, 9 * a1 + a0;
+}
+
+// wide fp6 multiply (Karatsuba, mirrors the baseline schedule), all signed wide
+function fp6MulW(
+        int a0a,int a0b,int a1a,int a1b,int a2a,int a2b,
+        int b0a,int b0b,int b1a,int b1b,int b2a,int b2b
+    ) returns (int,int,int,int,int,int) {
+    (int t0a,int t0b) = fp2MulW(a0a,a0b, b0a,b0b);
+    (int t1a,int t1b) = fp2MulW(a1a,a1b, b1a,b1b);
+    (int t2a,int t2b) = fp2MulW(a2a,a2b, b2a,b2b);
+    (int p1a,int p1b) = fp2MulW(a1a+a2a, a1b+a2b, b1a+b2a, b1b+b2b);
+    (int x1a,int x1b) = fp2MulXiW(p1a - t1a - t2a, p1b - t1b - t2b);
+    int c0a = t0a + x1a;
+    int c0b = t0b + x1b;
+    (int p2a,int p2b) = fp2MulW(a0a+a1a, a0b+a1b, b0a+b1a, b0b+b1b);
+    (int x2a,int x2b) = fp2MulXiW(t2a, t2b);
+    int c1a = p2a - t0a - t1a + x2a;
+    int c1b = p2b - t0b - t1b + x2b;
+    (int p3a,int p3b) = fp2MulW(a0a+a2a, a0b+a2b, b0a+b2a, b0b+b2b);
+    int c2a = p3a - t0a - t2a + t1a;
+    int c2b = p3b - t0b - t2b + t1b;
+    return c0a,c0b, c1a,c1b, c2a,c2b;
+}
+
+// wide fp6 multiply by v (basis element): (xi*a2, a0, a1)
+function fp6MulByVW(int a0a,int a0b,int a1a,int a1b,int a2a,int a2b) returns (int,int,int,int,int,int) {
+    (int n0a,int n0b) = fp2MulXiW(a2a, a2b);
+    return n0a, n0b, a0a, a0b, a1a, a1b;
+}
+
+// reduce one wide signed limb into [0,p): add BIG*p (>= max negativity) then mod p
+function reduceOut(int x) returns (int) {
+    return (x + 507361791401603590146065339884462786506408203206435770960198222587060229213828216047103990131139210776525628370024303086564595223859909885393566267333524240) % 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+}
+
+function fp12Sqr(
+        int A0,int A1,int A2,int A3,int A4,int A5, int A6,int A7,int A8,int A9,int A10,int A11
+    ) returns (int,int,int,int,int,int,int,int,int,int,int,int) {
+    // t0 = c0 * c1
+    (int t0_0,int t0_1,int t0_2,int t0_3,int t0_4,int t0_5) = fp6MulW(A0,A1,A2,A3,A4,A5, A6,A7,A8,A9,A10,A11);
+    // vc = v * c1 ; u = c0 + vc ; s = c0 + c1 ; t1 = s * u
+    (int vc0,int vc1,int vc2,int vc3,int vc4,int vc5) = fp6MulByVW(A6,A7,A8,A9,A10,A11);
+    (int t1_0,int t1_1,int t1_2,int t1_3,int t1_4,int t1_5) = fp6MulW(
+        A0+A6, A1+A7, A2+A8, A3+A9, A4+A10, A5+A11,
+        A0+vc0, A1+vc1, A2+vc2, A3+vc3, A4+vc4, A5+vc5);
+    // c1' = 2 t0
+    // c0' = t1 - t0 - v t0
+    (int vt0,int vt1,int vt2,int vt3,int vt4,int vt5) = fp6MulByVW(t0_0,t0_1,t0_2,t0_3,t0_4,t0_5);
+    return
+        reduceOut(t1_0 - t0_0 - vt0),
+        reduceOut(t1_1 - t0_1 - vt1),
+        reduceOut(t1_2 - t0_2 - vt2),
+        reduceOut(t1_3 - t0_3 - vt3),
+        reduceOut(t1_4 - t0_4 - vt4),
+        reduceOut(t1_5 - t0_5 - vt5),
+        reduceOut(t0_0 + t0_0),
+        reduceOut(t0_1 + t0_1),
+        reduceOut(t0_2 + t0_2),
+        reduceOut(t0_3 + t0_3),
+        reduceOut(t0_4 + t0_4),
+        reduceOut(t0_5 + t0_5);
+}

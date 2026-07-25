@@ -1,0 +1,9 @@
+contract Test(int x, string x) {
+    function hello(sig s, pubkey pk) {
+        require(checkSig(s, pk));
+    }
+
+    function world(int a) {
+        require(a + 5 == 10);
+    }
+}

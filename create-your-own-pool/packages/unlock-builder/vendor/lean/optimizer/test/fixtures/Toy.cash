@@ -1,0 +1,10 @@
+pragma cashscript ^0.13.0;
+import "./Lib.cash";
+
+contract Toy() {
+    function run(int p, int q, int r, int s) {
+        int t = blend(p, q, r) + blend(q, r, s) + blend(r, s, p) + blend(s, p, q);
+        int u = poly(p, q) + poly(q, r) + poly(r, s) + poly(s, p) + poly(p, r);
+        require(t + u + blend(p, r, q) > 0);
+    }
+}

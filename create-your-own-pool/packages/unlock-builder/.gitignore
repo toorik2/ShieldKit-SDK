@@ -1,0 +1,4 @@
+# local build stages (never ship)
+/tmp/
+**/.cache/
+**/tmp-*/

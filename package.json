@@ -9,6 +9,8 @@
     "shieldkit": "node create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node create-your-own-pool/scripts/fetch-playground-bundle.mjs",
     "version-check": "node create-your-own-pool/scripts/shieldkit.mjs --version",
-    "unlock-builder:smoke": "node create-your-own-pool/packages/unlock-builder/smoke-golden.mjs"
+    "unlock-builder:smoke": "node create-your-own-pool/packages/unlock-builder/smoke-golden.mjs",
+    "create-pool": "node create-your-own-pool/scripts/create-pool.mjs",
+    "e2e:standalone": "node create-your-own-pool/scripts/standalone-e2e-chipnet.mjs"
   }
 }

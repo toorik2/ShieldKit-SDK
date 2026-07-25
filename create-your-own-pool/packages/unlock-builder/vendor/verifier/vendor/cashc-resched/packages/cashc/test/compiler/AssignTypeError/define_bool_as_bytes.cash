@@ -1,0 +1,6 @@
+contract Test() {
+    function hello() {
+        bool b = 0x00;
+        require(b);
+    }
+}

@@ -1,0 +1,550 @@
+// Shared reference math + helpers for the chunked-pairing generators (noble
+// Fp2/Fp6/Fp12, matching our CashScript ops bit-for-bit), plus the committed
+// instance's 4 Groth16 pairs, state serialization, and a real-VM measurer.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import { bn254 } from '@noble/curves/bn254.js';
+export { bn254 };
+export const { Fp, Fp2, Fp6, Fp12 } = bn254.fields;
+
+// IN-PROCESS cashc compile (compileString + asmToBytecode) instead of spawning a
+// `node cashc-cli` subprocess per candidate chunk — the planner compiles hundreds
+// of times, so dropping the spawn + file I/O is a real speedup. CASHC_ROOT pins
+// the compiler dist used for a measurement; unset uses the worktree package.
+const cashc = await import(process.env.CASHC_ROOT
+  ? pathToFileURL(join(process.env.CASHC_ROOT, 'dist/index.js')).href
+  : 'cashc');
+const { compileString, compileFile, utils } = cashc;
+const { asmToBytecode } = utils;
+
+// Compiled redeems go through the compiler's DAG stack-rescheduling pass (cashc fork
+// option `rescheduleStacks`): each straight-line block's schedule is re-derived so
+// operands are on top of the stack when needed, and each function's argument order is
+// chosen jointly with its schedule, selected by the BCH2026 op-cost meter. Default ON —
+// the committed vectors are built this way; set RESCHEDULE=off to A/B the plain compile.
+const RESCHED_OPTS = process.env.RESCHEDULE === 'off' ? {} : { rescheduleStacks: true };
+/** compile a .cash source string -> redeem bytecode (Uint8Array); throws on compile error */
+export const compileBytecode = (src) => asmToBytecode(compileString(src, RESCHED_OPTS).bytecode);
+/** compile a .cash FILE -> redeem bytecode. Unlike compileString, compileFile resolves
+ * relative `import` statements (it has a base path), so chunks can import the shared
+ * singleton library instead of inlining the tower functions. */
+export const compileFileBytecode = (path) => asmToBytecode(compileFile(path, RESCHED_OPTS).bytecode);
+/** plain-cashc variants (no rescheduling): the vector builders A/B the two redeems per
+ * chunk and keep whichever measures better, and the chunk PLANNERS measure candidate
+ * windows with these so the generated chunk manifests stay independent of the pass. */
+export const compileBytecodeRaw = (src) => asmToBytecode(compileString(src).bytecode);
+export const compileFileBytecodeRaw = (path) => asmToBytecode(compileFile(path).bytecode);
+
+export const OP_BUDGET = (41 + 10_000) * 800;
+export const TARGET_UNLOCK = 10_000, OP_DROP = 0x75, OP_PUSHDATA2 = 0x4d;
+
+import { hexToBin, binToHex, bigIntToVmNumber, encodeDataPush, bigIntToBinUintLE, binToFixedLength, numberToBinUint16LE, createTestAuthenticationProgramBch, createVirtualMachineBch2026 } from '@bitauth/libauth';
+const realVm = createVirtualMachineBch2026(false);
+
+// ---- constants ----
+export const Fp2B = Fp2.fromBigTuple([
+  19485874751759354771024239261021720505790618469301721065564631296452457478373n,
+  266929791119991161246907387137283842545076965332900288569378510910307636690n,
+]);
+export const INV2 = Fp2.inv(Fp2.fromBigTuple([2n, 0n]));
+export const PSI_X = Fp2.pow(Fp2.NONRESIDUE, (Fp.ORDER - 1n) / 3n);
+export const PSI_Y = Fp2.pow(Fp2.NONRESIDUE, (Fp.ORDER - 1n) / 2n);
+export const BN_X = 4965661367192848881n;
+const naf = (a) => { const r = []; for (; a > 1n; a >>= 1n) { if ((a & 1n) === 0n) r.unshift(0); else if ((a & 3n) === 3n) { r.unshift(-1); a += 1n; } else r.unshift(1); } return r; };
+export const ATE_NAF = naf(6n * BN_X + 2n);
+
+// ---- miller-step math ----
+const mulByB = (x) => Fp2.mul(x, Fp2B);
+const scalarFp2 = (x, k) => Fp2.fromBigTuple([Fp.mul(x.c0, k), Fp.mul(x.c1, k)]);
+export function pointDouble(Rx, Ry, Rz) {
+  const t0 = Fp2.sqr(Ry), t1 = Fp2.sqr(Rz);
+  const t2 = mulByB(Fp2.mul(t1, 3n)), t3 = Fp2.mul(t2, 3n);
+  const t4 = Fp2.sub(Fp2.sub(Fp2.sqr(Fp2.add(Ry, Rz)), t1), t0);
+  const c0 = Fp2.sub(t2, t0), c1 = Fp2.mul(Fp2.sqr(Rx), 3n), c2 = Fp2.neg(t4);
+  const nx = Fp2.mul(Fp2.mul(Fp2.mul(Fp2.sub(t0, t3), Rx), Ry), INV2);
+  const ny = Fp2.sub(Fp2.sqr(Fp2.mul(Fp2.add(t0, t3), INV2)), Fp2.mul(Fp2.sqr(t2), 3n));
+  const nz = Fp2.mul(t0, t4);
+  return { coeffs: [c0, c1, c2], R: { x: nx, y: ny, z: nz } };
+}
+export function pointAdd(Rx, Ry, Rz, Qx, Qy) {
+  const t0 = Fp2.sub(Ry, Fp2.mul(Qy, Rz)), t1 = Fp2.sub(Rx, Fp2.mul(Qx, Rz));
+  const c0 = Fp2.sub(Fp2.mul(t0, Qx), Fp2.mul(t1, Qy)), c1 = Fp2.neg(t0), c2 = t1;
+  const t2 = Fp2.sqr(t1), t3 = Fp2.mul(t2, t1), t4 = Fp2.mul(t2, Rx);
+  const t5 = Fp2.add(Fp2.sub(t3, Fp2.mul(t4, 2n)), Fp2.mul(Fp2.sqr(t0), Rz));
+  const nx = Fp2.mul(t1, t5);
+  const ny = Fp2.sub(Fp2.mul(Fp2.sub(t4, t5), t0), Fp2.mul(t3, Ry));
+  const nz = Fp2.mul(Rz, t3);
+  return { coeffs: [c0, c1, c2], R: { x: nx, y: ny, z: nz } };
+}
+function mul034(f, o0, o3, o4) {
+  const A = Fp6.create({ c0: Fp2.mul(f.c0.c0, o0), c1: Fp2.mul(f.c0.c1, o0), c2: Fp2.mul(f.c0.c2, o0) });
+  const B = Fp6.mul01(f.c1, o3, o4);
+  const E = Fp6.mul01(Fp6.add(f.c0, f.c1), Fp2.add(o0, o3), o4);
+  return Fp12.create({ c0: Fp6.add(Fp6.mulByNonresidue(B), A), c1: Fp6.sub(E, Fp6.add(A, B)) });
+}
+const lineFn = (f, c0, c1, c2, Px, Py) => mul034(f, scalarFp2(c2, Py), scalarFp2(c1, Px), c0);
+const psi = (x, y) => [Fp2.mul(Fp2.frobeniusMap(x, 1), PSI_X), Fp2.mul(Fp2.frobeniusMap(y, 1), PSI_Y)];
+
+export function millerStep(f, R, k, Qx, Qy, negQy, Px, Py) {
+  f = Fp12.sqr(f);
+  let d = pointDouble(R.x, R.y, R.z); R = d.R; f = lineFn(f, d.coeffs[0], d.coeffs[1], d.coeffs[2], Px, Py);
+  if (ATE_NAF[k]) { let a = pointAdd(R.x, R.y, R.z, Qx, ATE_NAF[k] === -1 ? negQy : Qy); R = a.R; f = lineFn(f, a.coeffs[0], a.coeffs[1], a.coeffs[2], Px, Py); }
+  return { f, R };
+}
+export function postPrecompute(f, R, Qx, Qy, Px, Py) {
+  const q1 = psi(Qx, Qy);
+  let a1 = pointAdd(R.x, R.y, R.z, q1[0], q1[1]); R = a1.R; f = lineFn(f, a1.coeffs[0], a1.coeffs[1], a1.coeffs[2], Px, Py);
+  const q2 = psi(q1[0], q1[1]);
+  let a2 = pointAdd(R.x, R.y, R.z, q2[0], Fp2.neg(q2[1])); R = a2.R; f = lineFn(f, a2.coeffs[0], a2.coeffs[1], a2.coeffs[2], Px, Py);
+  return { f, R, coeffs: [a1.coeffs, a2.coeffs] };
+}
+// full single-pair miller -> { f (Fp12), R (final) }
+export function singlePairMiller(pair) {
+  const Qa = pair.Q.toAffine(), Pa = pair.P.toAffine(), negQy = Fp2.neg(Qa.y);
+  let f = Fp12.ONE, R = { x: Qa.x, y: Qa.y, z: Fp2.ONE };
+  for (let k = 0; k < ATE_NAF.length; k++) ({ f, R } = millerStep(f, R, k, Qa.x, Qa.y, negQy, Pa.x, Pa.y));
+  return postPrecompute(f, R, Qa.x, Qa.y, Pa.x, Pa.y);
+}
+
+// ---- BATCHED multi-pair Miller (one shared fp12Sqr per step) -------------------
+// noble's millerLoopBatch: f squared ONCE per NAF step, each pair's double-line (+
+// add-line) folded into the SHARED f; each pair's R evolves independently; then the
+// Q1/Q2 (psi) postPrecompute per pair. The folded f IS the boundary (no separate
+// combine). One batched step is ~8 mul034 (too coarse for one BCH input), so the loop
+// is exposed as a FLAT op list chunkable at any boundary, carrying (f + 4 R + points).
+// ops[i] = {t:'sqr'} | {t:'dl',j} | {t:'al',j,neg} | {t:'pp',j} (postPrecompute pair j).
+// states[i] = {f,Rs} BEFORE op i; states[ops.length] = final (f == boundary, BN: no conj).
+export function millerBatchOps(pairs, opts = {}) {
+  // opts.skipPairs (Set of pair indices): omit those pairs' line-folds entirely. Used by the
+  // residue build to drop the fully-constant pair e(alpha,beta) from the loop (its single-pair
+  // Miller value f_{alpha,beta} is baked and multiplied in once instead). Default = skip none,
+  // so every other consumer is unaffected. f then = product over the NON-skipped pairs.
+  const skip = opts.skipPairs ?? new Set();
+  const pds = pairs.map((p) => { const Qa = p.Q.toAffine(), Pa = p.P.toAffine(); return { Qx: Qa.x, Qy: Qa.y, negQy: Fp2.neg(Qa.y), Px: Pa.x, Py: Pa.y }; });
+  const ops = [];
+  for (let k = 0; k < ATE_NAF.length; k++) {
+    ops.push({ t: 'sqr' });
+    for (let j = 0; j < 4; j++) { if (skip.has(j)) continue; ops.push({ t: 'dl', j }); if (ATE_NAF[k]) ops.push({ t: 'al', j, neg: ATE_NAF[k] === -1 }); }
+  }
+  for (let j = 0; j < 4; j++) { if (skip.has(j)) continue; ops.push({ t: 'pp', j }); }
+  const states = [];
+  let f = Fp12.ONE; const Rs = pds.map((pd) => ({ x: pd.Qx, y: pd.Qy, z: Fp2.ONE }));
+  // Each non-sqr op also records its line-function coeffs (`op.coeffs`). For a pair with a
+  // FIXED VK G2 point (PT_CFG[j].Q === false) the whole R trajectory is proof-independent, so
+  // these coeffs are constants the generator can BAKE — the chunk then only evaluates the line
+  // at the runtime G1 point, skipping all on-chain G2 (pointDouble/pointAdd) work and dropping
+  // that pair's R from the carried state. `op.coeffs` is a triple of Fp2 (dl/al) or a pair of
+  // such triples (pp's two psi add-lines).
+  for (const op of ops) {
+    states.push({ f, Rs: Rs.slice() });
+    if (op.t === 'sqr') f = Fp12.sqr(f);
+    else if (op.t === 'dl') { const d = pointDouble(Rs[op.j].x, Rs[op.j].y, Rs[op.j].z); Rs[op.j] = d.R; op.coeffs = d.coeffs; f = lineFn(f, d.coeffs[0], d.coeffs[1], d.coeffs[2], pds[op.j].Px, pds[op.j].Py); }
+    else if (op.t === 'al') { const pd = pds[op.j]; const a = pointAdd(Rs[op.j].x, Rs[op.j].y, Rs[op.j].z, pd.Qx, op.neg ? pd.negQy : pd.Qy); Rs[op.j] = a.R; op.coeffs = a.coeffs; f = lineFn(f, a.coeffs[0], a.coeffs[1], a.coeffs[2], pd.Px, pd.Py); }
+    else { const pd = pds[op.j]; const res = postPrecompute(f, Rs[op.j], pd.Qx, pd.Qy, pd.Px, pd.Py); f = res.f; Rs[op.j] = res.R; op.coeffs = res.coeffs; }
+  }
+  states.push({ f, Rs: Rs.slice() });
+  return { ops, states, boundary: f };
+}
+
+// ---- serialization (matches cash hash256(toPaddedBytes(.,40))) ----
+export const f12limbs = (f) => [f.c0.c0.c0, f.c0.c0.c1, f.c0.c1.c0, f.c0.c1.c1, f.c0.c2.c0, f.c0.c2.c1, f.c1.c0.c0, f.c1.c0.c1, f.c1.c1.c0, f.c1.c1.c1, f.c1.c2.c0, f.c1.c2.c1];
+export const r6limbs = (R) => [R.x.c0, R.x.c1, R.y.c0, R.y.c1, R.z.c0, R.z.c1];
+export const le40 = (n) => binToFixedLength(bigIntToBinUintLE(BigInt(n)), 40);
+const sha256 = (b) => createHash('sha256').update(b).digest();
+export const commit = (limbs) => sha256(sha256(Buffer.concat(limbs.map(le40)))).toString('hex');
+
+// ---- the committed instance's 4 pairs ----
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../../');
+const shieldAdapterFile = process.env.C7_SHIELD_ADAPTER_FILE;
+const shieldAdapterSha256 = process.env.C7_SHIELD_ADAPTER_SHA256;
+if ((shieldAdapterFile === undefined) !== (shieldAdapterSha256 === undefined)) {
+  throw new Error('C7_SHIELD_ADAPTER_FILE and C7_SHIELD_ADAPTER_SHA256 must be supplied together');
+}
+const shieldAdapterRequested = shieldAdapterFile !== undefined;
+if (shieldAdapterRequested && (process.env.ELIG_INSTANCE !== undefined || process.env.ELIG_FILE !== undefined || process.env.ELIG_IDX !== undefined)) {
+  throw new Error('C7_SHIELD_ADAPTER_* owns VK/proof/public inputs and cannot be combined with ELIG selectors');
+}
+if (shieldAdapterRequested && process.env.T7 === '1') {
+  throw new Error('T7 requires committed synthetic toxic-waste scalars and is forbidden with C7_SHIELD_ADAPTER_*');
+}
+const shieldAdapter = shieldAdapterRequested
+  ? await (await import('../../../lanes/bn254-onetx/src/c7/shield-adapter-input.mjs')).loadPinnedShieldAdapterResult({ path: shieldAdapterFile, sha256: shieldAdapterSha256 })
+  : undefined;
+const committedVec = shieldAdapter ? undefined : JSON.parse(readFileSync(join(repoRoot, 'harness/src/checkpoints/pairing-vectors.json'), 'utf8'));
+const g1 = (o) => bn254.G1.Point.fromAffine({ x: BigInt(o.x), y: BigInt(o.y) });
+const g2 = (o) => bn254.G2.Point.fromAffine({ x: Fp2.fromBigTuple([BigInt(o.x.c0), BigInt(o.x.c1)]), y: Fp2.fromBigTuple([BigInt(o.y.c0), BigInt(o.y.c1)]) });
+const adapterG1 = (o, label) => {
+  try {
+    const point = bn254.G1.Point.fromAffine({ x: BigInt(o.x), y: BigInt(o.y) });
+    point.assertValidity(); if (point.equals(bn254.G1.Point.ZERO)) throw new Error('infinity');
+    return point;
+  } catch { throw new Error(`C7_SHIELD_ADAPTER_* ${label} is not a finite valid BN254 G1 point`); }
+};
+const adapterG2 = (o, label) => {
+  try {
+    const point = bn254.G2.Point.fromAffine({ x: Fp2.fromBigTuple([BigInt(o.x0), BigInt(o.x1)]), y: Fp2.fromBigTuple([BigInt(o.y0), BigInt(o.y1)]) });
+    point.assertValidity(); if (point.equals(bn254.G2.Point.ZERO)) throw new Error('infinity');
+    return point;
+  } catch { throw new Error(`C7_SHIELD_ADAPTER_* ${label} is not a finite valid BN254 G2 point`); }
+};
+const adapterVk = shieldAdapter && Object.freeze({
+  alpha: adapterG1(shieldAdapter.vk.alpha, 'verifierCashVk.alpha'),
+  beta: adapterG2(shieldAdapter.vk.beta, 'verifierCashVk.beta'),
+  gamma: adapterG2(shieldAdapter.vk.gamma, 'verifierCashVk.gamma'),
+  delta: adapterG2(shieldAdapter.vk.delta, 'verifierCashVk.delta'),
+  ic: Object.freeze(shieldAdapter.vk.ic.map((point, index) => adapterG1(point, `verifierCashVk.ic[${index}]`))),
+});
+const adapterProof = shieldAdapter && Object.freeze({
+  a: adapterG1({ x: shieldAdapter.fixture.Ax, y: shieldAdapter.fixture.Ay }, 'verifierCashFixture.A'),
+  b: adapterG2({ x0: shieldAdapter.fixture.Bxa, x1: shieldAdapter.fixture.Bxb, y0: shieldAdapter.fixture.Bya, y1: shieldAdapter.fixture.Byb }, 'verifierCashFixture.B'),
+  c: adapterG1({ x: shieldAdapter.fixture.Cx, y: shieldAdapter.fixture.Cy }, 'verifierCashFixture.C'),
+});
+const adapterInputs = shieldAdapter && Object.freeze([BigInt(shieldAdapter.fixture.in0), BigInt(shieldAdapter.fixture.in1)]);
+const g1Data = (point) => { const a = point.toAffine(); return { x: a.x.toString(), y: a.y.toString() }; };
+const g2Data = (point) => { const a = point.toAffine(); return { x: { c0: a.x.c0.toString(), c1: a.x.c1.toString() }, y: { c0: a.y.c0.toString(), c1: a.y.c1.toString() } }; };
+const adapterVec = shieldAdapter && {
+  vk: Object.freeze({ alpha: g1Data(adapterVk.alpha), beta: g2Data(adapterVk.beta), gamma: g2Data(adapterVk.gamma), delta: g2Data(adapterVk.delta), ic: Object.freeze(adapterVk.ic.map(g1Data)) }),
+  proof: Object.freeze({ a: g1Data(adapterProof.a), b: g2Data(adapterProof.b), c: g1Data(adapterProof.c) }),
+  publicInputs: Object.freeze(adapterInputs.map(String)),
+};
+if (adapterVec) {
+  const staticOnly = (name) => { throw new Error(`C7_SHIELD_ADAPTER_* forbids static vec.${name}`); };
+  Object.defineProperties(adapterVec, {
+    scalars: { get: () => staticOnly('scalars') },
+    r: { get: () => staticOnly('r') },
+  });
+  Object.freeze(adapterVec);
+}
+export const vec = adapterVec ?? committedVec;
+export const activeInstance = Object.freeze(shieldAdapter
+  ? { source: 'shield-adapter', artifact: shieldAdapter.artifact }
+  : { source: 'committed-pairing-vectors', artifact: undefined });
+export const publicInputs = Object.freeze(shieldAdapter ? [...adapterInputs] : vec.publicInputs.map(BigInt));
+export const vk = shieldAdapter ? adapterVk : { alpha: g1(vec.vk.alpha), beta: g2(vec.vk.beta), gamma: g2(vec.vk.gamma), delta: g2(vec.vk.delta), ic: vec.vk.ic.map(g1) };
+// T7 IC0-shift const-fold: absorb e(alpha,beta) into e(vk_x,gamma) by shifting IC0' = IC0 + [ahat*bhat*ghat^-1] g1.
+// Exact bilinearity: e([s]g1, gamma) = e(g1,g2)^(s*ghat) = e(g1,g2)^(ahat*bhat) = e(alpha,beta). vkx' = vkx + [s]g1
+// then e(vkx',gamma) = e(vkx,gamma)*e(alpha,beta), so the baked fAB fold (fABz literals + mulFp) is DELETED
+// (see millerFusedOpsAffine T7 branch). Requires the toxic-waste scalars (synthetic VK) — present in vec.scalars.
+export const T7_IC0SHIFT = process.env.T7 === '1';
+if (T7_IC0SHIFT) {
+  const rOrd = BigInt(vec.r);
+  const modpow = (b, e, m) => { b %= m; let R = 1n; while (e > 0n) { if (e & 1n) R = R * b % m; b = b * b % m; e >>= 1n; } return R; };
+  const ah = BigInt(vec.scalars.alpha) % rOrd, bh = BigInt(vec.scalars.beta) % rOrd, gh = BigInt(vec.scalars.gamma) % rOrd;
+  const s = ah * bh % rOrd * modpow(gh, rOrd - 2n, rOrd) % rOrd;
+  vk.ic = [...vk.ic]; vk.ic[0] = vk.ic[0].add(bn254.G1.Point.BASE.multiply(s));
+}
+export const proof = shieldAdapter ? adapterProof : { a: g1(vec.proof.a), b: g2(vec.proof.b), c: g1(vec.proof.c) };
+export const vkxPoint = (inputs) => { let x = vk.ic[0]; inputs.map(BigInt).forEach((s, i) => { x = x.add(vk.ic[i + 1].multiply(s)); }); return x; };
+export const pairsFor = (inputs, pf = proof) => [
+  { name: 'negA_B', P: pf.a.negate(), Q: pf.b },
+  { name: 'alpha_beta', P: vk.alpha, Q: vk.beta },
+  { name: 'vkx_gamma', P: vkxPoint(inputs), Q: vk.gamma },
+  { name: 'C_delta', P: pf.c, Q: vk.delta },
+];
+if (shieldAdapter) {
+  const product = bn254.pairingBatch([
+    { g1: proof.a.negate(), g2: proof.b },
+    { g1: vk.alpha, g2: vk.beta },
+    { g1: vkxPoint(publicInputs), g2: vk.gamma },
+    { g1: proof.c, g2: vk.delta },
+  ], true);
+  if (!Fp12.eql(product, Fp12.ONE)) throw new Error('C7_SHIELD_ADAPTER_* Groth16 pairing equation rejects supplied VK/proof/public inputs');
+}
+// build a proof object {a,b,c} (curve points) from raw limb bigints — used to
+// replay a DIFFERENT proof (proof #1) through the same generic chunk programs.
+export const proofFromLimbs = (Ax, Ay, Bxa, Bxb, Bya, Byb, Cx, Cy) => ({
+  a: bn254.G1.Point.fromAffine({ x: Ax, y: Ay }),
+  b: bn254.G2.Point.fromAffine({ x: Fp2.fromBigTuple([Bxa, Bxb]), y: Fp2.fromBigTuple([Bya, Byb]) }),
+  c: bn254.G1.Point.fromAffine({ x: Cx, y: Cy }),
+});
+
+// Which of P (G1) and Q (G2) are PROOF-derived (runtime) per pair, vs VK (baked).
+// pair0 e(-A,B): both proof.  pair1 e(alpha,beta): both VK.  pair2 e(vk_x,gamma):
+// P=vk_x runtime, Q=gamma VK.  pair3 e(C,delta): P=C runtime, Q=delta VK.
+// Runtime points ride in the carried (committed) state so they are bound; baked
+// VK points stay literals. This is what makes the chunks proof-agnostic.
+export const PT_CFG = [{ P: true, Q: true }, { P: false, Q: false }, { P: true, Q: false }, { P: true, Q: false }];
+/** runtime point limbs (declaration order) for a pair's affine P (G1) and Q (G2). */
+export const ptLimbs = (pairIdx, P, Q) => {
+  const o = [], c = PT_CFG[pairIdx];
+  if (c.P) o.push(P.x, P.y);
+  if (c.Q) o.push(Q.x.c0, Q.x.c1, Q.y.c0, Q.y.c1);
+  return o;
+};
+
+// ---- finalExp op-DAG trace (replayable for ANY boundary) -----------------------
+// Same op structure as gen_finalexp (proof-independent); only the values differ.
+// Returns { ops, liveAt(cut), limbs12(id), resultId } so build_vectors can recompute
+// a different proof's per-chunk live state at the SAME chunk windows.
+const X_LEN_FE = 63;
+export function finalexpTrace(boundaryVal) {
+  const ops = []; let nextId = 0;
+  const Vv = (val) => ({ id: nextId++, val });
+  const rec = (op, args, val) => { const v = Vv(val); ops.push({ id: v.id, op, args: args.map((a) => a.id), val }); return v; };
+  const cyc = (a) => rec('cyc', [a], Fp12._cyclotomicSquare(a.val));
+  const mul = (a, b) => rec('mul', [a, b], Fp12.mul(a.val, b.val));
+  const conj = (a) => rec('conj', [a], Fp12.conjugate(a.val));
+  const f1 = (a) => rec('f1', [a], Fp12.frobeniusMap(a.val, 1));
+  const f2 = (a) => rec('f2', [a], Fp12.frobeniusMap(a.val, 2));
+  const f3 = (a) => rec('f3', [a], Fp12.frobeniusMap(a.val, 3));
+  const inv = (a) => rec('inv', [a], Fp12.inv(a.val));
+  const cycExp = (numV) => { let z = numV; for (let i = X_LEN_FE - 2; i >= 0; i--) { z = cyc(z); if ((BN_X >> BigInt(i)) & 1n) z = mul(z, numV); } return z; };
+  const powMinusX = (xV) => conj(cycExp(xV));
+  const fV = Vv(boundaryVal);
+  const r0 = mul(conj(fV), inv(fV));
+  const r = mul(f2(r0), r0);
+  const y1 = cyc(powMinusX(r));
+  const y2 = mul(cyc(y1), y1);
+  const y4 = powMinusX(y2);
+  const y6 = powMinusX(cyc(y4));
+  const y8 = mul(mul(conj(y6), y4), conj(y2));
+  const y9 = mul(y8, y1);
+  const left = f3(mul(conj(r), y9));
+  const right = mul(f2(y8), mul(f1(y9), mul(mul(y8, y4), r)));
+  const result = mul(left, right);
+  const valOf = new Map([[fV.id, boundaryVal]]); for (const o of ops) valOf.set(o.id, o.val);
+  const def = new Map([[fV.id, -1]]); ops.forEach((o, i) => def.set(o.id, i));
+  const lastUse = new Map(); ops.forEach((o, i) => o.args.forEach((a) => lastUse.set(a, i)));
+  lastUse.set(result.id, ops.length);
+  const liveAt = (cut) => [...def.keys()].filter((id) => def.get(id) < cut && (lastUse.get(id) ?? -1) >= cut).sort((a, b) => a - b);
+  const limbs12 = (id) => f12limbs(valOf.get(id));
+  return { ops, liveAt, limbs12, resultId: result.id, result: result.val };
+}
+
+// ---- vk_x Jacobian accumulator trace (replayable for ANY public inputs) ---------
+const PFP = Fp.ORDER;
+const aF = (x, y) => (x + y) % PFP, sF = (x, y) => (x - y + PFP) % PFP, mF = (x, y) => (x * y) % PFP, qF = (x) => (x * x) % PFP;
+function jacDouble(X, Y, Z) {
+  const a = qF(X), b = qF(Y), c = qF(b);
+  const d = mF(2n, sF(sF(qF(aF(X, b)), a), c));
+  const e = mF(3n, a), f = qF(e);
+  const nx = sF(f, mF(2n, d));
+  return [nx, sF(mF(e, sF(d, nx)), mF(8n, c)), mF(2n, mF(Y, Z))];
+}
+function jacAdd(aX, aY, aZ, bX, bY, bZ) {
+  if (aZ === 0n) return [bX, bY, bZ];
+  const z1z1 = qF(aZ), z2z2 = qF(bZ);
+  const u1 = mF(aX, z2z2), u2 = mF(bX, z1z1);
+  const s1 = mF(mF(aY, bZ), z2z2), s2 = mF(mF(bY, aZ), z1z1);
+  if (u1 === u2 && s1 === s2) return jacDouble(aX, aY, aZ);
+  const h = sF(u2, u1), i2 = qF(mF(2n, h)), j = mF(h, i2);
+  const rr = mF(2n, sF(s2, s1)), v = mF(u1, i2);
+  const nx = sF(sF(qF(rr), j), mF(2n, v));
+  return [nx, sF(mF(rr, sF(v, nx)), mF(2n, mF(s1, j))), mF(sF(sF(qF(aF(aZ, bZ)), z1z1), z2z2), h)];
+}
+const _ic1 = vk.ic[1].toAffine(), _ic2 = vk.ic[2].toAffine(), _icT = vk.ic[1].add(vk.ic[2]).toAffine();
+/** Shamir/Straus vk_x accumulator after processing windows [0,upto): [rX,rY,rZ]. */
+export function vkxStateAt(in0, in1, upto) {
+  let X = 0n, Y = 1n, Z = 0n;
+  for (let j = 0; j < upto; j++) {
+    const i = 253 - j;
+    if (Z !== 0n) [X, Y, Z] = jacDouble(X, Y, Z);
+    const b0 = (in0 >> BigInt(i)) & 1n, b1 = (in1 >> BigInt(i)) & 1n;
+    const ap = b0 && b1 ? [_icT.x, _icT.y] : b0 ? [_ic1.x, _ic1.y] : b1 ? [_ic2.x, _ic2.y] : null;
+    if (ap) [X, Y, Z] = jacAdd(X, Y, Z, ap[0], ap[1], 1n);
+  }
+  return [X, Y, Z];
+}
+const _ic0 = vk.ic[0].toAffine();
+const modpowFp = (b, e) => { let r = 1n; b %= PFP; while (e > 0n) { if (e & 1n) r = (r * b) % PFP; b = (b * b) % PFP; e >>= 1n; } return r; };
+/** the final vkx chunk's auxiliary zInv = (Z of (acc + IC0))^-1, supplied in the unlocking. */
+export function vkxFinalZinv(in0, in1) {
+  const acc = vkxStateAt(in0, in1, 254);
+  const [, , fz] = jacAdd(acc[0], acc[1], acc[2], _ic0.x, _ic0.y, 1n);
+  return fz === 0n ? 0n : modpowFp(fz, PFP - 2n);
+}
+
+// ---- extract reusable functions from a singleton lib .cash (for chunk prologues) ----
+// The singleton libs are top-level `function`s at column 0 (feat/multi-returns syntax).
+export function fnExtractor(cashPath) {
+  const src = readFileSync(cashPath, 'utf8').split('\n');
+  return (name) => {
+    const out = []; let p = false, depth = 0;
+    for (const ln of src) {
+      if (!p && ln.startsWith(`function ${name}(`)) p = true;
+      if (p) {
+        out.push(ln);
+        depth += (ln.match(/\{/g) || []).length - (ln.match(/\}/g) || []).length;
+        if (depth === 0 && ln.includes('}')) break; // matched the function's closing brace (inline braces keep depth>0)
+      }
+    }
+    return out.join('\n');
+  };
+}
+
+// ---- real-VM measurement (padded like shamir) ----
+const pushInt = (n) => encodeDataPush(bigIntToVmNumber(n));
+const padPush = (argLen, target) => { const N = target - argLen - 3; return Uint8Array.from([OP_PUSHDATA2, ...numberToBinUint16LE(N), ...new Uint8Array(N)]); };
+// compile `src` IN-PROCESS, run with `stateInts` (declaration order) on the real
+// VM (padded to cap). Returns op-cost + size + accept; a compile error counts as
+// "doesn't fit" so the planner just shrinks the window. (3rd arg kept for callers
+// that still pass a probe path — ignored.)
+export function measureChunk(src, stateInts) {
+  let raw;
+  try { raw = compileBytecodeRaw(src); }
+  catch (e) { return { lockingBytes: Infinity, operationCost: Infinity, accepted: false, error: String(e?.message ?? e) }; }
+  const locking = Uint8Array.from([...raw]); // no OP_DROP: trailing `bytes unused zeroPadding` param
+  const argBytes = Uint8Array.from([...stateInts].reverse().flatMap((c) => [...pushInt(c)]));
+  const unlocking = Uint8Array.from([...padPush(argBytes.length, TARGET_UNLOCK), ...argBytes]); // pad first (pushed first)
+  const st = realVm.evaluate(createTestAuthenticationProgramBch({ lockingBytecode: locking, unlockingBytecode: unlocking, valueSatoshis: 1000n }));
+  const top = st.stack[st.stack.length - 1];
+  const accepted = st.error === undefined && st.stack.length === 1 && top !== undefined && top.length === 1 && top[0] === 1;
+  return { lockingBytes: locking.length, operationCost: st.metrics.operationCost, accepted, error: st.error ?? null };
+}
+export const decl = (names) => names.map((n) => `int ${n}`).join(',');
+// S0 balanced-CAT: a BALANCED binary tree of `+` (OP_CAT) over already-rendered byte terms
+// instead of a left-fold `t0 + t1 + t2 + ...`. OP_CAT is associative, so the concatenated
+// PREIMAGE bytes are byte-IDENTICAL to the left-fold (same operand order) => same hash256 =>
+// PROVABLY zero soundness change. But the VM copies O(n log n) intermediate bytes (a balanced
+// merge) instead of the left-fold's O(n^2) growing accumulator, so a 52-limb state hash drops
+// ~80k op-cost (measured, real BCH-2026 VM). Two such hashes per interior chunk (covIn+covOut),
+// so each chunk frees ~160k op-cost of budget => the greedy planner packs more Miller ops per
+// chunk => fewer chunks => net byte win that offsets the successor self-pin's added op-cost.
+export const balancedCat = (terms) => {
+  if (terms.length === 1) return terms[0];
+  const mid = terms.length >> 1;
+  return `(${balancedCat(terms.slice(0, mid))} + ${balancedCat(terms.slice(mid))})`;
+};
+export const serExpr = (names) => `hash256(${balancedCat(names.map((n) => `toPaddedBytes(${n}, 40)`))})`;
+
+// ---- covenant (token state-threading) helpers ----------------------------------
+// A GENERIC (proof-independent) chunk carries NO baked state: the running-state
+// HASH lives in the spent/created token's NFT commitment. The unlocking script
+// pushes the raw state limbs; the contract checks them against the input token's
+// commitment, recomputes, and re-commits to output[0] under the same token thread.
+// One fixed locking therefore verifies ANY proof (runtime-general).
+export const CATEGORY = new Uint8Array(32).fill(0xcd); // benchmark thread id (32B)
+const sha256d = (b) => sha256(sha256(b));
+/** 32-byte NFT commitment of a state (decl-order limbs), as bytes. */
+export const commitBin = (limbs) => new Uint8Array(sha256d(Buffer.concat(limbs.map(le40))));
+/** require: the spent token commits hash(incoming state) (decl-order `names`). */
+export const covIn = (names) =>
+  `        require(tx.inputs[this.activeInputIndex].nftCommitment == ${serExpr(names)});`;
+/** require: output[0] commits hash(outgoing, reduced) + perpetuates the token thread, AND — for
+ * every NON-terminal chunk — PINS THE COVENANT SUCCESSOR so the state NFT cannot escape the chain.
+ *
+ * `succSpk` = the successor chunk's 35-byte P2SH32 locking bytecode (Uint8Array or 70-char hex),
+ * or null/undefined for the TERMINAL tail (no successor to pin). When present, covOut emits the
+ * exact deployed thread-escape defense:
+ *   require(tx.outputs.length == 1);                          // OP_TXOUTPUTCOUNT: exactly one output
+ *   require(tx.outputs[0].lockingBytecode == <succSpk>);      // OP_OUTPUTBYTECODE: output routed to
+ *                                                             //   the committed next-chunk P2SH32
+ * Without these, a chunk pins only output[0].nftCommitment + tokenCategory, so any spender could
+ * route the state NFT to an arbitrary attacker script (covenant-thread-escape forgery) or split it
+ * across extra outputs. The successor's P2SH32 spk is threaded in by the generator (build the chain
+ * tail-first: successor redeem -> hash256 -> P2SH32 spk -> pin in predecessor's covOut). */
+export const covOut = (outNames, succSpk = null, canonical = null) => {
+  // MODSTRIP: `canonical` is a GENERATOR-DERIVED set of outName limbs that are provably already
+  // canonical (< P) on entry — i.e. pass-through limbs that a predecessor covOut already reduced
+  // via `% Pmod` AND covIn hash-binds to that reduced value. For such a limb the `% Pmod` here is
+  // dead: covIn's serExpr commits `toPaddedBytes(name, 40)` (RAW, no reduction), so the hash-binding
+  // forces the witness to equal the predecessor's canonical bytes; re-serializing it RAW in covOut
+  // reproduces those exact bytes (injective NUM2BIN over the fixed 40-byte width). Stripping `% Pmod`
+  // is therefore value-preserving on `canonical` names only. The set MUST be derived by the emitting
+  // generator from covIn provenance (never hand-maintained): a name is canonical iff it is a covIn-
+  // bound pass-through limb whose committed value was reduced by the predecessor. Computed limbs
+  // (fresh SSA results of line/fp12/affDbl/affAdd) and unbound genesis witnesses are NOT canonical.
+  const canon = canonical instanceof Set ? canonical : Array.isArray(canonical) ? new Set(canonical) : new Set();
+  const serOut = (n) => canon.has(n) ? `toPaddedBytes(${n}, 40)` : `toPaddedBytes(${n} % Pmod, 40)`;
+  const needsPmod = outNames.some((n) => !canon.has(n));
+  // local name `Pmod` (not `P`) avoids colliding with the global `constant P` that the non-lazy
+  // library exports (g2check imports it); the lazy-lib consumers have no global P either way.
+  // SIBLING-READ REARCH (env SIBLING_READ=1): port of hybrid-minadds @4f8d2614. covOut normally pins
+  //   require(tx.outputs.length==1); require(tx.outputs[0].lockingBytecode==succSpk)
+  // => three covenant stages each demand a different sole output => mutually exclusive => forced
+  // boundary-tx chain. SIBLING_READ redirects the forward-check to the SUCCESSOR INPUT (aii+1):
+  //   require(tx.inputs[aii+1].nftCommitment==hash(outgoing));   // successor STATE (token)
+  //   require(tx.inputs[aii+1].tokenCategory==self);             // category continuity (token)
+  //   require(tx.inputs[aii+1].lockingBytecode==succSpk);        // successor CONTRACT
+  // Byte-adds-<=0; lets sibling-read stages co-inhabit one tx. (State stays in the NFT commitment.)
+  const SR = process.env.SIBLING_READ === '1';
+  const tgtCommit = SR ? 'tx.inputs[this.activeInputIndex + 1].nftCommitment' : 'tx.outputs[0].nftCommitment';
+  const tgtCat = SR ? 'tx.inputs[this.activeInputIndex + 1].tokenCategory' : 'tx.outputs[0].tokenCategory';
+  const body =
+    (needsPmod ? '        int Pmod = 21888242871839275222246405745257275088696311157297823662689037894645226208583;\n' : '') +
+    `        require(${tgtCommit} == hash256(${balancedCat(outNames.map(serOut))}));\n` +
+    `        require(${tgtCat} == tx.inputs[this.activeInputIndex].tokenCategory);`;
+  if (succSpk === null || succSpk === undefined) return body; // terminal tail: no successor pin
+  const hex = typeof succSpk === 'string' ? succSpk : binToHex(succSpk);
+  if (hex.length !== 70) throw new Error(`covOut succSpk must be a 35-byte P2SH32 spk (got ${hex.length / 2} bytes)`);
+  if (SR) return body + '\n' +
+    `        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == 0x${hex});`;
+  return body + '\n' +
+    '        require(tx.outputs.length == 1);\n' +
+    `        require(tx.outputs[0].lockingBytecode == 0x${hex});`;
+};
+
+/** Real-VM measurer for a COVENANT chunk: drives it through a synthetic token tx
+ * (spent UTXO = hash(incoming), output[0] = hash(outgoing)) so the introspection
+ * resolves. `stateInts`/`outLimbs` are decl-order limbs (outLimbs already reduced). */
+export function measureCovenant(src, stateInts, outLimbs) {
+  let raw;
+  try { raw = compileBytecodeRaw(src); }
+  catch (e) { return { lockingBytes: Infinity, operationCost: Infinity, accepted: false, error: String(e?.message ?? e) }; }
+  return measureCovenantRaw(raw, stateInts, outLimbs);
+}
+/** Like measureCovenant, but compiles `src` from a FILE (written to `probePath`) so its
+ * relative library `import` resolves. Used by the prepared-VK Miller planner, whose chunks
+ * import the shared singleton library instead of inlining the tower functions. */
+export function measureCovenantFile(src, stateInts, outLimbs, probePath) {
+  let raw;
+  try { writeFileSync(probePath, src); raw = compileFileBytecodeRaw(probePath); }
+  catch (e) { return { lockingBytes: Infinity, operationCost: Infinity, accepted: false, error: String(e?.message ?? e) }; }
+  return measureCovenantRaw(raw, stateInts, outLimbs);
+}
+function measureCovenantRaw(raw, stateInts, outLimbs) {
+  const locking = Uint8Array.from([...raw]); // no OP_DROP: trailing `bytes unused zeroPadding` param
+  const argBytes = Uint8Array.from([...stateInts].reverse().flatMap((c) => [...pushInt(c)]));
+  const unlocking = Uint8Array.from([...padPush(argBytes.length, TARGET_UNLOCK), ...argBytes]); // pad first (pushed first)
+  const tok = (commitment) => ({ amount: 0n, category: CATEGORY, nft: { capability: 'mutable', commitment } });
+  const program = {
+    inputIndex: 0,
+    sourceOutputs: [{ lockingBytecode: locking, valueSatoshis: 1000n, token: tok(commitBin(stateInts)) }],
+    transaction: {
+      version: 2,
+      inputs: [{ outpointTransactionHash: new Uint8Array(32), outpointIndex: 0, sequenceNumber: 0, unlockingBytecode: unlocking }],
+      outputs: [{ lockingBytecode: locking, valueSatoshis: 1000n, token: tok(commitBin(outLimbs)) }],
+      locktime: 0,
+    },
+  };
+  const st = realVm.evaluate(program);
+  const top = st.stack[st.stack.length - 1];
+  const accepted = st.error === undefined && st.stack.length === 1 && top !== undefined && top.length === 1 && top[0] === 1;
+  return { lockingBytes: locking.length, operationCost: st.metrics.operationCost, arith: st.metrics.arithmeticCost ?? 0, instr: st.metrics.evaluatedInstructionCount ?? 0, push: st.metrics.stackPushedBytes ?? 0, accepted, error: st.error ?? null };
+}
+
+// rescheduled-file variant of measureCovenant (compiles WITH rescheduleStacks) for A/B glue probing
+export function measureCovenantFileResched(cashFile, stateInts, outLimbs) {
+  let raw; try { raw = compileFileBytecode(cashFile); } catch (e) { return { operationCost: Infinity, error: String(e?.message ?? e) }; }
+  return measureCovenantRaw(raw, stateInts, outLimbs);
+}
+export function measureCovenantFileRaw2(cashFile, stateInts, outLimbs) {
+  let raw; try { raw = compileFileBytecodeRaw(cashFile); } catch (e) { return { operationCost: Infinity, error: String(e?.message ?? e) }; }
+  return measureCovenantRaw(raw, stateInts, outLimbs);
+}
+
+// Predict-and-adjust greedy window planner. Instead of linear growth (compile
+// every candidate from lo+1 upward — most thrown away), estimate the window from
+// a running op-cost-per-unit average, compile that, then adjust ±1 to the budget
+// boundary. ~2 compiles/chunk vs ~4-10. `state` is a mutable {perUnit:null} that
+// the planner calibrates over successive chunks (first chunk falls back to linear
+// growth to seed it). `tryAt(hi) -> { fits, operationCost, ... }` builds+measures
+// the window [lo,hi); returns the best record (with its `.hi`).
+export function planChunk(lo, max, opTarget, tryAt, state) {
+  let best = null;
+  const consider = (hi) => { const r = tryAt(hi); if (r.fits) best = { hi, ...r }; return r; };
+  if (state.perUnit == null) {
+    consider(lo + 1);
+    for (let hi = lo + 2; hi <= max; hi++) if (!consider(hi).fits) break;
+  } else {
+    const guess = Math.min(max, lo + Math.max(1, Math.floor(opTarget / state.perUnit)));
+    if (consider(guess).fits) { for (let hi = guess + 1; hi <= max; hi++) if (!consider(hi).fits) break; }
+    else { for (let hi = guess - 1; hi > lo; hi--) if (consider(hi).fits) break; }
+    if (!best) consider(lo + 1); // 1 unit always fits in practice
+  }
+  if (best) { const u = best.hi - lo, pu = best.operationCost / u; state.perUnit = state.perUnit == null ? pu : 0.5 * state.perUnit + 0.5 * pu; }
+  return best;
+}

@@ -1,0 +1,14 @@
+{
+  "name": "leanbch-optimizer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A verified, dialect-pluggable BCH Script bytecode optimizer — the runnable companion to the LeanBCH.Opt proofs. Applies only theorem-backed transforms (fold / CSE / move-arrange) and reports what is proven vs differential-gated.",
+  "bin": { "bch-optimize": "./cli.mjs" },
+  "scripts": {
+    "test": "node test/byte-identity.mjs && node test/covenant.mjs"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8"
+  }
+}

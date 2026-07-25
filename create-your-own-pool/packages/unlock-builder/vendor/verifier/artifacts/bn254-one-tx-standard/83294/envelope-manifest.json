@@ -1,0 +1,347 @@
+{
+  "schema": "verifier.cash/utxo-envelope-replay/v1",
+  "generatedAt": "2026-07-17T06:09:39.089Z",
+  "candidateRoot": "/tmp/verifier-cash-public-r25-20260717",
+  "candidateWire": {
+    "txSha256": "008bf13f5b633839ff26d71b85fc00263bc5cd88bb21951adfa96d71b0efefb5",
+    "sourceOutputsSha256": "53d6e9675096c88a04f5fe4ba5da2b8d1ac92b33c36d2e11596c3facc388b7c7"
+  },
+  "parent": {
+    "txSha256": "86504d3bfb60e7dc683f037e7b13c985f7de815f96399474222a90fe363db086",
+    "internalTxid": "fbc974895947f1c014286abfc01ff738a45fbd6e9fc4a89878a33e72c8717c94",
+    "inputOutpoint": "5555555555555555555555555555555555555555555555555555555555555555:0",
+    "outputCount": 10,
+    "outputValues": [
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000",
+      "1000"
+    ],
+    "wireBytes": 1319,
+    "sourceResolution": "spend outpoints -> parent txid map -> parent outputs; no detached source array",
+    "outputWireExact": true,
+    "monetaryValid": true,
+    "consensus": {
+      "accept": true,
+      "error": "",
+      "opCost": 695,
+      "instructions": 5
+    },
+    "standard": {
+      "accept": true,
+      "error": "",
+      "opCost": 951,
+      "instructions": 5
+    },
+    "consensusWholeTx": {
+      "accept": true,
+      "error": ""
+    },
+    "standardWholeTx": {
+      "accept": true,
+      "error": ""
+    },
+    "tokenValid": true,
+    "lean": {
+      "exit": 0,
+      "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/parent IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=695",
+      "parsed": true,
+      "index": 0,
+      "accept": true,
+      "txValid": true,
+      "tokenValid": true,
+      "leanOpCost": 695
+    }
+  },
+  "spend": {
+    "txSha256": "b1117d516da9b917cd64180a1f2af2bd279690b278a542c5ad875a19531157a6",
+    "sourceOutputsSha256": "53d6e9675096c88a04f5fe4ba5da2b8d1ac92b33c36d2e11596c3facc388b7c7",
+    "inputCount": 10,
+    "outpointParentTxid": [
+      "fbc974895947f1c014286abfc01ff738a45fbd6e9fc4a89878a33e72c8717c94"
+    ],
+    "outpointIndices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "monetaryValid": true,
+    "consensusAll": true,
+    "standardAll": true,
+    "consensusWholeTx": {
+      "accept": true,
+      "error": ""
+    },
+    "standardWholeTx": {
+      "accept": true,
+      "error": ""
+    },
+    "tokenValid": true,
+    "consensus": [
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7611978,
+        "instructions": 36923
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7005201,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 6421084,
+        "instructions": 30587
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7022682,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7010780,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7012978,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 6991138,
+        "instructions": 33737
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 5695774,
+        "instructions": 47019
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 1481570,
+        "instructions": 4595
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 4081824,
+        "instructions": 17247
+      }
+    ],
+    "standard": [
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7631562,
+        "instructions": 36923
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7024785,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 6440668,
+        "instructions": 30587
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7042266,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7030364,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7032562,
+        "instructions": 33755
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 7010722,
+        "instructions": 33737
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 5715358,
+        "instructions": 47019
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 1498722,
+        "instructions": 4595
+      },
+      {
+        "accept": true,
+        "error": "",
+        "opCost": 4101280,
+        "instructions": 17247
+      }
+    ],
+    "lean": [
+      {
+        "index": 0,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=0 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7611978",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 7611978
+      },
+      {
+        "index": 1,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=1 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7005201",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 7005201
+      },
+      {
+        "index": 2,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=2 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6421084",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 6421084
+      },
+      {
+        "index": 3,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=3 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7022682",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 7022682
+      },
+      {
+        "index": 4,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=4 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7010780",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 7010780
+      },
+      {
+        "index": 5,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=5 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=7012978",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 7012978
+      },
+      {
+        "index": 6,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=6 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=6991138",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 6991138
+      },
+      {
+        "index": 7,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=7 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=5695774",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 5695774
+      },
+      {
+        "index": 8,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=8 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=1481570",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 1481570
+      },
+      {
+        "index": 9,
+        "exit": 0,
+        "raw": "PREFIX=/tmp/verifier-cash-public-r25-envelope-20260717/spend IDX=9 leanVerifyInput=true txValid=true verifyTokens=true leanFullOpCost=4081824",
+        "parsed": true,
+        "accept": true,
+        "txValid": true,
+        "tokenValid": true,
+        "leanOpCost": 4081824
+      }
+    ]
+  },
+  "vmbconf": {
+    "pass": 11,
+    "total": 11,
+    "rejectedValid": 0,
+    "acceptedInvalid": 0,
+    "standardTrue": 11,
+    "standardFalse": 0,
+    "raw": "PASS 11 / 11\nREJECTED-VALID 0: []\nACCEPTED-INVALID 0: []\nSTD-TRUE 11 STD-FALSE 0\nSTD-TRUE-IDS: [parent, spend-0, spend-1, spend-2, spend-3, spend-4, spend-5, spend-6, spend-7, spend-8, spend-9]\nSTD-FALSE-IDS: []"
+  },
+  "gates": {
+    "parentConsensusAccept": true,
+    "parentStandardAccept": true,
+    "parentConsensusWholeTxAccept": true,
+    "parentStandardWholeTxAccept": true,
+    "parentLeanAccept": true,
+    "parentLeanTxValid": true,
+    "parentLeanTokenValid": true,
+    "parentOpCostParity": true,
+    "spendConsensusAll": true,
+    "spendStandardAll": true,
+    "spendConsensusWholeTxAccept": true,
+    "spendStandardWholeTxAccept": true,
+    "spendLeanAll": true,
+    "spendOpCostParity": true,
+    "vmbconfAll": true,
+    "sourceResolutionExact": true
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bn254-onetx-directstate-10-public-ds1",
+  "lane": "bn254-onetx",
+  "status": "measured",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "7270e006852db43fecca1417bf185c789e4c5132",
+    "bch": "BCH-2026"
+  },
+  "build": {
+    "adapter": "artifact-bundle",
+    "artifactRoot": "artifacts/bn254-one-tx-standard/83294",
+    "files": {
+      "result": "result.json",
+      "inputs": "inputs_dump.json",
+      "transaction": "c7_candidate_tx.hex",
+      "source-outputs": "c7_candidate_srcouts.hex",
+      "vectors": "verifier-bench-vectors.json",
+      "bench-output": "verifier-bench-output.txt",
+      "envelope": "envelope-manifest.json",
+      "a1-summary": "a1-summary.json",
+      "a1-results": "a1-results.json",
+      "role-battery": "role-battery.json",
+      "deployment-battery": "strict-deployment-battery.json",
+      "full-corpus": "full-corpus-aggregate.json",
+      "lock-invariance": "lock-invariance.json"
+    }
+  },
+  "judge": {
+    "profile": "public-bench-fixed-vk",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "expected": {
+      "scriptBytes": 82844,
+      "txOverheadBytes": 450,
+      "score": 83294,
+      "inputCount": 10
+    }
+  },
+  "provenance": {
+    "sourceCommit": "7cd340227b960ddc67e20eb4f9f388a6613dfb95",
+    "scope": "[BN254 DirectState-10; bn254-directstate-10-public-ds1] Fixed VK and deployment, stock public-bench context, 256-proof corpus; measured and public-bench compatible, not generic or promotion-certified as the native sound crown."
+  },
+  "identity": {
+    "humanName": "BN254 DirectState-10",
+    "construction": "directstate",
+    "topology": 10,
+    "stateModel": "public",
+    "revision": "ds1",
+    "slug": "bn254-directstate-10-public-ds1"
+  }
+}

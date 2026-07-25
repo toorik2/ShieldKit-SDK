@@ -12,29 +12,32 @@ We do **not** offer a hosted pool for third-party apps. The Chipnet playground i
 ```bash
 npm test
 npm run shieldkit -- --version
-npm run shieldkit -- --help
 
-# Product
-npm run shieldkit -- init --config create-your-own-pool/templates/init.development.json
+# Unlock builder pin (Node-only; no sibling verifier.cash)
+npm run unlock-builder:smoke
 
-# Optional demo
-npm run fetch-playground-bundle
-npm run shieldkit -- playground doctor
+# Scaffold a pool dir from the pinned development profile
+npm run create-pool -- --out ./my-pool
+
+# Full Chipnet act spine (deposit→transfer→withdraw) via product APIs
+npm run e2e:standalone
 ```
 
 ```js
 import {
   createKit,
+  completeAction,
   loadInstance,
   instanceToKitConfig,
 } from './create-your-own-pool/packages/kit/index.mjs';
+import { buildVerifierUnlocks, PIN_LENS } from './create-your-own-pool/packages/unlock-builder/index.mjs';
 
-// Your pool (after init + genesis)
+// Your pool (after create-pool / genesis)
 const mine = await loadInstance('./my-pool');
 const kit = await createKit(instanceToKitConfig(mine));
 
-// Optional demo
-// const demo = await loadInstance('use-chipnet-demo-pool');
+// Settlement unlocks (Node): buildVerifierUnlocks / completeAction
 ```
 
-You own: **keys · frontend · RPC · broadcast**.
+You own: **keys · frontend · RPC · broadcast**.  
+Unlock compile ships in `@shieldkit/unlock-builder` (vendored C7 pin).

@@ -1,0 +1,1473 @@
+{
+  "schema": "verifier.cash/strict-deployment-battery/v1",
+  "parent": "/tmp/verifier-cash-direct-state-clean-9ee-r25-envelope",
+  "total": 12,
+  "globalAccepts": [],
+  "standardGlobalAccepts": [],
+  "cases": [
+    {
+      "id": "source-value-0",
+      "parentTxid": "b05aceef110c2360bb3cd38df94b21437dbbe08c625ad4bc2fc222c887ba7428",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673695
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5693279
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "source-value-9",
+      "parentTxid": "a9948eab162b1aeacb371d6bbb3f254d06f7065b7dd0f002e615882d92c7cd70",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5689217
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5708801
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "output-value",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5672887
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5692471
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "output-lock",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5673290
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5692874
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "output-count",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5672181
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5691765
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "sequence-0",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5674101
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5693685
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "sequence-9",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5689624
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5709208
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "tx-version",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5671575
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5691159
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "tx-locktime",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5672483
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5692067
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "split-parent-outpoint-hash",
+      "parentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "alternateParentTxid": "2d5f7c51cda7e9850e11f91222eb213293d39abe069eeaa9c9e5466258975880",
+      "useAltInput0": true,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 7: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6988057
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5676295
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7007641
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 5695879
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "root-source-lock-6",
+      "parentTxid": "3b959224aef02b3bfcfdfd6dc7ff97c4e0a7439262610a4d41d62ec2c4434b42",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 0: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 0: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7613113
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7006336
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6422219
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7023817
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7011915
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7014233
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6988560
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 5690600
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7633209
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7026432
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6442315
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7043913
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7032011
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7034329
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7008656
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 5710184
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    },
+    {
+      "id": "root-source-lock-7",
+      "parentTxid": "b32dcb2e42d2899f023e85c779a5cc9a7da93450082620181342525334269582",
+      "alternateParentTxid": "cacc406c2dba61e15ac8db081d65c08ec4c965d2a955a2b5f60ac70e1f07b47b",
+      "useAltInput0": false,
+      "txValid": true,
+      "tokenValid": true,
+      "consensusWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 6: Program failed an OP_VERIFY operation."
+      },
+      "standardWholeTx": {
+        "accept": false,
+        "error": "Unable to verify transaction: error in evaluating input index 6: Program failed an OP_VERIFY operation."
+      },
+      "consensus": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7613192
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7006415
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6422298
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7023896
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7011994
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7014312
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 6988199
+        },
+        {
+          "accept": false,
+          "error": "Program called an OP_SPLIT operation with an invalid index. stack item length: 0; requested split index: 40.",
+          "opCost": 316182
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1402646
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4006153
+        }
+      ],
+      "standard": [
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7633416
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7026639
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 6442522
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7044120
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7032218
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 7034536
+        },
+        {
+          "accept": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "opCost": 7007783
+        },
+        {
+          "accept": false,
+          "error": "Program called an OP_SPLIT operation with an invalid index. stack item length: 0; requested split index: 40.",
+          "opCost": 326550
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 1417366
+        },
+        {
+          "accept": true,
+          "error": "",
+          "opCost": 4023177
+        }
+      ],
+      "globalAccept": false,
+      "standardGlobalAccept": false
+    }
+  ]
+}

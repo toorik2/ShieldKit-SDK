@@ -1,0 +1,208 @@
+import {
+  Node,
+  SourceFileNode,
+  ImportNode,
+  ContractNode,
+  ParameterNode,
+  VariableDefinitionNode,
+  FunctionDefinitionNode,
+  AssignNode,
+  IdentifierNode,
+  BranchNode,
+  CastNode,
+  FunctionCallNode,
+  UnaryOpNode,
+  BinaryOpNode,
+  BoolLiteralNode,
+  IntLiteralNode,
+  HexLiteralNode,
+  StringLiteralNode,
+  StatementNode,
+  BlockNode,
+  TimeOpNode,
+  ArrayNode,
+  TupleIndexOpNode,
+  RequireNode,
+  ReturnNode,
+  InstantiationNode,
+  TupleAssignmentNode,
+  NullaryOpNode,
+  ConsoleStatementNode,
+  ConsoleParameterNode,
+  FunctionCallStatementNode,
+  SliceNode,
+  DoWhileNode,
+  WhileNode,
+  ForNode,
+} from './AST.js';
+import AstVisitor from './AstVisitor.js';
+
+export default class AstTraversal extends AstVisitor<Node> {
+  visitSourceFile(node: SourceFileNode): Node {
+    node.functions = this.visitList(node.functions) as FunctionDefinitionNode[];
+    node.contract = this.visitOptional(node.contract) as ContractNode | undefined;
+    return node;
+  }
+
+  visitImport(node: ImportNode): Node {
+    return node;
+  }
+
+  visitContract(node: ContractNode): Node {
+    node.parameters = this.visitList(node.parameters) as ParameterNode[];
+    node.functions = this.visitList(node.functions) as FunctionDefinitionNode[];
+    return node;
+  }
+
+  visitFunctionDefinition(node: FunctionDefinitionNode): Node {
+    node.parameters = this.visitList(node.parameters) as ParameterNode[];
+    node.body = this.visit(node.body) as BlockNode;
+    return node;
+  }
+
+  visitParameter(node: ParameterNode): Node {
+    return node;
+  }
+
+  visitVariableDefinition(node: VariableDefinitionNode): Node {
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitTupleAssignment(node: TupleAssignmentNode): Node {
+    node.tuple = this.visit(node.tuple);
+    return node;
+  }
+
+  visitAssign(node: AssignNode): Node {
+    node.identifier = this.visit(node.identifier) as IdentifierNode;
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitTimeOp(node: TimeOpNode): Node {
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitRequire(node: RequireNode): Node {
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitReturn(node: ReturnNode): Node {
+    node.expressions = this.visitList(node.expressions);
+    return node;
+  }
+
+  visitConsoleStatement(node: ConsoleStatementNode): Node {
+    node.parameters = this.visitList(node.parameters) as ConsoleParameterNode[];
+    return node;
+  }
+
+  visitFunctionCallStatement(node: FunctionCallStatementNode): Node {
+    node.functionCall = this.visit(node.functionCall) as FunctionCallNode;
+    return node;
+  }
+
+  visitBranch(node: BranchNode): Node {
+    node.condition = this.visit(node.condition);
+    node.ifBlock = this.visit(node.ifBlock) as StatementNode;
+    node.elseBlock = this.visitOptional(node.elseBlock) as StatementNode;
+    return node;
+  }
+
+  visitDoWhile(node: DoWhileNode): Node {
+    node.condition = this.visit(node.condition);
+    node.block = this.visit(node.block) as StatementNode;
+    return node;
+  }
+
+  visitWhile(node: WhileNode): Node {
+    node.condition = this.visit(node.condition);
+    node.block = this.visit(node.block) as BlockNode;
+    return node;
+  }
+
+  visitFor(node: ForNode): Node {
+    node.init = this.visit(node.init) as VariableDefinitionNode | AssignNode;
+    node.condition = this.visit(node.condition);
+    node.update = this.visit(node.update) as AssignNode;
+    node.block = this.visit(node.block) as BlockNode;
+    return node;
+  }
+
+  visitBlock(node: BlockNode): Node {
+    node.statements = this.visitOptionalList(node.statements) as StatementNode[];
+    return node;
+  }
+
+  visitCast(node: CastNode): Node {
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitFunctionCall(node: FunctionCallNode): Node {
+    node.identifier = this.visit(node.identifier) as IdentifierNode;
+    node.parameters = this.visitList(node.parameters);
+    return node;
+  }
+
+  visitInstantiation(node: InstantiationNode): Node {
+    node.identifier = this.visit(node.identifier) as IdentifierNode;
+    node.parameters = this.visitList(node.parameters);
+    return node;
+  }
+
+  visitTupleIndexOp(node: TupleIndexOpNode): Node {
+    node.tuple = this.visit(node.tuple);
+    return node;
+  }
+
+  visitSlice(node: SliceNode): Node {
+    node.element = this.visit(node.element);
+    node.start = this.visit(node.start);
+    node.end = this.visit(node.end);
+    return node;
+  }
+
+  visitBinaryOp(node: BinaryOpNode): Node {
+    node.left = this.visit(node.left);
+    node.right = this.visit(node.right);
+    return node;
+  }
+
+  visitUnaryOp(node: UnaryOpNode): Node {
+    node.expression = this.visit(node.expression);
+    return node;
+  }
+
+  visitNullaryOp(node: NullaryOpNode): Node {
+    return node;
+  }
+
+  visitArray(node: ArrayNode): Node {
+    node.elements = this.visitList(node.elements);
+    return node;
+  }
+
+  visitIdentifier(node: IdentifierNode): Node {
+    return node;
+  }
+
+  visitBoolLiteral(node: BoolLiteralNode): Node {
+    return node;
+  }
+
+  visitIntLiteral(node: IntLiteralNode): Node {
+    return node;
+  }
+
+  visitStringLiteral(node: StringLiteralNode): Node {
+    return node;
+  }
+
+  visitHexLiteral(node: HexLiteralNode): Node {
+    return node;
+  }
+}

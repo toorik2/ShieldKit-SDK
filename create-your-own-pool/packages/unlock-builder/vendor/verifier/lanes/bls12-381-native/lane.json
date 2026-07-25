@@ -1,0 +1,41 @@
+{
+  "schema": "verifier.cash/lane/v1",
+  "id": "bls12-381-native",
+  "title": "BLS12-381 Groth16 native grouped transactions",
+  "frontierCandidate": "lanes/bls12-381-native/candidates/bls12-381-native-covenant-mtx-frozen-lc1.json",
+  "writeScope": [
+    "lanes/bls12-381-native/**",
+    ".vc/runs/<assigned-run-id>/**"
+  ],
+  "sharedReadOnly": [
+    "packages/**",
+    "harness/**",
+    "build/**",
+    "vendor/**",
+    "catalogue/**",
+    "artifacts/**"
+  ],
+  "gates": {
+    "fast": [
+      "manifest",
+      "hashes",
+      "real-bch-primary",
+      "complete-byte-score"
+    ],
+    "qualification": [
+      "fast",
+      "distinct-proof",
+      "invalid-rejection",
+      "group-transitions",
+      "token-safety",
+      "standardness"
+    ],
+    "promotion": [
+      "qualification",
+      "public-bench",
+      "full-a1",
+      "leanbch",
+      "provenance"
+    ]
+  }
+}

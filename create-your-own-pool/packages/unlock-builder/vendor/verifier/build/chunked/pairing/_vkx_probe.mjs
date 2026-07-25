@@ -1,0 +1,23 @@
+import { bn254, vec, proof, vkxPoint } from './_millermath.mjs';
+const P=21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+const r=bn254.fields.Fr.ORDER;
+const red=(x)=>((BigInt(x)%P)+P)%P;
+const g1=(o)=>bn254.G1.Point.fromAffine({x:BigInt(o.x),y:BigInt(o.y)});
+const IC=vec.vk.ic.map(g1);
+const inputs=vec.publicInputs.map(BigInt);
+console.log('P=',P);
+console.log('r=',r);
+console.log('P-r=',P-r,' (~2^'+((P-r).toString(2).length-1)+')');
+console.log('in0=',inputs[0]);
+console.log('in1=',inputs[1]);
+console.log('numIC=',IC.length,' numInputs=',inputs.length);
+const vk=vkxPoint(inputs).toAffine();
+console.log('vkxX=',red(vk.x));
+console.log('vkxY=',red(vk.y));
+const ic0=IC[0].toAffine(),ic1=IC[1].toAffine(),ic2=IC[2].toAffine();
+console.log('IC0x=',ic0.x); console.log('IC0y=',ic0.y);
+// malleability: (in0+r) same vk_x?
+const s=(inputs[0]+r);
+const vk2=IC[0].add(IC[1].multiply(s)).add(IC[2].multiply(inputs[1])).toAffine();
+console.log('in0+r=',s,' <P?',s<P);
+console.log('vkx(in0+r)X=',red(vk2.x),'sameAsTrue=',red(vk2.x)===red(vk.x));

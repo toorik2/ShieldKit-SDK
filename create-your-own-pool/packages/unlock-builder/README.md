@@ -38,13 +38,13 @@ const out = buildVerifierUnlocks({
 That requires a **new verifier-set + new profile + new genesis**. Never “optimize”
 flags under a stable facade.
 
-## Toolchain resolution (Phase 1 → 2)
+## Toolchain resolution
 
-1. `SHIELDKIT_UNLOCK_ROOT` (or legacy `SHIELDKIT_PF7_WORKTREE`)
-2. `packages/unlock-builder/vendor/` (Phase 2 — default for blank machine)
-3. `.worktrees/verifier-pf7-sub62` (migration escape hatch only)
+1. `SHIELDKIT_UNLOCK_ROOT` (or legacy `SHIELDKIT_PF7_WORKTREE`) — optional override
+2. **`vendor/verifier` + `vendor/lean`** — shipped pin (default)
+3. `.worktrees/*` — migration escape hatch only
 
-Lean fold host: `SHIELDKIT_LEANBCH` → vendor lean host → `.worktrees/leanbch-pf7`.
+No sibling `verifier.cash` checkout required.
 
 ## Not for browsers
 

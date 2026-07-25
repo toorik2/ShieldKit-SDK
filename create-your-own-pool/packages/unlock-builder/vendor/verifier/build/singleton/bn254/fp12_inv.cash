@@ -1,0 +1,18 @@
+pragma cashscript ^0.14.0;
+
+// BN254 singleton harness `fp12_inv` — the field/pairing arithmetic comes from the shared lib/
+// libraries (imported below). See lib/README.md for the structure and how to grade.
+
+import "./lib/Fp12.cash";
+
+contract Fp12Inv() {
+    function spend(
+        int A0,int A1,int A2,int A3,int A4,int A5,int A6,int A7,int A8,int A9,int A10,int A11,
+        int I0,int I1,int I2,int I3,int I4,int I5,int I6,int I7,int I8,int I9,int I10,int I11
+    ) {
+        (int i0,int i1,int i2,int i3,int i4,int i5,int i6,int i7,int i8,int i9,int i10,int i11) =
+            fp12Inv(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11);
+        require(i0==I0); require(i1==I1); require(i2==I2); require(i3==I3); require(i4==I4); require(i5==I5);
+        require(i6==I6); require(i7==I7); require(i8==I8); require(i9==I9); require(i10==I10); require(i11==I11);
+    }
+}

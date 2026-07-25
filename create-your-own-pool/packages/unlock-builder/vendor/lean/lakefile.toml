@@ -1,0 +1,112 @@
+name = "leanbch"
+version = "0.1.0"
+defaultTargets = ["LeanBCH"]
+
+# Lean 4 core only — NO mathlib. LeanBCH is a foundational, dependency-free
+# formalization of the Bitcoin Cash script VM + its consensus op-cost model.
+
+# The VM + cost + consensus model. `globs = ["LeanBCH"]` keeps this fast: it builds only
+# what `LeanBCH.lean` transitively imports (the whole VM), NOT `LeanBCH.Opt.*` (a separate target).
+[[lean_lib]]
+name = "LeanBCH"
+globs = ["LeanBCH"]
+
+# The verified size-optimizing recompiler (LeanBCH.Opt) — a distinct LAYER over the VM, as its own
+# build target (`lake build LeanBCHOpt`) so the core VM above isn't slowed by the 8,890-line generated
+# fold table. It is deliberately an in-tree LIBRARY, not a separate lake package: (1) that is exactly
+# CompCert's structure — the verified compiler is a module layer over independent source+target
+# semantics, NOT a separate package; (2) a separate package cannot share the `LeanBCH.*` namespace with
+# the VM package (lake resolves `LeanBCH.Opt.*` imports to whichever package owns `LeanBCH/`), and the
+# `LeanBCH.Opt.*` namespace is a FROZEN public API that verifier.cash + stackcert import. The layer
+# boundary is instead BUILD-ENFORCED: tools/health/map.mjs lints that Opt reaches the VM only through
+# {VM.Straightline, VM.RunStraight, VM.Instr, VM.Extended, Cost.Arith} — a new cross-import fails CI.
+[[lean_lib]]
+name = "LeanBCHOpt"
+globs = ["LeanBCH.Opt"]
+
+# The VALIDATION layer (LeanBCH.Validation.*) — known-answer tests extracted OUT of the model files,
+# so `model/` reads as pure semantics and validation imports the model (never the reverse). A
+# separate target that still BUILDS (so every #eval/#guard/example executes). `lake build LeanBCHValidation`.
+[[lean_lib]]
+name = "LeanBCHValidation"
+globs = ["LeanBCH.Validation"]
+
+# ── secp256k1 FFI: why link args and not `[[extern_lib]]` ──────────────────────────────────────
+# Lake's TOML loader CANNOT declare an external library. Its decoder handles exactly four target
+# kinds — LeanLib, LeanExe, InputFile, InputDir (Lake/Load/Toml.lean:429-432, leanprover/lean4
+# v4.31.0); `ExternLibConfig` is absent from the `gen_toml_decoders%` list (Lake/Load/Toml.lean:400-418)
+# and is reachable only from a `lakefile.lean`. It fails SILENTLY, too: decodeTomlConfig
+# (Lake/Load/Toml.lean:358-365) drops unknown keys via a bare `else return cfg`, so an
+# `[[extern_lib]]` block here would look right, raise no error, and do nothing. `moreLinkArgs` IS a
+# genuine LeanConfig field (Lake/Config/LeanConfig.lean:219), inherited by lean_exe and decoded from
+# TOML — so `ffi/build.sh` compiles the shim out of band and stages it, and each signature-capable
+# executable links it below. Paths are relative to the package root, so nothing machine-specific
+# lands here; `.lake/` is gitignored.
+#
+# ONLY EXECUTABLES CARRY THESE ARGS. Lean LIBRARIES do not link, so the six gates in
+# tools/opt-ci/verify.sh — which build only `LeanBCH`, `LeanBCHOpt`, `LeanBCHValidation` and `Meta`,
+# never an exe — cannot be reached by any of this. The elaborator stays FFI-free, which is what
+# protects the 313 build-time KATs.
+#
+# Run `ffi/build.sh` before building any target below; without the staged files these exes fail at
+# LINK time (`undefined symbol: leanbch_schnorr_verify`), never silently.
+
+# The conformance runner (compiled — streams the vmb corpus through the VM). Not part of the
+# default target; build with `lake build vmbconf`.
+[[lean_exe]]
+name = "vmbconf"
+root = "conformance.Runner"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+# The NECESSITY ANALYZER (meta tooling). Build-time reflection: computes the transitive proof-term
+# closure of the declared headlines and writes Meta/necessity.json — the machine-checked
+# "load-bearing vs reference" fact + the refactoring invariant. `lake build Meta`.
+[[lean_lib]]
+name = "Meta"
+globs = ["Meta.Headlines", "Meta.Necessity"]
+
+# The differential drivers for the private optimizer. `xcheck` and `xcheck_arg` previously had NO
+# exe target and were run via `lake env lean --run`, i.e. through the INTERPRETER — which cannot
+# call an `@[extern]` opaque at all. They are promoted to real executables here so the native
+# oracle is reachable from them; `lake env lean --run` still works for the default reject oracle
+# (build once first, so the LeanBCH.Crypto.Native olean exists on LEAN_PATH).
+[[lean_exe]]
+name = "xcheck"
+root = "xcheck"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+[[lean_exe]]
+name = "xcheck_arg"
+root = "xcheck_arg"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+[[lean_exe]]
+name = "xcheck_idx1"
+root = "xcheck_idx1"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+[[lean_exe]]
+name = "xcheck_idxN"
+root = "xcheck_idxN"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+[[lean_exe]]
+name = "planck_gold"
+root = "planck_gold"
+
+# Signature known-answer tests against the REAL oracle (conformance/SigKat.lean). Generated from
+# the vendored fork's own `run_schnorr_compact_test` vectors, so the expected answers come from
+# libsecp256k1's test suite rather than from LeanBCH. Executable-level by construction: the
+# elaborator must never call C. `ffi/build.sh && lake build sigkat && ./.lake/build/bin/sigkat`.
+[[lean_exe]]
+name = "sigkat"
+root = "conformance.SigKat"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]
+
+# The op-cost METRIC probe (conformance/CostProbe.lean) — emits the five raw consensus metrics per
+# vmb vector so the `26000·signatureCheckCount` term can be differentially compared against libauth
+# on real vectors. Only observable with a real oracle, hence an exe. `lake build costprobe`.
+[[lean_exe]]
+name = "costprobe"
+root = "conformance.CostProbe"
+moreLinkArgs = [".lake/ffi/secp256k1_shim.o", ".lake/ffi/libsecp256k1.a"]

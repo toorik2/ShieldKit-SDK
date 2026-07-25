@@ -1,0 +1,65 @@
+pragma cashscript ^0.14.0;
+
+// BN254 singleton harness `miller` — the field/pairing arithmetic comes from the shared lib/
+// libraries (imported below). See lib/README.md for the structure and how to grade.
+
+import "./lib/lazy/Bn254Lazy.cash";
+
+contract Miller() {
+    function spend(
+            int Qxa,int Qxb,int Qya,int Qyb, int Px, int Py,
+            int M0,int M1,int M2,int M3,int M4,int M5,int M6,int M7,int M8,int M9,int M10,int M11
+        ) {
+            // f = ONE
+            int F0=1; int F1=0; int F2=0; int F3=0; int F4=0; int F5=0;
+            int F6=0; int F7=0; int F8=0; int F9=0; int F10=0; int F11=0;
+            // R = (Q, 1)
+            int Rxa=Qxa; int Rxb=Qxb; int Rya=Qya; int Ryb=Qyb; int Rza=1; int Rzb=0;
+    
+            for (int k = 0; k < 65; k = k + 1) {
+                // f = f^2
+                (F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11) =
+                    fp12Sqr(F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11);
+                // double + line
+                (int dc0,int dc1,int dc2,int dc3,int dc4,int dc5, int dx0,int dx1,int dx2,int dx3,int dx4,int dx5) =
+                    pointDouble(Rxa,Rxb,Rya,Ryb,Rza,Rzb);
+                Rxa=dx0; Rxb=dx1; Rya=dx2; Ryb=dx3; Rza=dx4; Rzb=dx5;
+                (F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11) =
+                    line(F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11, dc0,dc1,dc2,dc3,dc4,dc5, Px, Py);
+                // conditional add + line (NAF digit nonzero)
+                int nz = (3045737938581365386 >> k) % 2;
+                if (nz == 1) {
+                    int neg = (162306075919524482 >> k) % 2;
+                    int uya = Qya;
+                    int uyb = Qyb;
+                    if (neg == 1) { (uya,uyb) = fp2Neg(Qya, Qyb, 64);}
+                    (int ac0,int ac1,int ac2,int ac3,int ac4,int ac5, int ax0,int ax1,int ax2,int ax3,int ax4,int ax5) =
+                        pointAdd(Rxa,Rxb,Rya,Ryb,Rza,Rzb, Qxa,Qxb,uya,uyb);
+                    Rxa=ax0; Rxb=ax1; Rya=ax2; Ryb=ax3; Rza=ax4; Rzb=ax5;
+                    (F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11) =
+                        line(F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11, ac0,ac1,ac2,ac3,ac4,ac5, Px, Py);
+                }
+            }
+    
+            // postPrecompute: Q1 = psi(Q), add (+y); Q2 = psi(Q1), add (-y)
+            (int q1xa,int q1xb,int q1ya,int q1yb) = psi(Qxa,Qxb,Qya,Qyb);
+            (int bc0,int bc1,int bc2,int bc3,int bc4,int bc5, int bx0,int bx1,int bx2,int bx3,int bx4,int bx5) =
+                pointAdd(Rxa,Rxb,Rya,Ryb,Rza,Rzb, q1xa,q1xb,q1ya,q1yb);
+            Rxa=bx0; Rxb=bx1; Rya=bx2; Ryb=bx3; Rza=bx4; Rzb=bx5;
+            (F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11) =
+                line(F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11, bc0,bc1,bc2,bc3,bc4,bc5, Px, Py);
+    
+            (int q2xa,int q2xb,int q2ya,int q2yb) = psi(q1xa,q1xb,q1ya,q1yb);
+            (int q2nya,int q2nyb) = fp2Neg(q2ya, q2yb, 64);
+            (int cc0,int cc1,int cc2,int cc3,int cc4,int cc5, int cx0,int cx1,int cx2,int cx3,int cx4,int cx5) =
+                pointAdd(Rxa,Rxb,Rya,Ryb,Rza,Rzb, q2xa,q2xb,q2nya,q2nyb);
+            Rxa=cx0; Rxb=cx1; Rya=cx2; Ryb=cx3; Rza=cx4; Rzb=cx5; // consume new R (unused after final line)
+            (int j0,int j1,int j2,int j3,int j4,int j5,int j6,int j7,int j8,int j9,int j10,int j11) =
+                line(F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11, cc0,cc1,cc2,cc3,cc4,cc5, Px, Py);
+    
+            // reduce the lazy f to canonical [0,p) before comparing to noble's reduced limbs
+            int P = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+            require(j0 % P==M0); require(j1 % P==M1); require(j2 % P==M2); require(j3 % P==M3); require(j4 % P==M4); require(j5 % P==M5);
+            require(j6 % P==M6); require(j7 % P==M7); require(j8 % P==M8); require(j9 % P==M9); require(j10 % P==M10); require(j11 % P==M11);
+        }
+}

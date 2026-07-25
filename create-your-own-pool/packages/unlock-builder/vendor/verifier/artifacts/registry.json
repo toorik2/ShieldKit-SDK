@@ -1,0 +1,279 @@
+{
+  "_meta": {
+    "purpose": "Machine-readable index of every crown/submission build's artifacts + provenance. THE RULE: a result is not HELD until its artifacts + provenance are committed here and pushed to the mirror.",
+    "schema": {
+      "entries": [
+        {
+          "id": "unique slug",
+          "track": "bn254-native-standard | bn254-native-nonstandard | bn254-one-tx-standard | bn254-size-leader | bls-native-standard | bls-native-nonstandard | bls-size-leader",
+          "bytes": "the measured/scored byte number the entry is known by",
+          "status": "built | measured | a1-certified | submitted | superseded",
+          "artifact_dir": "path under artifacts/ containing the files + MANIFEST.md, or null if artifacts-pending-rebuild",
+          "source": {
+            "repo": "…",
+            "commit": "…"
+          },
+          "compiler": {
+            "repo": "…",
+            "commit": "…"
+          },
+          "a1_evidence": "the soundness certificate (A1 forge-audit for native; gate-class certificate for size-leader) or what is pending",
+          "date": "YYYY-MM-DD",
+          "superseded_by": "id or null",
+          "notes": "…"
+        }
+      ]
+    },
+    "backfill": "2026-07-10 — backfilled honestly from what EXISTS on disk; see each entry's notes for found-vs-missing."
+  },
+  "entries": [
+    {
+      "id": "bn254-size-leader-4329-sqrmul",
+      "track": "bn254-size-leader",
+      "bytes": 4329,
+      "status": "measured",
+      "artifact_dir": "artifacts/bn254-size-leader/4329",
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash (local /home/toorik/Projects/verifier.cash, tools/singleton-artifact)",
+        "commit": "160f3aa7928a31d25164c8ace1eb37f0e14fa278"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork (local vendored /home/toorik/Projects/cashscript) + the singleton-artifact recompiler/verified-optimizer pipeline",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "n/a (size-leader — never runs on-chain). Gate certificate instead: gate.mjs 3-gate (round-trip byte-exact, per-body differential vs baseline.json, E2E multiproof 4/4 accept + 4/4 reject); fully Lean-covered per verifier.cash 160f3aa (sqr=mul despec + schedule_refines ∪ schedule_refines_move_cond, 0-sorry). sha256 9de9e468…fabb479.",
+      "date": "2026-07-10",
+      "superseded_by": null,
+      "notes": "BACKFILL: FOUND on disk — 13 lineage hexes copied byte-exact (sha256 diff COPY-VERIFIED) with MANIFEST.md + the two provenance docs. Measured crown: 4,329 locking / score 4,688. The board-recorded 4,651 matches NO on-disk artifact (stale/approx) — see entry bn254-size-leader-board-4651. Conditional extension to ~4,202 exists (L12 teardown) but requires adopting an execution-differential gate; not built."
+    },
+    {
+      "id": "bn254-size-leader-board-4651",
+      "track": "bn254-size-leader",
+      "bytes": 4651,
+      "status": "submitted",
+      "artifact_dir": null,
+      "source": {
+        "repo": "unknown (submission predates this registry; no matching artifact on disk)",
+        "commit": "unknown"
+      },
+      "compiler": {
+        "repo": "unknown",
+        "commit": "unknown"
+      },
+      "a1_evidence": "n/a (size-leader). No certificate on file for the exact submitted bytes.",
+      "date": "2026-07-10",
+      "superseded_by": null,
+      "notes": "BACKFILL: MISSING — the verifier.cash board shows Toorik BN254 singleton at 4,651, which matches no on-disk artifact and appears in no local hex; likely stale/approx (db/verifiers.json flags this). artifacts-pending-rebuild is not even possible (no source pin known); the real held artifact is bn254-size-leader-4329-sqrmul. Resolve at next submission: submit the 4,329 crown and mark this superseded."
+    },
+    {
+      "id": "bls-size-leader-3700",
+      "track": "bls-size-leader",
+      "bytes": 3700,
+      "status": "submitted",
+      "artifact_dir": null,
+      "source": {
+        "repo": "groth16_cashscript singleton/bls12-381 (source .cash only — no built hex found)",
+        "commit": "unknown (submission-time commit not recorded)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork (local vendored /home/toorik/Projects/cashscript)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893 (current pin; submission-time pin not recorded)"
+      },
+      "a1_evidence": "n/a (size-leader). No gate certificate on file for the submitted hex.",
+      "date": "2026-07-10",
+      "superseded_by": null,
+      "notes": "BACKFILL: MISSING — searched /home/toorik/Projects for any BLS singleton hex (find -iname '*.hex' + '*singleton*' + '*bls*'): NONE found; only the .cash sources exist in groth16_cashscript/singleton/bls12-381/. artifacts-pending-rebuild: rebuild from source, gate-certify, then register the hex here."
+    },
+    {
+      "id": "bn254-native-standard-279219-submitted",
+      "track": "bn254-native-standard",
+      "bytes": 279219,
+      "status": "submitted",
+      "artifact_dir": null,
+      "source": {
+        "repo": "groth16_cashscript (chunked-covenant-residue line)",
+        "commit": "unknown (submitted 2026-06-25, pre-registry; exact commit not recorded)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork (local vendored /home/toorik/Projects/cashscript)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893 (current pin; submission-time pin not recorded)"
+      },
+      "a1_evidence": "self-pin (L07) present by construction in our line; no archived forge-audit transcript for the exact submitted chunks.",
+      "date": "2026-06-25",
+      "superseded_by": null,
+      "notes": "BACKFILL: MISSING — no chunk hex/tx set for the submitted 279,219 found on disk. artifacts-pending-rebuild. On the board as #2 Native-STANDARD BN254 (behind mr-zwets 241,628). Will be superseded by the 212,913 crown line once compile-verified + submitted."
+    },
+    {
+      "id": "bls-native-standard-365203-submitted",
+      "track": "bls-native-standard",
+      "bytes": 365203,
+      "status": "submitted",
+      "artifact_dir": null,
+      "source": {
+        "repo": "groth16_cashscript (BLS chunked-covenant-residue line)",
+        "commit": "unknown (submitted 2026-06-25, pre-registry; exact commit not recorded)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork (local vendored /home/toorik/Projects/cashscript)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893 (current pin; submission-time pin not recorded)"
+      },
+      "a1_evidence": "self-pin (L07) present by construction in our line; no archived forge-audit transcript for the exact submitted chunks.",
+      "date": "2026-06-25",
+      "superseded_by": null,
+      "notes": "BACKFILL: MISSING — no chunk hex/tx set for the submitted 365,203 found on disk. artifacts-pending-rebuild. On the board as #2 Native-STANDARD BLS (behind mr-zwets 339,297)."
+    },
+    {
+      "id": "bn254-native-crown-212913-local",
+      "track": "bn254-native-standard",
+      "bytes": 212913,
+      "status": "measured",
+      "artifact_dir": null,
+      "source": {
+        "repo": "github.com/mr-zwets/groth16_cashscript local working clone /home/toorik/Projects/verifier.cash/build (our unpushed crown commits — origin push is 403; DO NOT push there)",
+        "commit": "6dbe42c (crown: OP_2SWAP/2DUP peephole; sound bytes=212913) + b17adea (bank: crown source + A1 evidence chain)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork (local vendored /home/toorik/Projects/cashscript)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "DUAL-VM VERIFIED (libauth + LeanBCH): self-pin present, forge attempts reject; A1 evidence chain banked in groth16_cashscript commit b17adea. Successor build (F=L16 −2,039 + P4=L17 −372 → projected ~210,502) is PENDING compile-verification + fresh A1 pass.",
+      "date": "2026-07-09",
+      "superseded_by": "bn254-native-crown-212913-baseline-verified",
+      "notes": "BACKFILL: PARTIAL — source + A1 evidence chain exist as commits in the local groth16_cashscript clone (verified: git log shows 6dbe42c, b17adea), but no built chunk hex/tx artifact set is archived here. artifacts-pending-rebuild. Track recorded as standard per its parent line (36-tx grouped); FINAL track (standard vs non-standard) depends on tx/input packaging — CONFIRM per RUNBOOK step 5 before submission. UNSUBMITTED; beats both BN254 native records (std 241,628 / non-std 241,518). [2026-07-10: superseded — baseline byte-verified + artifacts persisted; see bn254-native-crown-212913-baseline-verified.]"
+    },
+    {
+      "id": "bn254-native-crown-212913-baseline-verified",
+      "track": "bn254-native-standard",
+      "bytes": 212913,
+      "status": "measured",
+      "artifact_dir": "artifacts/bn254-native-standard/212913-baseline",
+      "source": {
+        "repo": "github.com/mr-zwets/groth16_cashscript local clone /home/toorik/Projects/verifier.cash/build (unpushed crown commits — origin push is 403; DO NOT push there)",
+        "commit": "23e4767 (HEAD at rebuild; crown 6dbe42c + bank b17adea + env 23e4767)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork, vendored /home/toorik/Projects/verifier.cash/vendor/cashc-resched (env-setup.sh verified)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "Inherited from the crown line (dual-VM verified, A1 evidence chain banked in groth16 b17adea; crown commit records the full forgery-battery differential). THIS entry certifies the BYTE reproduction: 2 independent rebuilds of pristine-source TOTAL 212,913 / 32 chunks / internalChainOk / max op 7,651,999 (log-identical), plus a PEEPHOLE=0 A/B that reproduces the predecessor crown 214,175 (2df5835) exactly — no hidden local patches in the /tmp-era build.",
+      "date": "2026-07-10",
+      "superseded_by": "bn254-native-crown-170366-patha",
+      "notes": "BASELINE BYTE-VERIFY (task F): rebuilt from the bank commit on the pinned vendored compiler; artifacts persisted (32 .cash sources, chunks.json with redeem/locking/unlock hexes + commits + op costs, measurement.json, 3 run logs, manifest.json). Stage bytes (peephole crown): g2check 12,487 / vkx 15,617 / miller 180,509 / tail 4,300. The earlier note's splits (12,535/15,676/4,322) are the PRE-peephole table (A/B-proven; tail off by 1 B in that note). Track still TBD per RUNBOOK step 5. UNSUBMITTED."
+    },
+    {
+      "id": "bn254-native-crown-170366-patha",
+      "track": "bn254-native-standard",
+      "bytes": 170366,
+      "status": "a1-certified",
+      "artifact_dir": "artifacts/bn254-native-standard/170366-patha",
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash — local /home/toorik/Projects/verifier.cash/build (crown env chunked/pairing/)",
+        "branch": "path-a-sub200k",
+        "commit": "447d46c6ab68cdc2114da7aa74e334fdd2e31da6 (path-a: T1-A + DP-CLOSE non-realizing; integrated 170366 B) — FINAL verify commit adds artifacts + eligibility/dual-vm tooling + this registry entry"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork, vendored /home/toorik/Projects/verifier.cash/vendor/cashc-resched (build/node_modules/cashc)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "A1-CERTIFIED (dual-VM). Full forge battery PASS on the integrated 19-chunk crown: thread-escape (allExpectationsMet=true), chain-binding (18/18 seams OK), splice/genesis, residue-tail (BIAS%p==0), T5-1 cofactor (wrong-subgroup+off-twist B reject), T3-2 divisor (ANY-FORGERY-ACCEPTED=false incl FS-grinding), MODSTRIP, trajectory, canon, and integrated DIFF=1 per-chunk differential (all 19 honest ACCEPT + forgeries REJECT). No P2SH20 (0 a914 / 18 aa20 P2SH32). LeanBCH verifyInput+fullOpCost == libauth on deployed miller chunk ml_7 (accept + op 7,687,371). runtimeGeneral: proof#1 + dense near-r worst-case both accept end-to-end through byte-identical lockings. See artifact_dir/a1-certificate.json + manifest.json. [2026-07-11 RE-CERTIFIED — fresh independent from-frozen A1 pass banked (BLS house-style): artifact_dir/A1-CERTIFICATE.md + MANIFEST.md + steps.json + 4 audit scripts (verify_bn_crown/forge_battery/xcheck_affine_export/xcheck_forge) + 4 captured transcripts. verify_bn_crown: 19/19 accept, per-chunk op-cost exact, totalBytes reproduces 170,366, 19/19 hash-pin, 18/18 chain-binding. forge_battery: 165 forgeries (witness/hashpin/covIn-splice/thread-escape x4/covOut/category) 0 accepting. Deep gates re-run: T5-1 allOk=true, T3-2 ANY-FORGERY-ACCEPTED=false, miller-slope + residue reject. Dual-VM re-matched on 3 chunks (vkx genesis 5,366,810 / ml_7 7,687,371 / ml_14 7,689,046 libauth==LeanBCH) + forge rejected by both. chunks.json sha256 f04f04df… unchanged.]",
+      "date": "2026-07-10",
+      "superseded_by": null,
+      "notes": "PATH A sound crown: 212,913 -> 170,366 B (-42,547). Per-lever integrated: T2-A+MODSTRIP 211,034 / T4-KP 194,550 / T5-1 179,536 / T3-2 170,366 / T1-A+DP-CLOSE non-realizing (topology-superseded, net 0). Topology 19 chunks (1 ECIP vkx + 17 affine miller + 1 residue tail); g2check DELETED. Every chunk fits its OWN per-input budget (41+unlockLen)×800; max chunk op 7,689,046 sits under the flat 8,032,800 MAX (only a 10k-unlock chunk's budget) but the tightest REAL per-input margin is ~178 op on ml_5 — do NOT read the 343,754 vs-MAX gap as safety headroom. internalChainOk=true. Track standard vs non-standard depends on tx/input packaging — CONFIRM per RUNBOOK before submission. UNSUBMITTED; MERGED to master (crown commit 26917cae). Under 200k; beats both prior BN254 native records."
+    },
+    {
+      "id": "bls-native-crown-315318-local",
+      "track": "bls-native-standard",
+      "bytes": 315318,
+      "status": "a1-certified",
+      "artifact_dir": "artifacts/bls-native-standard/315318",
+      "source": {
+        "repo": "github.com/toorik2 verifier.cash local /home/toorik/Projects/verifier.cash, branch bls-crown; generator build/chunked/grouped/build_vectors_residue_bls.mjs",
+        "commit": "afc4bc49 (crown vectors; byte-identical since — banked at HEAD eb736b11, intel-only on top)"
+      },
+      "compiler": {
+        "repo": "mr-zwets/cashscript rescheduling fork, vendored /home/toorik/Projects/verifier.cash/vendor/cashc-resched (cashc 0.14.0-next.1)",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "A1-CERTIFIED SOUND (independent adversarial audit 2026-07-11; see A1-CERTIFICATE.md). Frozen artifact battery on the real BCH-2026 consensus VM: 17/17 soundness forgeries REJECT, honest controls (incl. a distinct 2nd statement under the SAME lockings) ACCEPT; all 36 redeems hash256-pinned to their P2SH32 lockings (deployed logic == compiled verifier). Surfaces attacked: g2 subgroup (off-twist/off-subgroup B via generator gates on identical checks), L10 affine slopes, ECIP divisor-cert (fake divisor / wrong Q / FS-grind / non-canonical / sqrt-cert), residue final-exp, cross-instance splice, covenant NFT-commitment + category binding. DUAL-VM: LeanBCH (machine-checked) matches libauth on accept + op-cost for all 4 groups' input-0 (6,362,601 / 7,155,408 / 7,141,936 / 7,358,123) and both reject the forged group0. Non-soundness token-safety PoC limits (successor-locking / output-count / category-constant not pinned) documented — NOT forgeries.",
+      "date": "2026-07-11",
+      "superseded_by": null,
+      "notes": "HELD + A1-CERTIFIED. Grouped-residue BLS12-381 Groth16 verifier: 4 groups [9,9,9,9] / 36 inputs; lever stack g2-fold + ECIP divisor-cert vk_x + L10 affine-slope offload of pair-0 + L01. totalBytes 315,318 / full score 316,946 (harness stepTxOverhead intra-tx model; +1,628 overhead). Beats mr-zwets #1 native-STANDARD BLS 339,297 by -22,351 (full score). Vectors NOT duplicated into the artifact (2.55 MB, already committed + frozen in-repo): pointer harness/src/bch/groth16-bls12381-grouped-residue-vectors.json sha256 5463649d0d79d9697e1c71deb8db78781681f47b5a86ce846b1eeb388ab54025 @ afc4bc49; steps.json carries full per-step metadata. All 4 groupBytes < 100,000 => STANDARD. UNSUBMITTED. Supersedes-on-submission the older bls-native-standard-365203-submitted line."
+    },
+    {
+      "id": "bn254-one-tx-direct-state-81084-local",
+      "track": "bn254-one-tx-standard",
+      "bytes": 81084,
+      "status": "measured",
+      "artifact_dir": "artifacts/bn254-one-tx-standard/81084",
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash",
+        "commit": "9ee774faf3e5d58a02aff55fc67b08749d4cdf6d"
+      },
+      "compiler": {
+        "repo": "github.com/toorik2/verifier.cash/vendor/cashc-resched",
+        "commit": "bf02a4b641d5d03c035d052247a545109c17b708"
+      },
+      "a1_evidence": "Exact-source rank25 replay from detached verifier.cash 9ee774fa against LeanBCH overlay 46d89489: A1 89/89, role 52/global0, deployment 12/global0, dual-VM/op parity, and concrete UTXO envelope green; persisted fixed-VK py_ecc corpus 256/256 and real-gate sweep 256/256 remain separate full-sweep evidence. Bundle is now persisted under artifact_dir; not arbitrary-VK, generic, universal, banked, or submitted.",
+      "date": "2026-07-17",
+      "superseded_by": "bn254-one-tx-direct-state-hardened-83344-local",
+      "notes": "PERSISTED PRE-HARDENING local one-tx strict fixed-deployment profile: score 81,084 / wire 79,719 / 10 inputs; each input position's locking is invariant across 256 rows and each input has 256 distinct unlocking hashes. Exact-source clean replay and all copied-file hashes are in artifact_dir and catalogue/empirical/E-onetx-direct-state-clean-leanbch-r25-2026-07-17.md. The current 83,344 worktree hardening is not registered here because it is uncommitted and has no persisted artifact bundle. Not arbitrary-VK, generic, universal, banked, or submitted until artifact commit is pushed and remaining promotion gates close."
+    },
+    {
+      "id": "bn254-one-tx-direct-state-hardened-83344-local",
+      "track": "bn254-one-tx-standard",
+      "bytes": 83344,
+      "status": "measured",
+      "artifact_dir": "artifacts/bn254-one-tx-standard/83344",
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash",
+        "commit": "22ecb02093cacfe07e73d075c08010cd3a579ed3"
+      },
+      "compiler": {
+        "repo": "github.com/toorik2/verifier.cash/vendor/cashc-resched",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "Rank25 strict fixed-envelope evidence: A1 89/89, complete-transaction/global false accepts 0, standard-global false accepts 0, no-op mutations 0; role 52/global0; deployment 12/global0/noOps0; local real VM 10/10; LeanBCH/op-cost parity 10/10; vmbconf 11/11. Current-source dense sweep 256/256 build/real-gate/seam/manual/per-input green. Strict context-capable verifier-bench replay is PASS at 82,894 script bytes / 83,344 serialized score with 10/10 rejects and 4/4 proofs; unmodified public verifier-bench remains separately recorded at 83,086 B serialized score.",
+      "date": "2026-07-17",
+      "superseded_by": null,
+      "notes": "PERSISTED hardened direct-state strict fixed-VK/fixed-deployment profile: score 83,344 / wire 82,168 / 10 inputs. Strict verifier-bench replay requires the explicit source-value/sequence context extension persisted in the artifact; the unmodified public context is covered by the 83,086 B portable sibling. Not arbitrary-VK, independently-proved, universal-completeness, generic, banked, or submitted."
+    },
+    {
+      "id": "bn254-one-tx-direct-state-public-83294-local",
+      "track": "bn254-one-tx-standard",
+      "bytes": 83294,
+      "status": "measured",
+      "artifact_dir": "artifacts/bn254-one-tx-standard/83294",
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash",
+        "commit": "7cd340227b960ddc67e20eb4f9f388a6613dfb95"
+      },
+      "compiler": {
+        "repo": "github.com/toorik2/verifier.cash/vendor/cashc-resched",
+        "commit": "1c707c1dbf87396b30ba5e0704b1db44475ce893"
+      },
+      "a1_evidence": "Public-context rank25: A1 89/89; global false accepts 0; standard-global false accepts 0; no-ops 0; role 52/global0; deployment 12/global0/noOps0; local real VM 10/10; LeanBCH/vmbconf/UTXO envelope green; current-source public corpus 256/256 build/real-gate/seam/manual/per-input green; clean unmodified c989e93a public bench PASS at 82,844 script / 83,294 serialized score with 10/10 rejects and 4/4 proofs.",
+      "date": "2026-07-17",
+      "superseded_by": null,
+      "notes": "PERSISTED fixed-VK/fixed-deployment stock-context public-bench profile: score 83,294 / wire 82,118 / 10 inputs. Public context is value=1000, sequence=0 and passes the unmodified maintainer benchmark. It is not the strict 83,344 research artifact, not generic, not banked, and not the submission crown."
+    },
+    {
+      "id": "bn254-native-rebuild-169738-local",
+      "track": "bn254-native-standard",
+      "bytes": 169738,
+      "status": "measured",
+      "artifact_dir": null,
+      "source": {
+        "repo": "github.com/toorik2/verifier.cash",
+        "commit": "9ee774faf3e5d58a02aff55fc67b08749d4cdf6d"
+      },
+      "compiler": {
+        "repo": "github.com/toorik2/verifier.cash/vendor/cashc-resched",
+        "commit": "bf02a4b641d5d03c035d052247a545109c17b708"
+      },
+      "a1_evidence": "19/19 real inputs, 19/19 hash pins, 18/18 seams, basic forge battery zero; full independent crown A1 and artifact bundle absent. Unbanked measured rebuild only.",
+      "date": "2026-07-17",
+      "superseded_by": null,
+      "notes": "Current merged-master native rebuild: 19 chunks, total score 169,738 B, not a replacement for the frozen 170,366 A1 crown until independent certification and artifact persistence land. See catalogue/empirical/E-bn254-native-rebuild-169738-2026-07-17.md."
+    }
+  ]
+}

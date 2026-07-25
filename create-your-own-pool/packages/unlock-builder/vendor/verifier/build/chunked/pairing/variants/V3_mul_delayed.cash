@@ -1,0 +1,140 @@
+pragma cashscript ^0.14.0;
+
+// V3: FULLY-DELAYED-REDUCTION fp12Mul and mul034 (sparse 034 line multiply), the exact analog of
+// V2_delayed's fp12Sqr. Carries signed WIDE integers through the whole Karatsuba-fp6 / fp6Mul01
+// tree with NO per-product OP_MOD and NO per-op bias. Reduces ONLY the 12 output limbs via
+// reduceOut(x) = (x + BIG*p) % p, where BIG*p (65 bytes) is a compile-time bias chosen by
+// interval analysis (mul_bound.mjs) so x + BIG*p >= 0 for every admissible input => the mod lands
+// in [0,p). Outputs are FULLY reduced (a strict superset of the old lazy contract), so this is a
+// sound drop-in for the eager fp12Mul / mul034.
+//
+// Bias sizing (mul_bound.mjs):
+//   fp12Mul, A,B in [0,p)                 : max|neg| ~988 p^2
+//   mul034,  F,o0,o3 in [0,p), o4 in [0,4p]: max|neg| ~988 p^2   (o4 = raw line c0, <=4p in Miller)
+// The shared BIG*p below is the LARGER of the two (mul034 Miller drop-in), which soundly dominates
+// both: it exceeds each function's max|neg|, so every reduceOut dividend is >= 0 in both.
+
+// wide signed fp2 multiply: r = a*b in Fp2=Fp[u]/(u^2+1), no reduction, no bias
+function fp2MulW(int a0, int a1, int b0, int b1) returns (int, int) {
+    int w0 = a0 * b0;
+    int w1 = a1 * b1;
+    return w0 - w1, (a0 + a1) * (b0 + b1) - w0 - w1;
+}
+
+// wide signed multiply by xi = (9 + u)
+function fp2MulXiW(int a0, int a1) returns (int, int) {
+    return 9 * a0 - a1, 9 * a1 + a0;
+}
+
+// wide fp6 multiply (Karatsuba, mirrors the baseline schedule), all signed wide
+function fp6MulW(
+        int a0a,int a0b,int a1a,int a1b,int a2a,int a2b,
+        int b0a,int b0b,int b1a,int b1b,int b2a,int b2b
+    ) returns (int,int,int,int,int,int) {
+    (int t0a,int t0b) = fp2MulW(a0a,a0b, b0a,b0b);
+    (int t1a,int t1b) = fp2MulW(a1a,a1b, b1a,b1b);
+    (int t2a,int t2b) = fp2MulW(a2a,a2b, b2a,b2b);
+    (int p1a,int p1b) = fp2MulW(a1a+a2a, a1b+a2b, b1a+b2a, b1b+b2b);
+    (int x1a,int x1b) = fp2MulXiW(p1a - t1a - t2a, p1b - t1b - t2b);
+    int c0a = t0a + x1a;
+    int c0b = t0b + x1b;
+    (int p2a,int p2b) = fp2MulW(a0a+a1a, a0b+a1b, b0a+b1a, b0b+b1b);
+    (int x2a,int x2b) = fp2MulXiW(t2a, t2b);
+    int c1a = p2a - t0a - t1a + x2a;
+    int c1b = p2b - t0b - t1b + x2b;
+    (int p3a,int p3b) = fp2MulW(a0a+a2a, a0b+a2b, b0a+b2a, b0b+b2b);
+    int c2a = p3a - t0a - t2a + t1a;
+    int c2b = p3b - t0b - t2b + t1b;
+    return c0a,c0b, c1a,c1b, c2a,c2b;
+}
+
+// wide fp6 multiply by v (basis element): (xi*a2, a0, a1)
+function fp6MulByVW(int a0a,int a0b,int a1a,int a1b,int a2a,int a2b) returns (int,int,int,int,int,int) {
+    (int n0a,int n0b) = fp2MulXiW(a2a, a2b);
+    return n0a, n0b, a0a, a0b, a1a, a1b;
+}
+
+// wide sparse fp6Mul01: c is fp6 (c0,c1,c2 each fp2); b0,b1 are fp2. Mirrors baseline fp6Mul01.
+function fp6Mul01W(
+        int c0a,int c0b,int c1a,int c1b,int c2a,int c2b,
+        int b0a,int b0b,int b1a,int b1b
+    ) returns (int,int,int,int,int,int) {
+    (int t0a,int t0b) = fp2MulW(c0a,c0b, b0a,b0b);
+    (int t1a,int t1b) = fp2MulW(c1a,c1b, b1a,b1b);
+    // u0 = fp2MulW(c1+c2, b1) - t1 ; r0 = xi*u0 + t0
+    (int m12a,int m12b) = fp2MulW(c1a+c2a, c1b+c2b, b1a,b1b);
+    (int xu0a,int xu0b) = fp2MulXiW(m12a - t1a, m12b - t1b);
+    int r0a = xu0a + t0a;
+    int r0b = xu0b + t0b;
+    // m1 = fp2MulW(b0+b1, c0+c1) ; r1 = m1 - t0 - t1
+    (int m1a,int m1b) = fp2MulW(b0a+b1a, b0b+b1b, c0a+c1a, c0b+c1b);
+    int r1a = m1a - t0a - t1a;
+    int r1b = m1b - t0b - t1b;
+    // m2 = fp2MulW(c0+c2, b0) ; r2 = m2 - t0 + t1
+    (int m2a,int m2b) = fp2MulW(c0a+c2a, c0b+c2b, b0a,b0b);
+    int r2a = m2a - t0a + t1a;
+    int r2b = m2b - t0b + t1b;
+    return r0a,r0b, r1a,r1b, r2a,r2b;
+}
+
+// reduce one wide signed limb into [0,p): add BIG*p (>= max negativity) then mod p
+function reduceOut(int x) returns (int) {
+    return (x + 473346033904423368332684188674078595909661288732727612567210428627021252562119744690866504404556704362571480480121380658603450849396234800254307144706265583) % 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+}
+
+// FULLY-DELAYED-REDUCTION fp12Mul.  C = A*B in Fp12 = Fp6[w]/(w^2 - v).
+// c0 = t0 + v*t1 ; c1 = (Alo+Ahi)*(Blo+Bhi) - t0 - t1   where t0=Alo*Blo, t1=Ahi*Bhi.
+function fp12Mul(
+        int A0,int A1,int A2,int A3,int A4,int A5, int A6,int A7,int A8,int A9,int A10,int A11,
+        int B0,int B1,int B2,int B3,int B4,int B5, int B6,int B7,int B8,int B9,int B10,int B11
+    ) returns (int,int,int,int,int,int,int,int,int,int,int,int) {
+    (int t0_0,int t0_1,int t0_2,int t0_3,int t0_4,int t0_5) = fp6MulW(A0,A1,A2,A3,A4,A5, B0,B1,B2,B3,B4,B5);
+    (int t1_0,int t1_1,int t1_2,int t1_3,int t1_4,int t1_5) = fp6MulW(A6,A7,A8,A9,A10,A11, B6,B7,B8,B9,B10,B11);
+    (int vt_0,int vt_1,int vt_2,int vt_3,int vt_4,int vt_5) = fp6MulByVW(t1_0,t1_1,t1_2,t1_3,t1_4,t1_5);
+    (int pr_0,int pr_1,int pr_2,int pr_3,int pr_4,int pr_5) = fp6MulW(
+        A0+A6, A1+A7, A2+A8, A3+A9, A4+A10, A5+A11,
+        B0+B6, B1+B7, B2+B8, B3+B9, B4+B10, B5+B11);
+    return
+        reduceOut(t0_0 + vt_0),
+        reduceOut(t0_1 + vt_1),
+        reduceOut(t0_2 + vt_2),
+        reduceOut(t0_3 + vt_3),
+        reduceOut(t0_4 + vt_4),
+        reduceOut(t0_5 + vt_5),
+        reduceOut(pr_0 - t0_0 - t1_0),
+        reduceOut(pr_1 - t0_1 - t1_1),
+        reduceOut(pr_2 - t0_2 - t1_2),
+        reduceOut(pr_3 - t0_3 - t1_3),
+        reduceOut(pr_4 - t0_4 - t1_4),
+        reduceOut(pr_5 - t0_5 - t1_5);
+}
+
+// FULLY-DELAYED-REDUCTION sparse mul034: F * (o0 + o3*v + o4*v*w) accumulator line multiply.
+// A = o0 * F.c0 ; B = fp6Mul01(F.c1, o3, o4) ; G = fp6Mul01(F.c0+F.c1, o0+o3, o4).
+// c0 = v*B + A ; c1 = G - A - B.
+function mul034(
+        int F0,int F1,int F2,int F3,int F4,int F5, int F6,int F7,int F8,int F9,int F10,int F11,
+        int o0a,int o0b, int o3a,int o3b, int o4a,int o4b
+    ) returns (int,int,int,int,int,int,int,int,int,int,int,int) {
+    (int A0,int A1) = fp2MulW(F0, F1, o0a, o0b);
+    (int A2,int A3) = fp2MulW(F2, F3, o0a, o0b);
+    (int A4,int A5) = fp2MulW(F4, F5, o0a, o0b);
+    (int B0,int B1,int B2,int B3,int B4,int B5) = fp6Mul01W(F6,F7,F8,F9,F10,F11, o3a,o3b, o4a,o4b);
+    (int G0,int G1,int G2,int G3,int G4,int G5) = fp6Mul01W(
+        F0+F6, F1+F7, F2+F8, F3+F9, F4+F10, F5+F11,
+        o0a+o3a, o0b+o3b, o4a,o4b);
+    (int VB0,int VB1,int VB2,int VB3,int VB4,int VB5) = fp6MulByVW(B0,B1,B2,B3,B4,B5);
+    return
+        reduceOut(VB0 + A0),
+        reduceOut(VB1 + A1),
+        reduceOut(VB2 + A2),
+        reduceOut(VB3 + A3),
+        reduceOut(VB4 + A4),
+        reduceOut(VB5 + A5),
+        reduceOut(G0 - A0 - B0),
+        reduceOut(G1 - A1 - B1),
+        reduceOut(G2 - A2 - B2),
+        reduceOut(G3 - A3 - B3),
+        reduceOut(G4 - A4 - B4),
+        reduceOut(G5 - A5 - B5);
+}
