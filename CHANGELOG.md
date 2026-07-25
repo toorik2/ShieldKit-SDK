@@ -1,7 +1,7 @@
 # Changelog — ShieldKit toolkit
 
-Toolkit code only (`create-your-own-pool/`, root glue).  
-**Not** a profile/instance changelog. Profile pins: [create-your-own-pool/docs/PROFILES.md](create-your-own-pool/docs/PROFILES.md).
+Toolkit code only (`03-create-your-own-pool/`, root glue).  
+**Not** a profile/instance changelog. Profile pins: [03-create-your-own-pool/docs/PROFILES.md](03-create-your-own-pool/docs/PROFILES.md).
 
 Format: [Keep a Changelog](https://keepachangelog.com/)-ish · SemVer **0.y.z** until 1.0 (MINOR may break).
 
@@ -23,9 +23,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/)-ish · SemVer **0.y.z** 
 ### Added
 
 - Formal versioning hygiene: single toolkit version in root `package.json`.
-- `CHANGELOG.md`, `create-your-own-pool/docs/VERSIONING.md`, `PROFILES.md`.
+- `CHANGELOG.md`, `03-create-your-own-pool/docs/VERSIONING.md`, `PROFILES.md`.
 - CLI prints `toolkitVersion` on doctor / profile-info / JSON envelopes; `--version`.
-- Product layout: `create-your-own-pool/` + `use-chipnet-demo-pool/`.
+- Product layout: `03-create-your-own-pool/` + `02-use-chipnet-demo-pool/`.
 
 ### Notes
 

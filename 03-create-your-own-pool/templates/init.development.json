@@ -1,0 +1,21 @@
+{
+  "mode": "development-only",
+  "setup": {
+    "destination": "/ABS/PATH/new-setup-dir-must-not-exist",
+    "r1csPath": "/ABS/PATH/g1_relation.r1cs",
+    "ptauPath": "/ABS/PATH/powersOfTau28_hez_final_20.ptau",
+    "ptauSource": "hermez-powersOfTau28_hez_final_20",
+    "expectedR1csSha256": "sha256:REPLACE",
+    "expectedPtauSha256": "sha256:159d3f938d941e06767d99f30b9fe59a245400a4aae138cf8e411732d7a2f6cd",
+    "expectedPtauPower": 20,
+    "expectedSnarkjs": {
+      "version": "0.7.6",
+      "cliSha256": "sha256:REPLACE_PINNED_CLI"
+    },
+    "entropySource": { "kind": "fd", "fd": 3 },
+    "verifyPtau": false
+  },
+  "bundle": null,
+  "load": false,
+  "_comment": "03-create-your-own-pool init. development-only. ptau: for hermez-powersOfTau28_hez_final_20 pin, default/hash-only skips multi-hour snarkjs powersoftau verify after SHA-256 match — NOT ceremony/production evidence. Set verifyPtau:true or CLI --verify-ptau for full verify. Ceremony mode always full-verifies. Entropy fd must be chmod 600 UTF-8 text, no newlines (3<entropy.txt)."
+}

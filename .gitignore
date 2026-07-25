@@ -1,20 +1,22 @@
-
-.cache/
+node_modules/
 .codex-artifacts/
+.cache/
 coverage/
 dist/
-.grok/
-HANDOVER.md
-# large profile artifacts (not in git)
-.local/
-# Local handover / secrets — never commit without explicit user authorization
-*.log
-node_modules/
-**/*private*key*
-# Project-local worktrees only — never create worktrees outside this repo
-**/secrets/**
 target/
-use-chipnet-demo-pool/bundle/
-use-chipnet-demo-pool/state.json
-**/*.wif
+*.log
+
+# Project-local worktrees only — never create worktrees outside this repo
 .worktrees/
+
+# Local handover / secrets — never commit without explicit user authorization
+HANDOVER.md
+**/*private*key*
+**/*.wif
+**/secrets/**
+.grok/
+.local/
+
+# large profile artifacts (not in git)
+02-use-chipnet-demo-pool/bundle/
+02-use-chipnet-demo-pool/state.json
