@@ -11,7 +11,7 @@ import {
   createAndroidWalletSdk,
   createDetectedAndroidWalletSdk,
   probeAndroidRuntime,
-} from '../../research/mobile/android-sdk.mjs';
+} from '../../dev/research/mobile/android-sdk.mjs';
 import { createDesktopComposition } from './desktop.mjs';
 
 const profile = Object.freeze({ network: 'chipnet', profileId: `sha256:${'11'.repeat(32)}`, instanceId: `sha256:${'22'.repeat(32)}` });

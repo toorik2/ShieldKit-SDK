@@ -118,7 +118,7 @@ Deliver **one** supported flow, documented end-to-end:
 
 ### P3 — Repo hygiene (1–2 days)
 
-1. Move live-battery out of mental “product core”: either `examples/live-battery/` or archive under `research/`; no secrets.  
+1. Move live-battery out of mental “product core”: either `examples/live-battery/` or archive under `dev/research/`; no secrets.  
 2. `.gitignore` already covers secrets/cache — audit.  
 3. Root `npm test` green on clean clone (CI yaml if missing).  
 4. Package READMEs: one-paragraph purpose + “use app-kit for apps” pointer; no novel APIs.  
@@ -134,7 +134,7 @@ Deliver **one** supported flow, documented end-to-end:
 | Check | Pass condition |
 |-------|----------------|
 | Story | README matches reality; development-only unavoidable |
-| Path | Clean machine can complete golden path without reading research/ or HANDOVER |
+| Path | Clean machine can complete golden path without reading dev/research/ or HANDOVER |
 | Surface | App-kit + CLI is the default; internals not required for demo |
 | Scope | No new protocol features; no hosted services |
 | Hygiene | No secrets in tree; license present; tests green |

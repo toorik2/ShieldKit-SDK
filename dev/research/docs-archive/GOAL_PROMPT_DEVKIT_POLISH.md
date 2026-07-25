@@ -55,7 +55,7 @@ Follow docs/DEVKIT_POLISH_PLAN.md; stop when §7 there is true.
 - Deep packages remain internal/advanced.
 
 ### A3 — Hygiene
-- Demo/battery not presented as core product; examples/ or research/ only.
+- Demo/battery not presented as core product; examples/ or dev/research/ only.
 - Root `npm test` green on clean clone; CI if missing.
 - Short CHANGE_CONTROL note: primary DX = app-owned instance + own FE.
 

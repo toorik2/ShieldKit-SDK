@@ -155,7 +155,7 @@ flowchart TB
   subgraph Lab["Lab / evidence (not the product core)"]
     Ev[evidence/G*]
     Cache[".cache/ live runs"]
-    Research[research/]
+    Research[dev/research/]
     WT[".worktrees/ PF7 build"]
   end
 
@@ -222,7 +222,7 @@ shieldkit-sdk/
 │
 ├── examples/                 pointers only — not core product
 ├── circuits/ · policy/ · spec/ · evidence/
-├── research/                 ← lab only (android, provenance, …)
+├── dev/research/                 ← lab only (android, provenance, …)
 └── .cache/ · .worktrees/     local lab (gitignored / not for public clone story)
 ```
 

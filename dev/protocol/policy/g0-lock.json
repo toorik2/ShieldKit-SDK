@@ -77,8 +77,8 @@
   ],
   "documents": [
     {
-      "path": "protocol/AGENTS.md",
-      "sha256": "09eb0148ed7e0da1b87f2e0922f811dd9995c03eeb2f47d7a931d5c85acbe3d1"
+      "path": "dev/protocol/AGENTS.md",
+      "sha256": "da6c05d9f1cba05c4fc81084714d150b6c863331696af4b26b64c25a91c51315"
     },
     {
       "path": "docs/CHARTER.md",
@@ -102,22 +102,22 @@
     },
     {
       "path": "docs/CHANGE_CONTROL.md",
-      "sha256": "b867b1046a69edad155384ba2a1116bc4fd2a603ff7f7549cd1ea79638028045"
+      "sha256": "25cd373307ce3f8895e2b45b50b8554983e15d777bc9d4d6fcb4bbc83543b2cb"
     },
     {
       "path": "scripts/check-policy.mjs",
-      "sha256": "70325eba38ff637e945b63c1c837dc72bec24728c25e40c3cab26d0213c613f1"
+      "sha256": "41f0e4fa30956c7a89d01f033da516c09105e11bd2e91ac4ce4f58a6254ff8a1"
     },
     {
       "path": ".github/workflows/policy.yml",
       "sha256": "736a9d2989dc497ccc76af5a52e2ed7554dc3a6283387fe330863a28f1c823dd"
     },
     {
-      "path": "protocol/policy/evidence.schema.json",
+      "path": "dev/protocol/policy/evidence.schema.json",
       "sha256": "bb960e96f9eb7b5a819dc75306630c0c30d26dc4f8ceae4f7d0b314f754a6297"
     },
     {
-      "path": "protocol/policy/change.schema.json",
+      "path": "dev/protocol/policy/change.schema.json",
       "sha256": "bf53b177ef20ead51e609d1049c3d5269ca4e92c59f487d70effadeb181b7ad6"
     },
     {

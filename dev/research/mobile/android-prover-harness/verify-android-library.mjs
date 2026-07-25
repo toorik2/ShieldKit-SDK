@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const library = join(root, 'research/android/shieldcash-prover-sdk/sdk');
+const library = join(root, 'dev/research/android/shieldcash-prover-sdk/sdk');
 const source = join(library, 'src/main/java/cash/shield/prover');
 const hostTest = join(library, 'src/hostTest/java/cash/shield/prover');
 const hash = (value) => createHash('sha256').update(value).digest('hex');

@@ -4,7 +4,7 @@ Candidate `bn254-onetx-pf7-sub62-r1` is an existing, unmodified seven-input
 PairFold topology in verifier.cash commit
 `26468ae29004d2401619032de2a6ec8de269a4d6`. It was rebuilt in a disposable,
 pinned toolchain environment and passed the runner's real BCH-2026/libauth VM
-corpus. This is research/qualification evidence only; it is not G1 PASS,
+corpus. This is dev/research/qualification evidence only; it is not G1 PASS,
 production, ceremony, relay, Chipnet deployment, or release readiness.
 
 ## Measured result

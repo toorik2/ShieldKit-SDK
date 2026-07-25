@@ -1,6 +1,6 @@
 # shield.cash agent rules
 
-Read `protocol/policy/g0-lock.json`, `docs/CHARTER.md`, `docs/KILL_GATES.md`, and
+Read `dev/protocol/policy/g0-lock.json`, `docs/CHARTER.md`, `docs/KILL_GATES.md`, and
 `docs/BUILD_PLAN.md` before changing implementation.
 
 - Run `npm test` before and after every coherent change.

@@ -1,7 +1,7 @@
 # Android G4 real-device gate
 
 This repository contains Android-library source under
-`research/android/shieldcash-prover-sdk`, but no APK has been built and this host has
+`dev/research/android/shieldcash-prover-sdk`, but no APK has been built and this host has
 neither an Android SDK/NDK, Gradle, `adb`, emulator, nor attached Android
 device. The library deliberately requires a separately pinned
 `libshield_pf7.so`; no Android ABI-native PF7 binary is included. Therefore no

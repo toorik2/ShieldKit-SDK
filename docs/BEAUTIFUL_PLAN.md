@@ -151,7 +151,7 @@ shieldkit-sdk/
 ├── docs/                           # charter, privacy, THIS plan, kill gates
 ├── spec/                           # normative manifest/lifecycle (keep thin)
 ├── evidence/ · policy/ · examples/
-└── research/                       # quarantined; not product map
+└── dev/research/                       # quarantined; not product map
 ```
 
 ### 3.1 What merges where
@@ -163,7 +163,7 @@ shieldkit-sdk/
 | **prove/** | `snarkjs-adapter`, in-tree PF7 unlock path (from dens-drop / `pf7-*` product core), budgets as internal |
 | **recover/** | `recovery` |
 | **kit/** | `app-kit` + `sdk` (one API) |
-| **research/** or drop | pure gate harnesses, corpus packaging if not runtime: `proof-corpus`, `conformance` as tools under `scripts/` or `evidence/` |
+| **dev/research/** or drop | pure gate harnesses, corpus packaging if not runtime: `proof-corpus`, `conformance` as tools under `scripts/` or `evidence/` |
 | **mobile/** (late) | `browser-prover`, `android-prover-harness`, `native-prover-adapter` |
 
 ### 3.2 Naming rules (hard)
@@ -220,7 +220,7 @@ No parallel “battery path” vs “product path” that reimplement assembly.
 
 - Product path lives in `prove/` as a **library**, not permanent spawn over research worktrees  
 - Pin algorithm + inputs; cache only after core path is clean (inner beauty)  
-- Research worktrees quarantined under `research/`
+- Research worktrees quarantined under `dev/research/`
 
 ### 4.3 Types / contracts
 

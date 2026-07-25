@@ -62,9 +62,9 @@ point; silently moving or deleting it is a governance breach.
 
 Layout migration for GitHub product surface (not a protocol semantics change):
 
-- `policy/` → `protocol/policy/`; `AGENTS.md` → `protocol/AGENTS.md`
-- `circuits/`, `spec/`, `evidence/` → `protocol/`
-- Lab scripts/docs → `research/`
+- `policy/` → `dev/protocol/policy/`; `AGENTS.md` → `dev/protocol/AGENTS.md`
+- `circuits/`, `spec/`, `evidence/` → `dev/protocol/`
+- Lab scripts/docs → `dev/research/`
 - Product packages remain `packages/{kit,profile,action,prove,recover}`
 
-G0 freeze document *paths* updated in `protocol/policy/g0-lock.json`. Decision IDs D-001–D-016 unchanged. Re-tag freeze when cutting a new PASS candidate.
+G0 freeze document *paths* updated in `dev/protocol/policy/g0-lock.json`. Decision IDs D-001–D-016 unchanged. Re-tag freeze when cutting a new PASS candidate.

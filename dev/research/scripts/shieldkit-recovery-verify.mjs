@@ -10,9 +10,9 @@ import {
   deriveRecipientAddress,
   constructRecipientOutput,
   recoverRecipientOutput,
-} from '../../packages/recover/recovery.mjs';
-import { createKit } from '../../packages/kit/kit.mjs';
-import { loadVerifierProfileBundle } from '../../packages/profile/load.mjs';
+} from '../../../packages/recover/recovery.mjs';
+import { createKit } from '../../../packages/kit/kit.mjs';
+import { loadVerifierProfileBundle } from '../../../packages/profile/load.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BUNDLE = path.join(ROOT, '.cache/profile-build-live/profile-bundle');
