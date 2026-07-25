@@ -1,7 +1,0 @@
-contract Test() {
-    function hello() {
-        bytes2 byte_ = 0x1234;
-        sig s = 0x1234;
-        require(byte_.length == s.length);
-    }
-}

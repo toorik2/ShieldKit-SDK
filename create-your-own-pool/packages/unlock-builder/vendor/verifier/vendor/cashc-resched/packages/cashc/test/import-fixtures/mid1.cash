@@ -1,4 +1,0 @@
-import "./leaf.cash";
-function m1(int a) returns (int) {
-    return leaf(a) * 2;
-}

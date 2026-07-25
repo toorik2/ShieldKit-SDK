@@ -1,7 +1,0 @@
-bytes32 constant HASH = 0xbeef;
-
-contract Test() {
-    function spend(bytes32 h) {
-        require(h == HASH);
-    }
-}

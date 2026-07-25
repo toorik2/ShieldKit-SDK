@@ -1,5 +1,0 @@
-import "./util/leaf.cash";
-
-function beta(int n) returns (int) {
-    return leaf(n) * 2;
-}

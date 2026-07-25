@@ -1,5 +1,0 @@
-contract Test(sig x) {
-    function test(bytes4 y) {
-        require(unsafe_int(x) > unsafe_int(y));
-    }
-}

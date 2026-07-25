@@ -1,5 +1,0 @@
-contract Test(int x) {
-    function hello(int t) {
-        require(x % true > t);
-    }
-}

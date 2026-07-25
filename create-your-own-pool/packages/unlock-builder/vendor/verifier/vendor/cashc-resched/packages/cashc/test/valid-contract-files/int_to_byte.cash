@@ -1,6 +1,0 @@
-contract IntToByte() {
-    function hello(int a, byte b) {
-        byte c = toPaddedBytes(a, 1);
-        require(b == c);
-    }
-}

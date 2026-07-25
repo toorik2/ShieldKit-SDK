@@ -222,7 +222,11 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   if (value.minimumFeeRateSatoshisPerByte !== PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE) fail('protocol fee rate is fixed at exactly 1 satoshi per byte');
   const profile = await manifestGenesis(value);
   const { profileId, instanceId, stateCategory } = profile;
-  const privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
+  // Fee auth policy A: feePrivateKey in-process.
+  // Fee auth policy B: feePublicKey + feeSignature (caller-signed; no private key in assembler).
+  const hasFeeKey = value.feePrivateKey !== undefined && value.feePrivateKey !== null;
+  const hasFeePub = value.feePublicKey !== undefined && value.feePublicKey !== null;
+  if (hasFeeKey === hasFeePub) fail('exactly one of feePrivateKey (policy A) or feePublicKey (policy B) is required');
   const authority = await profilePf7Roles(profile);
   const pf7 = await requirePf7(value.pf7, authority.roles);
   const { packet, decoded } = checkedPacket(value.actionPacket, profileId, instanceId);
@@ -256,8 +260,15 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   if (stateUnlock.length > INPUT_UNLOCKING_LIMIT_BYTES) fail('state helper unlocking-bytecode limit exceeded');
 
   const secp256k1 = await instantiateSecp256k1();
-  const publicKey = secp256k1.derivePublicKeyCompressed(privateKey);
-  if (typeof publicKey === 'string') fail('fee private key is invalid');
+  let privateKey = null;
+  let publicKey;
+  if (hasFeeKey) {
+    privateKey = bytes(value.feePrivateKey, 32, 'feePrivateKey');
+    publicKey = secp256k1.derivePublicKeyCompressed(privateKey);
+    if (typeof publicKey === 'string') fail('fee private key is invalid');
+  } else {
+    publicKey = binaryOrHex(value.feePublicKey, 33, 'feePublicKey');
+  }
   const feeLock = p2pkh(publicKey);
   const sources = [
     ...pf7.map((row) => sourceFor(row)),
@@ -284,8 +295,23 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const signingSerialization = generateSigningSerializationBch({ inputIndex: 9, sourceOutputs: sources, transaction: unsignedTransaction }, {
     coveredBytecode: feeLock, signingSerializationType: Uint8Array.of(SigningSerializationTypeBch.allOutputs),
   });
-  const signature = secp256k1.signMessageHashSchnorr(privateKey, hash256(signingSerialization));
-  if (typeof signature === 'string') fail('unable to create fee signature');
+  const signingDigest = hash256(signingSerialization);
+  let signature;
+  if (privateKey) {
+    signature = secp256k1.signMessageHashSchnorr(privateKey, signingDigest);
+    if (typeof signature === 'string') fail('unable to create fee signature');
+  } else if (value.feeSignature !== undefined && value.feeSignature !== null) {
+    signature = binaryOrHex(value.feeSignature, 64, 'feeSignature');
+    // Validate policy-B signature against the exact settlement fee digest.
+    if (secp256k1.verifySignatureSchnorr(signature, publicKey, signingDigest) !== true) {
+      fail('feeSignature does not verify for feePublicKey over settlement fee sighash');
+    }
+  } else if (requirePacketContext) {
+    fail('assemble requires feePrivateKey (A) or feePublicKey+feeSignature (B)');
+  } else {
+    // plan-only: dummy unlock; SCCT excludes unlocking bytecode so digest is stable
+    signature = Buffer.alloc(64);
+  }
   unsignedTransaction.inputs[9].unlockingBytecode = schnorrUnlock(signature, publicKey);
   const encodedTransaction = Buffer.from(encodeTransaction(unsignedTransaction));
   const feeSatoshis = totalInputValue - unsignedTransaction.outputs.reduce((sum, output) => sum + output.valueSatoshis, 0n);
@@ -298,6 +324,14 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
     transaction: unsignedTransaction,
     sourceOutputs: sources, encodedTransaction, actionPacket: packet,
     context: provisionalContext,
+    feeSigning: Object.freeze({
+      algorithm: 'schnorr-bch-all-forkid',
+      inputIndex: 9,
+      publicKeyHex: hex(publicKey),
+      signingSerializationHex: hex(signingSerialization),
+      signingDigestHex: hex(signingDigest),
+      policy: privateKey ? 'A-in-process-key' : (value.feeSignature ? 'B-presigned' : 'plan-unsigned'),
+    }),
     locks: Object.freeze({ bindingLock, stateLock, stateHelper: helper }),
     measurements: Object.freeze({ wireBytes: encodedTransaction.length, feeSatoshis, feeRateSatoshisPerByte: PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE, maximumUnlockingBytes: Math.max(...unsignedTransaction.inputs.map((input) => input.unlockingBytecode.length)), bindingLockBytes: bindingLock.length, stateLockBytes: stateLock.length, stateUnlockBytes: stateUnlock.length }),
   });
@@ -314,6 +348,7 @@ export async function planCompleteSettlement(value) {
     schema: 'shield.cash/g2-complete-settlement-plan/v1', kind: constructed.kind,
     qualification: constructed.qualification,
     context: constructed.context,
+    feeSigning: constructed.feeSigning,
     expectedWireBytes: constructed.measurements.wireBytes,
     expectedFeeSatoshis: constructed.measurements.feeSatoshis,
     lockBytes: Object.freeze({ binding: constructed.measurements.bindingLockBytes, state: constructed.measurements.stateLockBytes }),

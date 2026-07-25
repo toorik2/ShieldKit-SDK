@@ -1,5 +1,0 @@
-contract Test(string x, string y) {
-    function hello() {
-        require(([y] + x).length > 50);
-    }
-}

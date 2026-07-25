@@ -1,6 +1,0 @@
-contract Slice(bytes32 data) {
-    function spend() {
-        bytes20 pkh = data.slice(0, 20);
-        require(pkh == toPaddedBytes(0, 20));
-    }
-}

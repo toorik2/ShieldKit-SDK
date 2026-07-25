@@ -16,10 +16,14 @@ npm run shieldkit -- --version
 # Unlock builder pin (Node-only; no sibling verifier.cash)
 npm run unlock-builder:smoke
 
-# Scaffold a pool dir from the pinned development profile
+# Scaffold from local pin profile (requires .cache/profile-build-live pin arts)
 npm run create-pool -- --out ./my-pool
 
-# Full Chipnet act spine (deposit→transfer→withdraw) via product APIs
+# New on-chain instance (needs fund UTXO + BCHN + pin artifacts)
+npm run create-pool -- --out ./new-pool --with-genesis \
+  --fund-txid <txid> --fund-vout 1 --broadcast
+
+# Full Chipnet act spine (needs wallets + layer1-node SSH + live tip state)
 npm run e2e:standalone
 ```
 
@@ -32,12 +36,11 @@ import {
 } from './create-your-own-pool/packages/kit/index.mjs';
 import { buildVerifierUnlocks, PIN_LENS } from './create-your-own-pool/packages/unlock-builder/index.mjs';
 
-// Your pool (after create-pool / genesis)
-const mine = await loadInstance('./my-pool');
-const kit = await createKit(instanceToKitConfig(mine));
-
 // Settlement unlocks (Node): buildVerifierUnlocks / completeAction
+// Fee: policy A feePrivateKey, or policy B feePublicKey + feeSignature
 ```
 
 You own: **keys · frontend · RPC · broadcast**.  
 Unlock compile ships in `@shieldkit/unlock-builder` (vendored C7 pin).
+
+**Honest limits:** pin circuit artifacts (zkey/r1cs) are large and currently local (`.cache/profile-build-live`); cold clone still needs that pin pack for create-pool. Live e2e needs your Chipnet RPC + wallets. UX red team: `create-your-own-pool/docs/UX_ADVERSARIAL_REDTEAM.md`.
