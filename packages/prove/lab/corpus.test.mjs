@@ -4,7 +4,7 @@ import { lstat, mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { ProofCorpusError, memoryMeasurement, parseLinuxProcStatus, parseStrictJson, runProofCorpus, sha256File } from './proof-corpus.mjs';
+import { ProofCorpusError, memoryMeasurement, parseLinuxProcStatus, parseStrictJson, runProofCorpus, sha256File } from './corpus.mjs';
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(packageDirectory, 'node_modules', 'circom_runtime', 'test', 'circuit');
@@ -116,7 +116,7 @@ test('streams SHA-256 rather than buffering a large artifact', async () => {
     const filename = path.join(directory, 'large.r1cs'); const bytes = Buffer.alloc(8 * 1024 * 1024, 0xa5);
     await writeFile(filename, bytes);
     assert.equal(await sha256File(filename), createHash('sha256').update(bytes).digest('hex'));
-    const source = await readFile(path.join(packageDirectory, 'proof-corpus.mjs'), 'utf8');
+    const source = await readFile(path.join(packageDirectory, 'corpus.mjs'), 'utf8');
     assert.match(source, /for await \(const chunk of createReadStream\(filename\)\)/);
     assert.doesNotMatch(source.match(/export async function sha256File[\s\S]*?\n}\n/)?.[0] ?? '', /readFile\(/);
   } finally {

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node scripts/run-domain-tests.mjs"
+    "test": "node scripts/run-domain-tests.mjs",
+    "fetch-playground-bundle": "node scripts/fetch-playground-bundle.mjs"
   }
 }

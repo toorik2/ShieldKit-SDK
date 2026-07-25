@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { parseStrictJson } from '../profile/load.mjs';
+import { parseStrictJson } from '../../profile/load.mjs';
 
 export const PROVER_ARTIFACT_BUDGET_BYTES = 512 * 1024 * 1024;
 const HASH = /^sha256:[0-9a-f]{64}$/;

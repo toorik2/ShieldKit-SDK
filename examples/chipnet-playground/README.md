@@ -16,11 +16,15 @@ Use this to learn deposit / transfer / withdraw / recover against a real instanc
 
 ## Setup (one-time)
 
-Profile bundle (~455 MB proving key) is **not in git**.
+Profile bundle (~455 MB proving key) is **not in git**. Pinned release + sha256 in [`instance.json`](./instance.json).
 
 ```bash
+# recommended — download + verify release asset
+node scripts/fetch-playground-bundle.mjs
+# → writes examples/chipnet-playground/bundle/ and prints export line
+
+# or point at an existing verified bundle
 export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle
-# or: examples/chipnet-playground/bundle/  or lab .cache path (maintainers)
 ```
 
 ```bash

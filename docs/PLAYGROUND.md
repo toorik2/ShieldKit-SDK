@@ -17,16 +17,17 @@
 
 | Path | Purpose |
 |------|---------|
-| **Try the example** | Optional: deposit/transfer/recover against the official Chipnet demo so you see a real instance end-to-end |
-| **Create your pool** | The product job: `init` → genesis → operate **your** instance forever |
+| **Create your pool** | **Primary** product job: `init` → genesis → operate **your** instance forever |
+| **Try the example** | Optional: deposit/transfer/recover against the Chipnet demo |
 
-Both use `loadInstance` → `createKit`. No second product.
+Both use `loadInstance` → `createKit`. No second product.  
+**Start:** `packages/kit` (+ `profile` for init/instance).
 
 ```text
 loadInstance(ref) → createKit(...)
         │
- chipnet-playground          ./my-pool/
- (example only)              (your genesis — the point)
+ ./my-pool/                  chipnet-playground
+ (your genesis — primary)    (optional example)
 ```
 
 ## Honesty

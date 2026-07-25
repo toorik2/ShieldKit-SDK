@@ -1,6 +1,6 @@
 {
   "id": "chipnet-playground",
-  "label": "ShieldKit official Chipnet playground",
+  "label": "ShieldKit Chipnet example pool",
   "role": "playground",
   "network": "chipnet",
   "setupMode": "development-only",
@@ -18,8 +18,14 @@
   },
   "profileBundle": {
     "path": "bundle",
-    "note": "Place authenticated profile-bundle here, or set SHIELDKIT_PLAYGROUND_BUNDLE. ~455MB proving key — not stored in git.",
     "provingKeySha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a",
+    "release": {
+      "tag": "playground-bundle-v1",
+      "url": "https://github.com/toorik2/ShieldKit-SDK/releases/download/playground-bundle-v1/chipnet-playground-profile-bundle.tar.gz",
+      "sha256": "sha256:6813fcb7d102b2c9616a5918ca9eaa51ca1b2e3d6bd945bc2a308f3bf3317f6b",
+      "bytesApprox": 198000000
+    },
+    "fetch": "node scripts/fetch-playground-bundle.mjs",
     "searchPaths": [
       "SHIELDKIT_PLAYGROUND_BUNDLE env",
       "examples/chipnet-playground/bundle",

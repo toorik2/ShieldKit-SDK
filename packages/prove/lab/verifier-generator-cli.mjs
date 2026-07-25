@@ -1,8 +1,8 @@
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStrictJson } from '../profile/load.mjs';
-import { generatePf7VerifierSet } from './pf7-verifier-generator.mjs';
+import { parseStrictJson } from '../../profile/load.mjs';
+import { generatePf7VerifierSet } from './verifier-generator.mjs';
 
 export async function loadCliConfig(filename) {
   if (typeof filename !== 'string' || !path.isAbsolute(filename)) throw new Error('configuration path must be absolute');

@@ -1,6 +1,6 @@
 # `@shieldkit/prove`
 
-In-tree Groth16 + PF7 unlock surface (not dens-drop worktree folklore).
+Local Groth16 prove/verify and PF7 unlock surface.
 
 ```js
 import { adaptSnarkjsGroth16, parsePf7CarrierAuthority } from './index.mjs';
@@ -8,8 +8,8 @@ import { adaptSnarkjsGroth16, parsePf7CarrierAuthority } from './index.mjs';
 
 | Export | Role |
 |--------|------|
-| `adaptSnarkjsGroth16` | Parse/verify snarkjs proof → PF7 fixture fields |
+| `adaptSnarkjsGroth16` | snarkjs proof → PF7 fields |
 | `parsePf7CarrierAuthority` | PF7 carrier authority |
-| `measurePf7FixedPointCandidate` / `verifyPf7FixedPointCandidate` | Unlock sizing path |
+| unlock helpers | sizing / fixed-point path |
 
-Local proving only; kit never hosts a prover.
+Lab tooling: [`lab/`](lab/). Covenant support: [`internal/`](internal/).

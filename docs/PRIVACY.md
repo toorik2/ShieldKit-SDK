@@ -2,7 +2,7 @@
 
 Document version: 0.1
 
-Status: ratified under `g0-v3`
+Status: product privacy model (ShieldKit V1)
 
 ## 1. Claim
 

@@ -8,3 +8,4 @@ export {
   PF7_UNLOCKING_BYTE_LIMIT,
   COMPLETE_SETTLEMENT_WIRE_LIMIT,
 } from './unlock.mjs';
+export { parsePf7CarrierAuthority as parseAuthority } from './authority.mjs';

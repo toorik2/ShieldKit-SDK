@@ -134,8 +134,9 @@ async function resolveBundleDirectory(descriptor, opts) {
     }
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
-      'Chipnet playground profile bundle not found. Set SHIELDKIT_PLAYGROUND_BUNDLE '
-        + 'to a verified profile-bundle directory (see examples/chipnet-playground/README.md).',
+      'Chipnet playground profile bundle not found. Fetch pinned release: '
+        + '`node scripts/fetch-playground-bundle.mjs` (sha256 in examples/chipnet-playground/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See examples/chipnet-playground/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json

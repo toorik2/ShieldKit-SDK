@@ -3,9 +3,9 @@
 **Create and run your own BCH shielded pool.**  
 Your keys. Your frontend. Your instance.
 
-> **ShieldKit creates shielded pools.  
-> The Chipnet playground is a live example of a pool built with this kit.  
-> Your product is your own pool — same toolkit, your genesis.**
+> **Primary:** create your own pool.  
+> **Optional:** try the Chipnet example first.  
+> **Start:** `packages/kit` (+ `profile` for init/instance).
 
 | | |
 |--|--|
@@ -22,8 +22,8 @@ We do **not** offer a hosted pool for third-party apps. The playground is only s
 
 | Step | What | Where |
 |------|------|--------|
-| **1. Try the example** | Play against our Chipnet demo instance (optional) | [`examples/chipnet-playground`](examples/chipnet-playground/) |
-| **2. Create your pool** | Init + genesis — the actual product job | [`examples/create-your-pool`](examples/create-your-pool/) |
+| **1. Create your pool** | Init + genesis — the product job | [`examples/create-your-pool`](examples/create-your-pool/) |
+| **2. (Optional) Try the example** | Play against our Chipnet demo instance | [`examples/chipnet-playground`](examples/chipnet-playground/) |
 | **3. Operate** | deposit · transfer · withdraw · recover on **your** instance | `createKit` / CLI |
 
 Same APIs either way. Playground and “your pool” differ only by **instance binding**.
@@ -36,24 +36,24 @@ Same APIs either way. Playground and “your pool” differ only by **instance b
 npm test
 node scripts/shieldkit.mjs --help
 
-# Optional — try the Chipnet example pool first
-export SHIELDKIT_PLAYGROUND_BUNDLE=/path/to/profile-bundle
-node scripts/shieldkit.mjs playground doctor
-
 # Product path — create and run your own
 node scripts/shieldkit.mjs init --config examples/create-your-pool/init.example.json
+
+# Optional — try the Chipnet example pool first
+node scripts/fetch-playground-bundle.mjs   # pin + sha256 in instance.json
+node scripts/shieldkit.mjs playground doctor
 ```
 
 ```js
 import { createKit, loadInstance, instanceToKitConfig } from './packages/kit/index.mjs';
 
+// Your pool (after init + genesis) — primary
+const mine = await loadInstance('./my-pool');
+const kit = await createKit(instanceToKitConfig(mine));
+
 // Optional example instance (our Chipnet playground)
 // const example = await loadInstance('chipnet-playground');
 // const kit = await createKit(instanceToKitConfig(example));
-
-// Your pool (after init + genesis)
-const mine = await loadInstance('./my-pool');
-const kit = await createKit(instanceToKitConfig(mine));
 
 // kit.planAction(request) · kit.recoverAuthenticatedHistory(...)
 ```
@@ -65,12 +65,12 @@ ShieldKit does not store secrets, host a pool service, or open sockets.
 
 ## Four verbs
 
-| Verb | Example playground | Your pool |
-|------|--------------------|-----------|
-| **init** | — | `init --config …` |
-| **act** | `playground deposit --request …` | `deposit --bundle ./my-pool --request …` |
-| **recover** | `playground recover …` | `recover --bundle ./my-pool …` |
-| **doctor** | `playground doctor` | `doctor` / load your instance |
+| Verb | Your pool | Example playground |
+|------|-----------|--------------------|
+| **init** | `init --config …` | — |
+| **act** | `deposit --bundle ./my-pool --request …` | `playground deposit --request …` |
+| **recover** | `recover --bundle ./my-pool …` | `playground recover …` |
+| **doctor** | `doctor` / load your instance | `playground doctor` |
 
 Missing inputs → **`ok: false`** (fail-closed).
 
@@ -80,12 +80,14 @@ Missing inputs → **`ok: false`** (fail-closed).
 
 ```text
 packages/     kit · profile · action · prove · recover
-scripts/      shieldkit CLI · domain tests
+scripts/      shieldkit CLI · domain tests · fetch-playground-bundle
 examples/
-  chipnet-playground/   live Chipnet *example* (not a hosted product)
-  create-your-pool/     create your own instance
-docs/
+  create-your-pool/     create your own instance  ← primary
+  chipnet-playground/   live Chipnet *example* (optional)
+docs/         CHARTER · PRIVACY · PLAYGROUND · ARCHITECTURE
 ```
+
+**Start coding:** `packages/kit` · instance/init: `packages/profile`.
 
 ---
 
@@ -110,4 +112,4 @@ Broadcast: `--i-understand-mainnet`.
 
 ## Safety & docs
 
-[SECURITY.md](SECURITY.md) · [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/PLAYGROUND.md](docs/PLAYGROUND.md) · [LICENSE](LICENSE)
+[SECURITY.md](SECURITY.md) · [docs/CHARTER.md](docs/CHARTER.md) · [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/PLAYGROUND.md](docs/PLAYGROUND.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [LICENSE](LICENSE)

@@ -3,17 +3,17 @@ import { spawn } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalJson, loadVerifierProfileBundle, parseStrictJson } from '../profile/load.mjs';
+import { canonicalJson, loadVerifierProfileBundle, parseStrictJson } from '../../profile/load.mjs';
 import {
   derivePf7SettlementKernelAuthority,
   parsePf7CarrierAuthority,
-} from './authority.mjs';
+} from '../authority.mjs';
 import {
   ACTION_PACKET_BYTES,
   actionPacketPublicLimbs,
   decodeActionPacket,
-} from '../action/packet.mjs';
-import { adaptSnarkjsGroth16 } from './groth16.mjs';
+} from '../../action/packet.mjs';
+import { adaptSnarkjsGroth16 } from '../groth16.mjs';
 
 const BASE = '26468ae29004d2401619032de2a6ec8de269a4d6';
 const REFERENCE_TERMINAL = '17c6b9552c48b0fc5271be626a1578fb0065df09';
@@ -33,7 +33,8 @@ const HARNESS_LOCK_SHA256 = '123bfd3aa1497c01c40c71367a188efc7d435125d4d3539d5f7
 const HARNESS_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next.8', '@noble/curves': '2.2.0', tsx: '4.22.4', typescript: '6.0.3' });
 const HASH = /^[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(packageDirectory, '../..');
+// lab/ → prove/ → packages/ → repo root
+const repositoryRoot = path.resolve(packageDirectory, '../../..');
 // Optional local PF7 provenance pins (not shipped in product tree).
 const provenanceFile = path.join(repositoryRoot, '.local/provenance/series.json');
 const seamProvenanceFile = path.join(repositoryRoot, '.local/provenance/seam-series.json');

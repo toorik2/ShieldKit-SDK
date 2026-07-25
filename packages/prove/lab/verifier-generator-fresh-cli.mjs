@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { loadCliConfig } from './cli.mjs';
-import { generatePf7FreshDevelopmentCorpus } from './pf7-verifier-generator.mjs';
+import { generatePf7FreshDevelopmentCorpus } from './verifier-generator.mjs';
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const input = process.argv[2];

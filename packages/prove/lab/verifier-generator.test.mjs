@@ -7,7 +7,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
-import { encodeActionPacket, OUTPUT_RECORD_BYTES } from '../action/packet.mjs';
+import { encodeActionPacket, OUTPUT_RECORD_BYTES } from '../../action/packet.mjs';
 import {
   assertBuildComplete,
   assertExactPf7FreshFinalVerifierSetArtifact,
@@ -26,7 +26,7 @@ import {
   validateProvenance,
   validateRuntimePackageVersions,
   validateSeamProvenance,
-} from './pf7-verifier-generator.mjs';
+} from './verifier-generator.mjs';
 
 const execFileAsync = promisify(execFile);
 const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').update(bytes).digest()).digest();
@@ -280,7 +280,7 @@ const canonicalDepositPacket = () => encodeActionPacket({
 test('fresh path reads raw proof/signal/VK itself and rejects symlink swaps before a build', async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'pf7-fresh-raw-'));
   try {
-    const fixtureDirectory = path.resolve(path.dirname(new URL(import.meta.url).pathname), './test-fixtures/two-public');
+    const fixtureDirectory = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../test-fixtures/two-public');
     const proof = path.join(directory, 'proof.json'); const signals = path.join(directory, 'public.json'); const vk = path.join(directory, 'verification_key.json'); const packet = path.join(directory, 'packet.bin');
     await writeFile(proof, await readFile(path.join(fixtureDirectory, 'proof.json'))); await writeFile(signals, await readFile(path.join(fixtureDirectory, 'public.json'))); await writeFile(vk, await readFile(path.join(fixtureDirectory, 'verification_key.json'))); await writeFile(packet, canonicalDepositPacket());
     const record = async (filename) => ({ path: filename, sha256: createHash('sha256').update(await readFile(filename)).digest('hex') });
