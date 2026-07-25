@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packagesRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = new Set(['kit', 'profile', 'action', 'prove', 'recover', 'mobile']);
+const allowed = new Set(['kit', 'profile', 'action', 'prove', 'recover']);
 
 test('product packages are only domain peers', () => {
   const peers = readdirSync(packagesRoot, { withFileTypes: true })

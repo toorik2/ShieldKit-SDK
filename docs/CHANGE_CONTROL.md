@@ -57,3 +57,14 @@ Repository owners can technically rewrite Git history. The guard makes ordinary
 or accidental drift fail closed and makes intentional direction changes
 explicit and reviewable. The annotated freeze tag is the durable comparison
 point; silently moving or deleting it is a governance breach.
+
+## 2026-07-25 — Product repository layout
+
+Layout migration for GitHub product surface (not a protocol semantics change):
+
+- `policy/` → `protocol/policy/`; `AGENTS.md` → `protocol/AGENTS.md`
+- `circuits/`, `spec/`, `evidence/` → `protocol/`
+- Lab scripts/docs → `research/`
+- Product packages remain `packages/{kit,profile,action,prove,recover}`
+
+G0 freeze document *paths* updated in `protocol/policy/g0-lock.json`. Decision IDs D-001–D-016 unchanged. Re-tag freeze when cutting a new PASS candidate.

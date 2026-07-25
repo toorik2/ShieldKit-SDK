@@ -3,7 +3,7 @@
 // establish that an Android WebView-like engine has the portable recovery
 // prerequisites; that is deliberately narrower than device/prover
 // qualification.
-import { WalletSdkError, createBrowserWalletSdk, createProfileCoordinates } from '../kit/browser.mjs';
+import { WalletSdkError, createBrowserWalletSdk, createProfileCoordinates } from '../../packages/kit/browser.mjs';
 
 const fail = (code, message) => { throw new WalletSdkError(code, message); };
 const exactKeys = (value, label, expected) => {

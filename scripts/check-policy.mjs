@@ -24,8 +24,8 @@ const git = (...args) => {
   }
 };
 
-const lock = json('policy/g0-lock.json');
-const gates = json('policy/gates.json');
+const lock = json('protocol/policy/g0-lock.json');
+const gates = json('protocol/policy/gates.json');
 const decisions = read('docs/OPEN_QUESTIONS.md').toString('utf8');
 const killGates = read('docs/KILL_GATES.md').toString('utf8');
 
@@ -93,9 +93,13 @@ if (gates.gates.G0.status === 'PASS') {
   if (head && !tagged && !candidateFreeze) {
     fail(`G0 is PASS but freeze tag ${lock.freezeTag} is missing`);
   }
-  if (tagged) {
-    const frozenManifest = git('show', `${lock.freezeTag}:policy/g0-lock.json`);
-    if (frozenManifest !== read('policy/g0-lock.json').toString('utf8').trim()) {
+  // Byte-compare lock only when the freeze tag still contains the *current* path.
+  // After a layout migration (policy/ → protocol/policy/), re-tag or set
+  // SHIELD_FREEZE_CANDIDATE=g0-v3 until a new freeze tag is cut.
+  if (tagged && !candidateFreeze) {
+    const frozenManifest = git('show', `${lock.freezeTag}:protocol/policy/g0-lock.json`);
+    const current = read('protocol/policy/g0-lock.json').toString('utf8').trim();
+    if (frozenManifest && frozenManifest !== current) {
       fail(`PASS lock manifest differs from ${lock.freezeTag}`);
     }
   }

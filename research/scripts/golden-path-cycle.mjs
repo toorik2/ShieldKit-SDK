@@ -22,19 +22,19 @@ import {
   generateSigningSerializationBch, hash256, instantiateSecp256k1,
   SigningSerializationTypeBch, encodeTransaction,
 } from '@bitauth/libauth';
-import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
-import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
+import { loadVerifierProfileBundle } from '../../packages/profile/load.mjs';
+import { parsePf7CarrierAuthority } from '../../packages/prove/authority.mjs';
 import {
   planCompletePreparationTransaction, finalizeCompletePreparationTransaction,
-} from '../packages/action/prep.mjs';
-import { generateFreshWitnessInputs } from '../packages/action/witness.mjs';
+} from '../../packages/action/prep.mjs';
+import { generateFreshWitnessInputs } from '../../packages/action/witness.mjs';
 import {
   planCompleteSettlement, assembleCompleteSettlement, classifyCompleteSettlementVm,
-} from '../packages/action/assemble.mjs';
-import { adaptSnarkjsGroth16 } from '../packages/prove/groth16.mjs';
+} from '../../packages/action/assemble.mjs';
+import { adaptSnarkjsGroth16 } from '../../packages/prove/groth16.mjs';
 
 const require = createRequire(import.meta.url);
-const snarkjs = require('../packages/prove/node_modules/snarkjs');
+const snarkjs = require('../../packages/prove/node_modules/snarkjs');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 

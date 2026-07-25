@@ -1,111 +1,131 @@
-# ShieldKit-SDK
+# ShieldKit
 
-Offline **BCH shielded-transfer toolkit**: birth a pool, act, recover.
+**Private BCH transfers for apps that run their own pool.**
 
-> **Unaudited — Work In Progress.**  
-> Local setup is permanently **`development-only`** unless you run a ceremony. That is **not** production privacy.  
-> **Mainnet** = one config change (`network: 'mainnet'` / `--network mainnet`) plus warnings and broadcast ack — **not** a release claim.  
-> Production privacy claims need **`ceremony-production`** + **new genesis**. Default network: **Chipnet**.
+ShieldKit is an offline toolkit: you keep keys, frontend, and RPC.  
+Deposit → transfer → withdraw on Bitcoin Cash, with local proving.
 
-## Four verbs
-
-| Verb | CLI | Library |
-|------|-----|---------|
-| **init** | `shieldkit init --config init.json` | `profile.init({ mode, setup, bundle })` |
-| **act** | `shieldkit deposit\|transfer\|withdraw --bundle … --request …` | `kit.planAction` → sign → finalize → prove → assemble |
-| **recover** | `shieldkit recover --bundle … --history … --seed-hex …` | `kit.recoverAuthenticatedHistory` |
-| **doctor** | `shieldkit doctor --network … --mode …` | `assertBroadcastAllowed` / `productWarnings` |
-
-Missing required inputs → **`ok: false`** (fail-closed; no fake success).
-
-```bash
-# Policy freeze (g0)
-npm test
-
-# Domain/unit suite (recommended before PR)
-node scripts/run-domain-tests.mjs
-
-node scripts/shieldkit.mjs doctor
-node scripts/shieldkit.mjs config-check --network chipnet
-node scripts/shieldkit.mjs config-check --network mainnet   # refuse without flags
-node scripts/shieldkit.mjs deposit                          # ok:false — shows required inputs
-node scripts/shieldkit.mjs --help
+```text
+Status:  Unaudited — Work In Progress
+Network: Chipnet by default · Mainnet = one config change + warnings
+Trust:   development-only setup ≠ production privacy
+         Production claims need ceremony-production + new genesis
 ```
 
-## Library
+---
+
+## Quick start
+
+```bash
+# Install / policy freeze
+npm test
+
+# Product CLI
+node scripts/shieldkit.mjs --help
+node scripts/shieldkit.mjs doctor
+node scripts/shieldkit.mjs config-check --network chipnet
+```
 
 ```js
-import { createKit, PRODUCT_STATUS } from './packages/kit/index.mjs';
+import { createKit } from './packages/kit/index.mjs';
 
 const kit = await createKit({
-  network: 'chipnet', // or 'mainnet' (WIP warnings always attached)
-  bundleDirectory: '/path/to/profile-bundle',
+  network: 'chipnet', // or 'mainnet' (WIP warnings always shown)
+  bundleDirectory: './path/to/profile-bundle',
   expectedProfile: {
     network: 'chipnet',
     profileId: 'sha256:…',
     instanceId: 'sha256:…',
   },
 });
-// kit.warnings includes "Unaudited — Work In Progress"
-// kit.planAction(request) / planCompletePreparation
+
+// kit.warnings  → includes "Unaudited — Work In Progress"
+// kit.planAction(request) → prep plan (you sign)
 // kit.recoverAuthenticatedHistory({ accountSeed, history })
 ```
 
-You supply: keys, RPC/broadcast, proof/PF7 unlocks. Kit holds no secrets.
+You supply: **keys · proofs · fee UTXOs · broadcast**.  
+ShieldKit never stores secrets or opens sockets.
 
-### `createKit` methods
+---
 
-| Method | Purpose |
-|--------|---------|
-| `planAction` / `planCompletePreparation` | Plan prep tx for deposit/transfer/withdrawal |
-| `preparationSigningRequest` | Fee-input Schnorr digest |
-| `finalizeCompletePreparation` | Attach signature |
-| `planWitnessBoundSettlements` | Settlement planning after prove |
-| `recoverAuthenticatedHistory` | Seed + history → notes |
-| `broadcastRaw` | Optional; mainnet gated |
-| `assertCanBroadcast` / `explorerTxUrl` | Safety helpers |
+## Four verbs
 
-## Mainnet (one config change)
+| Verb | CLI | Library |
+|------|-----|---------|
+| **init** | `shieldkit init --config init.json` | `profile/init` — setup → profile → load |
+| **act** | `shieldkit deposit\|transfer\|withdraw --bundle … --request …` | `kit.planAction` → sign → prove → settle |
+| **recover** | `shieldkit recover --bundle … --history … --seed-hex …` | `kit.recoverAuthenticatedHistory` |
+| **doctor** | `shieldkit doctor` | network + honesty gates |
 
-```js
-network: 'mainnet'          // app / createKit
-// CLI: --network mainnet
-```
+Missing inputs → **`ok: false`** (fail-closed). No fake success.
 
-Always shown: **Unaudited — Work In Progress**.  
-Broadcast: `--i-understand-mainnet`.  
-Production claims: `--mode ceremony-production` + ceremony-backed profile + new genesis.
+---
 
-## Layout
+## Repository layout
+
+This GitHub tree **is** the product surface.
 
 ```text
 packages/
-  kit/        createKit — app facade
-  profile/    init · load · setup(dev|ceremony) · genesis
-  action/     prep · settlement · witness
-  prove/      groth16 · PF7 unlocks
-  recover/    notes / history
-  mobile/     optional android/browser
-  bch/        covenant helpers (used by prove)
-scripts/      shieldkit CLI + tests
-examples/     demo-profile
-docs/         plan, charter, UX audit
-circuits/     relation source
-policy/ · spec/ · evidence/   # protocol freeze + gate dossiers
-research/     lab only (android, provenance, old notes) — not product
+  kit/        createKit — only app facade
+  profile/    init · ceremony/dev setup · genesis · load
+  action/     preparation · settlement · witness
+  prove/      Groth16 · PF7 unlocks
+  recover/    notes from seed + history
+scripts/
+  shieldkit.mjs           CLI
+  run-domain-tests.mjs    full unit suite
+  check-policy.mjs        protocol freeze check
+examples/demo-profile/    lab profile pointer + init example
+docs/                     product + protocol authority docs
+protocol/                 circuits · policy freeze · evidence · spec
+research/                 lab only — not the product
 ```
 
-## Demo profile
+| Open this | If you want… |
+|-----------|----------------|
+| `packages/kit` | App integration |
+| `packages/profile` | Stand up a pool (dev or ceremony) |
+| `examples/demo-profile` | Chipnet lab path |
+| `docs/` | Charter, privacy, architecture |
+| `research/` | Historical experiments (ignore for shipping) |
 
-See **[examples/demo-profile/](examples/demo-profile/)** (Chipnet lab path + `init.example.json`).
+---
 
-## Docs
+## Mainnet
 
-- [Beautiful plan](docs/BEAUTIFUL_PLAN.md) · [UX red-team](docs/UX_REDTEAM_AUDIT.md)  
-- [SECURITY](SECURITY.md) · [Charter](docs/CHARTER.md) · [Privacy](docs/PRIVACY.md)
+One switch:
+
+```js
+network: 'mainnet'
+// CLI: --network mainnet
+```
+
+Always: **Unaudited — Work In Progress**.  
+Broadcast still requires `--i-understand-mainnet`.  
+Production privacy: `--mode ceremony-production` + ceremony profile + **new genesis** (no hot-swap).
+
+---
 
 ## Invariants
 
-- Fee + change @ **1 sat/B**; unlock ≤ **10 000** B; settlement ≤ **59 000** B  
-- Verifier: `bn254-onetx-pf7-sub62-r1` (7 PF7)  
-- New setup ⇒ new profile + new genesis (no hot-swap)
+- Fee + change @ **1 sat/B** · unlock ≤ **10 000** B · settlement ≤ **59 000** B  
+- Verifier topology: `bn254-onetx-pf7-sub62-r1` (7 PF7 inputs)  
+- New setup ⇒ new profile + new genesis  
+
+---
+
+## Docs & safety
+
+- [SECURITY.md](SECURITY.md) · [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/CHARTER.md](docs/CHARTER.md)  
+- Architecture: [docs/BEAUTIFUL_PLAN.md](docs/BEAUTIFUL_PLAN.md)  
+- UX audit: [docs/UX_REDTEAM_AUDIT.md](docs/UX_REDTEAM_AUDIT.md)  
+
+**Not** a hosted privacy service, wallet keystore, or generic ZK framework.
+
+---
+
+## License
+
+See [LICENSE](LICENSE).

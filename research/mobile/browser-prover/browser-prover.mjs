@@ -7,8 +7,8 @@ import net from 'node:net';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
-import { loadLocalProverProfileBinding, parseLocalProverProfileBinding } from '../../profile/local-prover.mjs';
-import { parseStrictJson } from '../../profile/load.mjs';
+import { loadLocalProverProfileBinding, parseLocalProverProfileBinding } from '../../../packages/profile/local-prover.mjs';
+import { parseStrictJson } from '../../../packages/profile/load.mjs';
 
 const outputLimit = 64 * 1024;
 const fail = (message) => { throw new BrowserProverError(message); };

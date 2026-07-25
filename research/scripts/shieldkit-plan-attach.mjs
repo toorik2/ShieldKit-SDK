@@ -9,12 +9,12 @@ import { createHash } from 'node:crypto';
 import { writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createKit } from '../packages/kit/kit.mjs';
-import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
-import { buildSettlementTransaction } from '../packages/action/settlement.mjs';
-import { encodeActionPacket } from '../packages/action/packet.mjs';
-import { encodeSettlementContext, INPUT_ROLES } from '../packages/action/context.mjs';
-import { encodeStateNftCommitment } from '../packages/action/state.mjs';
+import { createKit } from '../../packages/kit/kit.mjs';
+import { loadVerifierProfileBundle } from '../../packages/profile/load.mjs';
+import { buildSettlementTransaction } from '../../packages/action/settlement.mjs';
+import { encodeActionPacket } from '../../packages/action/packet.mjs';
+import { encodeSettlementContext, INPUT_ROLES } from '../../packages/action/context.mjs';
+import { encodeStateNftCommitment } from '../../packages/action/state.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BUNDLE = path.resolve(process.argv.includes('--bundle')

@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
-import { loadLocalProverProfileBinding, parseLocalProverProfileBinding } from '../../profile/local-prover.mjs';
+import { loadLocalProverProfileBinding, parseLocalProverProfileBinding } from '../../../packages/profile/local-prover.mjs';
 
 const scalar = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const outputLimit = 64 * 1024;

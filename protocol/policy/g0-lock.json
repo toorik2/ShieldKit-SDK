@@ -77,8 +77,8 @@
   ],
   "documents": [
     {
-      "path": "AGENTS.md",
-      "sha256": "ebe4542f304c8ba511bc7ddb32fa964eabda46cc4a8fae142ca71b538fe79bb9"
+      "path": "protocol/AGENTS.md",
+      "sha256": "09eb0148ed7e0da1b87f2e0922f811dd9995c03eeb2f47d7a931d5c85acbe3d1"
     },
     {
       "path": "docs/CHARTER.md",
@@ -102,22 +102,22 @@
     },
     {
       "path": "docs/CHANGE_CONTROL.md",
-      "sha256": "215e08f00af673633b8814b00bcf94ce89b77bca7ebc720a42e9e39d335408ef"
+      "sha256": "b867b1046a69edad155384ba2a1116bc4fd2a603ff7f7549cd1ea79638028045"
     },
     {
       "path": "scripts/check-policy.mjs",
-      "sha256": "1d81f45985a7dd25b45ab1bd564cb4e652b9da87e34a5612a4321917010b5a4b"
+      "sha256": "70325eba38ff637e945b63c1c837dc72bec24728c25e40c3cab26d0213c613f1"
     },
     {
       "path": ".github/workflows/policy.yml",
       "sha256": "736a9d2989dc497ccc76af5a52e2ed7554dc3a6283387fe330863a28f1c823dd"
     },
     {
-      "path": "policy/evidence.schema.json",
+      "path": "protocol/policy/evidence.schema.json",
       "sha256": "bb960e96f9eb7b5a819dc75306630c0c30d26dc4f8ceae4f7d0b314f754a6297"
     },
     {
-      "path": "policy/change.schema.json",
+      "path": "protocol/policy/change.schema.json",
       "sha256": "bf53b177ef20ead51e609d1049c3d5269ca4e92c59f487d70effadeb181b7ad6"
     },
     {

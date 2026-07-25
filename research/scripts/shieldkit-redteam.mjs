@@ -8,24 +8,24 @@ import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { encodeActionPacket } from '../packages/action/packet.mjs';
-import { encodeSettlementContext, INPUT_ROLES } from '../packages/action/context.mjs';
-import { encodeStateNftCommitment } from '../packages/action/state.mjs';
+import { encodeActionPacket } from '../../packages/action/packet.mjs';
+import { encodeSettlementContext, INPUT_ROLES } from '../../packages/action/context.mjs';
+import { encodeStateNftCommitment } from '../../packages/action/state.mjs';
 import {
   buildSettlementTransaction,
   SettlementTransactionError,
   INPUT_UNLOCKING_LIMIT_BYTES,
   COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES,
-} from '../packages/action/settlement.mjs';
+} from '../../packages/action/settlement.mjs';
 import {
   assertBroadcastAllowed,
   AppKitNetworkError,
   explorerTxUrl,
   resolveNetwork,
-} from '../packages/kit/network.mjs';
-import { createKit, KitError } from '../packages/kit/kit.mjs';
-import { loadVerifierProfileBundle, BundleValidationError } from '../packages/profile/load.mjs';
-import { createProfileCoordinates } from '../packages/kit/browser.mjs';
+} from '../../packages/kit/network.mjs';
+import { createKit, KitError } from '../../packages/kit/kit.mjs';
+import { loadVerifierProfileBundle, BundleValidationError } from '../../packages/profile/load.mjs';
+import { createProfileCoordinates } from '../../packages/kit/browser.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const results = [];

@@ -215,7 +215,7 @@ function cmdDoctor() {
   const { mode, deprecatedSetupModeFlag } = resolveMode();
   const report = {
     verbs: ['init', 'deposit', 'transfer', 'withdraw', 'recover', 'doctor'],
-    domains: ['kit', 'profile', 'action', 'prove', 'recover', 'mobile'],
+    domains: ['kit', 'profile', 'action', 'prove', 'recover'],
     network: net.name,
     mode,
     setupMode: mode,

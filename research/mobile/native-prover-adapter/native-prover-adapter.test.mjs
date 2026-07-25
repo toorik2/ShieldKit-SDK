@@ -5,7 +5,7 @@ import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NativeProverAdapterError, parseManifest, parseStrictJson, runNativeProverAdapter } from './native-prover-adapter.mjs';
-import { canonicalJson, deriveInstanceId, deriveProfileId } from '../../profile/load.mjs';
+import { canonicalJson, deriveInstanceId, deriveProfileId } from '../../../packages/profile/load.mjs';
 
 const digest = (text) => createHash('sha256').update(text).digest('hex');
 const hash = 'a'.repeat(64);

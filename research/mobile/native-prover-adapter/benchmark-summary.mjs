@@ -2,7 +2,7 @@
 import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import os from 'node:os';
-import { canonicalJson, parseStrictJson } from '../../profile/load.mjs';
+import { canonicalJson, parseStrictJson } from '../../../packages/profile/load.mjs';
 
 const kinds = ['deposit', 'transfer', 'withdrawal'];
 const fail = (message) => { throw new NativeProverBenchmarkError(message); };

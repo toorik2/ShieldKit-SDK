@@ -1,13 +1,15 @@
-# Research / lab (not product)
+# Research / lab — not the product
 
-Quarantined material. **Do not** treat as the app-dev kit surface.
+Do **not** start here for app integration.
 
 | Path | Contents |
 |------|----------|
-| `android/` | Native Android prover SDK sources |
-| `provenance/` | verifier.cash PF7 series pins |
-| `conformance-g3-g5/` | Scale observation notes |
-| `tools/` | Evidence validators / baseline tooling |
-| *(other)* | Historical experiments |
+| `android/` | Native prover SDK sources |
+| `mobile/` | Optional browser/android harnesses (moved from packages) |
+| `provenance/` | verifier.cash PF7 pins |
+| `scripts/` | Golden-path / battery / redteam lab runners |
+| `docs-archive/` | Old goal prompts, human report drafts |
+| `tools/` | Evidence validators |
+| `conformance-g3-g5/` | Scale observations |
 
-Product entry: repo root `README.md` → `packages/{kit,profile,action,prove,recover}`.
+**Product:** [`../README.md`](../README.md) · [`../packages/`](../packages/)
