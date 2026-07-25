@@ -1,9 +1,9 @@
 {
-  "name": "shield-cash-protocol",
+  "name": "shieldkit",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "check": "node scripts/check-policy.mjs",
-    "test": "npm run check"
+    "test": "node scripts/run-domain-tests.mjs"
   }
 }

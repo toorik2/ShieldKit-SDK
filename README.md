@@ -16,7 +16,7 @@ Offline toolkit for Bitcoin Cash: deposit → privately transfer → withdraw, w
 ## Install & CLI
 
 ```bash
-npm test                          # protocol freeze check (local; no CI)
+npm test                          # domain unit tests
 node scripts/run-domain-tests.mjs # unit suite
 node scripts/shieldkit.mjs --help
 node scripts/shieldkit.mjs doctor
@@ -56,7 +56,7 @@ Missing inputs → **`ok: false`** (fail-closed).
 
 ```text
 packages/     kit · profile · action · prove · recover
-scripts/      shieldkit CLI · domain tests · freeze check
+scripts/      shieldkit CLI · domain tests
 examples/     demo-profile (Chipnet lab)
 docs/         charter · privacy · architecture
 ```
@@ -67,7 +67,6 @@ docs/         charter · privacy · architecture
 | [`packages/profile`](packages/profile) | Birth a pool (dev or ceremony) |
 | [`examples/demo-profile`](examples/demo-profile) | Lab profile pointer |
 | [`docs/`](docs) | Product docs |
-| [`scripts/freeze/`](scripts/freeze) | Protocol freeze only (not app API) |
 
 ---
 

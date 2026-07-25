@@ -34,8 +34,9 @@ const HARNESS_RUNTIME_PACKAGES = Object.freeze({ '@bitauth/libauth': '3.1.0-next
 const HASH = /^[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(packageDirectory, '../..');
-const provenanceFile = path.join(repositoryRoot, 'scripts/freeze/optional/provenance/series.json');
-const seamProvenanceFile = path.join(repositoryRoot, 'scripts/freeze/optional/provenance/seam-series.json');
+// Optional local PF7 provenance pins (not shipped in product tree).
+const provenanceFile = path.join(repositoryRoot, '.local/provenance/series.json');
+const seamProvenanceFile = path.join(repositoryRoot, '.local/provenance/seam-series.json');
 const referenceMatrixFile = path.join(repositoryRoot, 'evidence/G1/pf7-verifier-generator/reference-matrix.json');
 const ACTION_KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 
