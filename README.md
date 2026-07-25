@@ -38,25 +38,3 @@ const kit = await createKit(instanceToKitConfig(mine));
 ```
 
 You own: **keys · frontend · RPC · broadcast**.
-
----
-
-## Two folders
-
-| Folder | Role |
-|--------|------|
-| **[`create-your-own-pool/`](create-your-own-pool/)** | **Product** — kit, profile, CLI, templates, docs |
-| **[`use-chipnet-demo-pool/`](use-chipnet-demo-pool/)** | **Optional demo** — fixed Chipnet live instance |
-
-```text
-ShieldKit-SDK/
-  create-your-own-pool/   ← start here for real work
-  use-chipnet-demo-pool/  ← optional try-first
-  README.md · package.json · SECURITY.md · LICENSE · CHANGELOG.md
-```
-
----
-
-## Safety & docs
-
-[SECURITY.md](SECURITY.md) · [create-your-own-pool/docs/](create-your-own-pool/docs/) · [CHANGELOG.md](CHANGELOG.md) · [LICENSE](LICENSE)
