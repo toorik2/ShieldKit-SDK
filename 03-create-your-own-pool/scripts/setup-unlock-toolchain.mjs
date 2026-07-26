@@ -10,7 +10,9 @@
  * Invoked from install-deps (postinstall). Skip with SHIELDKIT_SKIP_UNLOCK_SETUP=1.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, symlinkSync } from 'node:fs';
+import {
+  existsSync, mkdirSync, symlinkSync, readFileSync, writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -77,18 +79,35 @@ function main() {
   run(UB, ['npm', 'install', '--no-fund', '--no-audit']);
 
   // 2) cashc fork dist
-  // Parent vendor/verifier sets packageManager=npm@…; yarn classic needs COREPACK_ENABLE_STRICT=0.
-  const cashcEnv = {
-    ...process.env,
-    COREPACK_ENABLE_STRICT: '0',
-  };
+  // Parent vendor/verifier package.json has packageManager=npm@… which makes Yarn classic
+  // refuse to run in nested cashc-resched. Temporarily strip it for the yarn window only.
   const cashcDist = path.join(CASHC_PKG, 'dist');
   if (existsSync(path.join(cashcDist, 'cashc-cli.js')) || existsSync(path.join(cashcDist, 'index.js'))) {
     log('cashc dist present');
   } else {
     log('building cashc-resched (first blank-machine install; can take several minutes)');
-    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'install', '--frozen-lockfile'], { env: cashcEnv });
-    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'build'], { env: cashcEnv });
+    const verifierPkgPath = path.join(VERIFIER, 'package.json');
+    const rawPkg = readFileSync(verifierPkgPath, 'utf8');
+    let restored = false;
+    const restorePkg = () => {
+      if (!restored) {
+        writeFileSync(verifierPkgPath, rawPkg);
+        restored = true;
+      }
+    };
+    try {
+      const pkg = JSON.parse(rawPkg);
+      if (pkg.packageManager) {
+        delete pkg.packageManager;
+        writeFileSync(verifierPkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+        log('temporarily stripped verifier packageManager for yarn classic');
+      }
+      // --ignore-engines: blank machines may be on Node 20 while a transitive wants 22
+      run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'install', '--frozen-lockfile', '--ignore-engines']);
+      run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'build']);
+    } finally {
+      restorePkg();
+    }
   }
 
   // 3) verifier root deps
