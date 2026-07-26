@@ -30,7 +30,7 @@ function run(cwd, cmd, opts = {}) {
   const r = spawnSync(cmd[0], cmd.slice(1), {
     cwd,
     stdio: opts.quiet ? 'pipe' : 'inherit',
-    env: process.env,
+    env: opts.env || process.env,
     encoding: 'utf8',
   });
   if (r.status !== 0) {
