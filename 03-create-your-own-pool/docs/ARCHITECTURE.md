@@ -1,38 +1,18 @@
-# Architecture (short)
-
-**Root product surface:** two folders.
+# Architecture
 
 ```text
-03-create-your-own-pool/     product (this tree)
-02-use-chipnet-demo-pool/    optional Chipnet live demo
+03-create-your-own-pool/     product
+02-use-chipnet-demo-pool/   optional Chipnet demo
 ```
-
-```text
-loadInstance(ref) → createKit(config)
-        │
- ./my-pool/                 02-use-chipnet-demo-pool/
- (your genesis)             (optional demo)
-```
-
-## Inside 03-create-your-own-pool/
 
 | Path | Role |
 |------|------|
-| **packages/kit** | App entry: `createKit` |
-| **packages/profile** | `init` · genesis · `loadInstance` |
-| **packages/action** | Prep · settlement · witness |
-| **packages/prove** | Local Groth16 + verifier unlocks (`lab/` / `internal/` = not public API) |
-| **packages/recover** | Notes from seed + history |
-| **scripts/** | CLI · domain tests · fetch-playground-bundle |
-| **templates/** | `init.development.json` |
+| `packages/kit` | `createKit` |
+| `packages/profile` | init · genesis · `loadInstance` |
+| `packages/action` | prep · settlement · witness |
+| `packages/prove` | Groth16 · PF7 authority (`lab/` / `internal/` not public API) |
+| `packages/recover` | notes from seed + history |
+| `packages/unlock-builder` | Node densFuel unlock compile |
+| `scripts/` | CLI · tests · fetch |
 
-## Invariants
-
-- Offline: you hold keys, RPC, broadcast  
-- Fee 1 sat/B · unlock ≤10k B · settlement ≤59k B  
-- New setup ⇒ new profile + new genesis  
-- Demo pool = development-only, not a hosted service  
-
-## More
-
-- [PLAYGROUND.md](PLAYGROUND.md) · [CHARTER.md](CHARTER.md) · [PRIVACY.md](PRIVACY.md)
+Invariants: offline keys/RPC/broadcast; fee 1 sat/B; unlock ≤10k B; settlement ≤59k B; new setup ⇒ new profile + genesis.

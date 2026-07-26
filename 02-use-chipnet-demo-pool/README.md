@@ -1,125 +1,47 @@
-# Use Chipnet demo pool
+# Chipnet playground (CLI)
 
-> **CLI demo only — not a browser app, not a hosted service.**  
-> Product (your own genesis): [`../03-create-your-own-pool/`](../03-create-your-own-pool/).  
-> Learn (static site): [`../01-learn-about-this-system/`](../01-learn-about-this-system/).
+Shared **development-only** Chipnet instance — not a browser app, not hosted SaaS.  
+Your pool: [`../03-create-your-own-pool/`](../03-create-your-own-pool/).
 
 | | |
 |--|--|
-| **Role** | Shared **Chipnet playground** instance |
-| **Network** | Chipnet · `development-only` · Unaudited WIP |
-| **Live set** | **~10 notes at release** (anonymity set grows/shrinks with deposits & withdraws) |
-| **Capacity** | **16 live notes** max (`reserveCap` = 1.6 BCH) · 0.1 BCH denomination |
-| **API** | `npm run shieldkit -- playground …` → same kit as your pool |
-| **Aliases** | `chipnet-playground`, `playground` |
+| Capacity | 16 live × 0.1 BCH (`reserveCap` = 1.6 BCH) |
+| CLI | `npm run shieldkit -- playground …` |
+| Aliases | `playground`, `chipnet-playground` |
+| Pins | [`instance.json`](./instance.json) · [`docs/PROFILES.md`](../03-create-your-own-pool/docs/PROFILES.md) |
 
-This is a **real on-chain pool** with a multi-note tip — not an empty genesis. You interact with the **same instance** the release demo uses. You do **not** receive the seeds for notes others deposited; you only spend notes you create with your wallets.
+You only spend notes you create. Other notes in the tip are not yours without their seeds.  
+To deposit onto a multi-note tip, local `openNotes` must rebuild that tip (operator journal or equivalent) — empty wallet + multi-note tip fails closed (`OPEN_SET_DESYNC`).
 
----
-
-## Cold start (blank machine)
+## Setup
 
 ```bash
-# from monorepo root after git clone
-npm install                    # package deps + unlock densFuel toolchain (postinstall)
-npm run fetch-playground-bundle   # ~455MB profile arts (sha256-pinned)
-
-npm run rpc:probe              # public Chipnet Fulcrum by default
-npm run shieldkit -- playground doctor
-npm run shieldkit -- playground tip   # live State NFT tip (moves every settle)
-```
-
-### Full act (deposit / transfer / withdraw)
-
-This is **CLI**, not the explainer webpage. You need:
-
-1. **Fee wallet JSON** with a funded Chipnet P2PKH hot key  
-2. Network (public Fulcrum by default)  
-3. **Tip** — *not* a fixed kit constant. It **moves every settle**.
-
-**Tip handling (automatic):**
-
-```bash
-# Discover live tip from chain → writes 02-use-chipnet-demo-pool/state.json
-npm run shieldkit -- playground tip
-
-# Or let deposit discover tip when state.json has no stateTxid
-npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --broadcast
-
-# Force re-scan before an act (if someone else settled)
-npm run shieldkit -- playground deposit --wallets ./wallets.json --refresh-tip --scan-fees --broadcast
-```
-
-`state.json` is a **local cache** of the last tip + *your* openNotes/fees.  
-Truth is always: *unspent State NFT for this instance’s category on Chipnet*.
-
-```bash
-# wallets.json shape (keep secrets local — never commit)
-# {
-#   "hot": {
-#     "address": "bchtest:…",
-#     "publicKeyHex": "02…",
-#     "privateKeyHex": "…",
-#     "lockingBytecodeHex": "76a914…88ac"
-#   }
-# }
-
-npm run shieldkit -- playground deposit \
-  --wallets ./wallets.json --scan-fees --broadcast
-
-npm run shieldkit -- playground withdraw \
-  --wallets ./wallets.json --scan-fees --broadcast
-```
-
-Deposit fee UTXO must be **≳ 11.5M sats** (0.1 BCH note + binding/carriers + miner fee).  
-Transfer/withdraw need **≳ 1.5M sats**.
-
-Chipnet faucet options change over time — search “BCH chipnet faucet” or fund from your own Chipnet node.
-
-### Prep-only (no broadcast)
-
-```bash
-npm run shieldkit -- playground request-template --kind deposit
-# fill funding fields → playground deposit --request prep.json
-```
-
----
-
-## Chain access — average user needs **no node**
-
-ShieldKit talks to Chipnet through an **abstract RPC layer**. Average users do **not** run `bitcoind` and do **not** need free public JSON-RPC (there isn’t a reliable one for Chipnet).
-
-| Who | What you use | Config |
-|-----|----------------|--------|
-| **Average demo user** | **Public Fulcrum (Electrum TLS)** — built in | nothing — just `npm run rpc:probe` |
-| Optional preference | Your own Fulcrum/Electrum | `SHIELDKIT_ELECTRUM=host:50002` |
-| Power user / operator | Your own BCHN JSON-RPC | `SHIELDKIT_RPC_URL=http://user:pass@host:48332` |
-| Lab only | SSH `layer1-node` | auto if host works |
-
-**Public defaults (tested):**
-
-- `chipnet.bch.ninja:50002` (TLS)  
-- `chipnet.imaginary.cash:50002` (TLS)
-
-These cover tip discovery, fee UTXO scan, broadcast, and doctor. They are **untrusted / rate-limited**; query privacy is out of claim.
-
-```bash
+npm install                         # deps + unlock toolchain (postinstall)
+npm run fetch-playground-bundle     # ~455MB profile arts (sha256 in instance.json)
 npm run rpc:probe
-# → backend: electrum · label: chipnet.bch.ninja:50002 · height: …
+npm run shieldkit -- playground doctor
+npm run shieldkit -- playground tip   # writes state.json cache; tip moves every settle
 ```
 
-What still needs *you* (not RPC): a **funded Chipnet wallet** (≳ 11.5M sats for deposit) and local secrets in `wallets.json`.
+## Act
 
----
+Needs: funded Chipnet hot wallet in `wallets.json` (never commit), tip known/refreshed.
 
-## Instance identity
+```bash
+# wallets.json: hot.{address,publicKeyHex,privateKeyHex,lockingBytecodeHex}
+npm run shieldkit -- playground deposit  --wallets ./wallets.json --scan-fees --broadcast
+npm run shieldkit -- playground withdraw --wallets ./wallets.json --scan-fees --broadcast
+# force tip rescan: --refresh-tip
+```
 
-See [`instance.json`](./instance.json):
+| | Fee UTXO |
+|--|--|
+| deposit | ≳ 11.5M sats |
+| transfer / withdraw | ≳ 1.5M sats |
 
-- `instanceId` · `profileId` · `stateNftCategory`  
-- Capacity: 16 live × 0.1 BCH (`reserveCapSatoshis` = 160000000)  
-- Explorer: `https://chipnet.chaingraph.cash/tx/{txid}`  
-- Genesis (fixed): `60f87372…2b9a`  
-- Tip at release (moves): `bae1153b…a604` — re-check with `playground tip`
+Prep only: `playground request-template --kind deposit` then `playground deposit --request prep.json`.
 
-**This is not your pool.** Create-own-pool ⇒ new profile + genesis + new `instanceId`.
+## RPC
+
+Default: public Chipnet Fulcrum (`chipnet.bch.ninja:50002`, `chipnet.imaginary.cash:50002`).  
+Override: `SHIELDKIT_ELECTRUM=host:50002` or `SHIELDKIT_RPC_URL=…`. No bitcoind required.

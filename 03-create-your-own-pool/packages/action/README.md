@@ -1,21 +1,12 @@
 # `@shieldkit/action`
 
-Prep + settlement + witness + packets (no g2-* public names).
-
-```js
-import {
-  planPrep, finalizePrep,
-  planCompleteSettlement, assembleCompleteSettlement,
-  generateFreshWitnessInputs,
-} from './index.mjs';
-```
+Prep · settlement · witness · packets.
 
 | Export | Role |
 |--------|------|
-| `planPrep` / `finalizePrep` | Complete preparation transaction |
-| `buildSettlementTransaction` | Encode 10-input settlement |
-| `planCompleteSettlement` / `assembleCompleteSettlement` | Full settlement path |
-| `generateFreshWitnessInputs` | Deterministic witness material |
-| `encodeActionPacket` / `encodeSettlementContext` / `encodeStateNftCommitment` | Wire shapes |
+| `planPrep` / `finalizePrep` | preparation tx |
+| `planCompleteSettlement` / `assembleCompleteSettlement` | settlement |
+| `generateFreshWitnessInputs` | witness material |
+| `encodeActionPacket` / `encodeStateNftCommitment` | wire shapes |
 
-Size gates: unlock ≤10k B; settlement ≤59k B; fee 1 sat/B.
+Fee 1 sat/B · unlock ≤10k B · settlement ≤59k B.

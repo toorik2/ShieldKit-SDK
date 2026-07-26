@@ -1,21 +1,9 @@
 # `@shieldkit/recover`
 
-Note recovery from seed + caller-supplied chain history.
-
-```js
-import {
-  deriveRecipientAddress,
-  constructRecipientOutput,
-  recoverRecipientOutput,
-  recoverAuthenticatedHistory,
-} from './index.mjs';
-```
+Notes from seed + caller-supplied history (no indexer).
 
 | Export | Role |
 |--------|------|
-| `deriveRecipientAddress` | Address from seed + profile/instance |
-| `constructRecipientOutput` | Build encrypted record |
-| `recoverRecipientOutput` | Decrypt one chain output |
-| `recoverAuthenticatedHistory` | Contiguous authenticated history |
-
-No indexer; application supplies history fields.
+| `deriveRecipientAddress` | seed + profile/instance |
+| `constructRecipientOutput` / `recoverRecipientOutput` | encrypt/decrypt record |
+| `recoverAuthenticatedHistory` | contiguous history |

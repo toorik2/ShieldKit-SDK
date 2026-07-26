@@ -1,63 +1,20 @@
 # `@shieldkit/unlock-builder`
 
-Node-only factory for **7-role verifier unlocks** used in complete settlement.
-
-## Why this package exists
-
-Settlement spends seven P2SH32 carriers whose **locks** live in the profile
-`bch-verifier-set` and whose **unlocks** are proof-dependent. Building unlocks
-used to require a sibling `verifier.cash` checkout. This package is the product
-entry point so a blank machine path can call one API.
-
-## Public API
+Node-only build of **7 densFuel verifier unlocks** for settlement.
 
 ```js
-import {
-  buildVerifierUnlocks,
-  PIN_LENS,
-} from '../unlock-builder/index.mjs';
-
-const out = buildVerifierUnlocks({
-  adapterPath: '/abs/adapter.json',   // snarkjs-groth16-pf7-adapter/v1
-  packetPath: '/abs/action.packet', // 752-byte packet
-  outDir: '/abs/stage',
-});
-// out.roles[0..6]: { name, lockHex, unlockHex, unlockLen, … }
-// out.lens === PIN_LENS under the live pin
+import { buildVerifierUnlocks, PIN_LENS } from './index.mjs';
+const out = buildVerifierUnlocks({ adapterPath, packetPath, outDir });
+// out.roles[0..6]: lock/unlock hex; out.lens === PIN_LENS
 ```
 
-## Pin contract
-
-| Item | Value |
-|------|--------|
+| Pin | Value |
+|-----|--------|
 | `PIN_LENS` | `[8177, 6654, 7066, 7066, 8393, 7600, 9350]` |
 | densFuel | `C7_DENSFUEL_DROP=1` |
-| length stabilize | genesis 7600 / terminal 9350 |
 
-**Changing densFuel / stabilize / fixed-G2 table changes P2SH32 locks.**  
-That requires a **new verifier-set + new profile + new genesis**. Never “optimize”
-flags under a stable facade.
+Changing densFuel/stabilize/G2 table ⇒ new verifier-set + profile + genesis.
 
-## Toolchain resolution
-
-1. `SHIELDKIT_UNLOCK_ROOT` (or legacy `SHIELDKIT_PF7_WORKTREE`) — optional override
-2. **`vendor/verifier` + `vendor/lean`** — shipped pin (default)
-3. `.worktrees/*` — migration escape hatch only
-
-No sibling `verifier.cash` checkout required.
-
-### Blank machine
-
-Root `npm install` → `postinstall` → `install-deps` installs this package (`tsx`) and runs
-`setup-unlock-toolchain.mjs` (cashc dist + harness/build `node_modules`).  
-Skip with `SHIELDKIT_SKIP_UNLOCK_SETUP=1`. Manual: `npm run unlock-builder:setup`.
-
-## Not for browsers
-
-Unlock compile spawns `tsx` + CashScript + density packing (~30s, tens of MB).
-Kit browser surfaces must fail closed if this package is missing.
-
-## Fee / settle policy (product)
-
-Desktop CLI may pass fee keys in-process for settlement assembly (policy A).
-Prep remains external Schnorr digest signing where possible.
+**Resolve toolchain:** `SHIELDKIT_UNLOCK_ROOT` → `vendor/verifier` + `vendor/lean`.  
+**Blank machine:** root `npm install` runs `setup-unlock-toolchain.mjs` (or `npm run unlock-builder:setup`). Skip: `SHIELDKIT_SKIP_UNLOCK_SETUP=1`.  
+Not for browsers (~30s compile).
