@@ -1,6 +1,4 @@
-# ShieldKit
-
-Create and run your own shielded pool on Bitcoin Cash.
+# ShieldKit — Create and run your own shielded pool on Bitcoin Cash.
 
 ### 1 · Learn about this system
 → [`01-learn-about-this-system/learn-about-this-system.html`](./01-learn-about-this-system/learn-about-this-system.html)  
