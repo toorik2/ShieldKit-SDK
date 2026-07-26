@@ -11,6 +11,7 @@
     "shieldkit": "node 03-create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node 03-create-your-own-pool/scripts/fetch-playground-bundle.mjs",
     "version-check": "node 03-create-your-own-pool/scripts/shieldkit.mjs --version",
+    "unlock-builder:setup": "node 03-create-your-own-pool/scripts/setup-unlock-toolchain.mjs",
     "unlock-builder:smoke": "node 03-create-your-own-pool/packages/unlock-builder/smoke-golden.mjs",
     "create-pool": "node 03-create-your-own-pool/scripts/create-pool.mjs",
     "pack-pin-artifacts": "node 03-create-your-own-pool/scripts/pack-pin-artifacts.mjs",

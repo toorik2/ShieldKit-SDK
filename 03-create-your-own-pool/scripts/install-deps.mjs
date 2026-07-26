@@ -29,6 +29,8 @@ const STEPS = [
     cmd: ['npm', 'install', '--no-fund', '--no-audit',
       '@bitauth/libauth@^3.1.0-next.8', '@noble/curves@^1.4.0', '@noble/hashes@^1.4.0', 'ffjavascript@^0.3.0'],
   },
+  // tsx for densFuel unlock compile (full toolchain via setup-unlock-toolchain.mjs)
+  { dir: path.join(PKGS, 'unlock-builder'), cmd: ['npm', 'install', '--no-fund', '--no-audit'] },
 ];
 
 function run(dir, cmd) {
@@ -47,4 +49,20 @@ function run(dir, cmd) {
 }
 
 for (const s of STEPS) run(s.dir, s.cmd);
+
+// densFuel pin: cashc dist + harness/build node_modules (gitignored)
+const unlockSetup = path.join(ROOT, '03-create-your-own-pool/scripts/setup-unlock-toolchain.mjs');
+if (existsSync(unlockSetup) && process.env.SHIELDKIT_SKIP_UNLOCK_SETUP !== '1') {
+  console.log('→ unlock toolchain setup');
+  const r = spawnSync(process.execPath, [unlockSetup], {
+    cwd: ROOT, stdio: 'inherit', env: process.env,
+  });
+  if (r.status !== 0) {
+    console.error('FAIL unlock toolchain setup (blank-machine settlement needs this)');
+    process.exit(r.status ?? 1);
+  }
+} else if (process.env.SHIELDKIT_SKIP_UNLOCK_SETUP === '1') {
+  console.log('skip unlock toolchain (SHIELDKIT_SKIP_UNLOCK_SETUP=1)');
+}
+
 console.log('install-deps: ok');

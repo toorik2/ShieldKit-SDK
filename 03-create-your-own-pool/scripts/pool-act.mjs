@@ -416,8 +416,11 @@ async function main() {
     } catch (e) {
       lastErr = e;
       const errText = String(e.message || e) + String(e.code || '');
-      const retriable = /gateOk|OP_VERIFY|GATE_FAIL|BUILD_EXIT|unlock build|libauth|pin lens/i
-        .test(errText);
+      // Do not retry missing toolchain (SPAWN_FAIL/ENOENT/tsx) — re-prove is pure waste.
+      const fatalToolchain = /SPAWN_FAIL|ENOENT|tsx not found|unlock toolchain/i.test(errText);
+      const retriable = !fatalToolchain
+        && /gateOk|OP_VERIFY|GATE_FAIL|BUILD_EXIT|unlock build|libauth|pin lens/i
+          .test(errText);
       const gateClass = /gateOk|OP_VERIFY|GATE_FAIL/i.test(errText);
 
       // Return fee to inventory for possible retry; park if we will try alternate.

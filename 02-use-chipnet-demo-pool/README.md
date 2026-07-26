@@ -21,7 +21,7 @@ This is a **real on-chain pool** with a multi-note tip — not an empty genesis.
 
 ```bash
 # from monorepo root after git clone
-npm install                    # installs package deps (postinstall)
+npm install                    # package deps + unlock densFuel toolchain (postinstall)
 npm run fetch-playground-bundle   # ~455MB profile arts (sha256-pinned)
 
 npm run rpc:probe              # public Chipnet Fulcrum by default

@@ -46,6 +46,12 @@ flags under a stable facade.
 
 No sibling `verifier.cash` checkout required.
 
+### Blank machine
+
+Root `npm install` → `postinstall` → `install-deps` installs this package (`tsx`) and runs
+`setup-unlock-toolchain.mjs` (cashc dist + harness/build `node_modules`).  
+Skip with `SHIELDKIT_SKIP_UNLOCK_SETUP=1`. Manual: `npm run unlock-builder:setup`.
+
 ## Not for browsers
 
 Unlock compile spawns `tsx` + CashScript + density packing (~30s, tens of MB).

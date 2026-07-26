@@ -74,8 +74,11 @@ export function resolveTsxBin(unlockRoot) {
   for (const bin of candidates) {
     if (existsSync(bin)) return bin;
   }
-  // PATH fallback
-  return 'tsx';
+  throw new Error(
+    'unlock-builder: tsx not found. Blank machine: `npm install` (postinstall runs '
+    + 'setup-unlock-toolchain) or `node 03-create-your-own-pool/scripts/setup-unlock-toolchain.mjs`. '
+    + `Looked in: ${candidates.join(', ')}`,
+  );
 }
 
 export { PKG_ROOT, REPO_ROOT, CREATE_ROOT };

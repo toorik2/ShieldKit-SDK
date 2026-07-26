@@ -140,15 +140,39 @@ export function buildVerifierUnlocks(input) {
     phase: 'unlock-build-spawn-done',
     ms,
     status: r.status,
+    signal: r.signal ?? null,
+    error: r.error ? { code: r.error.code, message: r.error.message } : null,
     logBytes: logText.length,
+    tsxBin,
   });
 
+  // spawnSync: missing binary → status null + error ENOENT (was reported as "exit null")
+  if (r.error) {
+    throw new UnlockBuilderError(
+      'SPAWN_FAIL',
+      `unlock build spawn failed: ${r.error.message}`
+        + (r.error.code === 'ENOENT'
+          ? ' — install unlock toolchain (`npm install` / setup-unlock-toolchain.mjs)'
+          : ''),
+      {
+        status: r.status,
+        signal: r.signal,
+        errno: r.error.code,
+        ms,
+        tsxBin,
+        unlockRoot,
+        logTail: logText.slice(-4000),
+      },
+    );
+  }
   if (r.status !== 0) {
-    throw new UnlockBuilderError('BUILD_EXIT', `unlock build exit ${r.status}`, {
+    throw new UnlockBuilderError('BUILD_EXIT', `unlock build exit ${r.status}${r.signal ? ` signal=${r.signal}` : ''}`, {
       status: r.status,
+      signal: r.signal,
       ms,
       logTail: logText.slice(-4000),
       unlockRoot,
+      tsxBin,
     });
   }
 
