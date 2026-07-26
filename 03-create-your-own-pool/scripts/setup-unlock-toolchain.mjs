@@ -77,13 +77,18 @@ function main() {
   run(UB, ['npm', 'install', '--no-fund', '--no-audit']);
 
   // 2) cashc fork dist
+  // Parent vendor/verifier sets packageManager=npm@…; yarn classic needs COREPACK_ENABLE_STRICT=0.
+  const cashcEnv = {
+    ...process.env,
+    COREPACK_ENABLE_STRICT: '0',
+  };
   const cashcDist = path.join(CASHC_PKG, 'dist');
   if (existsSync(path.join(cashcDist, 'cashc-cli.js')) || existsSync(path.join(cashcDist, 'index.js'))) {
     log('cashc dist present');
   } else {
     log('building cashc-resched (first blank-machine install; can take several minutes)');
-    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'install', '--frozen-lockfile']);
-    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'build']);
+    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'install', '--frozen-lockfile'], { env: cashcEnv });
+    run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'build'], { env: cashcEnv });
   }
 
   // 3) verifier root deps
