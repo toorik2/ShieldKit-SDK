@@ -12,6 +12,7 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 ### Changed
 - Playground → multi-note instance (`bb27e427…`, cap 16); bundle **`playground-bundle-v2`**.
 - Doc shelf trimmed (facts only).
+- `SECURITY.md`: vibe-coder pre-launch map + operator ship gate (secrets, fail-closed, N/A SaaS items).
 
 ### Added
 - CLI request-template / genesis-plan / genesis-finalize; createKit planGenesis/finalizeGenesis.
