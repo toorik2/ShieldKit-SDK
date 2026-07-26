@@ -305,7 +305,27 @@ async function main() {
 
   const wsh = createHash('sha256').update(Buffer.from(hot.lockingBytecodeHex, 'hex')).digest('hex');
   // Multi-note open set (live anonymity). Each entry: { witnessSeed, depositDigest }.
+  // Witness rebuild treats priorOpenNotes as the *entire* tip tree — must match chain live count.
   state.openNotes = Array.isArray(state.openNotes) ? state.openNotes : [];
+  const DENOM_SATS = 10_000_000;
+  const STATE_CARRIER_BASE = 1080;
+  if (stateTxid) {
+    const tipU = await gettxout(stateTxid, 0);
+    if (tipU) {
+      const tipValue = Math.round(Number(tipU.value) * 1e8);
+      if (tipValue < STATE_CARRIER_BASE || (tipValue - STATE_CARRIER_BASE) % DENOM_SATS !== 0) {
+        throw new Error(`tip value ${tipValue} is not 1080 + k×denom`);
+      }
+      const tipLive = (tipValue - STATE_CARRIER_BASE) / DENOM_SATS;
+      if (state.openNotes.length !== tipLive) {
+        throw new Error(
+          `OPEN_SET_DESYNC: chain tip liveNoteCount=${tipLive} (value=${tipValue}) but local openNotes=${state.openNotes.length}. `
+          + 'pool-act rebuilds the note tree only from local openNotes seeds; a blank wallet cannot deposit onto a multi-note tip. '
+          + 'Need the tip open-set journal (operator) or a public tree snapshot.',
+        );
+      }
+    }
+  }
   const digests = {
     deposit: ZERO32, transfer: ZERO32, withdrawal: ZERO32,
   };
