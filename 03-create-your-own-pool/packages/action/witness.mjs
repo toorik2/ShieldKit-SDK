@@ -343,11 +343,71 @@ function finalizeActions(reference, maximumLiveNotes, actions, depositOutput, tr
 }
 
 /**
+ * Serialize in-memory tip forest (note/nullifier leaves + open meta) for state.json.
+ * Required after any withdraw/transfer so the next act can match chain tip (openNotes alone cannot).
+ */
+export function serializeTipForest(tip) {
+  if (!tip?.state || !Array.isArray(tip.noteLeaves)) fail('serializeTipForest requires tip with state and noteLeaves');
+  const nullifierLeaves = [];
+  for (const [k, v] of tip.nullifierLeaves || []) {
+    nullifierLeaves.push([String(k), typeof v === 'bigint' ? frToHex(v) : String(v)]);
+  }
+  const openNoteMeta = (tip.openNoteMeta || []).map((m) => ({
+    noteIndex: m.noteIndex,
+    leaf: typeof m.leaf === 'bigint' ? frToHex(m.leaf) : String(m.leaf),
+    key1: typeof m.key1 === 'bigint' ? m.key1.toString() : String(m.key1),
+    nfLeaf1: typeof m.nfLeaf1 === 'bigint' ? frToHex(m.nfLeaf1) : String(m.nfLeaf1),
+    witnessSeed: m.witnessSeed || null,
+    note1: m.note1, // sk/rho/r/recovery — same secret class as openNotes seeds
+  }));
+  return Object.freeze({
+    schema: 'shieldkit/tip-forest/v1',
+    state: Object.freeze({ ...tip.state }),
+    noteLeaves: Object.freeze(tip.noteLeaves.map((l) => (typeof l === 'bigint' ? frToHex(l) : String(l)))),
+    nullifierLeaves: Object.freeze(nullifierLeaves),
+    openNoteMeta: Object.freeze(openNoteMeta),
+  });
+}
+
+function restoreTipForest(forest, profileId, instanceId, maximumReserve) {
+  if (!forest || forest.schema !== 'shieldkit/tip-forest/v1') fail('tipForest.schema must be shieldkit/tip-forest/v1');
+  if (!forest.state || typeof forest.state !== 'object') fail('tipForest.state required');
+  if (forest.state.profileId !== profileId || forest.state.instanceId !== instanceId) {
+    fail('tipForest state identity does not match bundle');
+  }
+  if (forest.state.maximumReserve !== maximumReserve) fail('tipForest maximumReserve mismatch');
+  const noteLeaves = (forest.noteLeaves || []).map((h) => frFromHex(h, 'tipForest.noteLeaves'));
+  const nullifierLeaves = new Map();
+  for (const row of forest.nullifierLeaves || []) {
+    if (!Array.isArray(row) || row.length !== 2) fail('tipForest.nullifierLeaves entries must be [key, leafHex]');
+    nullifierLeaves.set(String(row[0]), frFromHex(row[1], 'tipForest.nullifierLeaf'));
+  }
+  const openNoteMeta = (forest.openNoteMeta || []).map((m, i) => {
+    if (!m || typeof m !== 'object') fail(`tipForest.openNoteMeta[${i}] invalid`);
+    return {
+      noteIndex: Number(m.noteIndex),
+      leaf: frFromHex(m.leaf, `openNoteMeta[${i}].leaf`),
+      key1: BigInt(m.key1),
+      nfLeaf1: frFromHex(m.nfLeaf1, `openNoteMeta[${i}].nfLeaf1`),
+      witnessSeed: m.witnessSeed || null,
+      note1: m.note1,
+    };
+  });
+  return {
+    state: { ...forest.state },
+    noteLeaves,
+    nullifierLeaves,
+    openNoteMeta,
+  };
+}
+
+/**
  * Generate relation-valid witness material for one authenticated development-only bundle.
  *
  * Modes:
  * 1. **Full cycle** (default): empty tip → D→[T]→W ending empty. Uses `priorCycles` of completed full cycles.
  * 2. **Open-note stack** (`priorOpenNotes`): live notes already on tip. Deposit stacks; transfer/withdraw act on LIFO open note.
+ * 3. **tipForest** (preferred after any spend): restore note/nullifier leaves + open meta so preState matches chain after withdraws.
  *
  * `transactionContextDigests` come from the fixed-point settlement builder (never fabricated here).
  */
@@ -356,11 +416,13 @@ export async function generateFreshWitnessInputs(input) {
   const optionalOpen = input.priorOpenNotes !== undefined;
   const optionalHops = input.transferHops !== undefined;
   const optionalKind = input.actionKind !== undefined;
+  const optionalForest = input.tipForest !== undefined;
   const required = ['bundleDirectory', 'expectedProfile', 'transactionContextDigests', 'withdrawalScriptHash', 'witnessSeed'];
   if (optionalPrior) required.push('priorCycles');
   if (optionalOpen) required.push('priorOpenNotes');
   if (optionalHops) required.push('transferHops');
   if (optionalKind) required.push('actionKind');
+  if (optionalForest) required.push('tipForest');
   exactKeys(input, 'fresh witness input', required);
   if (typeof input.bundleDirectory !== 'string' || input.bundleDirectory.length === 0) fail('bundleDirectory must be non-empty');
   exactKeys(input.expectedProfile, 'expectedProfile', ['instanceId', 'network', 'profileId']);
@@ -410,29 +472,37 @@ export async function generateFreshWitnessInputs(input) {
   const profileId = idHex(bundle.profileId, 'bundle profileId'); const instanceId = idHex(bundle.instanceId, 'bundle instanceId'); const maximumReserve = bundle.manifest.genesis.reserveCapSatoshis;
   const maximumLiveNotes = BigInt(maximumReserve) / DENOMINATION_SATS;
   const reference = await createShieldedTransitionReference();
-  const tip = {
-    state: reference.emptyState({ profileId, instanceId, maximumReserve }),
-    noteLeaves: [],
-    nullifierLeaves: new Map(),
-    openNoteMeta: [],
-  };
-  // 1) Completed full cycles (end empty live set; tree retains spent leaves).
-  for (const cycle of input.priorCycles ?? []) {
-    const seed = Buffer.from(cycle.witnessSeed, 'hex');
-    const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
-    material.witnessSeedHex = cycle.witnessSeed;
-    const hops = cycle.transferHops === undefined ? 1 : Number(cycle.transferHops);
-    advanceOneCycle(reference, profileId, instanceId, tip, material, cycle.transactionContextDigests, input.withdrawalScriptHash, hops);
-  }
-  // 2) Live open notes currently in the pool (multi-note anonymity set).
-  for (const open of input.priorOpenNotes ?? []) {
-    const seed = Buffer.from(open.witnessSeed, 'hex');
-    const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
-    material.witnessSeedHex = open.witnessSeed;
-    advanceDepositOntoTip(reference, profileId, instanceId, tip, material, open.depositDigest);
-    if (open.phase === 'transfer') {
-      if (!open.transferDigest) fail('priorOpenNotes transfer phase requires transferDigest');
-      advanceTransferOpenTip(reference, profileId, instanceId, tip, material, open.transferDigest);
+  let tip;
+  if (optionalForest && input.tipForest) {
+    // Preferred: restore residual trees after withdraw/transfer (nullifiers + nextLeaf).
+    tip = restoreTipForest(input.tipForest, profileId, instanceId, maximumReserve);
+  } else {
+    tip = {
+      state: reference.emptyState({ profileId, instanceId, maximumReserve }),
+      noteLeaves: [],
+      nullifierLeaves: new Map(),
+      openNoteMeta: [],
+    };
+    // 1) Completed full cycles (end empty live set; tree retains spent leaves).
+    for (const cycle of input.priorCycles ?? []) {
+      const seed = Buffer.from(cycle.witnessSeed, 'hex');
+      const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
+      material.witnessSeedHex = cycle.witnessSeed;
+      const hops = cycle.transferHops === undefined ? 1 : Number(cycle.transferHops);
+      advanceOneCycle(reference, profileId, instanceId, tip, material, cycle.transactionContextDigests, input.withdrawalScriptHash, hops);
+    }
+    // 2) Live open notes currently in the pool (multi-note anonymity set).
+    // WARNING: openNotes-only rebuild is valid only when tip has no residual nullifiers /
+    // extra leaves (pure deposit stack). After any withdraw, use tipForest.
+    for (const open of input.priorOpenNotes ?? []) {
+      const seed = Buffer.from(open.witnessSeed, 'hex');
+      const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
+      material.witnessSeedHex = open.witnessSeed;
+      advanceDepositOntoTip(reference, profileId, instanceId, tip, material, open.depositDigest);
+      if (open.phase === 'transfer') {
+        if (!open.transferDigest) fail('priorOpenNotes transfer phase requires transferDigest');
+        advanceTransferOpenTip(reference, profileId, instanceId, tip, material, open.transferDigest);
+      }
     }
   }
 
@@ -457,14 +527,15 @@ export async function generateFreshWitnessInputs(input) {
     } else if (kind === 'transfer') {
       actions.transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer);
     } else {
-      // Withdraw spends LIFO open note — seed must match that open note's deposit seed.
-      // Rebuild: prior open notes already applied; if witnessSeed matches last open, use its material.
-      const last = (input.priorOpenNotes ?? [])[(input.priorOpenNotes ?? []).length - 1];
-      if (!last) fail('withdrawal requires priorOpenNotes (live notes)');
-      if (last.witnessSeed !== input.witnessSeed) {
+      // Withdraw spends LIFO open note — seed must match last open meta (forest) or last priorOpenNotes.
+      const lastMeta = tip.openNoteMeta?.[tip.openNoteMeta.length - 1];
+      const lastOpen = (input.priorOpenNotes ?? [])[(input.priorOpenNotes ?? []).length - 1];
+      if (!lastMeta && !lastOpen) fail('withdrawal requires tipForest openNoteMeta or priorOpenNotes');
+      const expectedSeed = lastMeta?.witnessSeed || lastOpen?.witnessSeed;
+      if (expectedSeed && expectedSeed !== input.witnessSeed) {
         fail('withdrawal witnessSeed must equal the open note being spent (LIFO seed)');
       }
-      // Tip already includes all priorOpenNotes including the one to spend; withdraw it.
+      if (!tip.openNoteMeta?.length) fail('withdrawal requires open live notes on tip');
       actions.withdrawal = advanceWithdrawOpenTip(
         reference, profileId, instanceId, tip, input.withdrawalScriptHash, digests.withdrawal,
       );
@@ -487,6 +558,7 @@ export async function generateFreshWitnessInputs(input) {
     profile: Object.freeze({ profileId, instanceId, stateNftCategory: bundle.manifest.genesis.stateNftCategory, reserveCapSatoshis: maximumReserve, setupMode: bundle.manifest.setup.mode }),
     actions: Object.freeze(result),
     tipState: Object.freeze({ ...tip.state }),
+    tipForest: serializeTipForest(tip),
     priorCycleCount: (input.priorCycles ?? []).length,
     priorOpenNoteCount: (input.priorOpenNotes ?? []).length,
     liveNoteCount: tip.state.liveNoteCount,

@@ -162,14 +162,16 @@ export async function completeAction(input) {
   const transferHops = input.transferHops ?? 1;
   const priorCycles = input.priorCycles || [];
   const priorOpenNotes = input.priorOpenNotes || [];
-  // Multi-note stack mode when open notes exist OR caller requests single-kind action.
-  const stackMode = priorOpenNotes.length > 0 || input.actionKind != null;
+  const tipForest = input.tipForest || null;
+  // Multi-note stack: openNotes and/or tipForest (required after any withdraw residual).
+  const stackMode = priorOpenNotes.length > 0 || !!tipForest || input.actionKind != null;
   const witnessCommon = {
     bundleDirectory,
     expectedProfile,
     withdrawalScriptHash: input.withdrawalScriptHash,
     witnessSeed: input.witnessSeed,
     priorCycles,
+    ...(tipForest ? { tipForest } : {}),
     ...(stackMode
       ? { priorOpenNotes, actionKind: input.actionKind || kind, transferHops: 0 }
       : { transferHops }),
@@ -320,6 +322,9 @@ export async function completeAction(input) {
     feeSatoshis: complete.measurements.feeSatoshis.toString(),
     digests: digests1,
     complete,
+    tipForest: w1.tipForest || null,
+    preState: w1.actions[kind]?.action?.preState || w1.tipState || null,
+    postState: w1.actions[kind]?.action?.postState || null,
   };
 }
 

@@ -16,7 +16,7 @@ export {
   COMPLETE_TRANSACTION_WIRE_LIMIT_BYTES,
   INPUT_UNLOCKING_LIMIT_BYTES,
 } from './assemble.mjs';
-export { generateFreshWitnessInputs } from './witness.mjs';
+export { generateFreshWitnessInputs, serializeTipForest } from './witness.mjs';
 export { encodeActionPacket, decodeActionPacket, DENOMINATION_SATS } from './packet.mjs';
 export { encodeSettlementContext, INPUT_ROLES } from './context.mjs';
 export { encodeStateNftCommitment } from './state.mjs';

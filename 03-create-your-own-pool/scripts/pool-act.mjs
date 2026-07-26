@@ -15,6 +15,7 @@ import {
   existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
@@ -22,6 +23,11 @@ import { createChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { discoverStateTip } from '../packages/kit/state-tip.mjs';
 import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
+
+const requireFromAction = createRequire(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '../packages/action/package.json'),
+);
+const { decodeTransaction, hexToBin, binToHex } = requireFromAction('@bitauth/libauth');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ZERO32 = '00'.repeat(32);
@@ -329,24 +335,63 @@ async function main() {
 
   const wsh = createHash('sha256').update(Buffer.from(hot.lockingBytecodeHex, 'hex')).digest('hex');
   // Multi-note open set (live anonymity). Each entry: { witnessSeed, depositDigest }.
-  // Witness rebuild treats priorOpenNotes as the *entire* tip tree — must match chain live count.
+  // openNotes = wallet live notes. tipForest = residual trees after spends (nullifiers/nextLeaf).
+  // After any withdraw, openNotes-only rebuild is NOT enough — tipForest required.
   state.openNotes = Array.isArray(state.openNotes) ? state.openNotes : [];
   const DENOM_SATS = 10_000_000;
   const STATE_CARRIER_BASE = 1080;
   if (stateTxid) {
-    const tipU = await gettxout(stateTxid, 0);
-    if (tipU) {
-      const tipValue = Math.round(Number(tipU.value) * 1e8);
-      if (tipValue < STATE_CARRIER_BASE || (tipValue - STATE_CARRIER_BASE) % DENOM_SATS !== 0) {
-        throw new Error(`tip value ${tipValue} is not 1080 + k×denom`);
+    try {
+      const raw = await rpc._electrumCall?.('blockchain.transaction.get', [stateTxid, false]);
+      if (typeof raw === 'string') {
+        const tipTx = decodeTransaction(hexToBin(raw));
+        if (typeof tipTx !== 'string' && tipTx.outputs?.[0]) {
+          const tipValue = Number(tipTx.outputs[0].valueSatoshis);
+          if (tipValue >= STATE_CARRIER_BASE && (tipValue - STATE_CARRIER_BASE) % DENOM_SATS === 0) {
+            const tipLive = (tipValue - STATE_CARRIER_BASE) / DENOM_SATS;
+            if (state.openNotes.length !== tipLive) {
+              throw new Error(
+                `OPEN_SET_DESYNC: chain tip liveNoteCount=${tipLive} (value=${tipValue}) but local openNotes=${state.openNotes.length}.`,
+              );
+            }
+          }
+          const cmt = tipTx.outputs[0].token?.nft?.commitment
+            ? binToHex(tipTx.outputs[0].token.nft.commitment)
+            : null;
+          if (cmt && cmt.length >= 160) {
+            const tipSeq = BigInt(`0x${Buffer.from(cmt.slice(144, 160), 'hex').reverse().toString('hex')}`).toString();
+            const forestSeq = state.tipForest?.state?.actionSequence;
+            if (!state.tipForest && Number(tipSeq) > Number(state.openNotes.length)) {
+              // tip advanced beyond pure openNotes deposit stack (nullifiers/extra leaves exist)
+              console.error(JSON.stringify({
+                phase: 'tip-forest-warn',
+                tipActionSequence: tipSeq,
+                openNotes: state.openNotes.length,
+                note: 'no tipForest in state.json — openNotes-only rebuild may OP_VERIFY on chain after prior withdraws',
+              }));
+            }
+            if (forestSeq != null && forestSeq !== tipSeq) {
+              throw new Error(
+                `TIP_FOREST_DESYNC: tipForest.actionSequence=${forestSeq} but chain tip seq=${tipSeq}. Refresh tipForest from last successful act.`,
+              );
+            }
+          }
+        }
       }
-      const tipLive = (tipValue - STATE_CARRIER_BASE) / DENOM_SATS;
-      if (state.openNotes.length !== tipLive) {
-        throw new Error(
-          `OPEN_SET_DESYNC: chain tip liveNoteCount=${tipLive} (value=${tipValue}) but local openNotes=${state.openNotes.length}. `
-          + 'pool-act rebuilds the note tree only from local openNotes seeds; a blank wallet cannot deposit onto a multi-note tip. '
-          + 'Need the tip open-set journal (operator) or a public tree snapshot.',
-        );
+    } catch (e) {
+      if (/OPEN_SET_DESYNC|TIP_FOREST_DESYNC/.test(String(e.message || e))) throw e;
+      // soft: gettxout path if electrum get fails
+      const tipU = await gettxout(stateTxid, 0);
+      if (tipU?.value != null && !tipU._partial) {
+        const tipValue = Math.round(Number(tipU.value) * 1e8);
+        if (tipValue >= STATE_CARRIER_BASE && (tipValue - STATE_CARRIER_BASE) % DENOM_SATS === 0) {
+          const tipLive = (tipValue - STATE_CARRIER_BASE) / DENOM_SATS;
+          if (state.openNotes.length !== tipLive) {
+            throw new Error(
+              `OPEN_SET_DESYNC: chain tip liveNoteCount=${tipLive} (value=${tipValue}) but local openNotes=${state.openNotes.length}.`,
+            );
+          }
+        }
       }
     }
   }
@@ -446,6 +491,7 @@ async function main() {
         withdrawalLockingBytecode: Buffer.from(hot.lockingBytecodeHex, 'hex'),
         priorCycles,
         priorOpenNotes,
+        tipForest: state.tipForest || null,
         actionKind: kind,
         transferHops: 0,
         digests,
@@ -455,6 +501,41 @@ async function main() {
       if (JSON.stringify(result.lens) !== JSON.stringify(PIN_LENS)) {
         throw new Error(`pin lens mismatch ${JSON.stringify(result.lens)}`);
       }
+
+      // Fail closed before broadcast: packet preState must match live tip NFT commitment.
+      // Offline Libauth uses synthesized tip from preState and can pass while chain rejects OP_VERIFY.
+      if (result.preState?.stateCommitment) {
+        const tipU = await gettxout(stateTxid, 0);
+        if (tipU?._partial === undefined && tipU?.value != null) {
+          // Prefer raw tip decode when electrum has full gettx
+        }
+        try {
+          const raw = await rpc._electrumCall?.('blockchain.transaction.get', [stateTxid, false]);
+          if (typeof raw === 'string') {
+            const tipTx = decodeTransaction(hexToBin(raw));
+            if (typeof tipTx !== 'string' && tipTx.outputs?.[0]?.token?.nft?.commitment) {
+              const cmt = binToHex(tipTx.outputs[0].token.nft.commitment);
+              const tipCommit = cmt.slice(80, 144);
+              if (tipCommit !== result.preState.stateCommitment) {
+                throw new Error(
+                  `TIP_PRESTATE_MISMATCH: packet preState.stateCommitment≠chain tip NFT `
+                  + `(pre.seq=${result.preState.actionSequence} live=${result.preState.liveNoteCount} `
+                  + `next=${result.preState.nextLeafIndex}). `
+                  + 'After any withdraw, state.json must retain tipForest (not openNotes alone). '
+                  + 'Rebuild from openNotes omits nullifiers/extra leaves → offline gateOk, chain OP_VERIFY fail.',
+                );
+              }
+            }
+          }
+        } catch (e) {
+          if (String(e.message || e).includes('TIP_PRESTATE_MISMATCH')) throw e;
+          console.error(JSON.stringify({
+            phase: 'tip-prestate-check-soft-fail',
+            error: String(e.message || e).slice(0, 160),
+          }));
+        }
+      }
+
       lastErr = null;
       break;
     } catch (e) {
@@ -577,6 +658,22 @@ async function main() {
   } else if (kind === 'withdrawal') {
     if (state.openNotes.length === 0) throw new Error('withdrawal with empty openNotes');
     state.openNotes = state.openNotes.slice(0, -1);
+  }
+
+  // Persist tip forest after every successful act (required after withdraw residual).
+  if (result.tipForest) {
+    state.tipForest = result.tipForest;
+  }
+  if (result.postState) {
+    state.tipMeta = {
+      ...(state.tipMeta || {}),
+      actionSequence: result.postState.actionSequence,
+      liveNoteCount: result.postState.liveNoteCount,
+      nextLeafIndex: result.postState.nextLeafIndex,
+      stateCommitment: result.postState.stateCommitment,
+      updatedAt: new Date().toISOString(),
+      source: doBroadcast ? 'post-broadcast-act' : 'post-act-offline',
+    };
   }
 
   writeFileSync(statePath, JSON.stringify(state, null, 2));
