@@ -231,29 +231,53 @@ async function main() {
     if (!existsSync(vsPath)) throw new Error('bundle missing artifacts/verifier-set.bin for tip discovery');
     const authority = parsePf7CarrierAuthority(JSON.parse(readFileSync(vsPath, 'utf8')));
     const category = (instance.stateNftCategory || loaded.manifest?.genesis?.stateNftCategory || '').toLowerCase();
+    const preferred = typeof stateTxid === 'string' && /^[0-9a-f]{64}$/i.test(stateTxid)
+      ? stateTxid.toLowerCase()
+      : null;
     const tip = await discoverStateTip({
       rpc,
       stateLockingBytecode: authority.settlementKernel.stateLock,
       stateNftCategory: category,
       instanceId: expectedProfile.instanceId,
+      preferredStateTxid: preferred || undefined,
     });
-    stateTxid = tip.stateTxid;
-    state.stateTxid = tip.stateTxid;
-    state.tipMeta = {
-      vout: tip.vout,
-      height: tip.height,
-      actionSequence: tip.actionSequence,
-      discoveredAt: new Date().toISOString(),
-      source: 'chain-discover',
-    };
+    // Keep local tip if it is strictly newer than discovery (broadcast lag).
+    const localSeq = state.tipMeta?.actionSequence;
+    if (
+      preferred
+      && localSeq != null
+      && BigInt(localSeq) > BigInt(tip.actionSequence)
+    ) {
+      stateTxid = preferred;
+      console.error(JSON.stringify({
+        phase: 'tip-discover',
+        keptLocal: true,
+        stateTxid: preferred,
+        localActionSequence: localSeq,
+        discoveredActionSequence: tip.actionSequence,
+        reason: 'local tip newer than electrum discovery',
+      }));
+    } else {
+      stateTxid = tip.stateTxid;
+      state.stateTxid = tip.stateTxid;
+      state.tipMeta = {
+        vout: tip.vout,
+        height: tip.height,
+        actionSequence: tip.actionSequence,
+        discoveredAt: new Date().toISOString(),
+        source: tip.source || 'chain-discover',
+      };
+    }
     writeFileSync(statePath, JSON.stringify(state, null, 2));
     console.error(JSON.stringify({
       phase: 'tip-discover',
-      stateTxid: tip.stateTxid,
-      vout: tip.vout,
-      height: tip.height,
-      actionSequence: tip.actionSequence,
+      stateTxid,
+      vout: state.tipMeta?.vout ?? tip.vout,
+      height: state.tipMeta?.height ?? tip.height,
+      actionSequence: state.tipMeta?.actionSequence ?? tip.actionSequence,
+      source: state.tipMeta?.source ?? tip.source,
       unspentMatches: tip.unspentMatches,
+      scanned: tip.scanned,
     }));
   }
   if (!stateTxid) {

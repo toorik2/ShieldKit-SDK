@@ -237,22 +237,46 @@ async function cmdTip() {
     const rpc = await createChipnetRpc();
     const vs = JSON.parse(readFileSync(path.join(bundleDir, 'artifacts/verifier-set.bin'), 'utf8'));
     const authority = parsePf7CarrierAuthority(vs);
+    const prev = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+    const preferred = typeof prev.stateTxid === 'string' && /^[0-9a-f]{64}$/i.test(prev.stateTxid)
+      ? prev.stateTxid.toLowerCase()
+      : null;
     const tip = await discoverStateTip({
       rpc,
       stateLockingBytecode: authority.settlementKernel.stateLock,
       stateNftCategory: instance.stateNftCategory,
       instanceId: instance.instanceId,
+      preferredStateTxid: preferred || undefined,
     });
-    const prev = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+    // Never clobber a strictly newer local tip (e.g. just-broadcast settle not yet in Fulcrum).
+    const localSeq = prev.tipMeta?.actionSequence;
+    const discoveredSeq = tip.actionSequence;
+    let useTip = tip;
+    if (
+      preferred
+      && localSeq != null
+      && BigInt(localSeq) > BigInt(discoveredSeq)
+      && !flag('force-tip')
+    ) {
+      useTip = {
+        stateTxid: preferred,
+        vout: prev.tipMeta?.vout ?? 0,
+        height: prev.tipMeta?.height ?? -1,
+        actionSequence: String(localSeq),
+        valueSatoshis: tip.valueSatoshis,
+        source: 'local-newer-than-discovery',
+        unspentMatches: tip.unspentMatches,
+      };
+    }
     const next = {
       ...prev,
-      stateTxid: tip.stateTxid,
+      stateTxid: useTip.stateTxid,
       tipMeta: {
-        vout: tip.vout,
-        height: tip.height,
-        actionSequence: tip.actionSequence,
+        vout: useTip.vout,
+        height: useTip.height,
+        actionSequence: useTip.actionSequence,
         discoveredAt: new Date().toISOString(),
-        source: 'chain-discover',
+        source: useTip.source || tip.source || 'chain-discover',
       },
       feeUtxos: prev.feeUtxos || [],
       history: prev.history || [],
@@ -266,10 +290,13 @@ async function cmdTip() {
       pool: poolDir,
       backend: rpc.backend,
       label: rpc.label,
-      stateTxid: tip.stateTxid,
-      vout: tip.vout,
-      height: tip.height,
-      actionSequence: tip.actionSequence,
+      stateTxid: useTip.stateTxid,
+      vout: useTip.vout,
+      height: useTip.height,
+      actionSequence: useTip.actionSequence,
+      source: useTip.source || tip.source,
+      unspentMatches: tip.unspentMatches,
+      scanned: tip.scanned,
       wrote: !flag('no-write') ? statePath : null,
       note: 'Tip moves every settle. Re-run tip / --refresh-tip before acting if others used the pool.',
     });
