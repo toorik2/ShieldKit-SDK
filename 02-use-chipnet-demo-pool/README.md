@@ -8,9 +8,12 @@
 |--|--|
 | **Role** | Shared **Chipnet playground** instance |
 | **Network** | Chipnet · `development-only` · Unaudited WIP |
-| **Capacity** | **1 live note** (`reserveCap` = 0.1 BCH) — thin demo, not privacy |
+| **Live set** | **~10 notes at release** (anonymity set grows/shrinks with deposits & withdraws) |
+| **Capacity** | **16 live notes** max (`reserveCap` = 1.6 BCH) · 0.1 BCH denomination |
 | **API** | `npm run shieldkit -- playground …` → same kit as your pool |
 | **Aliases** | `chipnet-playground`, `playground` |
+
+This is a **real on-chain pool** with a multi-note tip — not an empty genesis. You interact with the **same instance** the release demo uses. You do **not** receive the seeds for notes others deposited; you only spend notes you create with your wallets.
 
 ---
 
@@ -23,6 +26,7 @@ npm run fetch-playground-bundle   # ~455MB profile arts (sha256-pinned)
 
 npm run rpc:probe              # public Chipnet Fulcrum by default
 npm run shieldkit -- playground doctor
+npm run shieldkit -- playground tip   # live State NFT tip (moves every settle)
 ```
 
 ### Full act (deposit / transfer / withdraw)
@@ -46,7 +50,7 @@ npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --b
 npm run shieldkit -- playground deposit --wallets ./wallets.json --refresh-tip --scan-fees --broadcast
 ```
 
-`state.json` is a **local cache** of the last tip + your openNotes/fees.  
+`state.json` is a **local cache** of the last tip + *your* openNotes/fees.  
 Truth is always: *unspent State NFT for this instance’s category on Chipnet*.
 
 ```bash
@@ -113,6 +117,9 @@ What still needs *you* (not RPC): a **funded Chipnet wallet** (≳ 11.5M sats fo
 See [`instance.json`](./instance.json):
 
 - `instanceId` · `profileId` · `stateNftCategory`  
-- Explorer: `https://chipnet.chaingraph.cash/tx/{txid}`
+- Capacity: 16 live × 0.1 BCH (`reserveCapSatoshis` = 160000000)  
+- Explorer: `https://chipnet.chaingraph.cash/tx/{txid}`  
+- Genesis (fixed): `60f87372…2b9a`  
+- Tip at release (moves): `bae1153b…a604` — re-check with `playground tip`
 
 **This is not your pool.** Create-own-pool ⇒ new profile + genesis + new `instanceId`.

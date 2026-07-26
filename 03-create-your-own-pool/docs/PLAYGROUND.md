@@ -10,7 +10,7 @@
 loadInstance(ref) → createKit / pool-act
         │
  ./my-pool/              02-use-chipnet-demo-pool/
- (your genesis)          (shared playground · max 1 live note)
+ (your genesis)          (shared playground · cap 16 · ~10 live at release)
 ```
 
 **Demo is CLI only** — not a browser wallet.

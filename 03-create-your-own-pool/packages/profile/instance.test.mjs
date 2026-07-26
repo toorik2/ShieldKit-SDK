@@ -53,18 +53,34 @@ test('instanceToKitConfig requires loaded bundle', () => {
   );
 });
 
-test('full playground load when local lab bundle present', async (t) => {
-  const lab = path.join(root, '.cache/profile-build-live/profile-bundle');
-  try {
-    await import('node:fs/promises').then((fs) => fs.access(path.join(lab, 'manifest.json')));
-  } catch {
-    t.skip('lab profile bundle not present');
+test('full playground load when matching profile bundle present', async (t) => {
+  // Prefer playground/local ticket10-shaped bundle (instanceId must match instance.json).
+  const candidates = [
+    path.join(root, '02-use-chipnet-demo-pool/bundle'),
+    path.join(root, '.cache/ticket10-e2e-20260726/pool/bundle'),
+  ];
+  let bundleDir = null;
+  for (const candidate of candidates) {
+    try {
+      await import('node:fs/promises').then((fs) => fs.access(path.join(candidate, 'manifest.json')));
+      bundleDir = candidate;
+      break;
+    } catch {
+      // try next
+    }
+  }
+  if (!bundleDir) {
+    t.skip('no local playground-matching profile bundle');
     return;
   }
-  const instance = await loadInstance('02-use-chipnet-demo-pool', { bundleDirectory: lab });
-  assert.equal(instance.bundleDirectory, lab);
+  const instance = await loadInstance('02-use-chipnet-demo-pool', { bundleDirectory: bundleDir });
+  assert.equal(instance.bundleDirectory, bundleDir);
   assert.ok(instance.loaded);
   const cfg = instanceToKitConfig(instance);
   assert.equal(cfg.network, 'chipnet');
   assert.equal(cfg.expectedProfile.instanceId, instance.instanceId);
+  assert.equal(
+    instance.instanceId,
+    'sha256:bb27e427a13f62aac70727492c4762b8ba4fb031296de14bebb30565dbb3ce06',
+  );
 });

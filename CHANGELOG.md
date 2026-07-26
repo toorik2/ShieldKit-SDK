@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/)-ish · SemVer **0.y.z** 
 
 ### Changed
 
+- **Playground rewired** to multi-note Chipnet instance (`instanceId` `bb27e427…`, capacity 16, ~10 live notes at cutover). Bundle tag **`playground-bundle-v2`**.
 - **development-only setup:** skip multi-hour `snarkjs powersoftau verify` when ptau matches trusted Hermez `final_20` pin (SHA-256). Loud stderr warning + metadata `ptau.verification` implications. Force full verify with `setup.verifyPtau: true` or CLI `--verify-ptau`. Ceremony path unchanged (always full verify).
 - Setup phase logs to stderr; snarkjs stdout/stderr streamed for long steps.
 

@@ -12,6 +12,7 @@ python3 -m http.server 8765 --directory 01-learn-about-this-system
 ### 2 · Try the live demo pool (**CLI**, not browser)
 → [`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/)
 
+Real Chipnet **playground** with a multi-note tip (**~10 live notes at release**, cap 16).  
 No bitcoind required — public Chipnet Fulcrum is the default chain access.
 
 ```bash
