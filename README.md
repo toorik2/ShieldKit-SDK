@@ -2,12 +2,6 @@
 
 Create and run your own shielded pool on Bitcoin Cash.
 
-After genesis: **no admin key** — rules and capacity are fixed on-chain.
-
----
-
-## Pick a path
-
 ### 1 · Learn about this system
 → [`01-learn-about-this-system/learn-about-this-system.html`](./01-learn-about-this-system/learn-about-this-system.html)  
 Static page only (no wallet / no chain).

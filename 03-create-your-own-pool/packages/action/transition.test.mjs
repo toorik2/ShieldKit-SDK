@@ -14,7 +14,7 @@ import { BABYJUB_BASE8, babyJubMul, bytesToHex, packBabyJubPoint } from '../reco
 const digest = (text) => createHash('sha256').update(text).digest('hex');
 const field = (number) => frToHex(BigInt(number));
 const recoveryKey = (scalar) => bytesToHex(packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(scalar))));
-const vectors = JSON.parse(readFileSync(new URL('./vectors/g1-relation-v2.json', import.meta.url)));
+const vectors = JSON.parse(readFileSync(new URL('../profile/vectors/g1-relation-v2.json', import.meta.url)));
 
 function rootFromPath(reference, leaf, index, siblings, tag) {
   let current = leaf;
