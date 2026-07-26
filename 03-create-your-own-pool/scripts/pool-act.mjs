@@ -15,19 +15,16 @@ import {
   existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync,
 } from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import {
+  decodeTransaction, hexToBin, binToHex,
+} from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
 import { createChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { discoverStateTip } from '../packages/kit/state-tip.mjs';
 import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
-
-const requireFromAction = createRequire(
-  path.join(path.dirname(fileURLToPath(import.meta.url)), '../packages/action/package.json'),
-);
-const { decodeTransaction, hexToBin, binToHex } = requireFromAction('@bitauth/libauth');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ZERO32 = '00'.repeat(32);
