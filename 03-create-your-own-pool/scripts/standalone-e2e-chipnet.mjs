@@ -106,8 +106,9 @@ function pushFee(state, u) {
 }
 
 function minSatsFor(kind) {
-  if (kind === 'deposit') return 11_500_000;
-  return 1_500_000;
+  // Match pool-act: PF7 7k + binding 1k + settleFeeFunding (59k+546) + prep pad 3k + dust
+  const base = 7_000 + 1_000 + 59_000 + 546 + 3_000 + 546;
+  return kind === 'deposit' ? base + 10_000_000 : base;
 }
 
 function loadStab(kind) {

@@ -1,15 +1,14 @@
 /**
- * Chipnet chain access.
+ * Chain access (chipnet default, mainnet via config).
  *
  * Average users need **no bitcoind**. Defaults are public Fulcrum (Electrum TLS).
- * There is no reliable free public Chipnet bitcoind JSON-RPC; that path is optional
- * only if you set SHIELDKIT_RPC_URL.
+ * JSON-RPC path optional via SHIELDKIT_RPC_URL.
  *
  * Resolution order:
  *   1) SHIELDKIT_RPC_URL  — your JSON-RPC (optional power-user)
  *   2) SHIELDKIT_ELECTRUM — your Fulcrum host:port (optional)
- *   3) Public Chipnet Fulcrum TLS  ← default for everyone else
- *   4) SSH layer1-node (lab only)
+ *   3) Public Fulcrum TLS for the selected network  ← default
+ *   4) SSH layer1-node (lab chipnet only)
  *
  * Providers are untrusted. No network-query privacy claim.
  */
@@ -21,11 +20,30 @@ import tls from 'node:tls';
 export const CHIPNET_GENESIS_HASH =
   '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b';
 
+/** Bitcoin Cash mainnet genesis (Block 0). */
+export const MAINNET_GENESIS_HASH =
+  '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f';
+
 /** Public Fulcrum (Electrum) Chipnet endpoints — TLS, no auth. */
 export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
   Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
   Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
 ]);
+
+/** Public Fulcrum (Electrum) mainnet endpoints — TLS, no auth. */
+export const PUBLIC_MAINNET_ELECTRUM = Object.freeze([
+  Object.freeze({ host: 'electrum.imaginary.cash', port: 50002, tls: true, label: 'electrum.imaginary.cash' }),
+  Object.freeze({ host: 'bch.imaginary.cash', port: 50002, tls: true, label: 'bch.imaginary.cash' }),
+  Object.freeze({ host: 'fulcrum.greyh.at', port: 50002, tls: true, label: 'fulcrum.greyh.at' }),
+]);
+
+function expectedGenesis(network) {
+  return network === 'mainnet' ? MAINNET_GENESIS_HASH : CHIPNET_GENESIS_HASH;
+}
+
+function publicElectrumFor(network) {
+  return network === 'mainnet' ? PUBLIC_MAINNET_ELECTRUM : PUBLIC_CHIPNET_ELECTRUM;
+}
 
 const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=12'];
 
@@ -111,11 +129,14 @@ function electrumRequest(host, port, useTls, method, params, timeoutMs = 12_000)
   });
 }
 
-async function probeElectrum(ep) {
+async function probeElectrum(ep, network = 'chipnet') {
   const features = await electrumRequest(ep.host, ep.port, ep.tls !== false, 'server.features', []);
   const genesis = features?.genesis_hash;
-  if (genesis && genesis !== CHIPNET_GENESIS_HASH) {
-    throw new Error(`electrum ${ep.host} is not Chipnet (genesis ${genesis})`);
+  const want = expectedGenesis(network);
+  if (genesis && genesis !== want) {
+    throw new Error(
+      `electrum ${ep.host} genesis ${genesis?.slice?.(0, 16) || genesis} ≠ ${network} (${want.slice(0, 16)}…)`,
+    );
   }
   return features;
 }
@@ -159,10 +180,11 @@ function parseFirstJsonObject(raw) {
 }
 
 /**
- * @param {{ preferLayer1?: boolean }} [opts]
+ * @param {{ preferLayer1?: boolean, network?: 'chipnet'|'mainnet' }} [opts]
  * @returns {Promise<{
  *   backend: string,
  *   label: string,
+ *   network: string,
  *   gettxout: (txid: string, vout: number) => Promise<object|null>,
  *   scanAddress: (address: string, lockingBytecodeHex?: string) => Promise<Array<{txid:string,vout:number,sats:number}>>,
  *   testmempoolaccept: (hex: string) => Promise<any>,
@@ -170,7 +192,8 @@ function parseFirstJsonObject(raw) {
  *   getblockcount: () => Promise<number>,
  * }>}
  */
-export async function createChipnetRpc(opts = {}) {
+export async function createChainRpc(opts = {}) {
+  const network = opts.network === 'mainnet' ? 'mainnet' : 'chipnet';
   const errors = [];
 
   // 1) Explicit JSON-RPC
@@ -183,6 +206,7 @@ export async function createChipnetRpc(opts = {}) {
       return {
         backend: 'jsonrpc',
         label: ep.base,
+        network,
         async gettxout(txid, vout) {
           return jsonRpcCall(ep, 'gettxout', [txid, vout, true]);
         },
@@ -209,20 +233,21 @@ export async function createChipnetRpc(opts = {}) {
     }
   }
 
-  // 2) Explicit electrum then public list
+  // 2) Explicit electrum then public list for selected network
   const electrumList = [];
   const envEl = process.env.SHIELDKIT_ELECTRUM;
   if (envEl) electrumList.push(parseElectrumEndpoint(envEl));
-  for (const ep of PUBLIC_CHIPNET_ELECTRUM) electrumList.push(ep);
+  for (const ep of publicElectrumFor(network)) electrumList.push(ep);
 
   for (const ep of electrumList) {
     if (!ep) continue;
     try {
-      await probeElectrum(ep);
+      await probeElectrum(ep, network);
       const call = (method, params) => electrumRequest(ep.host, ep.port, ep.tls !== false, method, params);
       return {
         backend: 'electrum',
         label: `${ep.host}:${ep.port}`,
+        network,
         /** @internal tip discovery / advanced */
         _electrumCall: call,
         async gettxout(txid, vout) {
@@ -299,11 +324,12 @@ export async function createChipnetRpc(opts = {}) {
     }
   }
 
-  // 3) Lab SSH
-  if (opts.preferLayer1 !== false && layer1Available()) {
+  // 3) Lab SSH (chipnet only — layer1-node is Chipnet BCHN)
+  if (network === 'chipnet' && opts.preferLayer1 !== false && layer1Available()) {
     return {
       backend: 'layer1-ssh',
       label: 'layer1-node',
+      network: 'chipnet',
       async gettxout(txid, vout) {
         try {
           const t = layer1Cli(`gettxout ${txid} ${vout} true`);
@@ -345,10 +371,15 @@ export async function createChipnetRpc(opts = {}) {
   }
 
   throw new Error(
-    'No Chipnet RPC available. Tried: '
+    `No ${network} RPC available. Tried: `
     + `${errors.join('; ') || 'none'}. `
     + 'Set SHIELDKIT_RPC_URL, SHIELDKIT_ELECTRUM=host:port, or ensure public Fulcrum is reachable.',
   );
+}
+
+/** @deprecated use createChainRpc({ network: 'chipnet' }) — alias kept for callers */
+export async function createChipnetRpc(opts = {}) {
+  return createChainRpc({ ...opts, network: opts.network || 'chipnet' });
 }
 
 export { electrumScriptHash };

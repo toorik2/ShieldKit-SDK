@@ -16,7 +16,10 @@ import { parsePf7CarrierAuthority } from '../prove/authority.mjs';
 import { createShieldedTransitionReference } from '../action/transition.mjs';
 import { encodeStateNftCommitment } from '../action/state.mjs';
 
+/** Fixed protocol fee rate: exactly 1 satoshi per serialized byte. */
 export const CHIPNET_GENESIS_FEE_RATE_SATOSHIS_PER_BYTE = 1n;
+/** Alias — same rate for all networks. */
+export const PROTOCOL_FEE_RATE_SATOSHIS_PER_BYTE = CHIPNET_GENESIS_FEE_RATE_SATOSHIS_PER_BYTE;
 export const PROJECT_P2S_LOCKING_LIMIT_BYTES = 190;
 // Libauth BCH-2026 standardness rejects the P2S state output below 1,080 sats.
 export const MINIMUM_STATE_CARRIER_SATOSHIS = 1_080n;
@@ -69,13 +72,18 @@ async function loadProfile(value) {
   try { bundle = await loadVerifierProfileBundle(value.bundleDirectory, value.expectedProfile); }
   catch (error) { fail(`authenticated profile bundle rejected: ${error.message}`); }
   const { manifest } = bundle;
-  const net = manifest.network?.name;
-  if ((net !== 'chipnet' && net !== 'mainnet') || manifest.genesis?.network !== net) {
-    fail('profile network must be chipnet or mainnet and must match genesis.network');
+  const net = manifest.network?.name || manifest.network;
+  const genesisNet = manifest.genesis?.network?.name || manifest.genesis?.network;
+  if ((net !== 'chipnet' && net !== 'mainnet') || (genesisNet !== undefined && genesisNet !== net)) {
+    fail('profile network must be chipnet or mainnet and must match genesis.network when set');
   }
   if (manifest.setup?.mode !== 'development-only' && manifest.setup?.mode !== 'ceremony-production') fail('profile setup mode is unsupported');
+  // SCAR wire networkId is pin-fixed (circuit hardcodes 2); BCH chain is `net`.
+  const networkId = 2;
   return Object.freeze({
     bundle,
+    network: net,
+    networkId,
     profileId: Buffer.from(bundle.profileId.slice('sha256:'.length), 'hex'),
     instanceId: Buffer.from(bundle.instanceId.slice('sha256:'.length), 'hex'),
     stateCategory: Buffer.from(manifest.genesis.stateNftCategory, 'hex'),
@@ -156,7 +164,12 @@ async function derive(value) {
   const initialState = reference.emptyState({ profileId: hex(profile.profileId), instanceId: hex(profile.instanceId), maximumReserve: profile.reserveCapSatoshis });
   const stateToken = {
     category: Uint8Array.from(profile.stateCategory), amount: 0n,
-    nft: { capability: 'mutable', commitment: encodeStateNftCommitment({ networkId: 2, instanceId: hex(profile.instanceId), stateCommitment: initialState.stateCommitment, actionSequence: initialState.actionSequence }) },
+    nft: { capability: 'mutable', commitment: encodeStateNftCommitment({
+      networkId: profile.networkId,
+      instanceId: hex(profile.instanceId),
+      stateCommitment: initialState.stateCommitment,
+      actionSequence: initialState.actionSequence,
+    }) },
   };
   const sizing = transactionFor(parsed, stateLock, stateToken, Buffer.alloc(64), 1n);
   const wireBytes = Buffer.from(encodeTransaction(sizing)).length;

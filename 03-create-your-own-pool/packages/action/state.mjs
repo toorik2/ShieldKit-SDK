@@ -1,7 +1,15 @@
+import {
+  CHIPNET_NETWORK_ID,
+  NETWORK_CHIPNET,
+  NETWORK_MAINNET,
+  isSupportedNetworkId,
+} from './network.mjs';
+
 export const STATE_NFT_COMMITMENT_BYTES = 80;
 export const STATE_NFT_COMMITMENT_LIMIT_BYTES = 120;
 export const STATE_NFT_VERSION = 1;
-export const CHIPNET_NETWORK_ID = 2;
+/** @deprecated prefer NETWORK_CHIPNET from network.mjs */
+export { CHIPNET_NETWORK_ID, NETWORK_CHIPNET, NETWORK_MAINNET };
 
 const HEX_32 = /^[0-9a-f]{64}$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
@@ -55,7 +63,7 @@ export function encodeStateNftCommitment(value) {
     'networkId',
     'stateCommitment',
   ]);
-  if (value.networkId !== CHIPNET_NETWORK_ID) {
+  if (!isSupportedNetworkId(value.networkId)) {
     fail('state NFT network is unsupported');
   }
   const commitment = Buffer.alloc(STATE_NFT_COMMITMENT_BYTES);
@@ -79,7 +87,7 @@ export function decodeStateNftCommitment(value) {
   if (bytes[4] !== STATE_NFT_VERSION) {
     fail('state NFT commitment version is unsupported');
   }
-  if (bytes[5] !== CHIPNET_NETWORK_ID) {
+  if (!isSupportedNetworkId(bytes[5])) {
     fail('state NFT commitment network is unsupported');
   }
   if (bytes[6] !== 0 || bytes[7] !== 0) {

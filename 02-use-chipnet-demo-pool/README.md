@@ -34,10 +34,10 @@ npm run shieldkit -- playground withdraw --wallets ./wallets.json --scan-fees --
 # force tip rescan: --refresh-tip
 ```
 
-| | Fee UTXO |
+| | Fee UTXO value floor (fee **rate** always **1 sat/B**) |
 |--|--|
-| deposit | ≳ 11.5M sats |
-| transfer / withdraw | ≳ 1.5M sats |
+| deposit | ≥ ~10.11M = 0.1 BCH note + PF7 7k + binding 1k + settle funding 59.5k + pads |
+| transfer / withdraw | ≥ ~71k = PF7 + binding + settle funding + prep pad + dust |
 
 Prep only: `playground request-template --kind deposit` then `playground deposit --request prep.json`.
 

@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { encodeTokenPrefix, encodeTransaction } from '@bitauth/libauth';
 import {
   ACTION_PACKET_BYTES,
-  CHIPNET_NETWORK_ID,
   decodeActionPacket,
   DENOMINATION_SATS,
 } from './packet.mjs';
@@ -164,7 +163,7 @@ function outputToJson(output) {
   };
 }
 
-function assertStateToken(token, label, instanceId, state, expectedCategory) {
+function assertStateToken(token, label, instanceId, state, networkId, expectedCategory) {
   if (
     token === undefined
     || token.amount !== 0n
@@ -180,7 +179,7 @@ function assertStateToken(token, label, instanceId, state, expectedCategory) {
     fail(`${label} changes the state NFT category`);
   }
   const expected = encodeStateNftCommitment({
-    networkId: CHIPNET_NETWORK_ID,
+    networkId,
     instanceId,
     stateCommitment: state.stateCommitment,
     actionSequence: state.actionSequence,
@@ -355,12 +354,14 @@ export function buildSettlementTransaction(value) {
     'source state',
     value.instanceId,
     packet.preState,
+    packet.networkId,
   );
   assertStateToken(
     outputs[0].token,
     'successor state',
     value.instanceId,
     packet.postState,
+    packet.networkId,
     stateCategory,
   );
   for (let index = 1; index < outputs.length; index += 1) {

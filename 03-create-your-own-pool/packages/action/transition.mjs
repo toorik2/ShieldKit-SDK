@@ -5,6 +5,11 @@ import { buildPoseidon } from 'circomlibjs';
 import { encodeActionPacket } from './packet.mjs';
 import { encodeStateNftCommitment } from './state.mjs';
 import {
+  NETWORK_CHIPNET,
+  NETWORK_MAINNET,
+  isSupportedNetworkId,
+} from './network.mjs';
+import {
   BABYJUB_BASE8, BABYJUB_SUBGROUP_ORDER, babyJubMul, hexToBytes, unpackBabyJubPoint,
 } from '../recover/portable-core.mjs';
 
@@ -14,7 +19,8 @@ export const MAX_BCH_SUPPLY_SATS = 2_100_000_000_000_000n;
 export const NOTE_TREE_DEPTH = 32;
 export const NULLIFIER_TREE_DEPTH = 128;
 export const OUTPUT_RECORD_BYTES = 192;
-export const NETWORK_CHIPNET = 2;
+
+export { NETWORK_CHIPNET, NETWORK_MAINNET };
 
 // Concrete candidate tags, encoded as canonical Fr integer literals.
 export const DOMAIN_TAGS = Object.freeze({
@@ -298,7 +304,7 @@ export async function createShieldedTransitionReference() {
         : ['kind', 'networkId', 'profileId', 'instanceId', 'preState', 'postState', 'spend', 'withdrawal', 'outputRecord', 'transactionContextDigest'];
     const allowed = new Set([...required, 'publicInputs']);
     if (Object.keys(action).some((key) => !allowed.has(key)) || required.some((key) => action[key] === undefined) || (requirePublicInputs && action.publicInputs === undefined)) fail('action has missing or unconstrained properties');
-    if (action.networkId !== NETWORK_CHIPNET) fail('wrong network identifier');
+    if (!isSupportedNetworkId(action.networkId)) fail('wrong network identifier');
     const pre = normalizeState(action.preState, 'pre-state');
     if (parseIdentifier(action.profileId, 'action profileId') !== pre.profileId || parseIdentifier(action.instanceId, 'action instanceId') !== pre.instanceId) fail('action identifiers do not match pre-state');
     if (BigInt(pre.actionSequence) === (1n << 64n) - 1n) fail('action sequence overflow');
@@ -336,7 +342,7 @@ export async function createShieldedTransitionReference() {
 
   const emptyState = ({ profileId, instanceId, maximumReserve }) => buildState({ profileId, instanceId, noteRoot: frToHex(noteEmpty[NOTE_TREE_DEPTH]), nullifierRoot: frToHex(nullifierEmpty[NULLIFIER_TREE_DEPTH]), nextLeafIndex: '0', actionSequence: '0', liveNoteCount: '0', reserveSats: '0', maximumReserve });
   const stateNftCommitment = ({ networkId, instanceId, stateCommitment, actionSequence }) => {
-    if (networkId !== NETWORK_CHIPNET) fail('wrong network identifier');
+    if (!isSupportedNetworkId(networkId)) fail('wrong network identifier');
     return encodeStateNftCommitment({
       networkId,
       instanceId: parseIdentifier(instanceId, 'instanceId'),

@@ -12,7 +12,7 @@ import {
   instantiateSecp256k1,
   SigningSerializationTypeBch,
 } from '@bitauth/libauth';
-import { ACTION_PACKET_BYTES, CHIPNET_NETWORK_ID, decodeActionPacket } from './packet.mjs';
+import { ACTION_PACKET_BYTES, decodeActionPacket } from './packet.mjs';
 import { generateFreshWitnessInputs } from './witness.mjs';
 import { loadVerifierProfileBundle, parseStrictJson } from '../profile/load.mjs';
 import { parsePf7CarrierAuthority } from '../prove/authority.mjs';
@@ -127,13 +127,13 @@ async function profilePf7Roles(profile) {
   });
 }
 
-function stateToken(category, instanceId, state) {
+function stateToken(category, instanceId, state, networkId) {
   return {
     category: Uint8Array.from(category), amount: 0n,
     nft: {
       capability: 'mutable',
       commitment: encodeStateNftCommitment({
-        networkId: CHIPNET_NETWORK_ID,
+        networkId,
         instanceId: hex(instanceId),
         stateCommitment: state.stateCommitment,
         actionSequence: state.actionSequence,
@@ -273,7 +273,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   const sources = [
     ...pf7.map((row) => sourceFor(row)),
     { valueSatoshis: bindingCarrierBaseSatoshis + (kind === 'deposit' ? 10_000_000n : 0n), lockingBytecode: bindingLock },
-    { valueSatoshis: stateCarrierBaseSatoshis + BigInt(decoded.preState.reserveSats), lockingBytecode: stateLock, token: stateToken(stateCategory, instanceId, decoded.preState) },
+    { valueSatoshis: stateCarrierBaseSatoshis + BigInt(decoded.preState.reserveSats), lockingBytecode: stateLock, token: stateToken(stateCategory, instanceId, decoded.preState, decoded.networkId) },
     { valueSatoshis: feeSourceValueSatoshis, lockingBytecode: feeLock },
   ];
   const inputs = [
@@ -284,7 +284,7 @@ async function constructCompleteG2Settlement(value, requirePacketContext) {
   ];
   const totalInputValue = sources.reduce((sum, source) => sum + source.valueSatoshis, 0n);
   const { transaction: unsignedTransaction, wireBytes: unsignedWireBytes } = fixedPointTransaction({
-    kind, inputs, sources, stateLock, postToken: stateToken(stateCategory, instanceId, decoded.postState),
+    kind, inputs, sources, stateLock, postToken: stateToken(stateCategory, instanceId, decoded.postState, decoded.networkId),
     stateValue: stateCarrierBaseSatoshis + BigInt(decoded.postState.reserveSats), withdrawalLock, totalInputValue,
   });
   const provisionalContext = encodeSettlementContext({

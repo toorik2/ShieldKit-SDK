@@ -21,7 +21,7 @@ import {
 } from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
-import { createChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { discoverStateTip } from '../packages/kit/state-tip.mjs';
 import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
@@ -29,7 +29,7 @@ import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ZERO32 = '00'.repeat(32);
 
-/** @type {Awaited<ReturnType<typeof createChipnetRpc>> | null} */
+/** @type {Awaited<ReturnType<typeof createChainRpc>> | null} */
 let rpc = null;
 /** @type {{ address?: string, lockingBytecodeHex?: string }} */
 let hotCtx = {};
@@ -83,8 +83,30 @@ async function scantxoutsetAddr(address) {
   };
 }
 
+/**
+ * Fee-input value floor for prep (not fee *rate* — rate is always 1 sat/B).
+ *
+ * Prep exact need (packages/action/prep.mjs deriveCompletePlan):
+ *   PF7 carriers + bindingBase [+ denom if deposit] + settlementFeeFunding + prepWireFee
+ *   + dust change
+ * settlementFeeFunding must cover settle wire (≤59k B @ 1 sat/B) + dust change.
+ * Pin PF7 = 7×1000; bindingBase = 1000. Prep wire pad is scan threshold only;
+ * actual fee = exact wire size.
+ */
+const DENOMINATION_SATS_NUM = 10_000_000;
+const PF7_CARRIER_TOTAL_PIN = 7_000;
+const BINDING_BASE = 1_000;
+const SETTLE_WIRE_LIMIT = 59_000;
+const P2PKH_DUST = 546;
+/** Default settlement fee-funding output (must cover max settle @ 1 sat/B + dust). */
+const SETTLEMENT_FEE_FUNDING = SETTLE_WIRE_LIMIT + P2PKH_DUST;
+/** Prep tx ~10 outs; pad for scan only (actual fee = wire bytes). */
+const PREP_WIRE_PAD = 3_000;
+
 function minSats(kind) {
-  return kind === 'deposit' ? 11_500_000 : 1_500_000;
+  const base = PF7_CARRIER_TOTAL_PIN + BINDING_BASE + SETTLEMENT_FEE_FUNDING
+    + PREP_WIRE_PAD + P2PKH_DUST;
+  return kind === 'deposit' ? base + DENOMINATION_SATS_NUM : base;
 }
 
 function pushFee(state, u) {
@@ -135,7 +157,7 @@ function loadStab(kind) {
  * Prunes dead entries already in state.feeUtxos.
  * @returns {{ added: number, stale: number, pruned: number, feeCount: number, large: number }}
  */
-async function scanFeesIntoState(state, hotAddress, minKeep = 1_500_000) {
+async function scanFeesIntoState(state, hotAddress, minKeep = minSats('withdrawal')) {
   let pruned = 0;
   const kept = [];
   for (const u of state.feeUtxos || []) {
@@ -204,10 +226,11 @@ async function main() {
     throw new Error('pool must contain instance.json and bundle/');
   }
 
-  rpc = await createChipnetRpc();
-  console.error(JSON.stringify({ phase: 'rpc', backend: rpc.backend, label: rpc.label }));
-
   const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
+  const network = instance.network === 'mainnet' ? 'mainnet' : 'chipnet';
+  rpc = await createChainRpc({ network });
+  console.error(JSON.stringify({ phase: 'rpc', backend: rpc.backend, label: rpc.label, network }));
+
   const state = existsSync(statePath)
     ? JSON.parse(readFileSync(statePath, 'utf8'))
     : { stateTxid: null, feeUtxos: [], history: [], openNotes: [] };
@@ -223,7 +246,7 @@ async function main() {
   const expectedProfile = {
     profileId: instance.profileId || loaded.manifest.identity.profileId,
     instanceId: instance.instanceId || loaded.manifest.genesis.instanceId,
-    network: instance.network || 'chipnet',
+    network,
   };
 
   // Tip: CLI override → state.json cache → chain discovery (moves every settle).
@@ -289,7 +312,7 @@ async function main() {
 
   // Optional / auto hot-wallet scan into fee inventory (RPC-verified).
   if (hasFlag('scan-fees') || hasFlag('scan-fees-always')) {
-    const n = await scanFeesIntoState(state, hot.address, 1_500_000);
+    const n = await scanFeesIntoState(state, hot.address, minSats(kind));
     console.error(JSON.stringify({ phase: 'scan-fees', ...n }));
   }
 
@@ -311,7 +334,7 @@ async function main() {
   }
 
   // Ensure inventory once up front when using feeUtxos path.
-  // Prefer ≥2 live fees ≥ need (deposit needs 11.5M; T/W need 1.5M).
+  // Prefer ≥2 live fees ≥ need (exact prep floor @ 1 sat/B economics).
   if (!fixedFunding && !hasFlag('no-scan-fees')) {
     const liveLarge = await countLiveFees(state, need, new Set());
     if (liveLarge < 2) {
@@ -330,7 +353,30 @@ async function main() {
     }
   }
 
-  const wsh = createHash('sha256').update(Buffer.from(hot.lockingBytecodeHex, 'hex')).digest('hex');
+  // Withdrawal payout lock: optional --withdraw-to <cashaddr> or wallets.withdraw.lockingBytecodeHex
+  // Fee signing still uses wallets.hot.
+  let withdrawLockHex = hot.lockingBytecodeHex;
+  const withdrawTo = arg('withdraw-to', null) || wallets.withdraw?.address || null;
+  if (wallets.withdraw?.lockingBytecodeHex) {
+    withdrawLockHex = wallets.withdraw.lockingBytecodeHex;
+  } else if (withdrawTo) {
+    const { decodeCashAddress: dec } = await import(
+      '../packages/action/node_modules/@bitauth/libauth/build/index.js'
+    );
+    const decoded = dec(withdrawTo);
+    if (typeof decoded === 'string') throw new Error(`--withdraw-to invalid: ${decoded}`);
+    const payload = decoded.payload;
+    if (!payload || payload.length !== 20) {
+      throw new Error('--withdraw-to must be a P2PKH cashaddr (20-byte payload)');
+    }
+    withdrawLockHex = Buffer.concat([
+      Buffer.from([0x76, 0xa9, 0x14]),
+      Buffer.from(payload),
+      Buffer.from([0x88, 0xac]),
+    ]).toString('hex');
+    console.error(JSON.stringify({ phase: 'withdraw-to', address: withdrawTo }));
+  }
+  const wsh = createHash('sha256').update(Buffer.from(withdrawLockHex, 'hex')).digest('hex');
   // Multi-note open set (live anonymity). Each entry: { witnessSeed, depositDigest }.
   // openNotes = wallet live notes. tipForest = residual trees after spends (nullifiers/nextLeaf).
   // After any withdraw, openNotes-only rebuild is NOT enough — tipForest required.
@@ -485,7 +531,7 @@ async function main() {
         workDir,
         witnessSeed,
         withdrawalScriptHash: wsh,
-        withdrawalLockingBytecode: Buffer.from(hot.lockingBytecodeHex, 'hex'),
+        withdrawalLockingBytecode: Buffer.from(withdrawLockHex, 'hex'),
         priorCycles,
         priorOpenNotes,
         tipForest: state.tipForest || null,

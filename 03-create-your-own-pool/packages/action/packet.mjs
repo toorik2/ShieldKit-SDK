@@ -1,8 +1,16 @@
 import { createHash } from 'node:crypto';
 
+import {
+  CHIPNET_NETWORK_ID,
+  NETWORK_CHIPNET,
+  NETWORK_MAINNET,
+  isSupportedNetworkId,
+} from './network.mjs';
+
 export const ACTION_PACKET_BYTES = 752;
 export const ACTION_PACKET_VERSION = 1;
-export const CHIPNET_NETWORK_ID = 2;
+/** @deprecated prefer NETWORK_CHIPNET from network.mjs */
+export { CHIPNET_NETWORK_ID, NETWORK_CHIPNET, NETWORK_MAINNET };
 export const STATE_BYTES = 192;
 export const OUTPUT_RECORD_BYTES = 192;
 export const DENOMINATION_SATS = 10_000_000n;
@@ -199,7 +207,7 @@ export function decodeActionPacket(value) {
   if (bytes[ACTION_PACKET_OFFSETS.version] !== ACTION_PACKET_VERSION) {
     fail('action packet version is unsupported');
   }
-  if (bytes[ACTION_PACKET_OFFSETS.network] !== CHIPNET_NETWORK_ID) {
+  if (!isSupportedNetworkId(bytes[ACTION_PACKET_OFFSETS.network])) {
     fail('action packet network is unsupported');
   }
   if (bytes[ACTION_PACKET_OFFSETS.reserved] !== 0) {
@@ -242,7 +250,7 @@ export function encodeActionPacket(value) {
   ]);
   const kindCode = ACTION_KIND_CODES[value.kind];
   if (kindCode === undefined) fail('action packet kind is unsupported');
-  if (value.networkId !== CHIPNET_NETWORK_ID) fail('action packet network is unsupported');
+  if (!isSupportedNetworkId(value.networkId)) fail('action packet network is unsupported');
   const packet = Buffer.concat([
     Buffer.from('SCAR', 'ascii'),
     Buffer.from([ACTION_PACKET_VERSION, value.networkId, kindCode, 0]),

@@ -100,7 +100,9 @@ export async function completeAction(input) {
     ?? authority.settlementKernel.artifact?.constants?.stateCarrierBaseSatoshis
     ?? 1080,
   );
-  const feeFunding = String(input.settlementFeeFundingSatoshis ?? '100000');
+  // Settle fee input @ 1 sat/B: cover max complete wire (59k) + P2PKH dust change.
+  // Exact settle fee = wire bytes; surplus returns as change. No percentage headroom.
+  const feeFunding = String(input.settlementFeeFundingSatoshis ?? String(59_000 + 546));
   const feePrivateKey = Buffer.from(input.feePrivateKey);
   if (feePrivateKey.length !== 32) fail('FEE_KEY', 'feePrivateKey must be 32 bytes');
 

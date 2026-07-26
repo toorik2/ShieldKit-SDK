@@ -19,7 +19,7 @@ npm run fetch-playground-bundle
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip
-# deposit/withdraw: wallets.json + funded UTXO ≳ 11.5M sats (deposit)
+# deposit/withdraw: wallets.json; fees always 1 sat/B (deposit fee UTXO needs ≥0.1 BCH + wire headroom)
 ```
 
 ### 3 · Your pool

@@ -5,7 +5,11 @@ import { bytes, bytesToHex, hex32, hexToBytes, isBytes } from './portable-core.m
 export const ACTION_PACKET_BYTES = 752;
 export const ACTION_STATE_BYTES = 192;
 export const ACTION_PACKET_VERSION = 1;
-export const CHIPNET_NETWORK_ID = 2;
+export const NETWORK_MAINNET = 1;
+export const NETWORK_CHIPNET = 2;
+/** @deprecated use NETWORK_CHIPNET */
+export const CHIPNET_NETWORK_ID = NETWORK_CHIPNET;
+const SUPPORTED_NETWORK_IDS = new Set([NETWORK_MAINNET, NETWORK_CHIPNET]);
 export const DENOMINATION_SATS = 10_000_000n;
 export const ACTION_PACKET_OFFSETS = Object.freeze({
   magic: 0, version: 4, network: 5, kind: 6, reserved: 7, preState: 8,
@@ -88,7 +92,7 @@ export function decodePortableActionPacket(value) {
   const packet = new Uint8Array(value);
   if (bytesToHex(packet.subarray(0, 4)) !== '53434152') fail('PACKET_MAGIC', 'action packet magic is invalid');
   if (packet[4] !== ACTION_PACKET_VERSION) fail('PACKET_VERSION', 'action packet version is unsupported');
-  if (packet[5] !== CHIPNET_NETWORK_ID) fail('PACKET_NETWORK', 'action packet network is unsupported');
+  if (!SUPPORTED_NETWORK_IDS.has(packet[5])) fail('PACKET_NETWORK', 'action packet network is unsupported');
   if (packet[7] !== 0) fail('PACKET_RESERVED', 'action packet reserved byte must be zero');
   const kind = ACTION_KINDS[packet[6]]; if (kind === undefined) fail('PACKET_KIND', 'action packet kind is unsupported');
   const decoded = Object.freeze({
@@ -103,11 +107,11 @@ export function decodePortableActionPacket(value) {
 export function encodePortableActionPacket(value) {
   exactKeys(value, 'action packet', ['kind', 'networkId', 'preState', 'postState', 'inputCommitment', 'inputNullifier', 'outputCommitment', 'outputRecord', 'boundaryAmount', 'withdrawalScriptHash', 'transactionContextDigest']);
   const kindCode = ACTION_KIND_CODES[value.kind]; if (kindCode === undefined) fail('PACKET_KIND', 'action packet kind is unsupported');
-  if (value.networkId !== CHIPNET_NETWORK_ID) fail('PACKET_NETWORK', 'action packet network is unsupported');
+  if (!SUPPORTED_NETWORK_IDS.has(value.networkId)) fail('PACKET_NETWORK', 'action packet network is unsupported');
   const outputRecord = value.outputRecord;
   if (!isBytes(outputRecord, 192)) fail('INVALID_OUTPUT_RECORD', 'output record must contain exactly 192 bytes');
   const packet = bytes(
-    Uint8Array.of(0x53, 0x43, 0x41, 0x52, ACTION_PACKET_VERSION, CHIPNET_NETWORK_ID, kindCode, 0),
+    Uint8Array.of(0x53, 0x43, 0x41, 0x52, ACTION_PACKET_VERSION, value.networkId, kindCode, 0),
     encodePortableActionState(stateBytes(value.preState, 'pre-state')), encodePortableActionState(stateBytes(value.postState, 'post-state')),
     hexToBytes(hex(value.inputCommitment, 'input commitment')), hexToBytes(hex(value.inputNullifier, 'input nullifier')),
     hexToBytes(hex(value.outputCommitment, 'output commitment')), new Uint8Array(outputRecord),

@@ -231,10 +231,11 @@ async function cmdTip() {
       failJson('POOL_MISSING', 'need 02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
     }
     const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
-    const { createChipnetRpc } = await import('../packages/kit/chipnet-rpc.mjs');
+    const network = instance.network === 'mainnet' ? 'mainnet' : 'chipnet';
+    const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
     const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
     const { parsePf7CarrierAuthority } = await import('../packages/prove/authority.mjs');
-    const rpc = await createChipnetRpc();
+    const rpc = await createChainRpc({ network });
     const vs = JSON.parse(readFileSync(path.join(bundleDir, 'artifacts/verifier-set.bin'), 'utf8'));
     const authority = parsePf7CarrierAuthority(vs);
     const prev = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};

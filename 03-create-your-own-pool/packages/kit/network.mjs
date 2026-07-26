@@ -2,8 +2,10 @@
  * Network config + mainnet refuse-by-default gates.
  * Pure functions — no I/O.
  *
- * Mainnet is one config change (`network: 'mainnet'`) but remains
- * **Unaudited — Work In Progress** until ceremony + release gates say otherwise.
+ * Default network: chipnet. Mainnet is the same path with `network: 'mainnet'`
+ * (or CLI `--network mainnet`). Broadcast on mainnet still requires
+ * `--i-understand-mainnet`; development-only pins also need
+ * `--allow-development-on-mainnet`. Unaudited WIP until ceremony + release gates.
  */
 
 export class AppKitNetworkError extends Error {
@@ -43,7 +45,9 @@ export const NETWORKS = Object.freeze({
   }),
   mainnet: Object.freeze({
     name: 'mainnet',
-    networkId: 1,
+    // SCAR wire byte for current development pin is still 2 (circuit hardcode).
+    // BCH mainnet is selected by `name` / RPC / CashAddr — not by a distinct SCAR id yet.
+    networkId: 2,
     cashAddrPrefix: 'bitcoincash',
     explorerTxTemplate: 'https://explorer.bitcoinunlimited.info/tx/{txid}',
     default: false,

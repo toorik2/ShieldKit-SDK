@@ -8,11 +8,15 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 - Blank-machine unlock toolchain install (`setup-unlock-toolchain`); surface spawn ENOENT.
 - Tip discovery: listunspent-first, smaller history window, correct seq ranking; keep local tip if newer.
 - `OPEN_SET_DESYNC` when local openNotes ≠ chain tip live count.
+- Mainnet was hardcoded chipnet in packet/state NFT/witness/genesis/create-pool/RPC — now `chipnet|mainnet` (default chipnet).
+- Genesis fund floor: drop 12M lab pad; size from category + 1 sat/B wire pads; default category = min for state carrier.
+- Fee floors: settlementFeeFunding 100k→59.5k; deposit/withdraw scan floors from exact prep formula (no 1.5M/11.5M lab pads).
 
 ### Changed
 - Playground → multi-note instance (`bb27e427…`, cap 16); bundle **`playground-bundle-v2`**.
 - Doc shelf trimmed (facts only).
 - `SECURITY.md`: vibe-coder pre-launch map + operator ship gate (secrets, fail-closed, N/A SaaS items).
+- `createChainRpc({ network })` + public mainnet Fulcrum; `create-pool --network mainnet`.
 
 ### Added
 - CLI request-template / genesis-plan / genesis-finalize; createKit planGenesis/finalizeGenesis.

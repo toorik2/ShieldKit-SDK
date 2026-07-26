@@ -20,3 +20,10 @@ export { generateFreshWitnessInputs, serializeTipForest } from './witness.mjs';
 export { encodeActionPacket, decodeActionPacket, DENOMINATION_SATS } from './packet.mjs';
 export { encodeSettlementContext, INPUT_ROLES } from './context.mjs';
 export { encodeStateNftCommitment } from './state.mjs';
+export {
+  NETWORK_MAINNET,
+  NETWORK_CHIPNET,
+  networkIdFromName,
+  networkNameFromId,
+  isSupportedNetworkId,
+} from './network.mjs';

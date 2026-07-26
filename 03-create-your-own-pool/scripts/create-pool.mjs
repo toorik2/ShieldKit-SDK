@@ -16,6 +16,10 @@
  *   npm run create-pool -- --out ./new-pool --with-genesis --scan-fund --broadcast
  *   # privacy-ready capacity (default 16 live notes = 1.6 BCH reserve):
  *   npm run create-pool -- --out ./new --with-genesis --scan-fund --max-notes 16 --broadcast
+ *   # mainnet (default remains chipnet):
+ *   npm run create-pool -- --out ./mainnet-pool --with-genesis --network mainnet \
+ *     --wallets ./mainnet-wallets.json --scan-fund --broadcast \
+ *     --i-understand-mainnet --allow-development-on-mainnet
  */
 import { createHash } from 'node:crypto';
 import {
@@ -113,26 +117,41 @@ function bchnScanAddr(address) {
 
 /**
  * Pick largest live funding UTXO ≥ minSats.
- * Always gettxout-verifies scan hits — scantxoutset can return spent phantoms.
+ * Always gettxout-verifies scan hits when gettxout is real (not electrum partial).
+ * @param {object} rpc createChainRpc handle
+ * @param {string} address
+ * @param {number} minSats
+ * @param {string} [lockingBytecodeHex]
  */
-function pickVerifiedFund(address, minSats) {
-  const scan = bchnScanAddr(address);
-  const rows = (scan.unspents || [])
-    .map((u) => ({
+async function pickVerifiedFund(rpc, address, minSats, lockingBytecodeHex) {
+  let listed;
+  if (rpc.backend === 'layer1-ssh') {
+    const scan = bchnScanAddr(address);
+    listed = (scan.unspents || []).map((u) => ({
       txid: u.txid,
       vout: Number(u.vout),
-      scanSats: Math.round(Number(u.amount) * 1e8),
-    }))
-    .filter((u) => u.scanSats >= minSats)
-    .sort((a, b) => b.scanSats - a.scanSats);
+      sats: Math.round(Number(u.amount) * 1e8),
+    }));
+  } else {
+    listed = await rpc.scanAddress(address, lockingBytecodeHex);
+  }
+  const rows = (listed || [])
+    .filter((u) => Number(u.sats) >= minSats)
+    .sort((a, b) => Number(b.sats) - Number(a.sats));
   let staleSkipped = 0;
   for (const cand of rows) {
-    const u = bchnGetTxOut(cand.txid, cand.vout);
-    if (!u) {
-      staleSkipped++;
-      continue;
+    let sats = Number(cand.sats);
+    if (rpc.backend === 'layer1-ssh' || rpc.backend === 'jsonrpc') {
+      const u = rpc.backend === 'layer1-ssh'
+        ? bchnGetTxOut(cand.txid, cand.vout)
+        : await rpc.gettxout(cand.txid, cand.vout);
+      if (!u || u._partial) {
+        // electrum partial / spent
+        if (!u) { staleSkipped++; continue; }
+      } else if (u.value != null) {
+        sats = Math.round(Number(u.value) * 1e8);
+      }
     }
-    const sats = Math.round(Number(u.value) * 1e8);
     if (sats < minSats) {
       staleSkipped++;
       continue;
@@ -223,9 +242,23 @@ async function withGenesis(out, opts) {
   const categorySats = BigInt(opts.categorySats || '5000000');
   const capacity = opts.capacity || resolvePoolCapacity(DEFAULT_MAX_NOTES);
 
-  const utxo = bchnGetTxOut(fundTxid, fundVout);
-  if (!utxo) throw new Error(`funding UTXO missing ${fundTxid}:${fundVout}`);
-  const fundValue = BigInt(Math.round(utxo.value * 1e8));
+  const rpc = opts.rpc;
+  if (!rpc) throw new Error('withGenesis requires opts.rpc (createChainRpc)');
+  let fundValue;
+  if (opts.fundSats != null) {
+    fundValue = BigInt(opts.fundSats);
+  } else {
+    const utxo = rpc.backend === 'layer1-ssh'
+      ? bchnGetTxOut(fundTxid, fundVout)
+      : await rpc.gettxout(fundTxid, fundVout);
+    if (!utxo || (utxo._partial && opts.fundSats == null)) {
+      throw new Error(
+        `funding UTXO missing ${fundTxid}:${fundVout}`
+        + (utxo?._partial ? ' (electrum partial — pass fund sats via --scan-fund)' : ''),
+      );
+    }
+    fundValue = BigInt(Math.round(Number(utxo.value) * 1e8));
+  }
   if (fundValue <= categorySats + 1000n) throw new Error('funding UTXO too small');
 
   const secp = await instantiateSecp256k1();
@@ -278,11 +311,15 @@ async function withGenesis(out, opts) {
     throw new Error(`fee size mismatch planned=${fee} actual=${Buffer.from(fundHex, 'hex').length}`);
   }
 
-  const fundAccept = bchnTestMempool(fundHex);
+  const fundAccept = rpc.backend === 'layer1-ssh'
+    ? bchnTestMempool(fundHex)
+    : await rpc.testmempoolaccept(fundHex);
   if (!fundAccept?.[0]?.allowed) throw new Error(`category fund rejected: ${JSON.stringify(fundAccept)}`);
   let categoryTxid;
   if (opts.broadcast) {
-    categoryTxid = bchnSendHex(fundHex);
+    categoryTxid = rpc.backend === 'layer1-ssh'
+      ? bchnSendHex(fundHex)
+      : await rpc.sendrawtransaction(fundHex);
   } else {
     categoryTxid = Buffer.from(hash256(Buffer.from(fundHex, 'hex'))).reverse().toString('hex');
   }
@@ -319,7 +356,7 @@ async function withGenesis(out, opts) {
         source: { sourcePath: path.join(pinArt, 'snarkjs-cli.cjs') },
       },
     },
-    network: { name: 'chipnet' },
+    network: { name: opts.network || 'chipnet' },
     artifacts: [
       { id: 'bch-verifier-set', kind: 'bch-verifier-set', path: 'artifacts/verifier-set.bin', source: { sourcePath: path.join(pinArt, 'verifier-set.bin') } },
       { id: 'constraint-system', kind: 'constraint-system', path: 'artifacts/g1_relation.r1cs', source: { sourcePath: path.join(pinArt, 'g1_relation.r1cs') } },
@@ -351,7 +388,7 @@ async function withGenesis(out, opts) {
     expectedProfile: {
       profileId: built.profileId,
       instanceId: built.instanceId,
-      network: 'chipnet',
+      network: opts.network || 'chipnet',
     },
     bindingCarrierBaseSatoshis: '1000',
     stateCarrierBaseSatoshis: '1080',
@@ -373,15 +410,18 @@ async function withGenesis(out, opts) {
   const finalized = await finalizeChipnetGenesisTransaction(genesisReq, genesisSig.toString('hex'));
 
   if (opts.broadcast) {
-    const genAccept = bchnTestMempool(finalized.transactionHex);
+    const genAccept = rpc.backend === 'layer1-ssh'
+      ? bchnTestMempool(finalized.transactionHex)
+      : await rpc.testmempoolaccept(finalized.transactionHex);
     if (!genAccept?.[0]?.allowed) throw new Error(`genesis rejected: ${JSON.stringify(genAccept)}`);
-    bchnSendHex(finalized.transactionHex);
+    if (rpc.backend === 'layer1-ssh') bchnSendHex(finalized.transactionHex);
+    else await rpc.sendrawtransaction(finalized.transactionHex);
   }
 
   const instance = {
     schema: 'shieldkit/pool-instance/v1',
     role: 'custom',
-    network: 'chipnet',
+    network: opts.network || 'chipnet',
     profileId: built.profileId,
     instanceId: built.instanceId,
     bundleDirectory: 'bundle',
@@ -436,12 +476,35 @@ async function main() {
   const out = path.resolve(arg('out', path.join(ROOT, '.cache/my-pool')));
   const unlockRoot = resolveUnlockRoot();
   const leanRoot = resolveLeanRoot();
+  const networkArg = arg('network', 'chipnet');
+  if (networkArg !== 'chipnet' && networkArg !== 'mainnet') {
+    throw new Error('--network must be chipnet|mainnet');
+  }
+  const network = networkArg;
 
   if (hasFlag('with-genesis')) {
+    const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
+    const { assertBroadcastAllowed } = await import('../packages/kit/network.mjs');
     const walletsPath = arg('wallets', path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json'));
-    const categorySats = arg('category-sats', '5000000');
-    // Need category + fee + non-dust change; default floor 12M for lab hot wallets.
-    const minFund = Math.max(12_000_000, Number(categorySats) + 1_500_000);
+    // Protocol fee rate is fixed 1 sat/B everywhere (no rate choice).
+    // Category parent value is operator choice; default is small (not a fee pad).
+    // Genesis spends category → state carrier (1080) + change + exact wire-byte fee.
+    const { MINIMUM_STATE_CARRIER_SATOSHIS } = await import('../packages/profile/genesis.mjs');
+    const DUST_SATS = 546;
+    // Conservative upper bounds on wire size for fund/genesis at 1 sat/B (actual fee = exact wire).
+    const FUND_TX_WIRE_PAD = 400;
+    const GENESIS_TX_WIRE_PAD = 800;
+    const minCategoryForGenesis = Number(MINIMUM_STATE_CARRIER_SATOSHIS) + GENESIS_TX_WIRE_PAD + DUST_SATS;
+    const categorySatsRaw = Number(arg('category-sats', String(minCategoryForGenesis)));
+    if (!Number.isFinite(categorySatsRaw) || categorySatsRaw < minCategoryForGenesis) {
+      throw new Error(
+        `--category-sats must be ≥ ${minCategoryForGenesis} `
+        + `(state carrier ${MINIMUM_STATE_CARRIER_SATOSHIS} + genesis fee pad @1 sat/B + dust)`,
+      );
+    }
+    const categorySats = String(categorySatsRaw);
+    // Fund UTXO must cover: category output + fund-tx fee (1 sat/B) + non-dust change.
+    const minFund = categorySatsRaw + FUND_TX_WIRE_PAD + DUST_SATS;
 
     // Capacity: --max-notes N  |  --reserve-cap <sats>  |  default 16 notes (1.6 BCH)
     const capacity = arg('reserve-cap')
@@ -449,9 +512,26 @@ async function main() {
       : resolvePoolCapacity(arg('max-notes', String(DEFAULT_MAX_NOTES)));
     console.error(JSON.stringify({
       phase: 'pool-capacity',
+      network,
+      feeRateSatoshisPerByte: 1,
+      categorySats: categorySatsRaw,
+      minFund,
+      minCategoryForGenesis,
       ...capacity,
       summary: capacitySummary(capacity),
     }));
+
+    if (hasFlag('broadcast')) {
+      assertBroadcastAllowed({
+        network,
+        setupMode: 'development-only',
+        mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+        allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
+      });
+    }
+
+    const rpc = await createChainRpc({ network });
+    console.error(JSON.stringify({ phase: 'rpc', backend: rpc.backend, label: rpc.label, network }));
 
     let fundTxid = arg('fund-txid');
     let fundVout = arg('fund-vout', '1');
@@ -464,7 +544,7 @@ async function main() {
       const wallets = JSON.parse(readFileSync(path.resolve(walletsPath), 'utf8'));
       const addr = wallets.hot?.address;
       if (!addr) throw new Error('wallets.hot.address missing for --scan-fund');
-      fundMeta = pickVerifiedFund(addr, minFund);
+      fundMeta = await pickVerifiedFund(rpc, addr, minFund, wallets.hot?.lockingBytecodeHex);
       fundTxid = fundMeta.txid;
       fundVout = String(fundMeta.vout);
       console.error(JSON.stringify({
@@ -474,15 +554,20 @@ async function main() {
         ...fundMeta,
       }));
     } else {
-      // Explicit fund: always re-verify live (never trust operator paste alone).
-      const utxo = bchnGetTxOut(fundTxid, Number(fundVout));
-      if (!utxo) {
-        throw new Error(
-          `funding UTXO missing/spent ${fundTxid}:${fundVout} `
-          + `(gettxout null — try --scan-fund to pick a live UTXO)`,
-        );
+      // Explicit fund: re-verify when gettxout available; else require --fund-sats with electrum.
+      let sats = arg('fund-sats') ? Number(arg('fund-sats')) : null;
+      if (sats == null) {
+        const utxo = rpc.backend === 'layer1-ssh'
+          ? bchnGetTxOut(fundTxid, Number(fundVout))
+          : await rpc.gettxout(fundTxid, Number(fundVout));
+        if (!utxo || utxo._partial) {
+          throw new Error(
+            `funding UTXO missing/spent ${fundTxid}:${fundVout} `
+            + `(gettxout null/partial — try --scan-fund or --fund-sats)`,
+          );
+        }
+        sats = Math.round(Number(utxo.value) * 1e8);
       }
-      const sats = Math.round(Number(utxo.value) * 1e8);
       if (sats < minFund) {
         throw new Error(`funding UTXO too small: ${sats} < ${minFund} (need category+change)`);
       }
@@ -493,14 +578,18 @@ async function main() {
       wallets: walletsPath,
       fundTxid,
       fundVout,
+      fundSats: fundMeta.sats,
       categorySats,
       capacity,
+      network,
+      rpc,
       pinArtifacts: arg('pin-artifacts', DEFAULT_PIN_ART),
       broadcast: hasFlag('broadcast'),
     });
     console.log(JSON.stringify({
       ok: true,
       mode: 'with-genesis',
+      network,
       out,
       profileId: result.built.profileId,
       instanceId: result.built.instanceId,
@@ -516,6 +605,9 @@ async function main() {
       unlockRoot,
       leanRoot,
       pinLens: PIN_LENS,
+      mainnetNote: network === 'mainnet'
+        ? 'Unaudited WIP; development-only pins need --allow-development-on-mainnet for broadcast; not production privacy'
+        : undefined,
     }, null, 2));
     return;
   }

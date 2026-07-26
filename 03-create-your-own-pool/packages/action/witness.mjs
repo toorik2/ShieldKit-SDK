@@ -6,6 +6,7 @@ import {
   DENOMINATION_SATS, DOMAIN_TAGS, NULLIFIER_TREE_DEPTH, NOTE_TREE_DEPTH,
   OUTPUT_RECORD_BYTES, createShieldedTransitionReference, frToHex, frFromHex, frToBytes,
 } from './transition.mjs';
+import { networkIdFromName } from './network.mjs';
 import { loadVerifierProfileBundle } from '../profile/load.mjs';
 import { constructRecipientOutput, deriveRecipientWallet } from '../recover/recovery.mjs';
 import { hexToBytes, unpackBabyJubPoint } from '../recover/portable-core.mjs';
@@ -160,7 +161,7 @@ async function materializeCycleNotes(reference, profileId, instanceId, seed) {
  * This is the multi-note anonymity path: stack deposits before any withdraw.
  * Mutates tip in place. Returns the deposit action object.
  */
-function advanceDepositOntoTip(reference, profileId, instanceId, tip, material, depositDigest) {
+function advanceDepositOntoTip(reference, profileId, instanceId, tip, material, depositDigest, networkId) {
   const { note1, outputNote1, leaf1, depositOutput } = material;
   const baseSeq = BigInt(tip.state.actionSequence);
   const baseLive = BigInt(tip.state.liveNoteCount);
@@ -183,7 +184,7 @@ function advanceDepositOntoTip(reference, profileId, instanceId, tip, material, 
     reserveSats: (baseReserve + DENOMINATION_SATS).toString(),
   });
   const deposit = {
-    kind: 'deposit', networkId: 2, profileId, instanceId,
+    kind: 'deposit', networkId, profileId, instanceId,
     preState: tip.state, postState: depositPost,
     depositSats: DENOMINATION_SATS.toString(), outputNote: outputNote1,
     noteAppendPath: { siblings: depSiblings }, outputRecord: depositOutput.record,
@@ -206,7 +207,7 @@ function advanceDepositOntoTip(reference, profileId, instanceId, tip, material, 
 /**
  * Withdraw the last open (live) note on tip. Mutates tip.
  */
-function advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, withdrawalDigest) {
+function advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, withdrawalDigest, networkId) {
   const meta = tip.openNoteMeta;
   if (!meta?.length) fail('withdrawal requires at least one open live note');
   const open = meta[meta.length - 1];
@@ -224,7 +225,7 @@ function advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawa
     reserveSats: (baseReserve - DENOMINATION_SATS).toString(),
   });
   const withdrawal = {
-    kind: 'withdrawal', networkId: 2, profileId, instanceId,
+    kind: 'withdrawal', networkId, profileId, instanceId,
     preState: tip.state, postState: withdrawalPost,
     spend: {
       note: open.note1,
@@ -246,7 +247,7 @@ function advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawa
 /**
  * Transfer the last open note → new note (live count unchanged). Mutates tip.
  */
-function advanceTransferOpenTip(reference, profileId, instanceId, tip, material, transferDigest) {
+function advanceTransferOpenTip(reference, profileId, instanceId, tip, material, transferDigest, networkId) {
   const meta = tip.openNoteMeta;
   if (!meta?.length) fail('transfer requires at least one open live note');
   const open = meta[meta.length - 1];
@@ -265,7 +266,7 @@ function advanceTransferOpenTip(reference, profileId, instanceId, tip, material,
     // live + reserve unchanged
   });
   const transfer = {
-    kind: 'transfer', networkId: 2, profileId, instanceId,
+    kind: 'transfer', networkId, profileId, instanceId,
     preState: tip.state, postState: transferPost,
     spend: {
       note: open.note1,
@@ -300,23 +301,23 @@ function advanceTransferOpenTip(reference, profileId, instanceId, tip, material,
  * Legacy single-note cycle: requires empty live set, ends empty after withdrawal.
  * Used when openNotes is empty (classic D→T→W battery).
  */
-function advanceOneCycle(reference, profileId, instanceId, tip, material, digests, withdrawalScriptHash, transferHops = 1) {
+function advanceOneCycle(reference, profileId, instanceId, tip, material, digests, withdrawalScriptHash, transferHops = 1, networkId) {
   if (transferHops !== 0 && transferHops !== 1) fail('transferHops must be 0 or 1 in this build');
   const baseLive = BigInt(tip.state.liveNoteCount);
   const baseReserve = BigInt(tip.state.reserveSats);
   if (baseLive !== 0n || baseReserve !== 0n) {
     fail('full cycle advance requires empty live set (use openNotes stacking for multi-note)');
   }
-  const deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit);
+  const deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit, networkId);
   if (transferHops === 0) {
-    const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal);
+    const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal, networkId);
     return {
       deposit, transfer: null, withdrawal,
       depositOutput: material.depositOutput, transferOutput: material.transferOutput, transferHops: 0,
     };
   }
-  const transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer);
-  const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal);
+  const transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer, networkId);
+  const withdrawal = advanceWithdrawOpenTip(reference, profileId, instanceId, tip, withdrawalScriptHash, digests.withdrawal, networkId);
   return {
     deposit, transfer, withdrawal,
     depositOutput: material.depositOutput, transferOutput: material.transferOutput, transferHops: 1,
@@ -468,7 +469,16 @@ export async function generateFreshWitnessInputs(input) {
   }
   const bundle = await loadVerifierProfileBundle(input.bundleDirectory, input.expectedProfile);
   if (bundle.manifest.setup.mode !== 'development-only' || bundle.manifest.setup.provenance.method !== 'local-initialization') fail('fresh witness pipeline accepts only authenticated development-only local profiles');
-  if (bundle.manifest.network.name !== 'chipnet' || bundle.manifest.profile.relation.id !== 'shielded-action-v2' || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') fail('bundle does not select the pinned Chipnet V2 relation and packet ABI');
+  const netName = bundle.manifest.network?.name || bundle.manifest.network;
+  if ((netName !== 'chipnet' && netName !== 'mainnet')
+    || bundle.manifest.profile.relation.id !== 'shielded-action-v2'
+    || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') {
+    fail('bundle must be chipnet|mainnet with pinned V2 relation and packet ABI');
+  }
+  if (input.expectedProfile.network !== netName) {
+    fail(`expectedProfile.network (${input.expectedProfile.network}) !== bundle network (${netName})`);
+  }
+  const networkId = networkIdFromName(netName, fail);
   const profileId = idHex(bundle.profileId, 'bundle profileId'); const instanceId = idHex(bundle.instanceId, 'bundle instanceId'); const maximumReserve = bundle.manifest.genesis.reserveCapSatoshis;
   const maximumLiveNotes = BigInt(maximumReserve) / DENOMINATION_SATS;
   const reference = await createShieldedTransitionReference();
@@ -489,7 +499,7 @@ export async function generateFreshWitnessInputs(input) {
       const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
       material.witnessSeedHex = cycle.witnessSeed;
       const hops = cycle.transferHops === undefined ? 1 : Number(cycle.transferHops);
-      advanceOneCycle(reference, profileId, instanceId, tip, material, cycle.transactionContextDigests, input.withdrawalScriptHash, hops);
+      advanceOneCycle(reference, profileId, instanceId, tip, material, cycle.transactionContextDigests, input.withdrawalScriptHash, hops, networkId);
     }
     // 2) Live open notes currently in the pool (multi-note anonymity set).
     // WARNING: openNotes-only rebuild is valid only when tip has no residual nullifiers /
@@ -498,10 +508,10 @@ export async function generateFreshWitnessInputs(input) {
       const seed = Buffer.from(open.witnessSeed, 'hex');
       const material = await materializeCycleNotes(reference, profileId, instanceId, seed);
       material.witnessSeedHex = open.witnessSeed;
-      advanceDepositOntoTip(reference, profileId, instanceId, tip, material, open.depositDigest);
+      advanceDepositOntoTip(reference, profileId, instanceId, tip, material, open.depositDigest, networkId);
       if (open.phase === 'transfer') {
         if (!open.transferDigest) fail('priorOpenNotes transfer phase requires transferDigest');
-        advanceTransferOpenTip(reference, profileId, instanceId, tip, material, open.transferDigest);
+        advanceTransferOpenTip(reference, profileId, instanceId, tip, material, open.transferDigest, networkId);
       }
     }
   }
@@ -523,9 +533,9 @@ export async function generateFreshWitnessInputs(input) {
     const kind = actionKind || 'deposit';
     actions = { deposit: null, transfer: null, withdrawal: null };
     if (kind === 'deposit') {
-      actions.deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit);
+      actions.deposit = advanceDepositOntoTip(reference, profileId, instanceId, tip, material, digests.deposit, networkId);
     } else if (kind === 'transfer') {
-      actions.transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer);
+      actions.transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer, networkId);
     } else {
       // Withdraw spends LIFO open note — seed must match last open meta (forest) or last priorOpenNotes.
       const lastMeta = tip.openNoteMeta?.[tip.openNoteMeta.length - 1];
@@ -537,14 +547,14 @@ export async function generateFreshWitnessInputs(input) {
       }
       if (!tip.openNoteMeta?.length) fail('withdrawal requires open live notes on tip');
       actions.withdrawal = advanceWithdrawOpenTip(
-        reference, profileId, instanceId, tip, input.withdrawalScriptHash, digests.withdrawal,
+        reference, profileId, instanceId, tip, input.withdrawalScriptHash, digests.withdrawal, networkId,
       );
     }
     transferHopsOut = null;
   } else {
     // Classic empty→full-cycle→empty battery.
     const advanced = advanceOneCycle(
-      reference, profileId, instanceId, tip, material, digests, input.withdrawalScriptHash, transferHops,
+      reference, profileId, instanceId, tip, material, digests, input.withdrawalScriptHash, transferHops, networkId,
     );
     actions = { deposit: advanced.deposit, transfer: advanced.transfer, withdrawal: advanced.withdrawal };
     depositOutput = advanced.depositOutput;

@@ -18,7 +18,8 @@ test('default network is chipnet', () => {
 
 test('mainnet resolves with distinct explorer template', () => {
   const m = resolveNetwork('mainnet');
-  assert.equal(m.networkId, 1);
+  // Pin SCAR id matches chipnet (2) until circuit recompile; BCH chain is still mainnet.
+  assert.equal(m.networkId, 2);
   assert.equal(m.cashAddrPrefix, 'bitcoincash');
   const txid = 'ab'.repeat(32);
   const url = explorerTxUrl('mainnet', txid);

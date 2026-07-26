@@ -27,8 +27,13 @@ test('rejects malformed, noncanonical, and unsupported commitments', () => {
     () => encodeStateNftCommitment({ ...value, actionSequence: '01' }),
     /canonical unsigned decimal/,
   );
+  // Current pin only accepts SCAR networkId=2 (circuit hardcode); 1 rejected until new pin
   assert.throws(
     () => encodeStateNftCommitment({ ...value, networkId: 1 }),
+    /network is unsupported/,
+  );
+  assert.throws(
+    () => encodeStateNftCommitment({ ...value, networkId: 99 }),
     /network is unsupported/,
   );
   const encoded = encodeStateNftCommitment(value);

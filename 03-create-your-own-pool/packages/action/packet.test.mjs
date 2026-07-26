@@ -73,7 +73,7 @@ test('rejects noncanonical headers, sizes, action fields, and immutable-state dr
   for (const [offset, value, pattern] of [
     [0, 0, /magic/],
     [4, 2, /version/],
-    [5, 1, /network/],
+    [5, 99, /network/],
     [6, 9, /kind/],
     [7, 1, /reserved/],
   ]) {

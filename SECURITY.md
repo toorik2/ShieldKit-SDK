@@ -10,7 +10,7 @@ Do not open public issues with secrets, keys, or live wallet material.
 ## Development-only default
 
 Local Groth16 setup and the Chipnet playground are **`development-only`** — not a multi-party ceremony, not production privacy.  
-Mainnet path exists as config (`network: 'mainnet'`) with broadcast ack (`--i-understand-mainnet` / `mainnetAcknowledged`); that is not mainnet qualification.
+Mainnet is the same path as chipnet with one config change (`network: 'mainnet'` / `--network mainnet`; default remains chipnet). Wire `networkId`: mainnet=1, chipnet=2. Broadcast still requires `--i-understand-mainnet`; development-only pins also need `--allow-development-on-mainnet`. That is not mainnet/privacy qualification.
 
 ## Secrets
 
