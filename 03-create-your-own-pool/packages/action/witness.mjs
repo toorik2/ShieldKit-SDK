@@ -537,15 +537,30 @@ export async function generateFreshWitnessInputs(input) {
     } else if (kind === 'transfer') {
       actions.transfer = advanceTransferOpenTip(reference, profileId, instanceId, tip, material, digests.transfer, networkId);
     } else {
-      // Withdraw spends LIFO open note — seed must match last open meta (forest) or last priorOpenNotes.
-      const lastMeta = tip.openNoteMeta?.[tip.openNoteMeta.length - 1];
-      const lastOpen = (input.priorOpenNotes ?? [])[(input.priorOpenNotes ?? []).length - 1];
-      if (!lastMeta && !lastOpen) fail('withdrawal requires tipForest openNoteMeta or priorOpenNotes');
-      const expectedSeed = lastMeta?.witnessSeed || lastOpen?.witnessSeed;
-      if (expectedSeed && expectedSeed !== input.witnessSeed) {
-        fail('withdrawal witnessSeed must equal the open note being spent (LIFO seed)');
+      // Withdraw: spend any of *my* open notes by witnessSeed match (not global LIFO of all users).
+      // Prefer openNoteMeta entry whose witnessSeed matches; else fall back to last meta / priorOpenNotes.
+      const metas = tip.openNoteMeta || [];
+      const opens = input.priorOpenNotes ?? [];
+      let spendMeta = metas.find((m) => m.witnessSeed && m.witnessSeed === input.witnessSeed);
+      if (!spendMeta && metas.length) {
+        // Single-user / LIFO residual: last meta when seed matches last open
+        const lastMeta = metas[metas.length - 1];
+        const lastOpen = opens[opens.length - 1];
+        const expectedSeed = lastMeta?.witnessSeed || lastOpen?.witnessSeed;
+        if (expectedSeed && expectedSeed !== input.witnessSeed) {
+          fail('withdrawal witnessSeed must equal the open note being spent');
+        }
+        spendMeta = lastMeta;
       }
-      if (!tip.openNoteMeta?.length) fail('withdrawal requires open live notes on tip');
+      if (!spendMeta && !opens.length) fail('withdrawal requires tipForest openNoteMeta or priorOpenNotes');
+      if (!metas.length) fail('withdrawal requires open live notes on tip (openNoteMeta)');
+      // Move spend target to LIFO position for advanceWithdrawOpenTip
+      if (spendMeta) {
+        tip.openNoteMeta = [
+          ...metas.filter((m) => m !== spendMeta),
+          spendMeta,
+        ];
+      }
       actions.withdrawal = advanceWithdrawOpenTip(
         reference, profileId, instanceId, tip, input.withdrawalScriptHash, digests.withdrawal, networkId,
       );

@@ -33,7 +33,7 @@ const outDir = path.resolve(arg(
 
 const t0 = Date.now();
 try {
-  const out = buildVerifierUnlocks({ adapterPath, packetPath, outDir });
+  const out = await buildVerifierUnlocks({ adapterPath, packetPath, outDir });
   console.log(JSON.stringify({
     ok: true,
     ms: Date.now() - t0,

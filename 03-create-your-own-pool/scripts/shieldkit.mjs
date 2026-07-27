@@ -100,15 +100,16 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor [--pool <dir>] | profile-info | config-check | explorer
 
-  # Pin circuit artifacts (~450MB) for create-pool
+  # Golden path (see docs/GOLDEN_PATH.md)
   npm run fetch-pin-artifacts
-  npm run create-pool -- --out ./my-pool
-  npm run create-pool -- --out ./new --with-genesis --fund-txid … --broadcast
+  npm run create-pool -- --out ./my-pool --with-genesis --wallets <json> --scan-fund --broadcast
+  deposit|withdraw --pool ./my-pool --wallets <json> --broadcast
+  (fees, tip sync, coin merge automatic; --verbose for internals)
 
   # Optional live demo (CLI only — not a web wallet)
   npm install && npm run fetch-playground-bundle
   playground doctor|tip|profile-info|request-template
-  playground deposit|transfer|withdraw --wallets <json> [--scan-fees] [--broadcast] [--refresh-tip]
+  playground deposit|transfer|withdraw --wallets <json> [--broadcast] [--refresh-tip]
   (RPC: public Chipnet Fulcrum by default; tip auto-discovered from chain when missing)
 
 Flags:

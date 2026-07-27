@@ -1,0 +1,14 @@
+{
+  "name": "@shieldkit/pool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared multi-user pool: public tip rebuild (chain-as-log) + private note wallet",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,5 +1,7 @@
 # Playground vs your pool
 
+**Full Chipnet golden path (own pool or playground):** [GOLDEN_PATH.md](./GOLDEN_PATH.md)
+
 | Path | Role |
 |------|------|
 | [`01-learn-about-this-system/`](../../01-learn-about-this-system/) | Static learn site |
@@ -11,6 +13,8 @@ npm install && npm run fetch-playground-bundle
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip
+npm run shieldkit -- playground deposit --wallets ./wallets.json --broadcast
+npm run shieldkit -- playground withdraw --wallets ./wallets.json --broadcast
 ```
 
-Details: [`02-use-chipnet-demo-pool/README.md`](../../02-use-chipnet-demo-pool/README.md).
+Fees and tip discovery are automatic. Details: [`02-use-chipnet-demo-pool/README.md`](../../02-use-chipnet-demo-pool/README.md).

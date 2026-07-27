@@ -8,16 +8,11 @@ import { spawnSync } from 'node:child_process';
 import {
   PIN_LENS, ROLE_NAMES, assertPinLens, buildLiveUnlockEnv,
 } from './env.mjs';
+import { UnlockBuilderError } from './errors.mjs';
+import { assertEcipWithinPinBudget } from './ecip-pin-gate.mjs';
 import { resolveLeanRoot, resolveTsxBin, resolveUnlockRoot } from './resolve.mjs';
 
-export class UnlockBuilderError extends Error {
-  constructor(code, message, extra = {}) {
-    super(message);
-    this.name = 'UnlockBuilderError';
-    this.code = code;
-    Object.assign(this, extra);
-  }
-}
+export { UnlockBuilderError };
 
 function sha256File(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
@@ -34,6 +29,10 @@ function ensureAbsFile(filePath, label) {
 /**
  * Build 7 verifier unlocks for one proof+packet under the live densFuel pin.
  *
+ * Preflights ECIP nfail ≤ pin maxTry (2) before densFuel spawn. On ECIP_NFAIL
+ * the proof's public inputs are outside the pin envelope — re-prove with
+ * different public inputs; never retry unlock on the same adapter.
+ *
  * @param {{
  *   adapterPath: string,
  *   packetPath: string,
@@ -43,9 +42,10 @@ function ensureAbsFile(filePath, label) {
  *   expectedLocksHex?: string[],
  *   requirePinLens?: boolean,
  *   keepStage?: boolean,
+ *   skipEcipGate?: boolean,
  * }} input
  */
-export function buildVerifierUnlocks(input) {
+export async function buildVerifierUnlocks(input) {
   if (!input || typeof input !== 'object') {
     throw new UnlockBuilderError('INVALID_INPUT', 'buildVerifierUnlocks requires an object');
   }
@@ -56,6 +56,24 @@ export function buildVerifierUnlocks(input) {
   }
   const outDir = path.resolve(input.outDir);
   const requirePinLens = input.requirePinLens !== false;
+
+  const quiet = input.quiet === true || process.env.SHIELDKIT_UNLOCK_QUIET === '1';
+  const log = (obj) => {
+    if (!quiet) console.error(JSON.stringify(obj));
+  };
+
+  // Fundamental gate: pin genesis require(nfail<=2). Fail in ~1s, not 30s×retries.
+  if (input.skipEcipGate !== true) {
+    const tEcip = Date.now();
+    const budget = await assertEcipWithinPinBudget({ adapterPath });
+    log({
+      phase: 'ecip-pin-gate',
+      nfail: budget.nfail,
+      maxTry: budget.maxTry,
+      retry0: budget.retry0,
+      ms: Date.now() - tEcip,
+    });
+  }
 
   const unlockRoot = resolveUnlockRoot({ unlockRoot: input.unlockRoot });
   const leanRoot = resolveLeanRoot({ leanRoot: input.leanRoot });
@@ -99,10 +117,6 @@ export function buildVerifierUnlocks(input) {
     nodePath,
   });
 
-  const quiet = input.quiet === true || process.env.SHIELDKIT_UNLOCK_QUIET === '1';
-  const log = (obj) => {
-    if (!quiet) console.error(JSON.stringify(obj));
-  };
   log({
     phase: 'unlock-build-start',
     unlockRoot,

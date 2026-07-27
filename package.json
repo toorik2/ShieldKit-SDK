@@ -17,6 +17,10 @@
     "pack-pin-artifacts": "node 03-create-your-own-pool/scripts/pack-pin-artifacts.mjs",
     "fetch-pin-artifacts": "node 03-create-your-own-pool/scripts/fetch-pin-artifacts.mjs",
     "e2e:standalone": "node 03-create-your-own-pool/scripts/standalone-e2e-chipnet.mjs",
-    "rpc:probe": "node 03-create-your-own-pool/scripts/rpc-probe.mjs"
+    "e2e:multiuser-blank": "node 03-create-your-own-pool/scripts/chipnet-multiuser-blank-e2e.mjs",
+    "rpc:probe": "node 03-create-your-own-pool/scripts/rpc-probe.mjs",
+    "test:pool": "node --test 03-create-your-own-pool/packages/pool/*.test.mjs",
+    "golden-path": "node -e \"console.log(require('fs').readFileSync('03-create-your-own-pool/docs/GOLDEN_PATH.md','utf8'))\""
   }
 }
+

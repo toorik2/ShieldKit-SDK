@@ -25,3 +25,9 @@ export {
   buildVerifierUnlocks,
   UnlockBuilderError,
 } from './build.mjs';
+
+export {
+  PIN_ECIP_MAX_TRY,
+  measureEcipPinBudget,
+  assertEcipWithinPinBudget,
+} from './ecip-pin-gate.mjs';
