@@ -2,24 +2,6 @@
 
 Unaudited WIP · **Chipnet first** · [SECURITY](./SECURITY.md)
 
-### Golden path (start here)
-
-**[03-create-your-own-pool/docs/GOLDEN_PATH.md](./03-create-your-own-pool/docs/GOLDEN_PATH.md)**  
-install → fetch pins → fund Chipnet wallet → deposit → withdraw.
-
-```bash
-npm ci
-npm run fetch-pin-artifacts
-npm run unlock-builder:setup
-npm run create-pool -- --out ./my-pool --with-genesis --wallets ./wallets.json --scan-fund --max-notes 16 --broadcast
-npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
-npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadcast
-```
-
-Fees, tip sync, and coin selection are automatic. Proving often takes 30–90s per act.
-
----
-
 ### 1 · Learn
 [`01-learn-about-this-system/`](./01-learn-about-this-system/) — static HTML, no wallet/chain.
 
