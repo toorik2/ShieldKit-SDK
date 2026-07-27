@@ -13,8 +13,9 @@ import {
 } from './development.mjs';
 import { canonicalJson } from '../load.mjs';
 
-// Ceremony reuses the same pinned snarkjs + entropy FD discipline as development setup,
-// but requires ≥2 phase-2 contributions and emits ceremony-production metadata + transcript.
+// This local runner reuses the same pinned snarkjs + entropy FD discipline as
+// development setup. Because one process sees every entropy source, its output is
+// explicitly a local contribution simulation, never a production ceremony claim.
 
 import { createHash as ch } from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -34,7 +35,7 @@ const INITIALIZER_DOMAIN = 'shield.cash/ceremony-initializer/v1\0';
 const MAX_ENTROPY_BYTES = 4096;
 const MIN_ENTROPY_BYTES = 32;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
-const snarkjsRoot = path.join(packageDirectory, '..', 'node_modules', 'snarkjs');
+const snarkjsRoot = path.dirname(fileURLToPath(import.meta.resolve('snarkjs')));
 const snarkjsCliPath = path.join(snarkjsRoot, 'build', 'cli.cjs');
 const snarkjsPackagePath = path.join(snarkjsRoot, 'package.json');
 const fstatAsync = promisify(fstat);
@@ -165,12 +166,13 @@ function commandRecord(args) {
 }
 
 /**
- * Multi-party phase-2 ceremony (≥2 contributions). Offline. Not a release gate.
+ * Local phase-2 contribution simulation (≥2 sequential contributions).
+ * Offline, coordinator-visible entropy, and never a release gate.
  * @param {object} input
  * @param {string} input.destination
  * @param {Array<{entropySource: object, participantLabel?: string}>} input.participants — min 2
  */
-export async function initializeCeremonyGroth16(input) {
+export async function initializeLocalContributionSimulationGroth16(input) {
   exactKeys(input, 'ceremony setup input', [
     'destination', 'r1csPath', 'ptauPath', 'ptauSource', 'expectedR1csSha256',
     'expectedPtauSha256', 'expectedPtauPower', 'expectedSnarkjs', 'participants',
@@ -255,8 +257,8 @@ export async function initializeCeremonyGroth16(input) {
 
     const contributionChainSha256 = sha256(Buffer.from(canonicalJson(contributions), 'utf8'));
     const transcriptBody = {
-      schema: 'shield.cash/ceremony-transcript/v1',
-      mode: 'ceremony-production',
+      schema: 'shieldkit/local-contribution-transcript/v1',
+      mode: 'local-contribution-simulation',
       phase1: { ptauSource, ptauSha256 },
       phase2: {
         initializationCommand: commandRecord(setupArgs),
@@ -277,8 +279,8 @@ export async function initializeCeremonyGroth16(input) {
     ));
 
     const setup = {
-      mode: 'ceremony-production',
-      provenance: { method: 'multi-party-randomness', initializerCommitment },
+      mode: 'local-contribution-simulation',
+      provenance: { method: 'single-coordinator-sequential-contributions', initializerCommitment },
       material: {
         phase1: { ptauSource, ptauSha256 },
         phase2: {
@@ -300,12 +302,11 @@ export async function initializeCeremonyGroth16(input) {
       contributions,
     };
 
-    // Refuse development-only laundering: mode is fixed ceremony-production
-    if (setup.mode !== 'ceremony-production') fail('mode laundering refused');
+    if (setup.mode !== 'local-contribution-simulation') fail('mode laundering refused');
 
     const metadata = {
-      schema: 'shield.cash/ceremony-setup/v1',
-      mode: 'ceremony-production',
+      schema: 'shieldkit/local-contribution-setup/v1',
+      mode: 'local-contribution-simulation',
       inputs: {
         r1cs: {
           sha256: r1csSha256,
@@ -335,20 +336,30 @@ export async function initializeCeremonyGroth16(input) {
   }
 }
 
-/** Refuse packaging development metadata as ceremony-production. */
-export function assertCeremonyMetadata(metadata) {
+/** Validate the local simulation label and refuse production-ceremony laundering. */
+export function assertLocalContributionSimulationMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') fail('metadata must be an object');
-  if (metadata.mode === 'development-only' || metadata.setup?.mode === 'development-only') {
-    fail('mode laundering refused: development-only cannot become ceremony-production');
+  if (metadata.mode === 'ceremony-production' || metadata.setup?.mode === 'ceremony-production') {
+    fail('ceremony-production is unsupported: local entropy collection cannot establish independence');
   }
-  if (metadata.mode !== 'ceremony-production' || metadata.setup?.mode !== 'ceremony-production') {
-    fail('ceremony metadata must use ceremony-production mode');
+  if (metadata.mode !== 'local-contribution-simulation'
+    || metadata.setup?.mode !== 'local-contribution-simulation') {
+    fail('metadata must use local-contribution-simulation mode');
   }
-  if (metadata.setup?.provenance?.method !== 'multi-party-randomness') {
-    fail('ceremony requires multi-party-randomness provenance');
+  if (metadata.setup?.provenance?.method !== 'single-coordinator-sequential-contributions') {
+    fail('local simulation provenance is invalid');
   }
   if (!Array.isArray(metadata.setup?.contributions) || metadata.setup.contributions.length < 2) {
-    fail('ceremony requires at least two contributions');
+    fail('local simulation requires at least two sequential contributions');
   }
   return metadata;
 }
+
+/**
+ * Compatibility name retained for callers, but it now produces honestly labelled
+ * local-contribution-simulation metadata.
+ */
+export const initializeCeremonyGroth16 = initializeLocalContributionSimulationGroth16;
+
+/** @deprecated use assertLocalContributionSimulationMetadata */
+export const assertCeremonyMetadata = assertLocalContributionSimulationMetadata;

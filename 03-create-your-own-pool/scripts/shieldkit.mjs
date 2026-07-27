@@ -39,8 +39,8 @@ function resolveMode() {
     });
   }
   const value = mode ?? legacy ?? 'development-only';
-  if (value !== 'development-only' && value !== 'ceremony-production') {
-    failJson('INVALID_MODE', 'mode must be development-only or ceremony-production', 2, { mode: value });
+  if (value !== 'development-only' && value !== 'local-contribution-simulation') {
+    failJson('INVALID_MODE', 'mode must be development-only or local-contribution-simulation', 2, { mode: value });
   }
   return {
     mode: value,
@@ -52,7 +52,7 @@ function peekMode() {
   const mode = arg('mode');
   const legacy = arg('setup-mode');
   const value = mode ?? legacy ?? 'development-only';
-  if (value !== 'development-only' && value !== 'ceremony-production') return 'development-only';
+  if (value !== 'development-only' && value !== 'local-contribution-simulation') return 'development-only';
   return value;
 }
 
@@ -107,7 +107,7 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
   (fees, tip sync, coin merge automatic; --verbose for internals)
 
   # Optional live demo (CLI only — not a web wallet)
-  npm install && npm run fetch-playground-bundle
+  npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup
   playground doctor|tip|profile-info|request-template
   playground deposit|transfer|withdraw --wallets <json> [--broadcast] [--refresh-tip]
   (RPC: public Chipnet Fulcrum by default; tip auto-discovered from chain when missing)
@@ -115,7 +115,7 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
 Flags:
   --version
   --network chipnet|mainnet
-  --mode development-only|ceremony-production
+  --mode development-only|local-contribution-simulation
   --pool <pool-dir>   (full act / doctor preflight)
   --bundle <profile-dir>
   --wallets / --broadcast / --scan-fees / --funding-txid / --state-txid
@@ -224,7 +224,8 @@ async function cmdTip() {
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
       : path.join(monorepoRoot, '02-use-chipnet-demo-pool');
-    const { existsSync, readFileSync, writeFileSync } = await import('node:fs');
+    const { existsSync, readFileSync } = await import('node:fs');
+    const { atomicWriteJson, repairPrivateFileMode } = await import('../packages/kit/secure-files.mjs');
     const instancePath = path.join(poolDir, 'instance.json');
     const bundleDir = path.join(poolDir, 'bundle');
     const statePath = path.join(poolDir, 'state.json');
@@ -244,11 +245,12 @@ async function cmdTip() {
     } = await import('../packages/pool/index.mjs');
     const {
       decodeTransaction, hexToBin, binToHex,
-    } = await import('../packages/action/node_modules/@bitauth/libauth/build/index.js');
+    } = await import('@bitauth/libauth');
     const rpc = await createChainRpc({ network });
     const vs = JSON.parse(readFileSync(path.join(bundleDir, 'artifacts/verifier-set.bin'), 'utf8'));
     const authority = parsePf7CarrierAuthority(vs);
     const prev = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+    repairPrivateFileMode(statePath);
     const preferred = typeof prev.stateTxid === 'string' && /^[0-9a-f]{64}$/i.test(prev.stateTxid)
       ? prev.stateTxid.toLowerCase()
       : null;
@@ -366,7 +368,7 @@ async function cmdTip() {
     }
 
     if (!flag('no-write')) {
-      writeFileSync(statePath, JSON.stringify(next, null, 2));
+      atomicWriteJson(statePath, next);
     }
     okJson({
       verb: 'tip',

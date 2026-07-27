@@ -4,7 +4,23 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-27
+
+Status: **Unaudited WIP**. This release is Chipnet-qualified; it is not
+production-qualified or approved for mainnet use.
+
 ### Fixed
+- All pool lifecycle broadcasts now pass through one network/setup gate and a
+  durable operation journal. Consolidation only prepares transactions.
+- Pool operations now separate prepare, broadcast, and atomic state/ledger
+  commit, including resumable idempotent recovery.
+- Secret state, journals, ledgers, and installation receipts are written with
+  mode `0600`; destructive path guards reject broad replacement targets.
+- Electrum TLS verifies certificates, JSON-RPC rejects non-loopback HTTP, and
+  SSH RPC arguments are method-validated and shell-quoted.
+- Electrum fee discovery reuses one authoritative `listunspent` snapshot rather
+  than rescanning once per candidate.
+- The recursive test runner now includes all first-party covenant tests.
 - Blank-machine unlock toolchain install (`setup-unlock-toolchain`); surface spawn ENOENT.
 - Tip discovery: listunspent-first, smaller history window, correct seq ranking; keep local tip if newer.
 - `OPEN_SET_DESYNC` when local openNotes ≠ chain tip live count.
@@ -18,6 +34,10 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 - `wallets.json` gitignored at repo root.
 
 ### Changed
+- Root workspaces and one tracked lockfile are authoritative; installs use
+  immutable `npm ci`, with tracked immutable Yarn/pnpm locks for vendored tools.
+- Local ceremony execution is named `local-contribution-simulation` and cannot
+  be relabeled as a production ceremony.
 - Playground → multi-note instance (`bb27e427…`, cap 16); bundle **`playground-bundle-v2`**.
 - Doc shelf trimmed (facts only).
 - `SECURITY.md`: vibe-coder pre-launch map + operator ship gate (secrets, fail-closed, N/A SaaS items).
@@ -25,6 +45,15 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 - GOLDEN_PATH / playground docs: multi-history blank join is product path, not a lab ritual.
 
 ### Added
+- Hash-pinned artifact manifest and verification-before-extraction, including
+  exact archive members, per-file hashes, and traversal/link rejection.
+- Signed, hash-chained external-contribution receipts for independently
+  transported ceremony transcripts.
+- Mandatory CI for immutable install, dependency audit, source policy,
+  portable/qualification tests, unlock setup, and LeanBCH formal gates.
+- Real Chipnet qualification: category/genesis, gated fee consolidation,
+  deposit settlement `d74d2e3c…24f28d6` (56,964 bytes), and withdrawal
+  settlement `0800a1c0…be6f694` (56,998 bytes).
 - CLI request-template / genesis-plan / genesis-finalize; createKit planGenesis/finalizeGenesis.
 - Unlock toolchain postinstall path.
 - `packages/pool/chain-settlement-log.mjs` — Electrum tip ancestry → settlementLog.
@@ -35,3 +64,4 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 Toolkit hygiene baseline. Status: Unaudited WIP. (Historical demo blob tag was `playground-bundle-v1`; current pin is v2 — see PROFILES.)
 
 [0.1.0]: https://github.com/toorik2/ShieldKit-SDK/releases/tag/v0.1.0
+[0.2.0]: https://github.com/toorik2/ShieldKit-SDK/releases/tag/v0.2.0

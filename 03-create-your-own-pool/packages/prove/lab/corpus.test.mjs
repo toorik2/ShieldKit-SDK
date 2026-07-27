@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { ProofCorpusError, memoryMeasurement, parseLinuxProcStatus, parseStrictJson, runProofCorpus, sha256File } from './corpus.mjs';
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
-const fixture = path.join(packageDirectory, 'node_modules', 'circom_runtime', 'test', 'circuit');
-const snarkjsCli = path.join(packageDirectory, 'node_modules', 'snarkjs', 'build', 'cli.cjs');
+const fixture = path.join(path.dirname(fileURLToPath(import.meta.resolve('circom_runtime'))), 'test', 'circuit');
+const snarkjsCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
 const digest = async (filename) => createHash('sha256').update(await readFile(filename)).digest('hex');
 const artifact = async (filename) => ({ path: filename, sha256: await digest(filename) });
 

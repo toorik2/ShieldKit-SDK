@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { chmod, lstat, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { SNARKJS_VERSION, getPinnedSnarkjsInfo } from './development.mjs';
@@ -11,9 +12,9 @@ import { assertCeremonyMetadata, initializeCeremonyGroth16, CeremonyError } from
 import { loadVerifierProfileBundle } from '../load.mjs';
 
 const execFileAsync = promisify(execFile);
-const here = path.dirname(new URL(import.meta.url).pathname);
-const snarkCli = path.join(here, '..', 'node_modules', 'snarkjs', 'build', 'cli.cjs');
-const circomCli = path.join(here, '..', 'node_modules', 'circom2', 'cli.js');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const snarkCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
+const circomCli = fileURLToPath(import.meta.resolve('circom2/cli.js'));
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 async function run(args, { entropy } = {}) {
@@ -62,7 +63,7 @@ async function fixture(t) {
   };
 }
 
-test('ceremony runner produces ≥2 contributions + transcript (ceremony-production)', async (t) => {
+test('local runner honestly labels coordinator-visible sequential contributions', async (t) => {
   const data = await fixture(t);
   const destination = path.join(data.root, 'ceremony-bundle');
   const e1 = Buffer.from(randomBytes(64).toString('hex'));
@@ -81,9 +82,9 @@ test('ceremony runner produces ≥2 contributions + transcript (ceremony-product
       { entropySource: { kind: 'bytes', bytes: e2 } },
     ],
   });
-  assert.equal(result.metadata.mode, 'ceremony-production');
-  assert.equal(result.metadata.setup.mode, 'ceremony-production');
-  assert.equal(result.metadata.setup.provenance.method, 'multi-party-randomness');
+  assert.equal(result.metadata.mode, 'local-contribution-simulation');
+  assert.equal(result.metadata.setup.mode, 'local-contribution-simulation');
+  assert.equal(result.metadata.setup.provenance.method, 'single-coordinator-sequential-contributions');
   assert.equal(result.metadata.setup.contributions.length, 2);
   assert.equal(result.metadata.setup.transcript.status, 'complete');
   await lstat(path.join(destination, 'final.zkey'));
@@ -91,10 +92,10 @@ test('ceremony runner produces ≥2 contributions + transcript (ceremony-product
   assertCeremonyMetadata(result.metadata);
 });
 
-test('mode laundering development→ceremony refused', () => {
+test('mode laundering local simulation→production ceremony refused', () => {
   assert.throws(
-    () => assertCeremonyMetadata({ mode: 'development-only', setup: { mode: 'development-only' } }),
-    /mode laundering refused/,
+    () => assertCeremonyMetadata({ mode: 'ceremony-production', setup: { mode: 'ceremony-production' } }),
+    /ceremony-production is unsupported/,
   );
 });
 

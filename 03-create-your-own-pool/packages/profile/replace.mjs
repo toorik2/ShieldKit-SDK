@@ -20,7 +20,7 @@ export class ProfileReplacementDrillError extends Error {
 
 const fail = (message) => { throw new ProfileReplacementDrillError(message); };
 const HASH_ID = /^sha256:[0-9a-f]{64}$/;
-const SETUP_MODES = new Set(['development-only', 'ceremony-production']);
+const SETUP_MODES = new Set(['development-only', 'local-contribution-simulation']);
 const SDK_METHODS = Object.freeze([
   'deriveRecipientAddress', 'constructRecipientOutput', 'recoverChainOutput',
   'requireLocalProver', 'planCompletePreparation', 'preparationSigningRequest',

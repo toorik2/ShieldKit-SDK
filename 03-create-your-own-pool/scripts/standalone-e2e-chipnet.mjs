@@ -12,14 +12,23 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync,
+  existsSync, mkdirSync, readFileSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hash256 } from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
+import {
+  appendPrivateJsonLine,
+  atomicWriteJson,
+} from '../packages/kit/secure-files.mjs';
 import { resolveUnlockRoot, resolveLeanRoot } from '../packages/unlock-builder/index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,58 +50,44 @@ const STAB = {
   withdrawal: path.join(ROOT, '.cache/stabilize-pf7-withdrawal/build/inputs_dump.json'),
 };
 
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=20'];
-
-function sshRetry(label, fn) {
-  let last;
-  for (let i = 0; i < 5; i++) {
-    try { return fn(); } catch (e) {
-      last = e;
-      if (!/Network|Connection|unreachable|timed out/i.test(String(e.message || e))) throw e;
-      spawnSync('sleep', [String(1 + i)]);
-    }
-  }
-  throw last;
-}
-
-function bchnSendHex(hex) {
-  return sshRetry('sendraw', () => {
-    // allowhighfees=true: large multi-input settlements can trip absolute fee policy
-    // even at exact 1 sat/B (BCHN default max absolute fee is conservative).
-    const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-standalone.hex)" true`], {
-      encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-    });
-    if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
-    return (r.stdout || '').trim();
+async function broadcastQualificationTransactions(rpc, label, transactions) {
+  const operationRoot = path.join(OUT, '.shieldkit', 'qualification', label);
+  const normalized = transactions.map(({ role, hex }) => ({
+    role,
+    hex,
+    txid: transactionIdFromHex(hex),
+  }));
+  const { journalPath } = stageOperation({
+    poolDirectory: operationRoot,
+    kind: `standalone-chipnet-${label}`,
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: normalized,
+    nextState: {
+      schema: 'shieldkit/chipnet-qualification-state/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+    ledgerRecord: {
+      schema: 'shieldkit/chipnet-qualification-ledger/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
   });
-}
-
-function bchnTestMempool(hex) {
-  return sshRetry('testmempool', () => {
-    const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-      `cat > /tmp/sk-standalone.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-standalone.hex)\\"]" true`], {
-      encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-    });
-    if (r.status !== 0) throw new Error(`testmempool: ${r.stderr || r.stdout}`);
-    return JSON.parse(r.stdout);
+  await broadcastStagedOperation({ journalPath, rpc });
+  commitStagedOperation({
+    journalPath,
+    statePath: path.join(operationRoot, 'state.json'),
+    ledgerPath: path.join(operationRoot, 'ledger.jsonl'),
   });
+  return normalized;
 }
 
-function gettxout(txid, vout) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf gettxout ${txid} ${vout}`], { encoding: 'utf8' });
-  if (r.status !== 0) return null;
-  const t = (r.stdout || '').trim();
-  if (!t || t === 'null') return null;
-  try { return JSON.parse(t); } catch { return null; }
-}
-
-function pickFee(state, minSats) {
+async function pickFee(rpc, state, minSats) {
   const sorted = [...(state.feeUtxos || [])].sort((a, b) => b.sats - a.sats);
   for (const u of sorted) {
     if (u.sats < minSats) continue;
-    if (!gettxout(u.txid, u.vout)) continue;
+    if (!await rpc.gettxout(u.txid, u.vout)) continue;
     state.feeUtxos = state.feeUtxos.filter((x) => !(x.txid === u.txid && x.vout === u.vout));
     return u;
   }
@@ -119,6 +114,7 @@ function loadStab(kind) {
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
+  const rpc = await createChainRpc({ network: 'chipnet' });
   // Prove vendor resolution (standalone)
   const unlockRoot = resolveUnlockRoot();
   const leanRoot = resolveLeanRoot();
@@ -176,7 +172,7 @@ async function main() {
           if (rejected.has(k)) { parked.push(u); return false; }
           return true;
         });
-        fee = pickFee(state, minSatsFor(kind));
+        fee = await pickFee(rpc, state, minSatsFor(kind));
         for (const u of parked) pushFee(state, u);
       } catch (e) {
         lastErr = e;
@@ -222,8 +218,15 @@ async function main() {
         // Prefer alternate funding UTXO; if none, reuse same fee with fresh witness seed
         // (prep not broadcast yet).
         rejected.add(`${fee.txid}:${fee.vout}`);
-        const otherLarge = (state.feeUtxos || []).some((u) => u.sats >= minSatsFor(kind)
-          && !rejected.has(`${u.txid}:${u.vout}`) && gettxout(u.txid, u.vout));
+        let otherLarge = false;
+        for (const candidate of state.feeUtxos || []) {
+          if (candidate.sats >= minSatsFor(kind)
+            && !rejected.has(`${candidate.txid}:${candidate.vout}`)
+            && await rpc.gettxout(candidate.txid, candidate.vout)) {
+            otherLarge = true;
+            break;
+          }
+        }
         if (!otherLarge) {
           rejected.delete(`${fee.txid}:${fee.vout}`);
           pushFee(state, fee);
@@ -243,16 +246,10 @@ async function main() {
     }
     if (!result) throw lastErr || new Error(`${kind} failed after ${MAX_ATTEMPTS} attempts`);
 
-    const prepAccept = bchnTestMempool(result.prepHex);
-    if (!prepAccept[0]?.allowed) {
-      throw new Error(`${kind} prep mempool reject ${JSON.stringify(prepAccept)}`);
-    }
-    bchnSendHex(result.prepHex);
-    const settleAccept = bchnTestMempool(result.settleHex);
-    if (!settleAccept[0]?.allowed) {
-      throw new Error(`${kind} settle mempool reject ${JSON.stringify(settleAccept)}`);
-    }
-    bchnSendHex(result.settleHex);
+    await broadcastQualificationTransactions(rpc, `${kind}-${Date.now()}`, [
+      { role: 'preparation', hex: result.prepHex },
+      { role: 'settlement', hex: result.settleHex },
+    ]);
 
     // Harvest settle change + prep change (prep leftover is usually the large fee for next kinds).
     for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
@@ -272,7 +269,7 @@ async function main() {
     // (priorCycles must exclude the in-flight witnessSeed or nullifiers collide).
     state.resumeDigests = digests;
     state.resumeSeed = witnessSeed;
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    atomicWriteJson(STATE_FILE, state);
     const row = {
       kind,
       prepTxid: result.prepTxid,
@@ -288,7 +285,7 @@ async function main() {
     };
     ledger.push(row);
     console.log(JSON.stringify(row));
-    appendFileSync(path.join(OUT, 'ledger.jsonl'), `${JSON.stringify(row)}\n`);
+    appendPrivateJsonLine(path.join(OUT, 'ledger.jsonl'), row);
   }
 
   // Full cycle complete → commit witness seed into history once
@@ -301,8 +298,8 @@ async function main() {
   }
   delete state.resumeDigests;
   delete state.resumeSeed;
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-  writeFileSync(path.join(OUT, 'result.json'), JSON.stringify({
+  atomicWriteJson(STATE_FILE, state);
+  atomicWriteJson(path.join(OUT, 'result.json'), {
     ok: true,
     kinds: KINDS,
     stateTxid,
@@ -310,7 +307,7 @@ async function main() {
     unlockRoot,
     leanRoot,
     ledger,
-  }, null, 2));
+  });
 
   console.log(JSON.stringify({
     done: true,

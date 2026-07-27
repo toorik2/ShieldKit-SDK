@@ -7,11 +7,11 @@
  *   - verifier root / harness / build node_modules
  *   - packages/unlock-builder tsx
  *
- * Invoked from install-deps (postinstall). Skip with SHIELDKIT_SKIP_UNLOCK_SETUP=1.
+ * Explicit after the root `npm ci`; postinstall never performs nested resolution.
  */
 import { spawnSync } from 'node:child_process';
 import {
-  existsSync, mkdirSync, symlinkSync, readFileSync, writeFileSync,
+  existsSync, mkdirSync, symlinkSync,
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,58 +75,51 @@ function main() {
     log(`WARN: lean pin incomplete at ${LEAN} (unlock may still resolve)`);
   }
 
-  // 1) package-local tsx
-  run(UB, ['npm', 'install', '--no-fund', '--no-audit']);
+  const tsxBin = path.join(ROOT, 'node_modules/.bin/tsx');
+  const yarnBin = path.join(ROOT, 'node_modules/.bin/yarn');
+  const pnpmBin = path.join(ROOT, 'node_modules/.bin/pnpm');
+  for (const [name, executable] of [
+    ['tsx', tsxBin],
+    ['yarn', yarnBin],
+    ['pnpm', pnpmBin],
+  ]) {
+    if (!existsSync(executable)) {
+      throw new Error(`${name} missing from the immutable root workspace; run npm ci`);
+    }
+  }
 
-  // 2) cashc fork dist
-  // Parent vendor/verifier package.json has packageManager=npm@… which makes Yarn classic
-  // refuse to run in nested cashc-resched. Temporarily strip it for the yarn window only.
+  // 1) cashc fork dist. Yarn itself is root-lockfile-pinned; its nested dependency
+  // graph remains frozen by the tracked vendor yarn.lock.
   const cashcDist = path.join(CASHC_PKG, 'dist');
   if (existsSync(path.join(cashcDist, 'cashc-cli.js')) || existsSync(path.join(cashcDist, 'index.js'))) {
     log('cashc dist present');
   } else {
     log('building cashc-resched (first blank-machine install; can take several minutes)');
-    const verifierPkgPath = path.join(VERIFIER, 'package.json');
-    const rawPkg = readFileSync(verifierPkgPath, 'utf8');
-    let restored = false;
-    const restorePkg = () => {
-      if (!restored) {
-        writeFileSync(verifierPkgPath, rawPkg);
-        restored = true;
-      }
+    const yarnEnvironment = {
+      ...process.env,
+      SKIP_YARN_COREPACK_CHECK: '1',
     };
-    try {
-      const pkg = JSON.parse(rawPkg);
-      if (pkg.packageManager) {
-        delete pkg.packageManager;
-        writeFileSync(verifierPkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-        log('temporarily stripped verifier packageManager for yarn classic');
-      }
-      // --ignore-engines: blank machines may be on Node 20 while a transitive wants 22
-      run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'install', '--frozen-lockfile', '--ignore-engines']);
-      run(CASHC, ['npx', '-y', 'yarn@1.22.22', 'build']);
-    } finally {
-      restorePkg();
-    }
+    run(CASHC, [
+      yarnBin,
+      'install',
+      '--frozen-lockfile',
+      '--ignore-engines',
+      '--ignore-scripts',
+    ], { env: yarnEnvironment });
+    run(CASHC, [yarnBin, 'build'], { env: yarnEnvironment });
   }
 
-  // 3) verifier root deps
+  // 2) verifier root dependency graph is immutable.
   if (!existsSync(path.join(VERIFIER, 'node_modules'))) {
-    if (existsSync(path.join(VERIFIER, 'package-lock.json'))) {
-      run(VERIFIER, ['npm', 'ci', '--no-audit', '--no-fund']);
-    } else {
-      run(VERIFIER, ['npm', 'install', '--no-audit', '--no-fund']);
+    if (!existsSync(path.join(VERIFIER, 'package-lock.json'))) {
+      throw new Error('verifier root package-lock.json is required');
     }
+    run(VERIFIER, ['npm', 'ci', '--no-audit', '--no-fund']);
   } else {
     log('verifier node_modules present');
   }
 
-  // 4) build/ + harness (pnpm)
-  try {
-    spawnSync('corepack', ['enable'], { stdio: 'ignore' });
-  } catch {
-    // optional
-  }
+  // 3) build/ + harness use their tracked pnpm locks and the root-lockfile-pinned pnpm.
   for (const sub of ['build', 'harness']) {
     const dir = path.join(VERIFIER, sub);
     if (!existsSync(path.join(dir, 'package.json'))) {
@@ -137,22 +130,15 @@ function main() {
       log(`${sub}/ node_modules present`);
       continue;
     }
-    const lock = existsSync(path.join(dir, 'pnpm-lock.yaml'));
-    if (lock) {
-      run(dir, ['corepack', 'pnpm', 'install', '--frozen-lockfile']);
-    } else {
-      run(dir, ['npm', 'install', '--no-audit', '--no-fund']);
+    if (!existsSync(path.join(dir, 'pnpm-lock.yaml'))) {
+      throw new Error(`${sub}/pnpm-lock.yaml is required`);
     }
+    run(dir, [pnpmBin, 'install', '--frozen-lockfile']);
   }
 
   linkCashc();
 
-  // 5) preflight tsx
-  const tsxBin = path.join(UB, 'node_modules/.bin/tsx');
-  if (!existsSync(tsxBin)) {
-    log(`FAIL: tsx missing after install: ${tsxBin}`);
-    process.exit(1);
-  }
+  // 4) preflight exact root-workspace executables.
   log(`ok tsx=${tsxBin}`);
   log(`ok leanRoot candidate=${LEAN}`);
   log('unlock toolchain ready');

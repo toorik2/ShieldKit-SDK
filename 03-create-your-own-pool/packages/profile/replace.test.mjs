@@ -14,7 +14,7 @@ import {
   derivePf7SettlementKernelAuthority,
   encodeCanonicalPf7CarrierSourceSet,
 } from '../prove/authority.mjs';
-import { runProfileReplacementDrill } from './profile-replacement-drill.mjs';
+import { runProfileReplacementDrill } from './replace.mjs';
 
 const execFileAsync = promisify(execFile);
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
@@ -125,15 +125,15 @@ test('distinct authenticated PF7 bundles preserve SDK shape and reject cross-pro
     left: { bundleDirectory: path.basename(left.directory), expectedProfile: pin(left) },
     right: { bundleDirectory: path.basename(right.directory), expectedProfile: pin(right) },
   }));
-  const { stdout, stderr } = await execFileAsync(process.execPath, ['cli.mjs', '--input', input], { cwd: path.dirname(new URL(import.meta.url).pathname) });
+  const { stdout, stderr } = await execFileAsync(process.execPath, ['replace-cli.mjs', '--input', input], { cwd: path.dirname(new URL(import.meta.url).pathname) });
   assert.equal(stderr, '');
   assert.deepEqual(JSON.parse(stdout), result);
   const output = path.join(root, 'drill-result.json');
-  const published = await execFileAsync(process.execPath, ['cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) });
+  const published = await execFileAsync(process.execPath, ['replace-cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) });
   assert.equal(published.stderr, '');
   assert.equal(await readFile(output, 'utf8'), published.stdout);
   await assert.rejects(
-    () => execFileAsync(process.execPath, ['cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) }),
+    () => execFileAsync(process.execPath, ['replace-cli.mjs', '--input', input, '--output', output], { cwd: path.dirname(new URL(import.meta.url).pathname) }),
     /profile-replacement-drill:/,
   );
 });

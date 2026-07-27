@@ -2,9 +2,9 @@
 import { link, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { canonicalJson, parseStrictJson } from './load.mjs';
-import { runProfileReplacementDrill } from './profile-replacement-drill.mjs';
+import { runProfileReplacementDrill } from './replace.mjs';
 
-const usage = 'usage: node cli.mjs --input replacement-drill.json [--output result.json]\n';
+const usage = 'usage: node replace-cli.mjs --input replacement-drill.json [--output result.json]\n';
 const args = process.argv.slice(2);
 
 if (

@@ -57,6 +57,10 @@ function electrumScriptHash(lockingBytecode) {
 
 function parseRpcUrl(url) {
   const u = new URL(url);
+  const loopback = new Set(['127.0.0.1', '::1', 'localhost']);
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && loopback.has(u.hostname))) {
+    throw new Error('SHIELDKIT_RPC_URL must use HTTPS unless it targets loopback');
+  }
   const auth = u.username
     ? `${decodeURIComponent(u.username)}:${decodeURIComponent(u.password || '')}`
     : null;
@@ -115,7 +119,7 @@ function electrumRequest(host, port, useTls, method, params, timeoutMs = 12_000)
     };
 
     if (useTls) {
-      socket = tls.connect({ host, port, servername: host, rejectUnauthorized: false }, () => {
+      socket = tls.connect({ host, port, servername: host, rejectUnauthorized: true }, () => {
         socket.write(payload);
       });
     } else {
@@ -154,14 +158,76 @@ function layer1Available() {
   return r.status === 0 && (r.stdout || '').includes('ok');
 }
 
-function layer1Cli(args, input) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf ${args}`], {
+const LAYER1_METHODS = new Set([
+  'getblockcount',
+  'getrawtransaction',
+  'gettxout',
+  'scantxoutset',
+  'sendrawtransaction',
+  'testmempoolaccept',
+]);
+const TXID = /^[0-9a-f]{64}$/;
+const HEX = /^(?:[0-9a-f]{2})+$/;
+const ADDRESS = /^(?:bitcoincash|bchtest):[a-z0-9]{20,120}$/;
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+}
+
+function validateLayer1Arguments(method, args) {
+  if (!LAYER1_METHODS.has(method)) throw new Error(`layer1 method refused: ${method}`);
+  if (method === 'getblockcount') {
+    if (args.length !== 0) throw new Error('getblockcount accepts no arguments');
+    return;
+  }
+  if (method === 'gettxout') {
+    if (args.length !== 3 || !TXID.test(args[0])
+      || !Number.isSafeInteger(Number(args[1])) || Number(args[1]) < 0
+      || args[2] !== true) throw new Error('invalid gettxout arguments');
+    return;
+  }
+  if (method === 'getrawtransaction') {
+    if (args.length !== 2 || !TXID.test(args[0]) || typeof args[1] !== 'boolean') {
+      throw new Error('invalid getrawtransaction arguments');
+    }
+    return;
+  }
+  if (method === 'scantxoutset') {
+    if (args.length !== 2 || args[0] !== 'start' || !ADDRESS.test(args[1])) {
+      throw new Error('invalid scantxoutset arguments');
+    }
+    return;
+  }
+  if (method === 'sendrawtransaction') {
+    if (args.length !== 2 || !HEX.test(args[0]) || args[1] !== true) {
+      throw new Error('invalid sendrawtransaction arguments');
+    }
+    return;
+  }
+  if (method === 'testmempoolaccept') {
+    if (args.length !== 1 || !HEX.test(args[0])) throw new Error('invalid testmempoolaccept arguments');
+  }
+}
+
+function layer1Cli(method, args = []) {
+  validateLayer1Arguments(method, args);
+  const rpcArgs = method === 'scantxoutset'
+    ? ['start', JSON.stringify([`addr(${args[1]})`])]
+    : method === 'testmempoolaccept'
+      ? [JSON.stringify([args[0]])]
+      : args.map(String);
+  const command = [
+    'sudo', '-n', '-u', 'bchn',
+    '/usr/local/bin/bitcoin-cli',
+    '-conf=/etc/bchn/bitcoin.conf',
+    method,
+    ...rpcArgs,
+  ].map(shellQuote).join(' ');
+  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node', command], {
     encoding: 'utf8',
-    input,
     maxBuffer: 64 * 1024 * 1024,
   });
-  if (r.status !== 0) throw new Error(`layer1 ${args}: ${r.stderr || r.stdout}`);
+  if (r.status !== 0) throw new Error(`layer1 ${method}: ${r.stderr || r.stdout}`);
   return (r.stdout || '').trim();
 }
 
@@ -185,6 +251,7 @@ function parseFirstJsonObject(raw) {
  *   backend: string,
  *   label: string,
  *   network: string,
+ *   getrawtransaction: (txid: string, verbose?: boolean) => Promise<string|object>,
  *   gettxout: (txid: string, vout: number) => Promise<object|null>,
  *   scanAddress: (address: string, lockingBytecodeHex?: string) => Promise<Array<{txid:string,vout:number,sats:number}>>,
  *   testmempoolaccept: (hex: string) => Promise<any>,
@@ -207,6 +274,9 @@ export async function createChainRpc(opts = {}) {
         backend: 'jsonrpc',
         label: ep.base,
         network,
+        async getrawtransaction(txid, verbose = false) {
+          return jsonRpcCall(ep, 'getrawtransaction', [txid, verbose]);
+        },
         async gettxout(txid, vout) {
           return jsonRpcCall(ep, 'gettxout', [txid, vout, true]);
         },
@@ -250,6 +320,9 @@ export async function createChainRpc(opts = {}) {
         network,
         /** @internal tip discovery / advanced */
         _electrumCall: call,
+        async getrawtransaction(txid, verbose = false) {
+          return call('blockchain.transaction.get', [txid, verbose]);
+        },
         async gettxout(txid, vout) {
           // No native gettxout — treat as unspent if listed under any known scripts is unavailable.
           // Fallback: try get raw + assume spent if broadcast path fails. Prefer list from scan.
@@ -330,9 +403,16 @@ export async function createChainRpc(opts = {}) {
       backend: 'layer1-ssh',
       label: 'layer1-node',
       network: 'chipnet',
+      async getrawtransaction(txid, verbose = false) {
+        const result = layer1Cli(
+          'getrawtransaction',
+          [String(txid).toLowerCase(), Boolean(verbose)],
+        );
+        return verbose ? JSON.parse(result) : result;
+      },
       async gettxout(txid, vout) {
         try {
-          const t = layer1Cli(`gettxout ${txid} ${vout} true`);
+          const t = layer1Cli('gettxout', [String(txid).toLowerCase(), Number(vout), true]);
           if (!t || t === 'null') return null;
           return JSON.parse(t);
         } catch {
@@ -340,7 +420,7 @@ export async function createChainRpc(opts = {}) {
         }
       },
       async scanAddress(address) {
-        const raw = layer1Cli(`scantxoutset start '["addr(${address})"]'`);
+        const raw = layer1Cli('scantxoutset', ['start', address]);
         const res = parseFirstJsonObject(raw);
         return (res.unspents || []).map((u) => ({
           txid: u.txid,
@@ -349,23 +429,13 @@ export async function createChainRpc(opts = {}) {
         }));
       },
       async testmempoolaccept(hex) {
-        const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-          `cat > /tmp/sk-rpc.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-rpc.hex)\\"]"`], {
-          encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-        });
-        if (r.status !== 0) throw new Error(`testmempool: ${r.stderr || r.stdout}`);
-        return JSON.parse(r.stdout);
+        return JSON.parse(layer1Cli('testmempoolaccept', [String(hex).toLowerCase()]));
       },
       async sendrawtransaction(hex) {
-        const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-          `cat > /tmp/sk-rpc.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-rpc.hex)" true`], {
-          encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-        });
-        if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
-        return (r.stdout || '').trim();
+        return layer1Cli('sendrawtransaction', [String(hex).toLowerCase(), true]);
       },
       async getblockcount() {
-        return Number(layer1Cli('getblockcount'));
+        return Number(layer1Cli('getblockcount', []));
       },
     };
   }

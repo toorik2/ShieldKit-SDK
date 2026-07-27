@@ -13,12 +13,15 @@
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import {
+  lstat, mkdir, readFile, readdir, realpath, rename, rm, stat,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { assertSafeReplaceDirectory } from '../packages/kit/safe-paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -69,6 +72,50 @@ async function downloadViaGh(tag, assetName, tarPath) {
   void tmpName;
 }
 
+async function verifySafeArchive(tarPath) {
+  const { stdout } = await execFileAsync('tar', ['-tzf', tarPath], {
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  const members = stdout.split('\n').filter(Boolean);
+  const unique = new Set(members);
+  if (members.length === 0 || unique.size !== members.length) {
+    throw new Error('playground archive must have a nonempty unique member set');
+  }
+  for (const member of members) {
+    const parts = member.replace(/\/$/, '').split('/');
+    if (!member.startsWith('profile-bundle/')
+      || member.startsWith('/')
+      || member.includes('\\')
+      || parts.some((part) => !part || part === '.' || part === '..')) {
+      throw new Error(`unsafe playground archive member: ${member}`);
+    }
+  }
+  const verbose = await execFileAsync('tar', ['-tvzf', tarPath], {
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (verbose.stdout.split('\n').some((line) => /^[lh]/.test(line))) {
+    throw new Error('playground archive links are forbidden');
+  }
+}
+
+async function verifyExtractedTree(root) {
+  const rootReal = await realpath(root);
+  const visit = async (directory) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const filename = path.join(directory, entry.name);
+      const stats = await lstat(filename);
+      if (stats.isSymbolicLink()) throw new Error(`extracted symlink is forbidden: ${entry.name}`);
+      const resolved = await realpath(filename);
+      if (resolved !== rootReal && !resolved.startsWith(`${rootReal}${path.sep}`)) {
+        throw new Error(`extracted member escaped staging: ${entry.name}`);
+      }
+      if (stats.isDirectory()) await visit(filename);
+      else if (!stats.isFile()) throw new Error(`unsupported extracted file type: ${entry.name}`);
+    }
+  };
+  await visit(root);
+}
+
 async function main() {
   const instance = JSON.parse(await readFile(instancePath, 'utf8'));
   const release = instance.profileBundle?.release;
@@ -77,7 +124,10 @@ async function main() {
     process.exit(1);
   }
 
-  const outDir = path.resolve(arg('out', path.join(monorepoRoot, '02-use-chipnet-demo-pool/bundle')));
+  const outDir = assertSafeReplaceDirectory(
+    arg('out', path.join(monorepoRoot, '02-use-chipnet-demo-pool/bundle')),
+    { repositoryRoot: monorepoRoot },
+  );
   const cacheDir = path.join(monorepoRoot, '.cache/playground-download');
   await mkdir(cacheDir, { recursive: true });
   const assetName = path.basename(new URL(release.url).pathname);
@@ -118,6 +168,7 @@ async function main() {
     process.exit(1);
   }
   console.error('Tarball verified', got);
+  await verifySafeArchive(tarPath);
 
   await rm(outDir, { recursive: true, force: true });
   await mkdir(path.dirname(outDir), { recursive: true });
@@ -127,6 +178,7 @@ async function main() {
   await mkdir(extractRoot, { recursive: true });
   await execFileAsync('tar', ['-xzf', tarPath, '-C', extractRoot]);
   const extracted = path.join(extractRoot, 'profile-bundle');
+  await verifyExtractedTree(extracted);
   await rename(extracted, outDir);
 
   await stat(path.join(outDir, 'manifest.json'));

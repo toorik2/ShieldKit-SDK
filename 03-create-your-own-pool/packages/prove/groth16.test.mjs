@@ -11,7 +11,7 @@ import { SnarkjsAdapterError, adaptSnarkjsGroth16, sha256Bytes } from './groth16
 const execFile = promisify(execFileCallback);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, 'test-fixtures', 'two-public');
-const cli = path.join(here, 'node_modules', 'snarkjs', 'build', 'cli.cjs');
+const cli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
 const adapterCli = path.join(here, 'groth16.mjs');
 const digest = async (filename) => createHash('sha256').update(await readFile(filename)).digest('hex');
 const record = async (filename) => ({ path: filename, sha256: await digest(filename) });

@@ -48,8 +48,9 @@ Fees are **automatic** (1 sat/B). The client scans and may merge small UTXOs for
 
 ```bash
 git clone <this-repo> && cd shieldkit-sdk   # or your remote
-npm install
+npm ci
 npm run fetch-pin-artifacts               # ~450MB; once per machine
+npm run unlock-builder:setup              # immutable vendored toolchain
 
 # Birth pool + genesis on Chipnet (uses wallets + scan-fund)
 npm run create-pool -- \
@@ -71,10 +72,15 @@ npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadc
 What happens under the hood (you should not need these):
 
 - Tip discovery from chain  
-- Fee UTXO scan (+ auto-consolidate if coins are fragmented)  
+- Fee UTXO scan. If coins are fragmented, consolidation is prepared and
+  journaled but never broadcast from the helper; review it and resume with
+  `--resume-pending --broadcast`.
 - Prove + densFuel unlock (often **30–90s**)  
 - Exact 1 sat/B fee; change returns to hot wallet  
 - Note secrets saved in `state.json` openNotes (backup that file / use encrypted wallet APIs)
+- Every operation is prepared into `.shieldkit/operations/pending.json` before
+  any network send. State changes only after all journaled transactions
+  broadcast; retry an interrupted operation with `--resume-pending --broadcast`.
 
 ---
 
@@ -85,8 +91,9 @@ Blank machines do **not** need a residual journal: `tip` / first act walk chain 
 (tip → genesis), fill `settlementLog`, and rebuild the public tip forest automatically.
 
 ```bash
-npm install
+npm ci
 npm run fetch-playground-bundle
+npm run unlock-builder:setup
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip   # discovers tip + rebuilds public forest from chain

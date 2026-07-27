@@ -1,13 +1,27 @@
 {
   "name": "shieldkit",
   "private": true,
-  "version": "0.1.0",
-  "description": "ShieldKit toolkit 0.1.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
+  "version": "0.2.0",
+  "description": "ShieldKit toolkit 0.2.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "03-create-your-own-pool/packages/action",
+    "03-create-your-own-pool/packages/kit",
+    "03-create-your-own-pool/packages/pool",
+    "03-create-your-own-pool/packages/profile",
+    "03-create-your-own-pool/packages/prove",
+    "03-create-your-own-pool/packages/recover",
+    "03-create-your-own-pool/packages/unlock-builder"
+  ],
   "scripts": {
     "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
-    "install:deps": "node 03-create-your-own-pool/scripts/install-deps.mjs",
+    "install:deps": "npm ci --include-workspace-root",
     "test": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs",
+    "test:qualification:covenants": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --include-qualification",
+    "test:live-fixtures": "SHIELDKIT_LIVE_FIXTURES=1 node --test 03-create-your-own-pool/packages/kit/pool-act-fail-closed.test.mjs",
     "shieldkit": "node 03-create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node 03-create-your-own-pool/scripts/fetch-playground-bundle.mjs",
     "version-check": "node 03-create-your-own-pool/scripts/shieldkit.mjs --version",
@@ -20,7 +34,20 @@
     "e2e:multiuser-blank": "node 03-create-your-own-pool/scripts/chipnet-multiuser-blank-e2e.mjs",
     "rpc:probe": "node 03-create-your-own-pool/scripts/rpc-probe.mjs",
     "test:pool": "node --test 03-create-your-own-pool/packages/pool/*.test.mjs",
-    "golden-path": "node -e \"console.log(require('fs').readFileSync('03-create-your-own-pool/docs/GOLDEN_PATH.md','utf8'))\""
+    "golden-path": "node -e \"console.log(require('fs').readFileSync('03-create-your-own-pool/docs/GOLDEN_PATH.md','utf8'))\"",
+    "audit:dependencies": "npm audit --audit-level=high",
+    "check:source": "node 03-create-your-own-pool/scripts/check-source-policy.mjs",
+    "test:formal": "bash 03-create-your-own-pool/packages/unlock-builder/vendor/lean/tools/opt-ci/verify.sh"
+  },
+  "devDependencies": {
+    "pnpm": "10.34.5",
+    "yarn": "1.22.22"
+  },
+  "overrides": {
+    "snarkjs@0.7.6": {
+      "bfj": "9.1.3",
+      "ejs": "6.0.1"
+    },
+    "ws": "8.21.1"
   }
 }
-

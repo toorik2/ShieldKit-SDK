@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node policy, audit, and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Enforce source policy
+        run: npm run check:source
+      - name: Audit production dependency closure
+        run: npm audit --omit=dev --audit-level=high
+      - name: Run portable domain tests
+        run: npm test
+      - name: Materialize immutable vendored qualification toolchain
+        run: npm run unlock-builder:setup
+      - name: Run covenant qualification tests
+        run: npm run test:qualification:covenants
+
+  formal:
+    name: LeanBCH formal gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Install pinned Lean toolchain
+        uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1
+        with:
+          lake-package-directory: 03-create-your-own-pool/packages/unlock-builder/vendor/lean
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-github-cache: false
+          use-mathlib-cache: false
+      - name: Install immutable LeanBCH optimizer dependencies
+        working-directory: 03-create-your-own-pool/packages/unlock-builder/vendor/lean/optimizer
+        run: npm ci --no-audit --no-fund
+      - name: Run zero-sorry, axiom, reproducibility, and closure gates
+        run: npm run test:formal

@@ -51,7 +51,7 @@ test('mainnet + development-only without lab override refuses', () => {
       mainnetAcknowledged: true,
       setupMode: 'development-only',
     }),
-    (e) => e instanceof AppKitNetworkError && e.code === 'DEVELOPMENT_PROFILE_ON_MAINNET',
+    (e) => e instanceof AppKitNetworkError && e.code === 'UNQUALIFIED_PROFILE_ON_MAINNET',
   );
 });
 
@@ -66,11 +66,19 @@ test('mainnet + development-only with lab override allowed', () => {
   assert.equal(r.lab, true);
 });
 
-test('mainnet + ceremony profile with ack allowed', () => {
+test('mainnet + local contribution simulation with ack still refuses', () => {
+  assert.throws(() => assertBroadcastAllowed({
+    network: 'mainnet',
+    mainnetAcknowledged: true,
+    setupMode: 'local-contribution-simulation',
+  }), (e) => e instanceof AppKitNetworkError && e.code === 'UNQUALIFIED_PROFILE_ON_MAINNET');
+});
+
+test('mainnet + explicitly production-qualified profile with ack is allowed', () => {
   const r = assertBroadcastAllowed({
     network: 'mainnet',
     mainnetAcknowledged: true,
-    setupMode: 'ceremony-production',
+    setupMode: 'production-qualified',
   });
   assert.equal(r.ok, true);
 });
@@ -83,7 +91,7 @@ test('productWarnings always includes Unaudited WIP', () => {
   assert.match(PRODUCT_STATUS.status, /Unaudited/);
   const chip = productWarnings({ network: 'chipnet', setupMode: 'development-only' });
   assert.ok(chip.some((w) => /Unaudited/i.test(w)));
-  const main = productWarnings({ network: 'mainnet', setupMode: 'ceremony-production' });
+  const main = productWarnings({ network: 'mainnet', setupMode: 'local-contribution-simulation' });
   assert.ok(main.some((w) => /MAINNET/i.test(w)));
   assert.ok(main.some((w) => /Work In Progress/i.test(w)));
 });

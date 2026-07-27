@@ -92,7 +92,7 @@ async function manifestGenesis(value) {
   if (typeof genesis.instanceId !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(genesis.instanceId)) fail('profileManifest.genesis.instanceId is invalid');
   if (typeof genesis.stateNftCategory !== 'string' || !/^[0-9a-f]{64}$/.test(genesis.stateNftCategory)) fail('profileManifest.genesis.stateNftCategory is invalid');
   if (manifest.identity?.profileId !== genesis.profileId) fail('profileManifest identity does not match genesis profile');
-  if (!['development-only', 'ceremony-production'].includes(manifest.setup?.mode)) fail('profileManifest setup mode is unsupported');
+  if (!['development-only', 'local-contribution-simulation'].includes(manifest.setup?.mode)) fail('profileManifest setup mode is unsupported');
   return Object.freeze({
     bundle: loaded,
     genesis,

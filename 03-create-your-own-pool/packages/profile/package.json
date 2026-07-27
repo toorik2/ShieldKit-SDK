@@ -1,6 +1,6 @@
 {
   "name": "@shieldkit/profile",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "main": "index.mjs",
   "exports": {
@@ -12,8 +12,7 @@
     "@iden3/binfileutils": "^0.0.12",
     "blake-hash": "^2.0.0",
     "circom2": "^0.2.23",
-    "circomlibjs": "^0.1.7",
     "r1csfile": "^0.0.48",
-    "snarkjs": "^0.7.6"
+    "snarkjs": "0.7.6"
   }
 }

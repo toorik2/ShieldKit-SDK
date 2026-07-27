@@ -20,7 +20,6 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import {
   encodeTransaction,
@@ -28,7 +27,14 @@ import {
   hash256,
   instantiateSecp256k1,
   SigningSerializationTypeBch,
-} from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
+} from '@bitauth/libauth';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
 
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -40,34 +46,38 @@ function flag(name) {
   return process.argv.includes(`--${name}`);
 }
 
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=20'];
-const HOST = 'layer1-node';
-const CLI = 'sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf';
-
-function ssh(cmd, input) {
-  const r = spawnSync('ssh', [...SSH_OPTS, HOST, cmd], {
-    encoding: 'utf8',
-    input: input ?? undefined,
-    maxBuffer: 64 * 1024 * 1024,
+async function broadcastQualificationTransactions({
+  rpc, operationRoot, label, transactions,
+}) {
+  const normalized = transactions.map(({ role, hex: transactionHex }) => ({
+    role,
+    hex: transactionHex,
+    txid: transactionIdFromHex(transactionHex),
+  }));
+  const { journalPath } = stageOperation({
+    poolDirectory: operationRoot,
+    kind: `chain-e2e-${label}`,
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: normalized,
+    nextState: {
+      schema: 'shieldkit/chipnet-qualification-state/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+    ledgerRecord: {
+      schema: 'shieldkit/chipnet-qualification-ledger/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
   });
-  if (r.status !== 0) throw new Error(`ssh failed: ${r.stderr || r.stdout}`);
-  return r.stdout.trim();
-}
-function bchn(args) {
-  return ssh(`${CLI} ${args}`);
-}
-function bchnSendHex(hex) {
-  return ssh(
-    `cat > /tmp/sk-e2e.hex && ${CLI} sendrawtransaction "$(cat /tmp/sk-e2e.hex)"`,
-    hex,
-  );
-}
-function bchnTestMempool(hex) {
-  const out = ssh(
-    `cat > /tmp/sk-e2e.hex && ${CLI} testmempoolaccept "[\\"$(cat /tmp/sk-e2e.hex)\\"]"`,
-    hex,
-  );
-  return JSON.parse(out);
+  await broadcastStagedOperation({ journalPath, rpc });
+  commitStagedOperation({
+    journalPath,
+    statePath: path.join(operationRoot, 'state.json'),
+    ledgerPath: path.join(operationRoot, 'ledger.jsonl'),
+  });
+  return normalized;
 }
 
 async function sha256File(file) {
@@ -118,6 +128,7 @@ async function main() {
   const categorySats = BigInt(arg('category-sats', '5000000')); // 0.05 BCH
 
   await mkdir(outDir, { recursive: true });
+  const rpc = await createChainRpc({ network: 'chipnet' });
   console.error(`[chain-e2e] out=${outDir}`);
 
   const hotPriv = JSON.parse(await readFile(path.join(walletRoot, 'wallet-private.json'), 'utf8'));
@@ -128,9 +139,8 @@ async function main() {
   const secp = await instantiateSecp256k1();
 
   // --- verify fund UTXO ---
-  const utxoJson = bchn(`gettxout ${fundTxid} ${fundVout} true`);
-  if (!utxoJson) throw new Error(`funding UTXO missing: ${fundTxid}:${fundVout}`);
-  const utxo = JSON.parse(utxoJson);
+  const utxo = await rpc.gettxout(fundTxid, fundVout);
+  if (!utxo) throw new Error(`funding UTXO missing: ${fundTxid}:${fundVout}`);
   const fundValue = BigInt(Math.round(utxo.value * 1e8));
   console.error(`[chain-e2e] fund UTXO ${fundTxid}:${fundVout} = ${fundValue} sats`);
   if (fundValue <= categorySats + 1000n) throw new Error('funding UTXO too small');
@@ -186,10 +196,13 @@ async function main() {
     inputs: [{ ...unsigned.inputs[0], unlockingBytecode: schnorrUnlock(sig, publicKey) }],
   };
   const fundHex = hex(Buffer.from(encodeTransaction(funded)));
-  const fundAccept = bchnTestMempool(fundHex);
-  console.error('[chain-e2e] category fund testmempoolaccept', JSON.stringify(fundAccept));
-  if (!fundAccept?.[0]?.allowed) throw new Error(`category fund rejected: ${JSON.stringify(fundAccept)}`);
-  const categoryTxid = bchnSendHex(fundHex);
+  const [categoryBroadcast] = await broadcastQualificationTransactions({
+    rpc,
+    operationRoot: path.join(outDir, '.shieldkit/category-fund'),
+    label: 'category-fund',
+    transactions: [{ role: 'category-fund', hex: fundHex }],
+  });
+  const categoryTxid = categoryBroadcast.txid;
   console.error(`[chain-e2e] category fund broadcast: ${categoryTxid}`);
   await writeFile(path.join(outDir, '01-category-fund.json'), JSON.stringify({
     categoryTxid, categoryVout: 0, categorySats: categorySats.toString(), change: change.toString(), fundHex,
@@ -252,8 +265,6 @@ async function main() {
   await writeFile(path.join(outDir, 'pool/instance.json'), JSON.stringify(instance, null, 2));
 
   // --- Step 3: genesis plan + finalize + broadcast ---
-  const { createKit, loadInstance, instanceToKitConfig } = await import('../packages/kit/index.mjs');
-  // kit re-exports? check
   const { loadInstance: loadInst, instanceToKitConfig: toCfg } = await import('../packages/profile/instance.mjs');
   const { createKit: mk } = await import('../packages/kit/kit.mjs');
   const inst = await loadInst(path.join(outDir, 'pool'));
@@ -314,10 +325,13 @@ async function main() {
     measurements: finalized.measurements,
   }, null, 2));
 
-  const genAccept = bchnTestMempool(finalized.transactionHex);
-  console.error('[chain-e2e] genesis testmempoolaccept', JSON.stringify(genAccept));
-  if (!genAccept?.[0]?.allowed) throw new Error(`genesis rejected: ${JSON.stringify(genAccept)}`);
-  const genesisTxid = bchnSendHex(finalized.transactionHex);
+  const [genesisBroadcast] = await broadcastQualificationTransactions({
+    rpc,
+    operationRoot: path.join(outDir, '.shieldkit/genesis'),
+    label: 'genesis',
+    transactions: [{ role: 'genesis', hex: finalized.transactionHex }],
+  });
+  const genesisTxid = genesisBroadcast.txid;
   console.error(`[chain-e2e] GENESIS BROADCAST: ${genesisTxid}`);
 
   // --- Step 4: deposit request template using change as fee funding if possible ---
@@ -355,13 +369,14 @@ async function main() {
       keys: Object.keys(finalizedPrep),
     };
     if (prepHex && flag('broadcast-prep')) {
-      const acc = bchnTestMempool(prepHex);
-      console.error('[chain-e2e] prep testmempool', JSON.stringify(acc));
-      if (acc?.[0]?.allowed) {
-        const prepTxid = bchnSendHex(prepHex);
-        depositPrep.broadcastTxid = prepTxid;
-        console.error(`[chain-e2e] PREP BROADCAST: ${prepTxid}`);
-      }
+      const [prepBroadcast] = await broadcastQualificationTransactions({
+        rpc,
+        operationRoot: path.join(outDir, '.shieldkit/deposit-preparation'),
+        label: 'deposit-preparation',
+        transactions: [{ role: 'preparation', hex: prepHex }],
+      });
+      depositPrep.broadcastTxid = prepBroadcast.txid;
+      console.error(`[chain-e2e] PREP BROADCAST: ${prepBroadcast.txid}`);
     }
     await writeFile(path.join(outDir, '05-deposit-prep.json'), JSON.stringify(depositPrep, null, 2));
   } catch (e) {

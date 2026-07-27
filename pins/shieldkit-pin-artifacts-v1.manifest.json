@@ -1,0 +1,55 @@
+{
+  "schema": "shieldkit/pin-artifacts-manifest/v2",
+  "tag": "v1",
+  "source": {
+    "url": "https://github.com/toorik2/ShieldKit-SDK/releases/download/shieldkit-pin-v1/shieldkit-pin-artifacts-v1.tar.gz"
+  },
+  "tar": {
+    "fileName": "shieldkit-pin-artifacts-v1.tar.gz",
+    "bytes": 197212683,
+    "sha256": "sha256:77eaad734233ab5dd7113980564eaec9fb570c71b5d43b5de95fee497885909e"
+  },
+  "files": {
+    "final.zkey": {
+      "bytes": 339703080,
+      "sha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a"
+    },
+    "g1_relation.r1cs": {
+      "bytes": 126282348,
+      "sha256": "sha256:6a797e696a4fe01f500b232270944f93e5e6f171906c37511748ab0f50df0e17"
+    },
+    "g1_relation.wasm": {
+      "bytes": 10224716,
+      "sha256": "sha256:f14eaf5b9a83750a5fd62f1062df40ec66219d7737739b1e6e1e5ef745aede71"
+    },
+    "verification_key.json": {
+      "bytes": 3107,
+      "sha256": "sha256:e52d09c35f38131955cea0beb85737e6951384eef1b02857c391d74520c7a164"
+    },
+    "verifier-set.bin": {
+      "bytes": 25029,
+      "sha256": "sha256:a97647c206b1741937895de5276f466da969c935ea47d5f5677505c93d5ce171"
+    },
+    "public-input-abi.json": {
+      "bytes": 168,
+      "sha256": "sha256:e2fa266fb34d2793fe8acee12bcb5f5c474f6305d50ca3cf10fcc20cbc9ed181"
+    },
+    "relation.json": {
+      "bytes": 522,
+      "sha256": "sha256:dbcaa2a0fd788db98ea0fc48702692a9bbf2f964b272927576894ea5ea2e10d2"
+    },
+    "setup-metadata.json": {
+      "bytes": 2391,
+      "sha256": "sha256:99417756a1e57ce3f69fbe76827587ac6bf2b974a6a9f9faf68d4b122d714ccb"
+    },
+    "circom2-cli.js": {
+      "bytes": 1451,
+      "sha256": "sha256:5e36c6153c416e17b1fa822411b1fb9e4ab9b5cd4a0249cc3b5be3259315f5ad"
+    },
+    "snarkjs-cli.cjs": {
+      "bytes": 503517,
+      "sha256": "sha256:6d787e37a4d1a2c6dd6032dadca09c0b3b007d4d4578bb6232a98136555d051a"
+    }
+  },
+  "totalUnpackedBytes": 476746329
+}

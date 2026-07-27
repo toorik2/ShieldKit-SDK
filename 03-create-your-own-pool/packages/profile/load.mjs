@@ -193,19 +193,21 @@ function validateSetup(setup, artifactByPath) {
     validateSetupMaterial(setup.material, 'development-only', artifactByPath);
     return;
   }
-  if (mode !== 'ceremony-production') fail('setup.mode is unsupported');
-  exactKeys(setup, 'ceremony setup', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
-  exactKeys(setup.provenance, 'ceremony setup provenance', ['method', 'initializerCommitment']);
-  if (setup.provenance.method !== 'multi-party-randomness') fail('ceremony setup requires multi-party-randomness provenance');
-  hash(setup.provenance.initializerCommitment, 'ceremony initializer commitment');
-  exactKeys(setup.transcript, 'ceremony transcript', ['status', 'artifactPath', 'sha256', 'verifier']);
-  if (setup.transcript.status !== 'complete') fail('ceremony transcript must be complete');
+  if (mode !== 'local-contribution-simulation') fail('setup.mode is unsupported');
+  exactKeys(setup, 'local contribution setup', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
+  exactKeys(setup.provenance, 'local contribution setup provenance', ['method', 'initializerCommitment']);
+  if (setup.provenance.method !== 'single-coordinator-sequential-contributions') {
+    fail('local contribution setup provenance is invalid');
+  }
+  hash(setup.provenance.initializerCommitment, 'local contribution initializer commitment');
+  exactKeys(setup.transcript, 'local contribution transcript', ['status', 'artifactPath', 'sha256', 'verifier']);
+  if (setup.transcript.status !== 'complete') fail('local contribution transcript must be complete');
   const transcriptPath = safeArtifactPath(setup.transcript.artifactPath);
   const transcript = artifactByPath.get(transcriptPath);
-  if (!transcript || transcript.kind !== 'ceremony-transcript') fail('ceremony transcript artifact is missing');
-  if (transcript.sha256 !== hash(setup.transcript.sha256, 'ceremony transcript hash')) fail('ceremony transcript hash does not bind its artifact');
-  validateVerifier(setup.transcript.verifier, 'ceremony transcript verifier');
-  if (!Array.isArray(setup.contributions) || setup.contributions.length < 2) fail('ceremony setup requires at least two verified contributions');
+  if (!transcript || transcript.kind !== 'ceremony-transcript') fail('local contribution transcript artifact is missing');
+  if (transcript.sha256 !== hash(setup.transcript.sha256, 'local contribution transcript hash')) fail('local contribution transcript hash does not bind its artifact');
+  validateVerifier(setup.transcript.verifier, 'local contribution transcript verifier');
+  if (!Array.isArray(setup.contributions) || setup.contributions.length < 2) fail('local simulation requires at least two verified sequential contributions');
   const participants = new Set(); let previousSequence;
   for (const [index, contribution] of setup.contributions.entries()) {
     exactKeys(contribution, `ceremony contribution ${index}`, ['sequence', 'participantCommitment', 'contributionHash', 'verification']);
@@ -221,7 +223,7 @@ function validateSetup(setup, artifactByPath) {
     if (contribution.verification.status !== 'verified') fail('ceremony contribution must be verified');
     validateVerifier(contribution.verification.verifier, `ceremony contribution ${index} verifier`);
   }
-  validateSetupMaterial(setup.material, 'ceremony-production', artifactByPath, setup.contributions);
+  validateSetupMaterial(setup.material, 'local-contribution-simulation', artifactByPath, setup.contributions);
 }
 
 function validateSetupCommand(command, label) {

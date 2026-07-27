@@ -9,7 +9,7 @@
 | [`03-create-your-own-pool/`](../../03-create-your-own-pool/) | Product |
 
 ```bash
-npm install && npm run fetch-playground-bundle
+npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip

@@ -23,9 +23,8 @@
  */
 import { createHash } from 'node:crypto';
 import {
-  cpSync, existsSync, mkdirSync, readFileSync, writeFileSync,
+  cpSync, existsSync, mkdirSync, readFileSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -34,7 +33,7 @@ import {
   hash256,
   instantiateSecp256k1,
   SigningSerializationTypeBch,
-} from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
+} from '@bitauth/libauth';
 import { buildVerifierProfileBundle } from '../packages/profile/build.mjs';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import {
@@ -48,6 +47,20 @@ import {
   capacityFromReserveCap,
   capacitySummary,
 } from '../packages/kit/pool-capacity.mjs';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  loadPendingOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
+import {
+  atomicWriteJson,
+  PRIVATE_FILE_MODE,
+  PUBLIC_FILE_MODE,
+  readJsonFile,
+} from '../packages/kit/secure-files.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DEFAULT_PIN_ART = path.join(ROOT, '.cache/profile-build-live/artifacts');
@@ -61,60 +74,6 @@ function hasFlag(name) {
   return process.argv.includes(`--${name}`);
 }
 
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=20'];
-
-function bchnSendHex(hex) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `cat > /tmp/sk-create-pool.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf sendrawtransaction "$(cat /tmp/sk-create-pool.hex)" true`], {
-    encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`sendraw: ${r.stderr || r.stdout}`);
-  return (r.stdout || '').trim();
-}
-
-function bchnTestMempool(hex) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `cat > /tmp/sk-create-pool.hex && sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf testmempoolaccept "[\\"$(cat /tmp/sk-create-pool.hex)\\"]"`], {
-    encoding: 'utf8', input: hex, maxBuffer: 64 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`testmempool: ${r.stderr || r.stdout}`);
-  return JSON.parse(r.stdout);
-}
-
-function bchnGetTxOut(txid, vout) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf gettxout ${txid} ${vout} true`], { encoding: 'utf8' });
-  if (r.status !== 0) return null;
-  const t = (r.stdout || '').trim();
-  if (!t || t === 'null') return null;
-  try { return JSON.parse(t); } catch { return null; }
-}
-
-/** Parse first top-level JSON object from mixed bitcoin-cli stdout. */
-function parseFirstJsonObject(raw) {
-  const start = raw.indexOf('{');
-  if (start < 0) throw new Error('no JSON object in output');
-  let depth = 0;
-  for (let i = start; i < raw.length; i++) {
-    const ch = raw[i];
-    if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) return JSON.parse(raw.slice(start, i + 1));
-    }
-  }
-  throw new Error('unterminated JSON object');
-}
-
-function bchnScanAddr(address) {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-    `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf scantxoutset start '["addr(${address})"]'`], {
-    encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`scantxoutset: ${r.stderr || r.stdout}`);
-  return parseFirstJsonObject(r.stdout || '');
-}
-
 /**
  * Pick largest live funding UTXO ≥ minSats.
  * Always gettxout-verifies scan hits when gettxout is real (not electrum partial).
@@ -124,17 +83,7 @@ function bchnScanAddr(address) {
  * @param {string} [lockingBytecodeHex]
  */
 async function pickVerifiedFund(rpc, address, minSats, lockingBytecodeHex) {
-  let listed;
-  if (rpc.backend === 'layer1-ssh') {
-    const scan = bchnScanAddr(address);
-    listed = (scan.unspents || []).map((u) => ({
-      txid: u.txid,
-      vout: Number(u.vout),
-      sats: Math.round(Number(u.amount) * 1e8),
-    }));
-  } else {
-    listed = await rpc.scanAddress(address, lockingBytecodeHex);
-  }
+  const listed = await rpc.scanAddress(address, lockingBytecodeHex);
   const rows = (listed || [])
     .filter((u) => Number(u.sats) >= minSats)
     .sort((a, b) => Number(b.sats) - Number(a.sats));
@@ -142,9 +91,7 @@ async function pickVerifiedFund(rpc, address, minSats, lockingBytecodeHex) {
   for (const cand of rows) {
     let sats = Number(cand.sats);
     if (rpc.backend === 'layer1-ssh' || rpc.backend === 'jsonrpc') {
-      const u = rpc.backend === 'layer1-ssh'
-        ? bchnGetTxOut(cand.txid, cand.vout)
-        : await rpc.gettxout(cand.txid, cand.vout);
+      const u = await rpc.gettxout(cand.txid, cand.vout);
       if (!u || u._partial) {
         // electrum partial / spent
         if (!u) { staleSkipped++; continue; }
@@ -199,7 +146,7 @@ async function scaffoldOnly(out, bundleSrc) {
     createdAt: new Date().toISOString(),
     mode: 'scaffold-existing-tip',
   };
-  writeFileSync(path.join(out, 'instance.json'), JSON.stringify(instance, null, 2));
+  atomicWriteJson(path.join(out, 'instance.json'), instance, { mode: PUBLIC_FILE_MODE });
   // U-03: wire tip when operator supplies --state-txid or when pin tip file exists
   const tipFromArg = process.argv.includes('--state-txid')
     ? process.argv[process.argv.indexOf('--state-txid') + 1]
@@ -217,7 +164,7 @@ async function scaffoldOnly(out, bundleSrc) {
       }
     } catch { /* ignore */ }
   }
-  writeFileSync(path.join(out, 'state.json'), JSON.stringify({
+  atomicWriteJson(path.join(out, 'state.json'), {
     stateTxid: tip,
     tipSource: tipFromArg ? 'cli' : (tip ? 'live-battery-auto' : null),
     tipNote: tip
@@ -225,7 +172,7 @@ async function scaffoldOnly(out, bundleSrc) {
       : 'No tip: pass --state-txid <txid> or run create-pool --with-genesis --broadcast (U-03).',
     feeUtxos: [],
     history: [],
-  }, null, 2));
+  });
   return { instance, loaded, tip };
 }
 
@@ -248,9 +195,7 @@ async function withGenesis(out, opts) {
   if (opts.fundSats != null) {
     fundValue = BigInt(opts.fundSats);
   } else {
-    const utxo = rpc.backend === 'layer1-ssh'
-      ? bchnGetTxOut(fundTxid, fundVout)
-      : await rpc.gettxout(fundTxid, fundVout);
+    const utxo = await rpc.gettxout(fundTxid, fundVout);
     if (!utxo || (utxo._partial && opts.fundSats == null)) {
       throw new Error(
         `funding UTXO missing ${fundTxid}:${fundVout}`
@@ -311,18 +256,9 @@ async function withGenesis(out, opts) {
     throw new Error(`fee size mismatch planned=${fee} actual=${Buffer.from(fundHex, 'hex').length}`);
   }
 
-  const fundAccept = rpc.backend === 'layer1-ssh'
-    ? bchnTestMempool(fundHex)
-    : await rpc.testmempoolaccept(fundHex);
-  if (!fundAccept?.[0]?.allowed) throw new Error(`category fund rejected: ${JSON.stringify(fundAccept)}`);
-  let categoryTxid;
-  if (opts.broadcast) {
-    categoryTxid = rpc.backend === 'layer1-ssh'
-      ? bchnSendHex(fundHex)
-      : await rpc.sendrawtransaction(fundHex);
-  } else {
-    categoryTxid = Buffer.from(hash256(Buffer.from(fundHex, 'hex'))).reverse().toString('hex');
-  }
+  // The category transaction ID is deterministic. Build and validate every dependent
+  // artifact before any transaction is sent.
+  const categoryTxid = transactionIdFromHex(fundHex);
 
   // --- rebuild profile bound to category outpoint ---
   mkdirSync(out, { recursive: true });
@@ -409,15 +345,6 @@ async function withGenesis(out, opts) {
   if (genesisSig.length !== 64) throw new Error('bad genesis sig');
   const finalized = await finalizeChipnetGenesisTransaction(genesisReq, genesisSig.toString('hex'));
 
-  if (opts.broadcast) {
-    const genAccept = rpc.backend === 'layer1-ssh'
-      ? bchnTestMempool(finalized.transactionHex)
-      : await rpc.testmempoolaccept(finalized.transactionHex);
-    if (!genAccept?.[0]?.allowed) throw new Error(`genesis rejected: ${JSON.stringify(genAccept)}`);
-    if (rpc.backend === 'layer1-ssh') bchnSendHex(finalized.transactionHex);
-    else await rpc.sendrawtransaction(finalized.transactionHex);
-  }
-
   const instance = {
     schema: 'shieldkit/pool-instance/v1',
     role: 'custom',
@@ -430,7 +357,8 @@ async function withGenesis(out, opts) {
     mode: 'with-genesis',
     categoryTxid,
     genesisTxid: finalized.transactionId,
-    broadcast: !!opts.broadcast,
+    broadcast: false,
+    status: opts.broadcast ? 'broadcast-pending' : 'prepared',
     // Capacity is immutable at genesis (live anonymity set ceiling).
     denominationSatoshis: capacity.denominationSatoshis,
     reserveCapSatoshis: capacity.reserveCapSatoshis,
@@ -438,8 +366,7 @@ async function withGenesis(out, opts) {
     maxLiveNotes: capacity.maxLiveNotes,
     capacity: capacitySummary(capacity),
   };
-  writeFileSync(path.join(out, 'instance.json'), JSON.stringify(instance, null, 2));
-  writeFileSync(path.join(out, 'state.json'), JSON.stringify({
+  const nextState = {
     stateTxid: finalized.transactionId,
     feeUtxos: change > 1000n
       ? [{ txid: categoryTxid, vout: 1, sats: Number(change) }]
@@ -450,17 +377,66 @@ async function withGenesis(out, opts) {
       reserveCapSatoshis: capacity.reserveCapSatoshis,
       denominationSatoshis: capacity.denominationSatoshis,
     },
-  }, null, 2));
-  writeFileSync(path.join(out, '01-category-fund.json'), JSON.stringify({
+  };
+  atomicWriteJson(path.join(out, 'instance.json'), instance, { mode: PUBLIC_FILE_MODE });
+  atomicWriteJson(path.join(out, '01-category-fund.json'), {
     categoryTxid, categoryVout: 0, categorySats: categorySats.toString(), change: change.toString(),
-    fundHex, broadcast: !!opts.broadcast,
-  }, null, 2));
-  writeFileSync(path.join(out, '03-genesis-tx.json'), JSON.stringify({
+    fundHex, broadcast: false,
+  }, { mode: PRIVATE_FILE_MODE });
+  atomicWriteJson(path.join(out, '03-genesis-tx.json'), {
     transactionId: finalized.transactionId,
     transactionHex: finalized.transactionHex,
     measurements: finalized.measurements,
-    broadcast: !!opts.broadcast,
-  }, null, 2));
+    broadcast: false,
+  }, { mode: PRIVATE_FILE_MODE });
+
+  const staged = stageOperation({
+    poolDirectory: out,
+    kind: 'pool-genesis',
+    network: opts.network || 'chipnet',
+    setupMode: setup.mode,
+    transactions: [
+      { role: 'category-fund', txid: categoryTxid, hex: fundHex },
+      { role: 'genesis', txid: finalized.transactionId, hex: finalized.transactionHex },
+    ],
+    nextState,
+    ledgerRecord: {
+      ts: new Date().toISOString(),
+      kind: 'pool-genesis',
+      categoryTxid,
+      genesisTxid: finalized.transactionId,
+      broadcast: !!opts.broadcast,
+    },
+    publicResult: { categoryTxid, genesisTxid: finalized.transactionId },
+  });
+
+  if (opts.broadcast) {
+    await broadcastStagedOperation({
+      journalPath: staged.journalPath,
+      rpc,
+      mainnetAcknowledged: opts.mainnetAcknowledged,
+      allowDevelopmentOnMainnet: opts.allowDevelopmentOnMainnet,
+    });
+    commitStagedOperation({
+      journalPath: staged.journalPath,
+      statePath: path.join(out, 'state.json'),
+      ledgerPath: path.join(out, 'ledger.jsonl'),
+    });
+    instance.broadcast = true;
+    instance.status = 'active';
+    instance.activatedAt = new Date().toISOString();
+    atomicWriteJson(path.join(out, 'instance.json'), instance, { mode: PUBLIC_FILE_MODE });
+    atomicWriteJson(path.join(out, '01-category-fund.json'), {
+      categoryTxid, categoryVout: 0, categorySats: categorySats.toString(), change: change.toString(),
+      fundHex, broadcast: true,
+    }, { mode: PRIVATE_FILE_MODE });
+    atomicWriteJson(path.join(out, '03-genesis-tx.json'), {
+      transactionId: finalized.transactionId,
+      transactionHex: finalized.transactionHex,
+      measurements: finalized.measurements,
+      broadcast: true,
+    }, { mode: PRIVATE_FILE_MODE });
+  }
 
   return {
     instance,
@@ -468,6 +444,8 @@ async function withGenesis(out, opts) {
     categoryTxid,
     genesisTxid: finalized.transactionId,
     broadcast: !!opts.broadcast,
+    operationId: staged.journal.operationId,
+    journalPath: staged.journalPath,
     capacity,
   };
 }
@@ -483,8 +461,50 @@ async function main() {
   const network = networkArg;
 
   if (hasFlag('with-genesis')) {
-    const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
-    const { assertBroadcastAllowed } = await import('../packages/kit/network.mjs');
+    if (hasFlag('resume-pending')) {
+      if (!existsSync(out)) throw new Error(`prepared pool not found: ${out}`);
+      if (!hasFlag('broadcast')) throw new Error('--resume-pending requires --broadcast');
+      const pending = loadPendingOperation(out);
+      if (!pending || pending.journal.kind !== 'pool-genesis') {
+        throw new Error('pool has no pending pool-genesis operation');
+      }
+      const resumeNetwork = pending.journal.network;
+      const rpc = await createChainRpc({ network: resumeNetwork });
+      await broadcastStagedOperation({
+        journalPath: pending.journalPath,
+        rpc,
+        mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+        allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
+      });
+      const committed = commitStagedOperation({
+        journalPath: pending.journalPath,
+        statePath: path.join(out, 'state.json'),
+        ledgerPath: path.join(out, 'ledger.jsonl'),
+      });
+      const instancePath = path.join(out, 'instance.json');
+      const instance = readJsonFile(instancePath);
+      instance.broadcast = true;
+      instance.status = 'active';
+      instance.activatedAt = new Date().toISOString();
+      atomicWriteJson(instancePath, instance, { mode: PUBLIC_FILE_MODE });
+      for (const file of ['01-category-fund.json', '03-genesis-tx.json']) {
+        const target = path.join(out, file);
+        const record = readJsonFile(target);
+        record.broadcast = true;
+        atomicWriteJson(target, record, { mode: PRIVATE_FILE_MODE });
+      }
+      console.log(JSON.stringify({
+        ok: true,
+        resumed: true,
+        broadcast: true,
+        operationId: committed.operationId,
+        network: resumeNetwork,
+        out,
+        categoryTxid: instance.categoryTxid,
+        genesisTxid: instance.genesisTxid,
+      }, null, 2));
+      return;
+    }
     const walletsPath = arg('wallets', path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json'));
     // Protocol fee rate is fixed 1 sat/B everywhere (no rate choice).
     // Category parent value is operator choice; default is small (not a fee pad).
@@ -521,15 +541,6 @@ async function main() {
       summary: capacitySummary(capacity),
     }));
 
-    if (hasFlag('broadcast')) {
-      assertBroadcastAllowed({
-        network,
-        setupMode: 'development-only',
-        mainnetAcknowledged: hasFlag('i-understand-mainnet'),
-        allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
-      });
-    }
-
     const rpc = await createChainRpc({ network });
     console.error(JSON.stringify({ phase: 'rpc', backend: rpc.backend, label: rpc.label, network }));
 
@@ -557,9 +568,7 @@ async function main() {
       // Explicit fund: re-verify when gettxout available; else require --fund-sats with electrum.
       let sats = arg('fund-sats') ? Number(arg('fund-sats')) : null;
       if (sats == null) {
-        const utxo = rpc.backend === 'layer1-ssh'
-          ? bchnGetTxOut(fundTxid, Number(fundVout))
-          : await rpc.gettxout(fundTxid, Number(fundVout));
+        const utxo = await rpc.gettxout(fundTxid, Number(fundVout));
         if (!utxo || utxo._partial) {
           throw new Error(
             `funding UTXO missing/spent ${fundTxid}:${fundVout} `
@@ -585,6 +594,8 @@ async function main() {
       rpc,
       pinArtifacts: arg('pin-artifacts', DEFAULT_PIN_ART),
       broadcast: hasFlag('broadcast'),
+      mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+      allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
     });
     console.log(JSON.stringify({
       ok: true,
@@ -602,6 +613,11 @@ async function main() {
         note: `Fill the pool with up to ${result.capacity.maxLiveNotes} deposits before a withdraw for a non-trivial live set`,
       },
       broadcast: result.broadcast,
+      operationId: result.operationId,
+      journal: result.journalPath,
+      next: result.broadcast
+        ? 'pool active'
+        : 'retry with --with-genesis --out <same-dir> --resume-pending --broadcast',
       unlockRoot,
       leanRoot,
       pinLens: PIN_LENS,

@@ -82,7 +82,7 @@ async function fixture() {
   return { reference, profileId, instanceId, initial, deposit, transfer, withdrawal, depositPost, transferPost, withdrawalPost };
 }
 
-test('real circomlibjs Poseidon reference executes deterministic deposit, transfer, and withdrawal vectors', async () => {
+test('pinned Poseidon reference executes deterministic deposit, transfer, and withdrawal vectors', async () => {
   const { reference, initial, deposit, transfer, withdrawal } = await fixture();
   const acceptedDeposit = reference.transition(bindPublic(reference, deposit));
   const acceptedTransfer = reference.transition(bindPublic(reference, transfer));

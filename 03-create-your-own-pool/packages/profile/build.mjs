@@ -177,23 +177,32 @@ function buildSetup(input, artifacts) {
       transcript: { status: 'not-applicable' }, contributions: [],
     };
   }
-  if (input.mode !== 'ceremony-production') fail('setup.mode is unsupported');
-  exactKeys(input, 'ceremony setup input', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
-  exactKeys(input.provenance, 'ceremony setup provenance', ['method', 'initializerCommitment']);
-  if (input.provenance.method !== 'multi-party-randomness') fail('ceremony setup requires multi-party-randomness provenance');
-  exactKeys(input.transcript, 'ceremony transcript input', ['artifactPath', 'verifier']);
-  const artifactPath = safeBundlePath(input.transcript.artifactPath, 'ceremony transcript input artifactPath');
+  if (input.mode !== 'local-contribution-simulation') fail('setup.mode is unsupported');
+  exactKeys(input, 'local contribution setup input', ['mode', 'provenance', 'material', 'transcript', 'contributions']);
+  exactKeys(input.provenance, 'local contribution setup provenance', ['method', 'initializerCommitment']);
+  if (input.provenance.method !== 'single-coordinator-sequential-contributions') {
+    fail('local contribution setup provenance is invalid');
+  }
+  exactKeys(input.transcript, 'local contribution transcript input', ['artifactPath', 'verifier']);
+  const artifactPath = safeBundlePath(input.transcript.artifactPath, 'local contribution transcript input artifactPath');
   const transcript = artifacts.find((artifact) => artifact.path === artifactPath && artifact.kind === 'ceremony-transcript');
-  if (!transcript) fail('ceremony transcript input must name a ceremony-transcript artifact');
-  if (!Array.isArray(input.contributions)) fail('ceremony setup contributions must be an array');
-  const material = cloneTyped(input.material, 'ceremony setup material');
-  object(material, 'ceremony setup material'); object(material.phase2, 'ceremony setup material phase2');
-  if (Object.hasOwn(material.phase2, 'contributionChainSha256')) fail('ceremony contributionChainSha256 is builder-derived');
+  if (!transcript) fail('local contribution transcript must name a ceremony-transcript artifact');
+  if (!Array.isArray(input.contributions)) fail('local contribution setup contributions must be an array');
+  const material = cloneTyped(input.material, 'local contribution setup material');
+  object(material, 'local contribution setup material'); object(material.phase2, 'local contribution setup material phase2');
+  if (Object.hasOwn(material.phase2, 'contributionChainSha256')) fail('contributionChainSha256 is builder-derived');
   material.phase2.contributionChainSha256 = sha256(Buffer.from(canonicalJson(input.contributions), 'utf8'));
   return {
-    mode: 'ceremony-production', provenance: cloneTyped(input.provenance, 'ceremony setup provenance'), material,
-    transcript: { status: 'complete', artifactPath, sha256: transcript.sha256, verifier: cloneTyped(input.transcript.verifier, 'ceremony transcript verifier') },
-    contributions: cloneTyped(input.contributions, 'ceremony setup contributions'),
+    mode: 'local-contribution-simulation',
+    provenance: cloneTyped(input.provenance, 'local contribution setup provenance'),
+    material,
+    transcript: {
+      status: 'complete',
+      artifactPath,
+      sha256: transcript.sha256,
+      verifier: cloneTyped(input.transcript.verifier, 'local contribution transcript verifier'),
+    },
+    contributions: cloneTyped(input.contributions, 'local contribution setup contributions'),
   };
 }
 

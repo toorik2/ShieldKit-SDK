@@ -5,7 +5,7 @@
 | Toolkit | root `package.json` SemVer (`0.y.z` until 1.0) | yes |
 | Profile | `profileId` = `sha256:…` | no |
 | Instance | `instanceId` + genesis | no after birth |
-| Blobs | release tag + sha256 | new tag if content changes |
+| Blobs | release tag + tracked manifest + archive/file SHA-256 | new tag if content changes |
 
 New setup ⇒ new profile + new genesis.
 
@@ -14,4 +14,9 @@ New setup ⇒ new profile + new genesis.
 While 0.y.z, MINOR may break — [CHANGELOG](../../CHANGELOG.md).  
 Maturity labels (Charter) are independent of toolkit version. Default claim: **Unaudited — Work In Progress**.
 
-Development ptau: hash-only allowed only for pinned trusted Hermez `final_20`; ceremony path always full-verifies. Force full: `setup.verifyPtau: true` / `--verify-ptau`.
+Development ptau: hash-only allowed only for pinned trusted Hermez `final_20`; the local contribution simulation always full-verifies. Force full: `setup.verifyPtau: true` / `--verify-ptau`.
+
+The local sequential runner is `local-contribution-simulation`. Signed external
+contribution receipts form a hash-chained transcript, but toolkit SemVer does
+not promote a profile to `production-qualified`; that status requires a
+separately governed and audited ceremony plus a new genesis.

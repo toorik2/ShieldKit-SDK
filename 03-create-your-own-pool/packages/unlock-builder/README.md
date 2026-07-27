@@ -16,5 +16,5 @@ const out = buildVerifierUnlocks({ adapterPath, packetPath, outDir });
 Changing densFuel/stabilize/G2 table ⇒ new verifier-set + profile + genesis.
 
 **Resolve toolchain:** `SHIELDKIT_UNLOCK_ROOT` → `vendor/verifier` + `vendor/lean`.  
-**Blank machine:** root `npm install` runs `setup-unlock-toolchain.mjs` (or `npm run unlock-builder:setup`). Skip: `SHIELDKIT_SKIP_UNLOCK_SETUP=1`.  
+**Blank machine:** run root `npm ci`, then `npm run unlock-builder:setup`. The explicit setup consumes only the root npm lock plus tracked vendored Yarn/pnpm locks; root postinstall performs integrity checks and never resolves nested dependencies.
 Not for browsers (~30s compile).

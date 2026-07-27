@@ -77,7 +77,10 @@ async function loadProfile(value) {
   if ((net !== 'chipnet' && net !== 'mainnet') || (genesisNet !== undefined && genesisNet !== net)) {
     fail('profile network must be chipnet or mainnet and must match genesis.network when set');
   }
-  if (manifest.setup?.mode !== 'development-only' && manifest.setup?.mode !== 'ceremony-production') fail('profile setup mode is unsupported');
+  if (manifest.setup?.mode !== 'development-only'
+    && manifest.setup?.mode !== 'local-contribution-simulation') {
+    fail('profile setup mode is unsupported');
+  }
   // SCAR wire networkId is pin-fixed (circuit hardcodes 2); BCH chain is `net`.
   const networkId = 2;
   return Object.freeze({

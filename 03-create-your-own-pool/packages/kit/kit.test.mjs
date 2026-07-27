@@ -82,6 +82,6 @@ test('mainnet gates pure functions (no mainnet bundle required)', () => {
       mainnetAcknowledged: true,
       setupMode: 'development-only',
     }),
-    (e) => e.code === 'DEVELOPMENT_PROFILE_ON_MAINNET',
+    (e) => e.code === 'UNQUALIFIED_PROFILE_ON_MAINNET',
   );
 });

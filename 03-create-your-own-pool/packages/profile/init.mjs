@@ -32,7 +32,7 @@ const digest = (buf) => `sha256:${createHash('sha256').update(buf).digest('hex')
 
 /**
  * @param {object} input
- * @param {'development-only'|'ceremony-production'} input.mode
+ * @param {'development-only'|'local-contribution-simulation'} input.mode
  * @param {object} input.setup - args for development or ceremony runner (destination, r1cs, ptau, …)
  * @param {object} [input.bundle] - if set, builds a loadable profile:
  *   { destination, profile, toolchain, network, genesis, artifacts, expected? }
@@ -45,8 +45,8 @@ export async function init(input) {
     fail('init input must be an object');
   }
   const mode = input.mode;
-  if (mode !== 'development-only' && mode !== 'ceremony-production') {
-    fail('mode must be development-only or ceremony-production');
+  if (mode !== 'development-only' && mode !== 'local-contribution-simulation') {
+    fail('mode must be development-only or local-contribution-simulation');
   }
   if (!input.setup || typeof input.setup !== 'object') fail('setup is required');
 
@@ -155,7 +155,7 @@ export async function init(input) {
     // profile-builder ceremony input shape for setup:
     // { mode, provenance, material, transcript: { artifactPath, verifier }, contributions }
     const setupInput = {
-      mode: 'ceremony-production',
+      mode: 'local-contribution-simulation',
       provenance: setup.provenance,
       material: {
         phase1: setup.material.phase1,

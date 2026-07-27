@@ -4,6 +4,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import {
   PIN_LENS, ROLE_NAMES, assertPinLens, buildLiveUnlockEnv,
@@ -11,8 +12,13 @@ import {
 import { UnlockBuilderError } from './errors.mjs';
 import { assertEcipWithinPinBudget } from './ecip-pin-gate.mjs';
 import { resolveLeanRoot, resolveTsxBin, resolveUnlockRoot } from './resolve.mjs';
+import { assertSafeReplaceDirectory } from '../kit/safe-paths.mjs';
 
 export { UnlockBuilderError };
+const REPOSITORY_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../..',
+);
 
 function sha256File(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
@@ -54,7 +60,9 @@ export async function buildVerifierUnlocks(input) {
   if (!input.outDir || typeof input.outDir !== 'string') {
     throw new UnlockBuilderError('INVALID_INPUT', 'outDir is required');
   }
-  const outDir = path.resolve(input.outDir);
+  const outDir = assertSafeReplaceDirectory(input.outDir, {
+    repositoryRoot: REPOSITORY_ROOT,
+  });
   const requirePinLens = input.requirePinLens !== false;
 
   // Quiet by default (product path). Verbose only when explicitly requested:
@@ -172,7 +180,7 @@ export async function buildVerifierUnlocks(input) {
       'SPAWN_FAIL',
       `unlock build spawn failed: ${r.error.message}`
         + (r.error.code === 'ENOENT'
-          ? ' — install unlock toolchain (`npm install` / setup-unlock-toolchain.mjs)'
+          ? ' — run root `npm ci`, then `npm run unlock-builder:setup`'
           : ''),
       {
         status: r.status,

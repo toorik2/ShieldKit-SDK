@@ -7,15 +7,14 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import {
   PIN_LENS, resolveUnlockRoot, resolveLeanRoot,
 } from '../packages/unlock-builder/index.mjs';
 import { capacityFromReserveCap, capacitySummary } from '../packages/kit/pool-capacity.mjs';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=10'];
 const PIN_FILES = [
   'final.zkey', 'g1_relation.r1cs', 'g1_relation.wasm', 'verification_key.json', 'verifier-set.bin',
 ];
@@ -23,21 +22,6 @@ const PIN_FILES = [
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 ? process.argv[i + 1] : def;
-}
-
-function gettxout(txid, vout) {
-  try {
-    const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node',
-      `sudo -n -u bchn /usr/local/bin/bitcoin-cli -conf=/etc/bchn/bitcoin.conf gettxout ${txid} ${vout} true`], {
-      encoding: 'utf8', timeout: 15000,
-    });
-    if (r.status !== 0) return null;
-    const t = (r.stdout || '').trim();
-    if (!t || t === 'null') return null;
-    return JSON.parse(t);
-  } catch {
-    return null;
-  }
 }
 
 async function main() {
@@ -112,20 +96,32 @@ async function main() {
   // fee inventory
   const fees = state?.feeUtxos || [];
   let liveFees = 0;
-  let rpcOk = null;
-  if (fees.length) {
+  let chainRpc = null;
+  let rpcError = null;
+  try {
+    chainRpc = await createChainRpc({ network: instance?.network || 'chipnet' });
+  } catch (error) {
+    rpcError = error.message;
+  }
+  if (fees.length && chainRpc) {
     for (const u of fees.slice(0, 20)) {
-      const o = gettxout(u.txid, u.vout);
+      const o = await chainRpc.gettxout(u.txid, u.vout);
       if (o) liveFees += 1;
-      if (rpcOk === null) rpcOk = o !== null || true;
     }
-    // if all null might be network
     push('feeUtxos', fees.length > 0, { count: fees.length, liveSample: liveFees });
+  } else if (fees.length) {
+    push('feeUtxos', true, {
+      count: fees.length,
+      liveSample: null,
+      note: 'RPC unavailable; inventory could not be live-checked',
+    });
   } else {
     push('feeUtxos', false, { count: 0, note: 'no fee UTXOs in state — fund hot wallet' });
   }
-  push('rpc.layer1-node', rpcOk !== false, {
-    note: 'gettxout via ssh layer1-node (optional for offline doctor)',
+  push('rpc', chainRpc !== null, {
+    backend: chainRpc?.backend || null,
+    label: chainRpc?.label || null,
+    note: chainRpc ? 'verified unified RPC backend' : `optional for offline doctor: ${rpcError}`,
   });
 
   // pin arts for create-pool / prove

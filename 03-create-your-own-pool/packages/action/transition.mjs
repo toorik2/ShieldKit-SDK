@@ -1,7 +1,22 @@
 // G1 feasibility reference model. This code computes deterministic witnesses
 // and rejects malformed transitions; it neither generates nor accepts proofs.
 import { createHash } from 'node:crypto';
-import { buildPoseidon } from 'circomlibjs';
+import { poseidon1 } from 'poseidon-lite/poseidon1';
+import { poseidon2 } from 'poseidon-lite/poseidon2';
+import { poseidon3 } from 'poseidon-lite/poseidon3';
+import { poseidon4 } from 'poseidon-lite/poseidon4';
+import { poseidon5 } from 'poseidon-lite/poseidon5';
+import { poseidon6 } from 'poseidon-lite/poseidon6';
+import { poseidon7 } from 'poseidon-lite/poseidon7';
+import { poseidon8 } from 'poseidon-lite/poseidon8';
+import { poseidon9 } from 'poseidon-lite/poseidon9';
+import { poseidon10 } from 'poseidon-lite/poseidon10';
+import { poseidon11 } from 'poseidon-lite/poseidon11';
+import { poseidon12 } from 'poseidon-lite/poseidon12';
+import { poseidon13 } from 'poseidon-lite/poseidon13';
+import { poseidon14 } from 'poseidon-lite/poseidon14';
+import { poseidon15 } from 'poseidon-lite/poseidon15';
+import { poseidon16 } from 'poseidon-lite/poseidon16';
 import { encodeActionPacket } from './packet.mjs';
 import { encodeStateNftCommitment } from './state.mjs';
 import {
@@ -129,14 +144,21 @@ function compareStates(actual, expected) {
   for (const key of Object.keys(expected)) if (actual[key] !== expected[key]) fail(`post-state mismatch: ${key}`);
 }
 
-/** Build the real pinned circomlibjs BN254 Poseidon implementation. */
+/** Build the pinned BN254 Poseidon reference implementation. */
 export async function createShieldedTransitionReference() {
-  const poseidon = await buildPoseidon();
-  const F = poseidon.F;
+  const implementations = [
+    null,
+    poseidon1, poseidon2, poseidon3, poseidon4,
+    poseidon5, poseidon6, poseidon7, poseidon8,
+    poseidon9, poseidon10, poseidon11, poseidon12,
+    poseidon13, poseidon14, poseidon15, poseidon16,
+  ];
   const hash = (tag, ...values) => {
     const inputs = [tag, ...values];
     for (const value of inputs) if (typeof value !== 'bigint' || value < 0n || value >= FR_MODULUS) fail('Poseidon input is not canonical Fr');
-    return F.toObject(poseidon(inputs));
+    const implementation = implementations[inputs.length];
+    if (!implementation) fail(`Poseidon arity ${inputs.length} is unsupported`);
+    return implementation(inputs);
   };
   const noteEmpty = [hash(DOMAIN_TAGS.NOTE_TREE_EMPTY, 0n)];
   const nullifierEmpty = [hash(DOMAIN_TAGS.NULLIFIER_TREE_EMPTY, 0n)];

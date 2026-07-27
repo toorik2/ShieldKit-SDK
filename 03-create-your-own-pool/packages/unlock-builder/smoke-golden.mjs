@@ -18,14 +18,16 @@ function arg(name, fallback) {
   return fallback;
 }
 
-const adapterPath = path.resolve(arg(
-  'adapter',
-  path.join(REPO, '.cache/live-battery/run-20260724/cycles/18/deposit-adapter.json'),
-));
-const packetPath = path.resolve(arg(
-  'packet',
-  path.join(REPO, '.cache/live-battery/run-20260724/cycles/18/deposit.packet'),
-));
+const adapterArg = arg('adapter');
+const packetArg = arg('packet');
+if (!adapterArg || !packetArg) {
+  console.error(
+    'Usage: npm run unlock-builder:smoke -- --adapter <adapter.json> --packet <action.packet> [--out <directory>]',
+  );
+  process.exit(2);
+}
+const adapterPath = path.resolve(adapterArg);
+const packetPath = path.resolve(packetArg);
 const outDir = path.resolve(arg(
   'out',
   path.join(REPO, '.cache/unlock-builder-smoke'),

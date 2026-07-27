@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { SNARKJS_VERSION, getPinnedSnarkjsInfo } from './development.mjs';
@@ -14,9 +15,9 @@ import { init } from '../init.mjs';
 import { loadVerifierProfileBundle } from '../load.mjs';
 
 const execFileAsync = promisify(execFile);
-const here = path.dirname(new URL(import.meta.url).pathname);
-const snarkCli = path.join(here, '..', 'node_modules', 'snarkjs', 'build', 'cli.cjs');
-const circomCli = path.join(here, '..', 'node_modules', 'circom2', 'cli.js');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const snarkCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
+const circomCli = fileURLToPath(import.meta.resolve('circom2/cli.js'));
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const bytes = (name, seed) => Buffer.from(`NON-CRYPTOGRAPHIC INIT TEST: ${name}: ${seed}\n`);
 
@@ -64,7 +65,7 @@ test('ceremony init → build → loadVerifierProfileBundle (same loader)', asyn
   t.after(async () => { await (await import('node:fs/promises')).rm(root, { recursive: true, force: true }); });
   const { r1cs, ptau } = await tinyCircuit(root);
   const tool = await getPinnedSnarkjsInfo();
-  const snarkjsCli = path.join(here, '..', 'node_modules', 'snarkjs', 'build', 'cli.cjs');
+  const snarkjsCli = snarkCli;
   const sourceRoot = path.join(root, 'sources');
   await mkdir(path.join(sourceRoot, 'artifacts'), { recursive: true });
   await mkdir(path.join(sourceRoot, 'toolchain'), { recursive: true });
@@ -90,7 +91,7 @@ test('ceremony init → build → loadVerifierProfileBundle (same loader)', asyn
   const bundleDest = path.join(root, 'profile-bundle');
 
   const result = await init({
-    mode: 'ceremony-production',
+    mode: 'local-contribution-simulation',
     setup: {
       destination: setupDest,
       r1csPath: r1cs,
@@ -148,15 +149,15 @@ test('ceremony init → build → loadVerifierProfileBundle (same loader)', asyn
     load: true,
   });
 
-  assert.equal(result.mode, 'ceremony-production');
-  assert.equal(result.manifest.setup.mode, 'ceremony-production');
-  assert.equal(result.manifest.setup.provenance.method, 'multi-party-randomness');
+  assert.equal(result.mode, 'local-contribution-simulation');
+  assert.equal(result.manifest.setup.mode, 'local-contribution-simulation');
+  assert.equal(result.manifest.setup.provenance.method, 'single-coordinator-sequential-contributions');
   assert.ok(result.manifest.setup.contributions.length >= 2);
   assert.equal(result.manifest.setup.transcript.status, 'complete');
   assert.ok(result.loaded);
   assert.equal(result.loaded.profileId, result.profileId);
   assert.equal(result.loaded.instanceId, result.instanceId);
-  assert.equal(result.loaded.manifest.setup.mode, 'ceremony-production');
+  assert.equal(result.loaded.manifest.setup.mode, 'local-contribution-simulation');
 
   // Same loader entry as development path
   const again = await loadVerifierProfileBundle(result.bundleDirectory, {
@@ -165,5 +166,5 @@ test('ceremony init → build → loadVerifierProfileBundle (same loader)', asyn
     instanceId: result.instanceId,
   });
   assert.equal(again.profileId, result.profileId);
-  assert.equal(again.manifest.setup.mode, 'ceremony-production');
+  assert.equal(again.manifest.setup.mode, 'local-contribution-simulation');
 });

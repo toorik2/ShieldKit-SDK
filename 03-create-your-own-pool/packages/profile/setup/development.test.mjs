@@ -8,6 +8,7 @@ import { open } from 'node:fs/promises';
 import { chmod, lstat, mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
@@ -23,9 +24,9 @@ import {
 } from './development.mjs';
 
 const execFileAsync = promisify(execFile);
-const here = path.dirname(new URL(import.meta.url).pathname);
-const snarkCli = path.join(here, '..', 'node_modules', 'snarkjs', 'build', 'cli.cjs');
-const circomCli = path.join(here, '..', 'node_modules', 'circom2', 'cli.js');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const snarkCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
+const circomCli = fileURLToPath(import.meta.resolve('circom2/cli.js'));
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 async function run(args, { entropy } = {}) {

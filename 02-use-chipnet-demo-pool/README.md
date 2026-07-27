@@ -25,7 +25,8 @@ Your `openNotes` stay empty until *you* deposit. You never need strangers’ see
 ## Setup
 
 ```bash
-npm install                         # deps + unlock toolchain (postinstall)
+npm ci                              # immutable root workspace
+npm run unlock-builder:setup        # immutable vendored verifier toolchain
 npm run fetch-playground-bundle     # ~455MB profile arts (sha256 in instance.json)
 npm run rpc:probe
 npm run shieldkit -- playground doctor

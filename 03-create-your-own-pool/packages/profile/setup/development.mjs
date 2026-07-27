@@ -18,7 +18,7 @@ const MAX_ENTROPY_BYTES = 4096;
 const MIN_ENTROPY_BYTES = 32;
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
-const snarkjsRoot = path.join(packageDirectory, '..', 'node_modules', 'snarkjs');
+const snarkjsRoot = path.dirname(fileURLToPath(import.meta.resolve('snarkjs')));
 const snarkjsCliPath = path.join(snarkjsRoot, 'build', 'cli.cjs');
 const snarkjsPackagePath = path.join(snarkjsRoot, 'package.json');
 const fstatAsync = promisify(fstat);
@@ -41,7 +41,7 @@ const PTAU_HASH_ONLY_IMPLICATIONS = Object.freeze([
   'development-only: snarkjs powersoftau verify was skipped after SHA-256 pin match',
   'you trust the pin identity (e.g. Hermez final_20) and that the file bytes match that pin',
   'hash-only does NOT re-check the multi-party Phase-1 transcript or contribution chain',
-  'hash-only is NOT ceremony-production or mainnet qualification evidence',
+  'hash-only is NOT an external-contribution transcript or mainnet qualification evidence',
   'a wrong pin (or malicious pin) would accept a bad ptau without full verify',
   'pass setup.verifyPtau=true or CLI --verify-ptau to force full snarkjs powersoftau verify',
 ]);

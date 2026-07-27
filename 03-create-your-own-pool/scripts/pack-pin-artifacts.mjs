@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto';
 import {
-  createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,7 @@ function main() {
   const source = path.resolve(arg('source', path.join(ROOT, '.cache/profile-build-live/artifacts')));
   const outDir = path.resolve(arg('out-dir', path.join(ROOT, '.cache/pins')));
   const tag = arg('tag', 'v1');
+  const sourceUrl = arg('url', '');
   const tarName = `shieldkit-pin-artifacts-${tag}.tar.gz`;
   const tarPath = path.join(outDir, tarName);
 
@@ -58,31 +59,44 @@ function main() {
   let total = 0;
   for (const name of REQUIRED) {
     const p = path.join(source, name);
-    const st = statSync(p);
+    const st = lstatSync(p);
+    if (!st.isFile() || st.isSymbolicLink()) {
+      throw new Error(`pin source must be a regular non-symlink file: ${name}`);
+    }
     total += st.size;
     files[name] = { bytes: st.size, sha256: sha256File(p) };
   }
 
-  // portable tar of just required files
-  const r = spawnSync('tar', ['-czf', tarPath, '-C', source, ...REQUIRED], { encoding: 'utf8' });
+  // Deterministic GNU tar + gzip stream: fixed ordering, metadata, ownership,
+  // and timestamp. Repacking identical bytes must reproduce the archive hash.
+  const r = spawnSync('tar', [
+    '--sort=name',
+    '--mtime=@0',
+    '--owner=0',
+    '--group=0',
+    '--numeric-owner',
+    '--format=gnu',
+    '-czf',
+    tarPath,
+    '-C',
+    source,
+    ...REQUIRED,
+  ], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`tar failed: ${r.stderr || r.stdout}`);
 
   const manifest = {
-    schema: 'shieldkit/pin-artifacts-manifest/v1',
+    schema: 'shieldkit/pin-artifacts-manifest/v2',
     tag,
-    createdAt: new Date().toISOString(),
+    source: {
+      url: sourceUrl || `https://github.com/toorik2/ShieldKit-SDK/releases/download/shieldkit-pin-${tag}/${tarName}`,
+    },
     tar: {
-      path: tarPath,
       fileName: tarName,
       bytes: statSync(tarPath).size,
       sha256: sha256File(tarPath),
     },
     files,
     totalUnpackedBytes: total,
-    install: {
-      destDefault: '.cache/profile-build-live/artifacts',
-      command: `npm run fetch-pin-artifacts -- --from ${tarPath}`,
-    },
   };
   const manPath = path.join(outDir, `shieldkit-pin-artifacts-${tag}.manifest.json`);
   writeFileSync(manPath, JSON.stringify(manifest, null, 2));

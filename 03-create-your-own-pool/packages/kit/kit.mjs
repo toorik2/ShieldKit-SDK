@@ -80,13 +80,13 @@ export async function createKit(config) {
 
   if (
     network.name === 'mainnet'
-    && desktop.profile.setupMode === 'development-only'
+    && desktop.profile.setupMode !== 'production-qualified'
     && !config.allowDevelopmentOnMainnet
   ) {
     throw new AppKitNetworkError(
-      'DEVELOPMENT_PROFILE_ON_MAINNET',
-      'development-only profile refused on mainnet (not production privacy); '
-        + 'ceremony-backed profile + new genesis required, or lab --allow-development-on-mainnet',
+      'UNQUALIFIED_PROFILE_ON_MAINNET',
+      `${desktop.profile.setupMode} profile refused on mainnet; no production-qualified profile exists. `
+        + 'Use Chipnet, or the explicit lab-only --allow-development-on-mainnet override',
     );
   }
 

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { loadCliConfig } from './cli.mjs';
@@ -33,8 +35,13 @@ const hash256 = (bytes) => createHash('sha256').update(createHash('sha256').upda
 const lockFor = (redeem) => Buffer.concat([Buffer.from([0xaa, 0x20]), hash256(redeem), Buffer.from([0x87])]).toString('hex');
 const push = (bytes) => Buffer.concat([Buffer.from([bytes.length]), bytes]).toString('hex');
 const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const provenanceSkip = existsSync(path.join(repositoryRoot, '.local/provenance/series.json'))
+  && existsSync(path.join(repositoryRoot, '.local/provenance/seam-series.json'))
+  ? false
+  : 'optional local PF7 provenance archive is not shipped in a clean clone';
 
-test('retained PF7 format-patch chain is hash-pinned and complete', async () => {
+test('retained PF7 format-patch chain is hash-pinned and complete', { skip: provenanceSkip }, async () => {
   const reference = await validateProvenance();
   assert.equal(reference.patches.length, 7);
   assert.equal(reference.terminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');

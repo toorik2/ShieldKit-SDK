@@ -112,8 +112,8 @@ async function makeCeremonyBundle(seed) {
       { sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier } },
     ];
     manifest.setup = {
-      mode: 'ceremony-production',
-      provenance: { method: 'multi-party-randomness', initializerCommitment: digest(`ceremony-init-${seed}`) },
+      mode: 'local-contribution-simulation',
+      provenance: { method: 'single-coordinator-sequential-contributions', initializerCommitment: digest(`ceremony-init-${seed}`) },
       material: {
         phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest(`ptau-${seed}`) },
         phase2: {
@@ -262,11 +262,11 @@ test('replacement comparator proves only the local-development interface propert
 
 test('setup mode and setup provenance cannot be relabeled in place', async () => {
   const modeRelabeled = await makeDevelopmentBundle('mode-relabel');
-  modeRelabeled.manifest.setup.mode = 'ceremony-production';
+  modeRelabeled.manifest.setup.mode = 'local-contribution-simulation';
   await writeBoundManifest(modeRelabeled);
   await assert.rejects(
     () => loadVerifierProfileBundle(modeRelabeled.directory),
-    /ceremony setup requires multi-party-randomness provenance/,
+    /local contribution setup provenance is invalid/,
   );
 
   const provenanceRelabeled = await makeDevelopmentBundle('provenance-relabel');
@@ -350,7 +350,7 @@ test('genesis rejects a zero category and reserve caps outside fixed-note BCH bo
   );
 });
 
-test('production mode rejects an incomplete ceremony transcript rather than accepting a development setup label', async () => {
+test('unsupported production label is rejected rather than laundering a local setup', async () => {
   const bundle = await makeDevelopmentBundle('missing-transcript', (manifest) => {
     manifest.setup = {
       mode: 'ceremony-production',
@@ -366,7 +366,7 @@ test('production mode rejects an incomplete ceremony transcript rather than acce
       ],
     };
   });
-  await assert.rejects(() => loadVerifierProfileBundle(bundle.directory), /ceremony transcript artifact is missing/);
+  await assert.rejects(() => loadVerifierProfileBundle(bundle.directory), /setup.mode is unsupported/);
 });
 
 test('loader fails closed on duplicate JSON names, traversal, missing artifacts, hash drift, and pinned-instance hot swaps', async () => {
@@ -411,8 +411,8 @@ test('loader rejects unordered artifacts and unordered numeric ceremony contribu
     manifest.artifacts.splice(1, 0, artifact('ceremony-transcript', 'ceremony-transcript', 'artifacts/transcript.json'));
     const verifier = { name: 'fixture-verifier', version: '0', sha256: digest('fixture-verifier') };
     manifest.setup = {
-      mode: 'ceremony-production',
-      provenance: { method: 'multi-party-randomness', initializerCommitment: digest('ceremony-init') },
+      mode: 'local-contribution-simulation',
+      provenance: { method: 'single-coordinator-sequential-contributions', initializerCommitment: digest('ceremony-init') },
       material: {
         phase1: { ptauSource: 'noncryptographic-test-ptau', ptauSha256: digest('ptau') },
         phase2: { initializationCommand: { argv: ['fixture-zkey', 'new'] }, finalZkeySha256: digest(files['artifacts/pk.bin']), finalZkeyVerification: { status: 'verified', verifier }, contributionChainSha256: digest(canonicalJson([{ sequence: '2', participantCommitment: digest('participant-2'), contributionHash: digest('contribution-2'), verification: { status: 'verified', verifier } }, { sequence: '1', participantCommitment: digest('participant-1'), contributionHash: digest('contribution-1'), verification: { status: 'verified', verifier } }])) },

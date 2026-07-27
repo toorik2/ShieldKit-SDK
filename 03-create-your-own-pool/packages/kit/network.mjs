@@ -25,7 +25,7 @@ export const PRODUCT_STATUS = Object.freeze({
   status: 'Unaudited — Work In Progress',
   maturityLabel: 'evidence experiment',
   defaultNetwork: 'chipnet',
-  mainnet: 'config-ready; not release-qualified; not production privacy by default',
+  mainnet: 'implemented for lab qualification; no production-qualified profile exists',
   note: 'Toolkit semver ≠ profileId ≠ instanceId ≠ production/privacy qualification',
 });
 
@@ -101,11 +101,11 @@ export function assertBroadcastAllowed(opts) {
     );
   }
   const setupMode = opts.setupMode ?? 'development-only';
-  if (setupMode === 'development-only' && !opts.allowDevelopmentOnMainnet) {
+  if (setupMode !== 'production-qualified' && !opts.allowDevelopmentOnMainnet) {
     fail(
-      'DEVELOPMENT_PROFILE_ON_MAINNET',
-      'development-only profile refused on mainnet (not production privacy); '
-        + 'ceremony-backed profile + new genesis required, or lab --allow-development-on-mainnet',
+      'UNQUALIFIED_PROFILE_ON_MAINNET',
+      `${setupMode} profile refused on mainnet; no production-qualified profile exists. `
+        + 'Use Chipnet, or the explicit lab-only --allow-development-on-mainnet override',
     );
   }
   return Object.freeze({ ok: true, network: 'mainnet', setupMode, lab: Boolean(opts.allowDevelopmentOnMainnet) });
@@ -135,18 +135,14 @@ export function productWarnings(opts = {}) {
       'MAINNET: Broadcast still requires --i-understand-mainnet / mainnetAcknowledged.',
     );
     const setupMode = opts.setupMode ?? 'development-only';
-    if (setupMode === 'development-only') {
+    if (setupMode !== 'production-qualified') {
       warnings.push(
-        'MAINNET + development-only: not production privacy; ceremony-production profile + new genesis required for production claims (or lab --allow-development-on-mainnet).',
-      );
-    } else if (setupMode === 'ceremony-production') {
-      warnings.push(
-        'MAINNET + ceremony-production: syntactic/ceremony packaging is not automatic G9/release qualification.',
+        `MAINNET + ${setupMode}: refused unless the explicit lab-only --allow-development-on-mainnet override is supplied.`,
       );
     }
   }
-  if ((opts.setupMode ?? 'development-only') === 'development-only' && network !== 'mainnet') {
-    warnings.push('development-only setup is not multi-party ceremony and not production privacy.');
+  if ((opts.setupMode ?? 'development-only') !== 'production-qualified' && network !== 'mainnet') {
+    warnings.push(`${opts.setupMode ?? 'development-only'} setup is not production privacy qualification.`);
   }
   return Object.freeze(warnings);
 }

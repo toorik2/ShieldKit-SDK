@@ -68,6 +68,7 @@ export function resolveTsxBin(unlockRoot) {
   const candidates = [
     // package-local first (blank-machine; no absolute symlinks to sibling repos)
     path.join(PKG_ROOT, 'node_modules/.bin/tsx'),
+    path.join(REPO_ROOT, 'node_modules/.bin/tsx'),
     path.join(unlockRoot, 'harness/node_modules/.bin/tsx'),
     path.join(unlockRoot, 'node_modules/.bin/tsx'),
   ];
@@ -75,8 +76,8 @@ export function resolveTsxBin(unlockRoot) {
     if (existsSync(bin)) return bin;
   }
   throw new Error(
-    'unlock-builder: tsx not found. Blank machine: `npm install` (postinstall runs '
-    + 'setup-unlock-toolchain) or `node 03-create-your-own-pool/scripts/setup-unlock-toolchain.mjs`. '
+    'unlock-builder: tsx not found. Blank machine: run `npm ci`, then '
+    + '`npm run unlock-builder:setup`. '
     + `Looked in: ${candidates.join(', ')}`,
   );
 }

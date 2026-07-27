@@ -151,7 +151,7 @@ test('CLI resolves caller paths from metadata and emits only built identities', 
   const root = await testRoot(t);
   const input = await makeInput(root, 'cli', path.join(root, 'cli-output'));
   const metadata = path.join(root, 'input.json'); await writeFile(metadata, JSON.stringify(input));
-  const { stdout, stderr } = await execFileAsync(process.execPath, ['cli.mjs', '--input', metadata], { cwd: path.dirname(new URL(import.meta.url).pathname) });
+  const { stdout, stderr } = await execFileAsync(process.execPath, ['build-cli.mjs', '--input', metadata], { cwd: path.dirname(new URL(import.meta.url).pathname) });
   assert.equal(stderr, '');
   const result = JSON.parse(stdout);
   assert.match(result.profileId, /^sha256:[0-9a-f]{64}$/);

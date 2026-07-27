@@ -18,6 +18,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const POOL_ACT = path.join(ROOT, '03-create-your-own-pool/scripts/pool-act.mjs');
 const LIVE = path.join(ROOT, '.cache/ticket10-e2e-20260726/pool');
 const WALLETS = path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json');
+const LIVE_FIXTURE_SKIP = process.env.SHIELDKIT_LIVE_FIXTURES === '1'
+  && existsSync(LIVE) && existsSync(WALLETS)
+  ? false
+  : 'set SHIELDKIT_LIVE_FIXTURES=1 with the separately qualified ticket10 fixture and local wallets';
 
 function mapOpen(n) {
   return {
@@ -27,7 +31,7 @@ function mapOpen(n) {
   };
 }
 
-test('pool-act withdraw rejects empty openNotes (fail closed)', () => {
+test('pool-act withdraw rejects empty openNotes (fail closed)', { skip: LIVE_FIXTURE_SKIP }, () => {
   assert.ok(existsSync(POOL_ACT), 'pool-act.mjs must exist');
   assert.ok(existsSync(LIVE), 'ticket10 live pool fixture required');
   assert.ok(existsSync(WALLETS), 'wallets fixture required');
@@ -66,7 +70,7 @@ test('pool-act rejects missing pool directory', () => {
   assert.doesNotMatch(combined, /"ok"\s*:\s*true/);
 });
 
-test('corrupt LIFO witnessSeed diverges tip stateCommitment from honest open set', async () => {
+test('corrupt LIFO witnessSeed diverges tip stateCommitment from honest open set', { skip: LIVE_FIXTURE_SKIP }, async () => {
   assert.ok(existsSync(LIVE), 'ticket10 live pool fixture required');
   const state = JSON.parse(readFileSync(path.join(LIVE, 'state.json'), 'utf8'));
   const inst = JSON.parse(readFileSync(path.join(LIVE, 'instance.json'), 'utf8'));
@@ -128,7 +132,7 @@ test('corrupt LIFO witnessSeed diverges tip stateCommitment from honest open set
   assert.notEqual(hAct.spend.note.rho, cAct.spend.note.rho);
 });
 
-test('withdrawal witnessSeed must equal LIFO open note seed (fail closed)', async () => {
+test('withdrawal witnessSeed must equal LIFO open note seed (fail closed)', { skip: LIVE_FIXTURE_SKIP }, async () => {
   assert.ok(existsSync(LIVE));
   const state = JSON.parse(readFileSync(path.join(LIVE, 'state.json'), 'utf8'));
   const inst = JSON.parse(readFileSync(path.join(LIVE, 'instance.json'), 'utf8'));
@@ -161,7 +165,7 @@ test('withdrawal witnessSeed must equal LIFO open note seed (fail closed)', asyn
   );
 });
 
-test('deposit past maxLiveNotes reserve fails closed', async () => {
+test('deposit past maxLiveNotes reserve fails closed', { skip: LIVE_FIXTURE_SKIP }, async () => {
   assert.ok(existsSync(LIVE));
   const inst = JSON.parse(readFileSync(path.join(LIVE, 'instance.json'), 'utf8'));
   const wallets = JSON.parse(readFileSync(WALLETS, 'utf8'));
@@ -197,7 +201,7 @@ test('deposit past maxLiveNotes reserve fails closed', async () => {
   );
 });
 
-test('honest open-set NFT commitment matches chain tip; corrupt seed does not', async () => {
+test('honest open-set NFT commitment matches chain tip; corrupt seed does not', { skip: LIVE_FIXTURE_SKIP }, async () => {
   assert.ok(existsSync(LIVE));
   const { encodeStateNftCommitment } = await import('../action/state.mjs');
   const state = JSON.parse(readFileSync(path.join(LIVE, 'state.json'), 'utf8'));
@@ -282,22 +286,29 @@ test('honest open-set NFT commitment matches chain tip; corrupt seed does not', 
   );
 });
 
-test('assembleCompleteSettlement builds tip source token from packet preState (binding gap)', () => {
-  // Structural invariant of the shipped assembler: tip sourceOutputs.token is
-  // synthesized via stateToken(..., decoded.preState), not loaded from chain.
-  // This is the offline false-OK surface when preState ≠ live tip NFT.
-  const assembleSrc = readFileSync(
-    path.join(ROOT, '03-create-your-own-pool/packages/action/assemble.mjs'),
+test('pool action requires the exact live tip NFT commitment before broadcast', () => {
+  const actionSource = readFileSync(
+    path.join(ROOT, '03-create-your-own-pool/scripts/pool-act.mjs'),
     'utf8',
   );
   assert.match(
-    assembleSrc,
-    /stateToken\(stateCategory, instanceId, decoded\.preState\)/,
-    'tip source token must be documented as packet-preState-derived',
+    actionSource,
+    /transactionIdFromHex\(raw\) !== stateTxid/,
+    'raw tip bytes must authenticate the requested state transaction',
+  );
+  assert.match(
+    actionSource,
+    /tipCommit !== result\.preState\.stateCommitment/,
+    'packet preState must be compared with the chain tip NFT commitment',
+  );
+  assert.match(
+    actionSource,
+    /TIP_PRESTATE_UNVERIFIED/,
+    'an unavailable or malformed chain tip must fail closed',
   );
   assert.doesNotMatch(
-    assembleSrc,
-    /gettxout|fetchTip|chainTipCommitment|loadTipToken/,
-    'assembler must not claim chain tip fetch (gap remains open until fixed)',
+    actionSource,
+    /phase: 'tip-prestate-check-soft-fail'/,
+    'the pre-broadcast tip authentication gate must never soft-fail',
   );
 });

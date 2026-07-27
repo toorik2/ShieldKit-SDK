@@ -8,8 +8,9 @@ Unaudited WIP · **Chipnet first** · [SECURITY](./SECURITY.md)
 install → fetch pins → fund Chipnet wallet → deposit → withdraw.
 
 ```bash
-npm install
+npm ci
 npm run fetch-pin-artifacts
+npm run unlock-builder:setup
 npm run create-pool -- --out ./my-pool --with-genesis --wallets ./wallets.json --scan-fund --max-notes 16 --broadcast
 npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
 npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadcast
@@ -31,8 +32,9 @@ python3 -m http.server 8765 --directory 01-learn-about-this-system
 [`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/) — cap 16 live × 0.1 BCH. Not a hosted service.
 
 ```bash
-npm install
+npm ci
 npm run fetch-playground-bundle
+npm run unlock-builder:setup
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip

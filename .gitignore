@@ -20,8 +20,22 @@ HANDOVER.md
 # Operator wallets (never commit keys)
 wallets.json
 **/wallets.json
+**/wallet.json
+**/wallet-backup*.json
+**/backups/
 !**/fixtures/**/wallets.json
+
+# Pool-local secrets and proof/build traces (never commit)
+**/state.json
+**/ledger.jsonl
+**/runs/
+**/.shieldkit/
+**/inputs_dump.json
+!**/fixtures/**/state.json
+!**/fixtures/**/inputs_dump.json
+
+# Root workspace lock is authoritative; package-local locks are unsupported.
+03-create-your-own-pool/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
 02-use-chipnet-demo-pool/bundle/
-02-use-chipnet-demo-pool/state.json

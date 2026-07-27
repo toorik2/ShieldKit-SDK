@@ -10,7 +10,8 @@
  * Product defaults (hide fee/UTXO/ECIP pain):
  *   - auto tip discovery
  *   - auto fee UTXO scan (unless --no-scan-fees)
- *   - auto consolidate small hot UTXOs when none ≥ need (unless --no-auto-consolidate)
+ *   - prepare and journal consolidation when no hot UTXO is large enough
+ *     (never broadcast from the consolidation helper)
  *   - ECIP/fee retries inside completeAction
  *   - quiet progress unless --verbose or SHIELDKIT_VERBOSE=1
  *
@@ -19,7 +20,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync,
+  existsSync, mkdirSync, readFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +33,22 @@ import {
   hash256,
   instantiateSecp256k1,
   SigningSerializationTypeBch,
-} from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
+} from '@bitauth/libauth';
 import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
 import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
 import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  loadPendingOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
+import {
+  atomicWriteJson,
+  readJsonFile,
+  repairPrivateFileMode,
+} from '../packages/kit/secure-files.mjs';
 import { discoverStateTip } from '../packages/kit/state-tip.mjs';
 import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import { resolveUnlockRoot } from '../packages/unlock-builder/index.mjs';
@@ -72,14 +85,6 @@ function productLog(msg) {
 }
 function debugLog(obj) {
   if (VERBOSE) console.error(JSON.stringify(obj));
-}
-
-async function bchnSendHex(hex) {
-  return rpc.sendrawtransaction(hex);
-}
-
-async function bchnTestMempool(hex) {
-  return rpc.testmempoolaccept(hex);
 }
 
 async function gettxout(txid, vout) {
@@ -185,38 +190,54 @@ function loadStab(kind) {
 
 /**
  * Refresh fee inventory from hot wallet.
- * Always gettxout-verifies (scantxoutset can return spent phantoms).
+ * JSON-RPC/SSH scan hits are gettxout-verified because scantxoutset can return
+ * stale rows. Electrum's fresh listunspent response is already the backend's
+ * authoritative unspent set and is reused for both pruning and insertion.
  * Prunes dead entries already in state.feeUtxos.
  * @returns {{ added: number, stale: number, pruned: number, feeCount: number, large: number }}
  */
 async function scanFeesIntoState(state, hotAddress, minKeep = minSats('withdrawal')) {
-  let pruned = 0;
-  const kept = [];
-  for (const u of state.feeUtxos || []) {
-    if (await gettxout(u.txid, u.vout)) kept.push(u);
-    else pruned++;
-  }
-  state.feeUtxos = kept;
-
   const scan = await scantxoutsetAddr(hotAddress);
-  const rows = (scan.unspents || [])
-    .map((u) => ({
-      txid: u.txid,
-      vout: Number(u.vout),
-      scanSats: Math.round(Number(u.amount) * 1e8),
-    }))
+  const scanned = (scan.unspents || []).map((u) => ({
+    txid: u.txid,
+    vout: Number(u.vout),
+    scanSats: Math.round(Number(u.amount) * 1e8),
+  }));
+  let pruned = 0;
+  if (rpc.backend === 'electrum') {
+    const live = new Map(scanned.map((u) => [`${u.txid}:${u.vout}`, u.scanSats]));
+    const kept = [];
+    for (const u of state.feeUtxos || []) {
+      const sats = live.get(`${u.txid}:${Number(u.vout)}`);
+      if (sats == null) pruned++;
+      else kept.push({ ...u, sats });
+    }
+    state.feeUtxos = kept;
+  } else {
+    const kept = [];
+    for (const u of state.feeUtxos || []) {
+      if (await gettxout(u.txid, u.vout)) kept.push(u);
+      else pruned++;
+    }
+    state.feeUtxos = kept;
+  }
+
+  const rows = scanned
     .filter((u) => u.scanSats >= minKeep)
     .sort((a, b) => b.scanSats - a.scanSats);
 
   let added = 0;
   let stale = 0;
   for (const cand of rows) {
-    const u = await gettxout(cand.txid, cand.vout);
-    if (!u) {
-      stale++;
-      continue;
+    let sats = cand.scanSats;
+    if (rpc.backend !== 'electrum') {
+      const u = await gettxout(cand.txid, cand.vout);
+      if (!u) {
+        stale++;
+        continue;
+      }
+      sats = Math.round(Number(u.value) * 1e8);
     }
-    const sats = Math.round(Number(u.value) * 1e8);
     if (sats < minKeep) {
       stale++;
       continue;
@@ -231,6 +252,15 @@ async function scanFeesIntoState(state, hotAddress, minKeep = minSats('withdrawa
 }
 
 async function countLiveFees(state, need, rejected) {
+  if (rpc.backend === 'electrum') {
+    const unspents = await rpc.scanAddress(hotCtx.address, hotCtx.lockingBytecodeHex);
+    const live = new Set(unspents.map((u) => `${u.txid}:${Number(u.vout)}`));
+    return (state.feeUtxos || []).filter(
+      (u) => u.sats >= need
+        && !rejected.has(`${u.txid}:${u.vout}`)
+        && live.has(`${u.txid}:${Number(u.vout)}`),
+    ).length;
+  }
   let n = 0;
   for (const u of state.feeUtxos || []) {
     if (u.sats < need || rejected.has(`${u.txid}:${u.vout}`)) continue;
@@ -240,10 +270,10 @@ async function countLiveFees(state, need, rejected) {
 }
 
 /**
- * Merge small hot UTXOs into one ≥ needSats output (hides UTXO gymnastics).
- * Returns funding {txid,vout,sats} or null if already have large UTXO / insufficient.
+ * Prepare a transaction merging small hot UTXOs into one ≥ needSats output.
+ * This helper is deliberately offline: only the transaction coordinator may send it.
  */
-async function autoConsolidateHot(hot, needSats) {
+async function prepareConsolidation(hot, needSats) {
   const unspents = await rpc.scanAddress(hot.address, hot.lockingBytecodeHex);
   unspents.sort((a, b) => b.sats - a.sats);
   const large = unspents.find((u) => u.sats >= needSats);
@@ -314,10 +344,9 @@ async function autoConsolidateHot(hot, needSats) {
     hex = binToHex(encodeTransaction(tx));
   }
   productLog(`Preparing coins (merged ${selected.length} UTXOs → ${needSats} sats)…`);
-  const txid = await rpc.sendrawtransaction(hex);
-  debugLog({ phase: 'auto-consolidate', txid, needSats, inputs: selected.length });
-  await new Promise((r) => setTimeout(r, 2500));
-  return { txid, vout: 0, sats: needSats };
+  const txid = transactionIdFromHex(hex);
+  debugLog({ phase: 'prepare-consolidation', txid, needSats, inputs: selected.length });
+  return { txid, vout: 0, sats: needSats, hex };
 }
 
 async function main() {
@@ -345,9 +374,10 @@ async function main() {
   debugLog({ phase: 'rpc', backend: rpc.backend, label: rpc.label, network });
   productLog(`Connecting (${network} · ${rpc.label || rpc.backend})…`);
 
-  const state = existsSync(statePath)
+  let state = existsSync(statePath)
     ? JSON.parse(readFileSync(statePath, 'utf8'))
     : { stateTxid: null, feeUtxos: [], history: [], openNotes: [] };
+  repairPrivateFileMode(statePath);
 
   const wallets = JSON.parse(readFileSync(walletsPath, 'utf8'));
   const hot = wallets.hot;
@@ -362,11 +392,46 @@ async function main() {
   };
   const feePrivateKey = Buffer.from(hot.privateKeyHex, 'hex');
   const loaded = await loadVerifierProfileBundle(bundleDir);
+  const setupMode = loaded.manifest.setup?.mode || instance.setupMode || 'development-only';
   const expectedProfile = {
     profileId: instance.profileId || loaded.manifest.identity.profileId,
     instanceId: instance.instanceId || loaded.manifest.genesis.instanceId,
     network,
   };
+
+  const pending = loadPendingOperation(pool);
+  if (pending && pending.journal.status !== 'committed') {
+    if (!hasFlag('resume-pending')) {
+      throw new Error(
+        `unfinished ${pending.journal.kind} operation ${pending.journal.operationId}; `
+        + 'inspect .shieldkit/operations/pending.json and retry with --resume-pending --broadcast',
+      );
+    }
+    if (!hasFlag('broadcast')) {
+      throw new Error('--resume-pending requires --broadcast; live state is never committed offline');
+    }
+    await broadcastStagedOperation({
+      journalPath: pending.journalPath,
+      rpc,
+      mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+      allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
+    });
+    const committed = commitStagedOperation({
+      journalPath: pending.journalPath,
+      statePath,
+      ledgerPath: path.join(pool, 'ledger.jsonl'),
+    });
+    productLog(`Recovered and committed ${committed.kind} operation ${committed.operationId}`);
+    console.log(JSON.stringify({
+      ok: true,
+      resumed: true,
+      operationId: committed.operationId,
+      kind: committed.kind,
+      status: committed.status,
+      ...committed.publicResult,
+    }, null, 2));
+    return;
+  }
 
   // Tip: CLI override → state.json cache → chain discovery (moves every settle).
   let stateTxid = arg('state-txid', state.stateTxid || null);
@@ -412,7 +477,7 @@ async function main() {
         source: tip.source || 'chain-discover',
       };
     }
-    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    atomicWriteJson(statePath, state);
     productLog(`Tip ready (seq ${state.tipMeta?.actionSequence ?? tip.actionSequence})`);
     debugLog({
       phase: 'tip-discover',
@@ -473,18 +538,70 @@ async function main() {
     }
   }
 
-  // Auto-merge fragmented hot UTXOs when none ≥ need (product: hide UTXO gymnastics).
+  // Prepare fragmented-hot-wallet consolidation when none ≥ need.
+  // Offline runs stage it and stop; broadcast runs send only through the gated coordinator.
   if (!fixedFunding && !hasFlag('no-auto-consolidate')) {
     const liveLarge = await countLiveFees(state, need, new Set());
     if (liveLarge === 0) {
       try {
-        const merged = await autoConsolidateHot(hot, need);
+        const merged = await prepareConsolidation(hot, need);
         if (merged) {
-          pushFee(state, merged);
-          writeFileSync(statePath, JSON.stringify(state, null, 2));
-          productLog('Coins ready for deposit/withdraw.');
+          const nextState = structuredClone(state);
+          pushFee(nextState, merged);
+          const staged = stageOperation({
+            poolDirectory: pool,
+            kind: 'fee-consolidation',
+            network,
+            setupMode,
+            transactions: [{ role: 'consolidation', txid: merged.txid, hex: merged.hex }],
+            nextState,
+            ledgerRecord: {
+              ts: new Date().toISOString(),
+              kind: 'fee-consolidation',
+              txid: merged.txid,
+              sats: merged.sats,
+              broadcast: hasFlag('broadcast'),
+            },
+            publicResult: { txid: merged.txid, sats: merged.sats },
+          });
+          if (!hasFlag('broadcast')) {
+            productLog('Coin consolidation prepared offline; live state was not changed.');
+            console.log(JSON.stringify({
+              ok: true,
+              prepared: true,
+              broadcast: false,
+              operationId: staged.journal.operationId,
+              journal: staged.journalPath,
+              txid: merged.txid,
+              next: 'retry with the same command plus --resume-pending --broadcast',
+            }, null, 2));
+            return;
+          }
+          await broadcastStagedOperation({
+            journalPath: staged.journalPath,
+            rpc,
+            mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+            allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
+          });
+          commitStagedOperation({
+            journalPath: staged.journalPath,
+            statePath,
+            ledgerPath: path.join(pool, 'ledger.jsonl'),
+          });
+          state = readJsonFile(statePath);
+          productLog('Coins consolidated. Re-run the requested action after the UTXO is visible.');
+          console.log(JSON.stringify({
+            ok: true,
+            consolidated: true,
+            broadcast: true,
+            operationId: staged.journal.operationId,
+            txid: merged.txid,
+            next: `retry ${kind}`,
+          }, null, 2));
+          return;
         }
       } catch (e) {
+        if (e?.code === 'PENDING_OPERATION') throw e;
         debugLog({ phase: 'auto-consolidate-fail', error: String(e.message || e).slice(0, 200) });
       }
     }
@@ -498,7 +615,7 @@ async function main() {
     withdrawLockHex = wallets.withdraw.lockingBytecodeHex;
   } else if (withdrawTo) {
     const { decodeCashAddress: dec } = await import(
-      '../packages/action/node_modules/@bitauth/libauth/build/index.js'
+      '@bitauth/libauth'
     );
     const decoded = dec(withdrawTo);
     if (typeof decoded === 'string') throw new Error(`--withdraw-to invalid: ${decoded}`);
@@ -579,7 +696,7 @@ async function main() {
           binToHex,
         });
         applySettlementLog(state, fetched);
-        writeFileSync(statePath, JSON.stringify(state, null, 2));
+        atomicWriteJson(statePath, state);
         productLog(
           fetched.depth === 0
             ? 'Tip is genesis (empty live set).'
@@ -660,7 +777,7 @@ async function main() {
         });
         state.tipForest = synced.tipForest;
         state.publicTip = synced.publicTip;
-        writeFileSync(statePath, JSON.stringify(state, null, 2));
+        atomicWriteJson(statePath, state);
         productLog(
           `Tip forest ready (live ${synced.publicTip.state.liveNoteCount}, seq ${synced.publicTip.state.actionSequence}).`,
         );
@@ -812,34 +929,26 @@ async function main() {
       // Fail closed before broadcast: packet preState must match live tip NFT commitment.
       // Offline Libauth uses synthesized tip from preState and can pass while chain rejects OP_VERIFY.
       if (result.preState?.stateCommitment) {
-        const tipU = await gettxout(stateTxid, 0);
-        if (tipU?._partial === undefined && tipU?.value != null) {
-          // Prefer raw tip decode when electrum has full gettx
+        const raw = await rpc.getrawtransaction(stateTxid, false);
+        if (typeof raw !== 'string' || transactionIdFromHex(raw) !== stateTxid) {
+          throw new Error('TIP_PRESTATE_UNVERIFIED: RPC did not return the exact state-tip transaction');
         }
-        try {
-          const raw = await rpc._electrumCall?.('blockchain.transaction.get', [stateTxid, false]);
-          if (typeof raw === 'string') {
-            const tipTx = decodeTransaction(hexToBin(raw));
-            if (typeof tipTx !== 'string' && tipTx.outputs?.[0]?.token?.nft?.commitment) {
-              const cmt = binToHex(tipTx.outputs[0].token.nft.commitment);
-              const tipCommit = cmt.slice(80, 144);
-              if (tipCommit !== result.preState.stateCommitment) {
-                throw new Error(
-                  `TIP_PRESTATE_MISMATCH: packet preState.stateCommitment≠chain tip NFT `
-                  + `(pre.seq=${result.preState.actionSequence} live=${result.preState.liveNoteCount} `
-                  + `next=${result.preState.nextLeafIndex}). `
-                  + 'After any withdraw, state.json must retain tipForest (not openNotes alone). '
-                  + 'Rebuild from openNotes omits nullifiers/extra leaves → offline gateOk, chain OP_VERIFY fail.',
-                );
-              }
-            }
-          }
-        } catch (e) {
-          if (String(e.message || e).includes('TIP_PRESTATE_MISMATCH')) throw e;
-          debugLog({
-            phase: 'tip-prestate-check-soft-fail',
-            error: String(e.message || e).slice(0, 160),
-          });
+        const tipTx = decodeTransaction(hexToBin(raw));
+        const commitment = typeof tipTx === 'string'
+          ? undefined
+          : tipTx.outputs?.[0]?.token?.nft?.commitment;
+        if (!commitment) {
+          throw new Error('TIP_PRESTATE_UNVERIFIED: state-tip output 0 has no mutable NFT commitment');
+        }
+        const tipCommit = binToHex(commitment).slice(80, 144);
+        if (tipCommit !== result.preState.stateCommitment) {
+          throw new Error(
+            `TIP_PRESTATE_MISMATCH: packet preState.stateCommitment≠chain tip NFT `
+            + `(pre.seq=${result.preState.actionSequence} live=${result.preState.liveNoteCount} `
+            + `next=${result.preState.nextLeafIndex}). `
+            + 'After any withdraw, state.json must retain tipForest (not openNotes alone). '
+            + 'Rebuild from openNotes omits nullifiers/extra leaves → offline gateOk, chain OP_VERIFY fail.',
+          );
         }
       }
 
@@ -913,27 +1022,16 @@ async function main() {
   if (!result) throw lastErr || new Error(`${kind} failed after ${MAX_ATTEMPTS} attempts`);
 
   const doBroadcast = hasFlag('broadcast');
-  if (doBroadcast) {
-    const prepA = await bchnTestMempool(result.prepHex);
-    if (prepA?.[0] && prepA[0].allowed === false) {
-      throw new Error(`prep mempool reject ${JSON.stringify(prepA)}`);
+  // Future state can be derived before broadcasting; it remains only in the 0600
+  // pending journal until both transactions have been accepted and sent.
+  for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
+    const o = result.complete.transaction.outputs[i];
+    if (Buffer.from(o.lockingBytecode).toString('hex') === hot.lockingBytecodeHex) {
+      pushFee(state, { txid: result.settleTxid, vout: i, sats: Number(o.valueSatoshis) });
     }
-    await bchnSendHex(result.prepHex);
-    const setA = await bchnTestMempool(result.settleHex);
-    if (setA?.[0] && setA[0].allowed === false) {
-      throw new Error(`settle mempool reject ${JSON.stringify(setA)}`);
-    }
-    await bchnSendHex(result.settleHex);
-    // Harvest settle change + prep change (prep leftover is usually next fee).
-    for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
-      const o = result.complete.transaction.outputs[i];
-      if (Buffer.from(o.lockingBytecode).toString('hex') === hot.lockingBytecodeHex) {
-        pushFee(state, { txid: result.settleTxid, vout: i, sats: Number(o.valueSatoshis) });
-      }
-    }
-    if (Array.isArray(result.prepHotChange)) {
-      for (const u of result.prepHotChange) pushFee(state, u);
-    }
+  }
+  if (Array.isArray(result.prepHotChange)) {
+    for (const u of result.prepHotChange) pushFee(state, u);
   }
 
   state.stateTxid = result.settleTxid;
@@ -1004,7 +1102,7 @@ async function main() {
       nextLeafIndex: result.postState.nextLeafIndex,
       stateCommitment: result.postState.stateCommitment,
       updatedAt: new Date().toISOString(),
-      source: doBroadcast ? 'post-broadcast-act' : 'post-act-offline',
+      source: 'post-broadcast-act',
     };
   }
 
@@ -1033,20 +1131,12 @@ async function main() {
     } catch { /* soft */ }
   }
 
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
-  appendFileSync(path.join(pool, 'ledger.jsonl'), `${JSON.stringify({
+  const ledgerRecord = {
     ts: new Date().toISOString(), kind, prepTxid: result.prepTxid, settleTxid: result.settleTxid,
     wire: result.wire, unlockMs: result.unlockMs, broadcast: doBroadcast,
     openNotes: state.openNotes.length,
-  })}\n`);
-
-  productLog(
-    doBroadcast
-      ? `${kind} settled ${result.settleTxid}`
-      : `${kind} built offline (not broadcast)`,
-  );
-  console.log(JSON.stringify({
-    ok: true,
+  };
+  const publicResult = {
     kind,
     pool,
     prepTxid: result.prepTxid,
@@ -1054,15 +1144,65 @@ async function main() {
     wire: result.wire,
     proveMs: result.proveMs,
     unlockMs: result.unlockMs,
-    broadcast: doBroadcast,
     openNotes: state.openNotes.length,
-    // private open-note count only — not global live set
+  };
+  const staged = stageOperation({
+    poolDirectory: pool,
+    kind,
+    network,
+    setupMode,
+    transactions: [
+      { role: 'prep', txid: result.prepTxid, hex: result.prepHex },
+      { role: 'settlement', txid: result.settleTxid, hex: result.settleHex },
+    ],
+    nextState: state,
+    ledgerRecord,
+    publicResult,
+  });
+
+  if (!doBroadcast) {
+    productLog(`${kind} prepared offline; live state was not changed`);
+    console.log(JSON.stringify({
+      ok: true,
+      prepared: true,
+      broadcast: false,
+      operationId: staged.journal.operationId,
+      journal: staged.journalPath,
+      ...publicResult,
+      next: 'retry with the same command plus --resume-pending --broadcast',
+    }, null, 2));
+    return;
+  }
+
+  await broadcastStagedOperation({
+    journalPath: staged.journalPath,
+    rpc,
+    mainnetAcknowledged: hasFlag('i-understand-mainnet'),
+    allowDevelopmentOnMainnet: hasFlag('allow-development-on-mainnet'),
+  });
+  commitStagedOperation({
+    journalPath: staged.journalPath,
+    statePath,
+    ledgerPath: path.join(pool, 'ledger.jsonl'),
+  });
+
+  productLog(`${kind} settled ${result.settleTxid}`);
+  console.log(JSON.stringify({
+    ok: true,
+    operationId: staged.journal.operationId,
+    broadcast: true,
+    ...publicResult,
   }, null, 2));
-  process.exit(0);
 }
 
-main().catch((e) => {
+main().then(() => {
+  // Some TLS implementations briefly retain a destroyed Electrum socket. This
+  // is a command-line entrypoint, so exit only after both output streams flush.
+  process.stdout.write('', () => {
+    process.stderr.write('', () => process.exit(0));
+  });
+}).catch((e) => {
   productLog(`Error: ${e.message || e}`);
   if (VERBOSE && e.stack) console.error(e.stack);
-  process.exit(1);
+  process.stderr.write('', () => process.exit(1));
 });

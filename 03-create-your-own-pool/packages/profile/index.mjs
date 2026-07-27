@@ -22,9 +22,18 @@ export {
 } from './setup/development.mjs';
 export {
   initializeCeremonyGroth16,
+  initializeLocalContributionSimulationGroth16,
   assertCeremonyMetadata,
+  assertLocalContributionSimulationMetadata,
   CeremonyError,
 } from './setup/ceremony.mjs';
+export {
+  createExternalContributionRequest,
+  signExternalContributionReceipt,
+  verifyExternalContributionChain,
+  digestContributionFile,
+  ExternalContributionError,
+} from './setup/external-contribution.mjs';
 export { buildVerifierProfileBundle, ProfileBuildError } from './build.mjs';
 // bridgeLocalSetupToProfile is internal to init — not a documented user step.
 export {

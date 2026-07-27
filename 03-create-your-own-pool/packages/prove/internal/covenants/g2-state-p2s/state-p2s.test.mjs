@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   createVirtualMachineBch2026,
   bigIntToVmNumber,
@@ -20,14 +20,21 @@ import {
   NULLIFIER_TREE_DEPTH,
   OUTPUT_RECORD_BYTES,
   frToHex,
-} from '../../packages/core/shielded-transition.mjs';
+} from '../../../../action/transition.mjs';
+import {
+  BABYJUB_BASE8,
+  babyJubMul,
+  bytesToHex,
+  packBabyJubPoint,
+} from '../../../../recover/portable-core.mjs';
 
 const here = new URL('.', import.meta.url);
 const hex = text => Uint8Array.from(Buffer.from(text, 'hex'));
 const sha256 = bytes => createHash('sha256').update(bytes).digest();
 const concat = items => Uint8Array.from(Buffer.concat(items.map(item => Buffer.from(item))));
-const cashcRoot = process.env.CASHC_ROOT;
-if (!cashcRoot) throw new Error('CASHC_ROOT must name the pinned cashc package root');
+const cashcRoot = process.env.CASHC_ROOT || resolve(
+  fileURLToPath(new URL('../../../../unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/', import.meta.url)),
+);
 const cashc = await import(pathToFileURL(resolve(cashcRoot, 'dist/index.js')).href);
 assert.equal(cashc.version, '0.14.0-next.1');
 
@@ -42,6 +49,9 @@ function emptySiblings(reference, depth, emptyTag, nodeTag) {
   return siblings;
 }
 const field = value => frToHex(BigInt(value));
+const recoveryKey = scalar => bytesToHex(
+  packBabyJubPoint(babyJubMul(BABYJUB_BASE8, BigInt(scalar))),
+);
 const bound = (reference, action) => ({ ...action, publicInputs: reference.prepareTransition(action).publicInputs });
 
 async function fixtures() {
@@ -51,8 +61,12 @@ async function fixtures() {
   const initial = reference.emptyState({ profileId, instanceId, maximumReserve: '30000000' });
   const notePathEmpty = emptySiblings(reference, NOTE_TREE_DEPTH, DOMAIN_TAGS.NOTE_TREE_EMPTY, DOMAIN_TAGS.NOTE_TREE_NODE);
   const nullifierPathEmpty = emptySiblings(reference, NULLIFIER_TREE_DEPTH, DOMAIN_TAGS.NULLIFIER_TREE_EMPTY, DOMAIN_TAGS.NULLIFIER_TREE_NODE);
-  const note1 = { sk: field(11), rho: field(12), r: field(13) };
-  const note2 = { sk: field(21), rho: field(22), r: field(23) };
+  const note1 = {
+    sk: field(11), recoveryPublicKey: recoveryKey(31), rho: field(12), r: field(13),
+  };
+  const note2 = {
+    sk: field(21), recoveryPublicKey: recoveryKey(41), rho: field(22), r: field(23),
+  };
   const derived1 = reference.deriveNote({ ...note1, profileId, instanceId });
   const derived2 = reference.deriveNote({ ...note2, profileId, instanceId });
   const rootAfterDeposit = frToHex(rootFromPath(reference, reference.poseidon(DOMAIN_TAGS.NOTE_TREE_LEAF, BigInt(`0x${derived1.cm}`)), 0n, notePathEmpty, DOMAIN_TAGS.NOTE_TREE_NODE));

@@ -15,6 +15,12 @@
 set -euo pipefail
 export PATH="$HOME/.elan/bin:$PATH"
 cd "$(dirname "$0")/../.."
+NECESSITY_BASELINE="$(mktemp /tmp/leanbch_necessity.XXXX.json)"
+cp Meta/necessity.json "$NECESSITY_BASELINE"
+cleanup() {
+  rm -f "$NECESSITY_BASELINE"
+}
+trap cleanup EXIT
 
 echo "== [1/6] lake build (core VM + LeanBCHOpt + Validation + Meta analyzer) =="
 BUILD=$(lake build 2>&1) || { echo "$BUILD"; echo "❌ BUILD FAILED (core)"; exit 1; }
@@ -90,18 +96,14 @@ echo "== [5/6] necessity closure gate (Meta/necessity.json byte-identical to com
 # from what is committed, the load-bearing set CHANGED — either a legal refactor's module-attribution
 # update (regenerate + commit the new baseline after reviewing the diff), or an ACCIDENTAL change to
 # what the headlines depend on (a keystone edit, a silently-dropped lemma). Either way: stop and look.
-if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  if git diff --exit-code -- Meta/necessity.json >/dev/null 2>&1; then
-    echo "✓ necessity closure unchanged (load-bearing set stable)"
-  else
-    echo "❌ FAIL: Meta/necessity.json drifted from the committed baseline."
-    echo "   The headline proof-term closure changed. Review the diff:"
-    git --no-pager diff -- Meta/necessity.json | head -60
-    echo "   If intentional (a file move / promoted headline), commit the regenerated baseline."
-    exit 1
-  fi
+if cmp -s "$NECESSITY_BASELINE" Meta/necessity.json; then
+  echo "✓ necessity closure unchanged (load-bearing set stable)"
 else
-  echo "⚠ git unavailable — skipping necessity closure gate"
+  echo "❌ FAIL: Meta/necessity.json drifted from the pre-build baseline."
+  echo "   The headline proof-term closure changed. Review the diff:"
+  diff -u "$NECESSITY_BASELINE" Meta/necessity.json | head -60 || true
+  echo "   If intentional, review and commit the regenerated baseline."
+  exit 1
 fi
 
 # KAT-CONSERVATION gate: extracting a known-answer test from a model file into LeanBCH/Validation/*

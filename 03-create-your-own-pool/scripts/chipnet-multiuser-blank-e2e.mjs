@@ -21,6 +21,13 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { completeAction } from '../packages/kit/complete-action.mjs';
 import { discoverStateTip } from '../packages/kit/state-tip.mjs';
+import { assertSafeReplaceDirectory } from '../packages/kit/safe-paths.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
 import { parsePf7CarrierAuthority } from '../packages/prove/authority.mjs';
 import {
   rebuildPublicTip,
@@ -42,7 +49,7 @@ import {
   instantiateSecp256k1,
   SigningSerializationTypeBch,
   decodeTransaction,
-} from '../packages/action/node_modules/@bitauth/libauth/build/index.js';
+} from '@bitauth/libauth';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.E2E_OUT
@@ -56,6 +63,39 @@ function mustFullTxid(id, label) {
   }
   if (id.includes('…') || id.includes('...')) throw new Error(`${label}: truncated txid forbidden`);
   return id;
+}
+
+async function broadcastQualificationTransactions(rpc, label, transactions) {
+  const operationRoot = path.join(OUT, '.shieldkit', 'qualification', label);
+  const normalized = transactions.map(({ role, hex }) => ({
+    role,
+    hex,
+    txid: transactionIdFromHex(hex),
+  }));
+  const { journalPath } = stageOperation({
+    poolDirectory: operationRoot,
+    kind: `chipnet-qualification-${label}`,
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: normalized,
+    nextState: {
+      schema: 'shieldkit/chipnet-qualification-state/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+    ledgerRecord: {
+      schema: 'shieldkit/chipnet-qualification-ledger/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+  });
+  await broadcastStagedOperation({ journalPath, rpc });
+  commitStagedOperation({
+    journalPath,
+    statePath: path.join(operationRoot, 'state.json'),
+    ledgerPath: path.join(operationRoot, 'ledger.jsonl'),
+  });
+  return normalized;
 }
 
 /** Public tipForest for multi-user: keep trees/state, drop foreign secrets. */
@@ -145,7 +185,11 @@ async function consolidateHot(rpc, hot, needSats) {
     tx = build(fee);
     hex = binToHex(encodeTransaction(tx));
   }
-  const txid = await rpc.sendrawtransaction(hex);
+  const [{ txid }] = await broadcastQualificationTransactions(
+    rpc,
+    `consolidate-${Date.now()}`,
+    [{ role: 'consolidation', hex }],
+  );
   console.error(JSON.stringify({ phase: 'consolidate', txid, needSats }));
   await new Promise((r) => setTimeout(r, 2000));
   return { txid, vout: 0, sats: needSats };
@@ -208,13 +252,10 @@ async function actDeposit({
     },
   });
 
-  // Broadcast
-  const prepA = await rpc.testmempoolaccept(result.prepHex);
-  if (!prepA?.[0]?.allowed && !prepA?.[0]?._backend) {
-    // electrum always allows; still try broadcast
-  }
-  await rpc.sendrawtransaction(result.prepHex);
-  await rpc.sendrawtransaction(result.settleHex);
+  await broadcastQualificationTransactions(rpc, `${label}-action`, [
+    { role: 'preparation', hex: result.prepHex },
+    { role: 'settlement', hex: result.settleHex },
+  ]);
 
   mustFullTxid(result.settleTxid, `${label}.settle`);
   mustFullTxid(result.prepTxid, `${label}.prep`);
@@ -318,8 +359,10 @@ async function actWithdraw({
     },
   });
 
-  await rpc.sendrawtransaction(result.prepHex);
-  await rpc.sendrawtransaction(result.settleHex);
+  await broadcastQualificationTransactions(rpc, `${label}-action`, [
+    { role: 'preparation', hex: result.prepHex },
+    { role: 'settlement', hex: result.settleHex },
+  ]);
   mustFullTxid(result.settleTxid, `${label}.settle`);
   wallet.markSpent(note.noteIndex);
 
@@ -344,6 +387,7 @@ async function main() {
   const rpc = await createChainRpc({ network: 'chipnet' });
 
   const pool = path.join(OUT, 'pool');
+  assertSafeReplaceDirectory(pool, { repositoryRoot: ROOT });
   if (existsSync(pool)) rmSync(pool, { recursive: true, force: true });
 
   console.error(JSON.stringify({ phase: 'create-pool', pool, pin: PIN }));
@@ -388,7 +432,7 @@ async function main() {
   const authority = parsePf7CarrierAuthority(vs);
   let genesisHex = null;
   try {
-    genesisHex = await rpc._electrumCall('blockchain.transaction.get', [instance.genesisTxid, false]);
+    genesisHex = await rpc.getrawtransaction(instance.genesisTxid, false);
   } catch {
     genesisHex = null;
   }
@@ -397,7 +441,7 @@ async function main() {
   }
   let tipNftCommitmentHex;
   try {
-    const tipRaw = await rpc._electrumCall('blockchain.transaction.get', [depA.settleTxid, false]);
+    const tipRaw = await rpc.getrawtransaction(depA.settleTxid, false);
     const tipTx = decodeTransaction(hexToBin(tipRaw));
     tipNftCommitmentHex = binToHex(tipTx.outputs[0].token.nft.commitment);
   } catch {
@@ -453,7 +497,7 @@ async function main() {
   await new Promise((r) => setTimeout(r, 2500));
   let tipNftAfterAWdr;
   try {
-    const tipRaw = await rpc._electrumCall('blockchain.transaction.get', [wdrA.settleTxid, false]);
+    const tipRaw = await rpc.getrawtransaction(wdrA.settleTxid, false);
     const tipTx = decodeTransaction(hexToBin(tipRaw));
     tipNftAfterAWdr = binToHex(tipTx.outputs[0].token.nft.commitment);
   } catch {

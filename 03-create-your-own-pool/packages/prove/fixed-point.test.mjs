@@ -8,7 +8,7 @@ import {
   measurePf7FixedPointCandidate,
   Pf7FixedPointError,
   verifyPf7FixedPointCandidate,
-} from './pf7-fixed-point.mjs';
+} from './fixed-point.mjs';
 
 const hex = (byte, length = 32) => byte.toString(16).padStart(2, '0').repeat(length);
 const state = (sequence, reserve, commitment) => ({

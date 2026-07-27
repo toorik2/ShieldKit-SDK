@@ -17,12 +17,13 @@ You do **not** manage fee coin inventories, densFuel, or ECIP by hand — the cl
 
 ## Blank machine (summary)
 
-1. `npm install`
+1. `npm ci`
 2. `npm run fetch-pin-artifacts` (your pool) **or** `npm run fetch-playground-bundle` (demo)
-3. Fund hot wallet on Chipnet
-4. Create pool *or* use playground
-5. `shieldkit deposit … --broadcast`
-6. `shieldkit withdraw … --broadcast`
+3. `npm run unlock-builder:setup`
+4. Fund hot wallet on Chipnet
+5. Create pool *or* use playground
+6. `shieldkit deposit … --broadcast`
+7. `shieldkit withdraw … --broadcast`
 
 Full commands: [GOLDEN_PATH.md](./GOLDEN_PATH.md).
 

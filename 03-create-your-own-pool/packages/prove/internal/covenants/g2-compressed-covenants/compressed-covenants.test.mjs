@@ -16,7 +16,7 @@ import {
   buildStateTrampolineLock,
   buildStateTrampolineUnlock,
 } from './compressed-covenants.mjs';
-import { deriveInstanceId } from '../../packages/core/verifier-profile.mjs';
+import { deriveInstanceId } from '../../../../profile/load.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest();
 const pf7 = JSON.parse(readFileSync(

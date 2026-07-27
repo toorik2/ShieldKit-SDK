@@ -9,13 +9,15 @@ Do not open public issues with secrets, keys, or live wallet material.
 
 ## Development-only default
 
-Local Groth16 setup and the Chipnet playground are **`development-only`** — not a multi-party ceremony, not production privacy.  
-Mainnet is the same path as chipnet with one config change (`network: 'mainnet'` / `--network mainnet`; default remains chipnet). Wire `networkId`: mainnet=1, chipnet=2. Broadcast still requires `--i-understand-mainnet`; development-only pins also need `--allow-development-on-mainnet`. That is not mainnet/privacy qualification.
+Local Groth16 setup and the Chipnet playground are **`development-only`** — not a multi-party ceremony, not production privacy. The built-in sequential-contribution runner is honestly labeled **`local-contribution-simulation`**. Signed external contribution receipts provide a protocol for independently operated contributions, but do not by themselves prove participant independence or production qualification.
+
+Mainnet is selected by the profile network, RPC endpoint, and CashAddr prefix (`network: 'mainnet'` / `--network mainnet`; default remains Chipnet). The current pinned SCAR circuit fixes the wire `networkId` byte to **2 for both chain configurations**; it does not use that byte to distinguish BCH mainnet from Chipnet. Broadcast still requires `--i-understand-mainnet`, and any non-`production-qualified` profile is refused unless the explicit development-on-mainnet lab override is also present. This release creates no `production-qualified` profile.
 
 ## Secrets
 
 Never commit seeds, WIFs, private keys, RPC passwords, or wallet JSON.  
 `.cache/` is gitignored. Prefer fee policy B (`feePublicKey` + signature) when keys stay outside process.
+Wallets, pool state, operation journals, ledgers, run inputs, and backups are generically ignored. New private state and journal files are written atomically with mode `0600`; their directories use `0700`.
 
 **Local secret surfaces (operator-owned):**
 | Surface | Contents | Rule |
@@ -41,7 +43,8 @@ See [docs/PRIVACY.md](03-create-your-own-pool/docs/PRIVACY.md) for claim bounds 
 | Mainnet ack + development-on-mainnet gate | `createKit` / `--i-understand-mainnet` |
 | Empty / desynced open set | `OPEN_SET_DESYNC`, openNotes length |
 | Tip forest vs chain seq | `TIP_FOREST_DESYNC` |
-| Packet preState vs chain tip | `TIP_PRESTATE_MISMATCH` (post-offline gateOk) |
+| Packet preState vs exact chain tip | authenticated raw transaction + `TIP_PRESTATE_MISMATCH`; unavailable verification fails closed |
+| Prepare/send/state ordering | `0600` pending-operation journal; broadcast and state commit are separate, resumable phases |
 | Nullifier / identity / hash mismatch | covenant + action paths; CHARTER |
 | Pin lens mismatch | pool-act |
 | Missing pool / wallets / verifier-set | fail before prove/broadcast |
@@ -68,7 +71,7 @@ CLI errors are **operator-facing** (codes + messages on stderr). Not multi-tenan
 
 Before mainnet or real funds:
 
-1. `development-only` vs `ceremony-production` understood; production privacy needs ceremony + new genesis ([CHARTER](03-create-your-own-pool/docs/CHARTER.md)).
+1. `development-only` and `local-contribution-simulation` are not production qualification. Production privacy needs independently governed [external contributions](03-create-your-own-pool/docs/EXTERNAL_CONTRIBUTIONS.md), audit, and a new genesis ([CHARTER](03-create-your-own-pool/docs/CHARTER.md)).
 2. Explicit mainnet ack; no accidental broadcast.
 3. Fee keys not in git, not in browser bundle, not in shared screenshots.
 4. Tip path: openNotes + tipForest match chain; doctor/tip before large acts.

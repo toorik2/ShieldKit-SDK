@@ -13,7 +13,7 @@ import {
   hash256,
   instantiateSecp256k1,
   SigningSerializationTypeBch,
-} from '../action/node_modules/@bitauth/libauth/build/index.js';
+} from '@bitauth/libauth';
 import {
   planCompletePreparationTransaction,
   finalizeCompletePreparationTransaction,
@@ -115,7 +115,7 @@ export async function completeAction(input) {
   const funding = input.funding;
   const secp = await instantiateSecp256k1();
   const { wasm, zkey, vk: vkPath } = resolveProveArtifacts(bundleDirectory);
-  const snarkjs = require('../profile/node_modules/snarkjs');
+  const snarkjs = require('snarkjs');
 
   const templateUnlocks = input.stabilizeUnlockTemplate;
   const planPf7 = (preparation) => preparation.settlementOutpoints.verifierCarriers.map((carrier, i) => {

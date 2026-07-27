@@ -7,6 +7,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { chmod, lstat, mkdir, mkdtemp, open, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import { SNARKJS_VERSION, getPinnedSnarkjsInfo, initializeDevelopmentGroth16 } from './setup/development.mjs';
@@ -14,10 +15,10 @@ import { compareDevelopmentVerifierProfileBundles } from './load.mjs';
 import { SetupProfileBridgeError, bridgeLocalSetupToProfile } from './bridge.mjs';
 
 const execFileAsync = promisify(execFile);
-const here = path.dirname(new URL(import.meta.url).pathname);
-const localSetup = path.resolve(here, '../local-setup');
-const snarkCli = path.join(localSetup, 'node_modules', 'snarkjs', 'build', 'cli.cjs');
-const circomCli = path.join(localSetup, 'node_modules', 'circom2', 'cli.js');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const localSetup = here;
+const snarkCli = path.join(path.dirname(fileURLToPath(import.meta.resolve('snarkjs'))), 'build', 'cli.cjs');
+const circomCli = fileURLToPath(import.meta.resolve('circom2/cli.js'));
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 async function runSnark(args, { entropy } = {}) {
@@ -60,7 +61,7 @@ async function realFixture(t) {
       expectedSnarkjs: { version: SNARKJS_VERSION, cliSha256: pinned.cliSha256 }, entropySource: { kind: 'fd', fd: entropy.fd },
     });
   }
-  return { root, r1cs, setup, generatorPath: path.join(localSetup, 'node_modules', 'snarkjs', 'build', 'cli.cjs') };
+  return { root, r1cs, setup, generatorPath: snarkCli };
 }
 
 async function bridgeInput(fixture, setupDirectory, destination) {
@@ -119,7 +120,7 @@ test('two tiny real local setups bridge as distinct immutable development profil
 
   const { stdout, stderr } = await execFileAsync(
     process.execPath,
-    [path.join(here, './compare-development-profiles.mjs'), '--left', first.directory, '--right', second.directory],
+    [path.join(here, './compare-development.mjs'), '--left', first.directory, '--right', second.directory],
     { cwd: here, env: {} },
   );
   assert.equal(stderr, ''); assert.equal(stdout, `${comparison}\n`);
@@ -169,7 +170,7 @@ test('bridge rejects relabeling, metadata drift, key-source override, and existi
 test('CLI resolves bridge paths and emits a development-only immutable bundle identity', async (t) => {
   const fixture = await realFixture(t); const setup = await fixture.setup('setup'); const input = await bridgeInput(fixture, setup.directory, path.join(fixture.root, 'cli-profile'));
   const metadataPath = path.join(fixture.root, 'bridge.json'); await writeFile(metadataPath, JSON.stringify(input));
-  const { stdout, stderr } = await execFileAsync(process.execPath, ['cli.mjs', '--input', metadataPath], { cwd: here });
+  const { stdout, stderr } = await execFileAsync(process.execPath, ['bridge-cli.mjs', '--input', metadataPath], { cwd: here });
   assert.equal(stderr, ''); const result = JSON.parse(stdout);
   assert.equal(result.mode, 'development-only'); assert.match(result.profileId, /^sha256:[0-9a-f]{64}$/); assert.match(result.instanceId, /^sha256:[0-9a-f]{64}$/);
 });

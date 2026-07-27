@@ -10,6 +10,8 @@ Playground (optional): [`../02-use-chipnet-demo-pool/`](../02-use-chipnet-demo-p
 | CLI | [`scripts/shieldkit.mjs`](scripts/shieldkit.mjs) |
 | Init template | [`templates/init.development.json`](templates/init.development.json) |
 
+Protocol: [`docs/EXTERNAL_CONTRIBUTIONS.md`](docs/EXTERNAL_CONTRIBUTIONS.md).
+
 ```bash
 npm test
 node 03-create-your-own-pool/scripts/shieldkit.mjs --help
@@ -27,7 +29,12 @@ const kit = await createKit(instanceToKitConfig(mine));
 - New setup ⇒ new profile + new genesis (no hot-swap onto playground).
 - After genesis: no admin/pause/upgrade key; capacity frozen.
 - Live anonymity set = live notes at spend time (≤ `maxLiveNotes`).
-- Production privacy claims: `ceremony-production` + new genesis only.
+- The built-in sequential contribution runner is
+  `local-contribution-simulation`, not a production ceremony.
+- External signed, hash-chained contribution receipts are supported, but
+  production qualification additionally requires independently governed
+  contributors, an audit, and a new genesis. This release creates no
+  `production-qualified` profile.
 
 ```text
 packages/   kit · profile · action · prove · recover · unlock-builder
