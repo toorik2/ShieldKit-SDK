@@ -233,6 +233,10 @@ async function cmdTip() {
       failJson('POOL_MISSING', 'need 02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
     }
     const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
+    const manifest = JSON.parse(readFileSync(path.join(bundleDir, 'manifest.json'), 'utf8'));
+    const stateNftCategory = instance.stateNftCategory
+      || manifest.genesis?.stateNftCategory
+      || instance.categoryTxid;
     const network = instance.network === 'mainnet' ? 'mainnet' : 'chipnet';
     const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
     const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
@@ -257,7 +261,7 @@ async function cmdTip() {
     const tip = await discoverStateTip({
       rpc,
       stateLockingBytecode: authority.settlementKernel.stateLock,
-      stateNftCategory: instance.stateNftCategory,
+      stateNftCategory,
       instanceId: instance.instanceId,
       preferredStateTxid: preferred || undefined,
     });

@@ -356,6 +356,11 @@ async function withGenesis(out, opts) {
     createdAt: new Date().toISOString(),
     mode: 'with-genesis',
     categoryTxid,
+    stateNftCategory: categoryTxid,
+    categoryInputOutpoint: {
+      txid: categoryTxid,
+      vout: '0',
+    },
     genesisTxid: finalized.transactionId,
     broadcast: false,
     status: opts.broadcast ? 'broadcast-pending' : 'prepared',

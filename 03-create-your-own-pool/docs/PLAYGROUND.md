@@ -5,7 +5,7 @@
 | Path | Role |
 |------|------|
 | [`01-learn-about-this-system/`](../../01-learn-about-this-system/) | Static learn site |
-| [`02-use-chipnet-demo-pool/`](../../02-use-chipnet-demo-pool/) | Shared Chipnet CLI demo (cap 16) |
+| [`02-use-chipnet-demo-pool/`](../../02-use-chipnet-demo-pool/) | Shared Chipnet CLI demo (cap 32) |
 | [`03-create-your-own-pool/`](../../03-create-your-own-pool/) | Product |
 
 ```bash

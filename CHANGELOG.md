@@ -4,6 +4,21 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 
 ## [Unreleased]
 
+### Changed
+- Playground switched to the real Chipnet-qualified 32-note instance
+  (`cfe741f6…`, 3.2 BCH reserve cap) and hash-pinned bundle
+  **`playground-bundle-v3`**.
+
+### Fixed
+- Custom pool instances now publish their State NFT category and category
+  outpoint; tip discovery also recovers this identity from the verified bundle
+  manifest for older instance descriptors.
+
+### Added
+- Real Chipnet 32-note qualification: category/genesis
+  `a42804c7…` / `6a9fe6f6…`, deposit settlement `9191f189…`
+  (56,964 bytes), and withdrawal settlement `b2fcc9e7…` (56,998 bytes).
+
 ## [0.2.0] — 2026-07-27
 
 Status: **Unaudited WIP**. This release is Chipnet-qualified; it is not
@@ -38,7 +53,7 @@ production-qualified or approved for mainnet use.
   immutable `npm ci`, with tracked immutable Yarn/pnpm locks for vendored tools.
 - Local ceremony execution is named `local-contribution-simulation` and cannot
   be relabeled as a production ceremony.
-- Playground → multi-note instance (`bb27e427…`, cap 16); bundle **`playground-bundle-v2`**.
+- Playground → multi-note instance (`bb27e427…`, cap 16); bundle **`playground-bundle-v2`** (superseded by v3).
 - Doc shelf trimmed (facts only).
 - `SECURITY.md`: vibe-coder pre-launch map + operator ship gate (secrets, fail-closed, N/A SaaS items).
 - `createChainRpc({ network })` + public mainnet Fulcrum; `create-pool --network mainnet`.

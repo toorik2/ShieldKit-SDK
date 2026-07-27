@@ -29,7 +29,7 @@ python3 -m http.server 8765 --directory 01-learn-about-this-system
 ```
 
 ### 2 · Playground (shared Chipnet demo)
-[`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/) — cap 16 live × 0.1 BCH. Not a hosted service.
+[`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/) — cap 32 live × 0.1 BCH. Not a hosted service.
 
 ```bash
 npm ci

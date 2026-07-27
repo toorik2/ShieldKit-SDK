@@ -5,14 +5,14 @@ Your pool: [`../03-create-your-own-pool/`](../03-create-your-own-pool/).
 
 | | |
 |--|--|
-| Capacity | 16 live × 0.1 BCH (`reserveCap` = 1.6 BCH) |
+| Capacity | 32 live × 0.1 BCH (`reserveCap` = 3.2 BCH) |
 | CLI | `npm run shieldkit -- playground …` |
 | Aliases | `playground`, `chipnet-playground` |
 | Pins | [`instance.json`](./instance.json) · [`docs/PROFILES.md`](../03-create-your-own-pool/docs/PROFILES.md) |
 
 You only spend notes you create. Other notes in the tip are not yours without their seeds.
 
-**Blank machine join:** the playground tip is usually multi-history (not empty).  
+**Blank machine join:** the moving playground tip may already have shared history.
 `playground tip` and `deposit`/`withdraw` automatically:
 
 1. discover the live State NFT tip  

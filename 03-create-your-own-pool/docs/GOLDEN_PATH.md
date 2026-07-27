@@ -9,7 +9,7 @@ Two tracks:
 | Track | When to use |
 |-------|-------------|
 | **A · Your pool** | Birth a new instance, then act |
-| **B · Playground** | Shared demo pool (cap 16 live notes) |
+| **B · Playground** | Shared demo pool (cap 32 live notes) |
 
 ---
 
@@ -72,9 +72,9 @@ npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadc
 What happens under the hood (you should not need these):
 
 - Tip discovery from chain  
-- Fee UTXO scan. If coins are fragmented, consolidation is prepared and
-  journaled but never broadcast from the helper; review it and resume with
-  `--resume-pending --broadcast`.
+- Fee UTXO scan. If coins are fragmented, the top-level command stages,
+  gates, and broadcasts one consolidation, then exits; re-run the requested
+  action after that UTXO becomes visible.
 - Prove + densFuel unlock (often **30–90s**)  
 - Exact 1 sat/B fee; change returns to hot wallet  
 - Note secrets saved in `state.json` openNotes (backup that file / use encrypted wallet APIs)
@@ -86,7 +86,7 @@ What happens under the hood (you should not need these):
 
 ## Track B — Playground (shared demo)
 
-The demo tip is usually **multi-history** (other operators already deposited).  
+The moving demo tip may be **multi-history** (other operators may have acted).
 Blank machines do **not** need a residual journal: `tip` / first act walk chain history
 (tip → genesis), fill `settlementLog`, and rebuild the public tip forest automatically.
 

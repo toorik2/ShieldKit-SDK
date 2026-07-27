@@ -81,6 +81,6 @@ test('full playground load when matching profile bundle present', async (t) => {
   assert.equal(cfg.expectedProfile.instanceId, instance.instanceId);
   assert.equal(
     instance.instanceId,
-    'sha256:bb27e427a13f62aac70727492c4762b8ba4fb031296de14bebb30565dbb3ce06',
+    'sha256:cfe741f64d0e47cf995a3c22bb7070e1afcf5c8a277594124d8ea445cde4a8ea',
   );
 });
