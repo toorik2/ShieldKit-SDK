@@ -3,14 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="ShieldKit system explainer — fixed-denomination shielded pools on Bitcoin Cash. Visual guide for users, developers, and operators." />
+  <meta name="description" content="ShieldKit system explainer — a development-only 32-note Chipnet shielded pool on Bitcoin Cash and the open-source tools used to operate it." />
   <title>ShieldKit — How it works</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='24' fill='%232ee6c8'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/site.css" />
 </head>
 <body>
+  <a class="skip-link" href="#intro">Skip to main content</a>
   <div class="app">
     <nav class="nav" aria-label="Primary">
       <div class="nav-top">
@@ -18,64 +17,238 @@
           <div class="brand-mark"><span class="dot"></span> ShieldKit</div>
           <small>System explainer</small>
         </a>
-        <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu">☰</button>
+        <button type="button" class="nav-toggle" id="navToggle" aria-label="Menu" aria-controls="primary-nav-links" aria-expanded="false">☰</button>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="primary-nav-links">
         <div class="nav-group">Start</div>
         <a href="#intro"><span class="idx">01</span> Introduction</a>
-        <a href="#is-isnt"><span class="idx">02</span> Is / isn’t</a>
-        <a href="#lenses"><span class="idx">03</span> Lenses</a>
+        <a href="#evidence"><span class="idx">02</span> Live pool</a>
+        <a href="#start"><span class="idx">03</span> Start here</a>
+        <div class="nav-group">Try / build</div>
+        <a href="#cli"><span class="idx">04</span> Practical paths</a>
+        <a href="#actions"><span class="idx">05</span> Actions</a>
+        <a href="#privacy"><span class="idx">06</span> Privacy boundary</a>
         <div class="nav-group">See</div>
-        <a href="#map"><span class="idx">04</span> System map</a>
-        <a href="#covenants"><span class="idx">05</span> Covenants &amp; state</a>
-        <a href="#actions"><span class="idx">06</span> Actions</a>
-        <a href="#settle"><span class="idx">07</span> Settlement</a>
-        <a href="#verifier"><span class="idx">08</span> Verifier</a>
-        <a href="#lab"><span class="idx">09</span> Live set lab</a>
-        <a href="#privacy"><span class="idx">10</span> Hidden vs public</a>
+        <a href="#lab"><span class="idx">07</span> Live set lab</a>
+        <a href="#is-isnt"><span class="idx">08</span> Is / isn’t</a>
+        <a href="#lenses"><span class="idx">09</span> Lenses</a>
+        <div class="nav-group">Deep dive</div>
+        <a href="#map"><span class="idx">10</span> System map</a>
+        <a href="#covenants"><span class="idx">11</span> Covenants &amp; state</a>
+        <a href="#settle"><span class="idx">12</span> Settlement</a>
+        <a href="#verifier"><span class="idx">13</span> Verifier</a>
         <div class="nav-group">Rules</div>
-        <a href="#fees"><span class="idx">11</span> Fees</a>
-        <a href="#limits"><span class="idx">12</span> Limits</a>
-        <a href="#concurrency"><span class="idx">13</span> Concurrency</a>
-        <div class="nav-group">Build</div>
-        <a href="#cli"><span class="idx">14</span> Operate</a>
-        <a href="#stack"><span class="idx">15</span> Code map</a>
+        <a href="#fees"><span class="idx">14</span> Fees</a>
+        <a href="#limits"><span class="idx">15</span> Limits</a>
+        <a href="#concurrency"><span class="idx">16</span> Concurrency</a>
+        <a href="#stack"><span class="idx">17</span> Code map</a>
       </div>
     </nav>
 
     <main class="content">
       <!-- INTRO -->
       <header class="hero reveal" id="intro">
-        <div class="kicker">Bitcoin Cash · fixed 0.1 BCH notes · Chipnet-first</div>
-        <h1>Private notes. Public rules. Your pool.</h1>
+        <div class="kicker">Bitcoin Cash · live Chipnet pool · fixed 0.1 BCH notes</div>
+        <h1>A live shielded pool on BCH — and the tools behind it.</h1>
         <p class="lead">
-          ShieldKit is a toolkit to birth and run <em>your own</em> shielded pool on BCH:
-          deposit 0.1&nbsp;BCH notes, transfer them without linking owners on-chain,
-          withdraw to transparent scripts. Proofs stay local; the chain only verifies.
-          This site explains the system clearly — the notes stay private.
+          ShieldKit is the open-source toolkit used to create and operate a shared, development-only
+          <strong>32-note Chipnet pool</strong> on Bitcoin Cash. Deposit a fixed 0.1&nbsp;BCH note and
+          later withdraw it through a zero-knowledge-authorized state transition. Witness secrets and
+          proof generation stay local; the proof, public packet, and transaction data are broadcast for
+          Bitcoin Cash to verify.
         </p>
         <div class="callout" style="margin-bottom:1.1rem">
           <strong>Unaudited WIP.</strong> Teaching page for the current profile — not an audit report,
           not a mainnet product claim. Prefer Chipnet until SECURITY and red-team docs say otherwise.
         </div>
+        <div class="btn-row" aria-label="Primary links" style="margin:0 0 1.1rem">
+          <a class="btn btn-primary" href="https://github.com/toorik2/ShieldKit-SDK/tree/main/02-use-chipnet-demo-pool">Try the Chipnet playground</a>
+          <a class="btn" href="https://github.com/toorik2/ShieldKit-SDK/tree/main/03-create-your-own-pool">Create your own pool</a>
+          <a class="btn" href="https://github.com/toorik2/ShieldKit-SDK">View ShieldKit on GitHub</a>
+        </div>
         <div class="grid grid-3">
+          <div class="card">
+            <h3>Live playground</h3>
+            <div class="stat">32 notes</div>
+            <p>Shared Chipnet instance: up to 3.2 BCH of 0.1 BCH live notes.</p>
+          </div>
+          <div class="card">
+            <h3>New-pool default</h3>
+            <div class="stat">16 live</div>
+            <p>The create-pool CLI default. Capacity is fixed at your pool’s genesis.</p>
+          </div>
           <div class="card">
             <h3>Denomination</h3>
             <div class="stat">0.1 BCH</div>
-            <p>Every note is exactly 10M sats. No arbitrary amounts.</p>
-          </div>
-          <div class="card">
-            <h3>Default capacity</h3>
-            <div class="stat">16 live</div>
-            <p>Max reserve 1.6 BCH if full. Live count = unspent notes (starts at 0).</p>
-          </div>
-          <div class="card">
-            <h3>Miner fee</h3>
-            <div class="stat">1 sat/B</div>
-            <p>Exact equality on every protocol transaction. Forever for this profile.</p>
+            <p>Every live note is exactly 10M sats; the profile fee rate is 1 sat/B.</p>
           </div>
         </div>
       </header>
+
+      <!-- LIVE EVIDENCE -->
+      <section class="panel reveal" id="evidence">
+        <div class="kicker">Live development evidence</div>
+        <h2>Shared 32-note Chipnet playground</h2>
+        <p class="lead">This is a shared, development-only instance, not a hosted service or a mainnet product claim. It has its own immutable profile and genesis; a pool you create is a different instance.</p>
+        <div class="grid grid-3">
+          <article class="card">
+            <h3>Genesis</h3>
+            <p>The State NFT tip and immutable capacity were created on Chipnet.</p>
+            <a class="btn btn-sm" href="https://chipnet.chaingraph.cash/tx/6a9fe6f6ba0c075859240f3fe2535ab8420ec0f1eece1ed405b0b6f3578a36e6">View genesis transaction</a>
+          </article>
+          <article class="card">
+            <h3>Deposit</h3>
+            <p>A fixed-denomination note entered the public reserve.</p>
+            <a class="btn btn-sm" href="https://chipnet.chaingraph.cash/tx/ed15730b092ef2bf3e0ba8c305b593c52155bafb12c9a2c03666589c549eaf6e">View deposit transaction</a>
+          </article>
+          <article class="card">
+            <h3>Withdrawal</h3>
+            <p>A zero-knowledge-authorized state transition paid 0.1 BCH out.</p>
+            <a class="btn btn-sm" href="https://chipnet.chaingraph.cash/tx/ba141ba42113388561cbd6bda90ed6de4b30ad73a11ff3c0a792b9cbcf0fd88a">View withdrawal transaction</a>
+          </article>
+        </div>
+      </section>
+
+      <!-- START -->
+      <section class="panel reveal" id="start">
+        <div class="kicker">Mental model</div>
+        <h2>Three actions, one public state tip</h2>
+        <div class="flow">
+          <div class="step"><div class="n">01</div><strong>Deposit</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">Put 0.1 BCH into the reserve and create one secret-controlled note.</p></div>
+          <div class="arr">→</div>
+          <div class="step"><div class="n">02</div><strong>Hold or rotate</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">The current CLI can rotate one of your notes to a new same-wallet note without changing the reserve.</p></div>
+          <div class="arr">→</div>
+          <div class="step"><div class="n">03</div><strong>Withdraw</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">Spend one of your notes to release exactly 0.1 BCH to a transparent script.</p></div>
+        </div>
+        <div class="grid grid-2" style="margin-top:1rem">
+          <div class="callout" id="privacy-summary"><strong>Private boundary.</strong> The public chain sees the pool state, commitments, nullifiers, transaction graph, fees, and the withdrawal boundary. It does not reveal the witness secrets or cryptographically identify which compatible live note a valid nullifier opened.</div>
+          <div class="callout"><strong>Privacy condition.</strong> A raw count above one is necessary but not enough: privacy depends on independently plausible live notes and can be reduced by timing, prior knowledge, metadata, or network/RPC traffic. ShieldKit makes no network-anonymity claim.</div>
+        </div>
+        <div class="btn-row" style="margin-top:1rem">
+          <a class="btn btn-primary" href="#cli">Choose a practical path</a>
+          <a class="btn" href="#privacy">Read the full privacy boundary</a>
+        </div>
+      </section>
+
+      <!-- PRACTICAL PATHS -->
+      <section class="panel reveal" id="cli">
+        <div class="kicker">Operate</div>
+        <h2>Choose a practical path</h2>
+        <p class="lead">These are separate instances. The shared playground is the shortest way to exercise the current Chipnet pool; creating a pool creates a new profile and genesis with its own immutable capacity.</p>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>Use the shared Chipnet playground</h3>
+            <p>Start with the blank-machine setup: immutable workspace install, unlock-builder setup, hash-checked playground bundle, RPC probe, tip discovery, then deposit and withdraw.</p>
+            <a class="btn btn-primary" href="https://github.com/toorik2/ShieldKit-SDK/tree/main/02-use-chipnet-demo-pool">Open playground setup</a>
+          </article>
+          <article class="card">
+            <h3>Create and operate your own pool</h3>
+            <p>Follow the user guide to prepare artifacts, fund Chipnet, create genesis, and operate your separate instance. The new-pool default is 16 live notes; choose capacity before genesis.</p>
+            <a class="btn" href="https://github.com/toorik2/ShieldKit-SDK/blob/main/03-create-your-own-pool/docs/USER_GUIDE.md">Open create-pool guide</a>
+          </article>
+        </div>
+        <div class="callout" style="margin-top:1rem">
+          <strong>Wallet-file safety.</strong> <code>wallets.json</code> contains private keys for the hot fee wallet. Keep it local, use the repository’s ignored path, and never commit or share it. A deposit needs a funded Chipnet wallet; proving and unlock building often take 30–90 seconds per act.
+        </div>
+      </section>
+
+      <!-- ACTIONS -->
+      <section class="panel reveal" id="actions">
+        <div class="kicker">Value flow</div>
+        <h2>Three actions</h2>
+        <p class="lead">The current CLI exposes deposit, withdraw, and same-wallet note rotation. Recipient-address primitives exist below the protocol layer but are not yet exposed as an end-to-end recipient handoff command.</p>
+        <div class="seg" data-group="flow" role="tablist" aria-label="ShieldKit actions">
+          <button type="button" class="active" data-pane="deposit" id="flow-deposit-tab" role="tab" aria-selected="true" aria-controls="flow-deposit-panel">Deposit</button>
+          <button type="button" data-pane="transfer" id="flow-transfer-tab" role="tab" aria-selected="false" aria-controls="flow-transfer-panel">Rotate note</button>
+          <button type="button" data-pane="withdraw" id="flow-withdraw-tab" role="tab" aria-selected="false" aria-controls="flow-withdraw-panel">Withdraw</button>
+        </div>
+        <div class="diagram" id="diag-flow"></div>
+        <div class="pane active" data-group="flow" data-pane="deposit" id="flow-deposit-panel" role="tabpanel" aria-labelledby="flow-deposit-tab"><p class="callout" style="margin-top:1rem">Deposit adds one fixed 0.1 BCH note and raises the public reserve by 0.1 BCH.</p></div>
+        <div class="pane" data-group="flow" data-pane="transfer" id="flow-transfer-panel" role="tabpanel" aria-labelledby="flow-transfer-tab"><p class="callout" style="margin-top:1rem">Rotation spends one of your notes and creates a replacement note for the same wallet. It does not currently hand a note to an external CLI recipient.</p></div>
+        <div class="pane" data-group="flow" data-pane="withdraw" id="flow-withdraw-panel" role="tabpanel" aria-labelledby="flow-withdraw-tab"><p class="callout" style="margin-top:1rem">Withdrawal spends one of your notes, lowers the reserve by 0.1 BCH, and creates a transparent 0.1 BCH output.</p></div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Action effects table">
+        <table class="t" style="margin-top:1rem">
+          <caption>Action effects on the public pool</caption>
+          <thead>
+            <tr><th>Action</th><th>Reserve</th><th>Live notes</th><th>On-chain mark</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Deposit</td><td class="mono">+0.1 BCH</td><td class="mono">+1</td><td>Boundary in · root update</td></tr>
+            <tr><td>Same-wallet rotation</td><td class="mono">unchanged</td><td class="mono">same count</td><td>Nullifier + new commitment</td></tr>
+            <tr><td>Withdraw</td><td class="mono">−0.1 BCH</td><td class="mono">−1</td><td>Nullifier + BCH out</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <!-- PRIVACY -->
+      <section class="panel reveal" id="privacy">
+        <div class="kicker">Leakage</div>
+        <h2>Hidden vs public</h2>
+        <p class="lead">ShieldKit does not make a blanket anonymity claim. It hides specific witness relationships under stated cryptographic and operational conditions; it does not hide the public transaction graph or network metadata.</p>
+        <div class="diagram" id="diag-privacy"></div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Privacy boundary table">
+        <table class="t" style="margin-top:1rem">
+          <caption>Privacy boundary</caption>
+          <thead><tr><th>Signal</th><th>Status</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>Which compatible live note is spent</td><td><span class="tag tag-priv">hidden*</span></td><td>*Requires more than one independently plausible candidate; timing, prior knowledge, and metadata can shrink the set.</td></tr>
+            <tr><td>Deposit → withdraw link</td><td><span class="tag tag-priv">hidden*</span></td><td>Can collapse at N=1, with unique timing, or when outside information identifies the candidate.</td></tr>
+            <tr><td>Wallet pick order</td><td><span class="tag tag-ok">not on chain</span></td><td>Local policy only</td></tr>
+            <tr><td>Nullifier</td><td><span class="tag tag-pub">public</span></td><td>Spent marker, not opening</td></tr>
+            <tr><td>IP / RPC / traffic</td><td><span class="tag tag-warn">out of claim</span></td><td>No network anonymity promise</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <!-- LAB -->
+      <section class="panel reveal" id="lab">
+        <div class="kicker">Interactive</div>
+        <h2>Live set lab</h2>
+        <p class="lead">
+          Privacy can improve when <strong>multiple independently plausible notes are live when you spend</strong>;
+          raw live count alone is not a guarantee. Selection policy below is <em>local only</em>; the chain never
+          labels “newest” or “oldest.”
+        </p>
+        <div class="lab">
+          <div>
+            <div class="pool-stage" id="pool-stage">
+              <div class="empty-hint">Empty pool — deposit to grow the live set</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;gap:1rem;flex-wrap:wrap">
+              <div aria-live="polite" aria-atomic="true">
+                Live set: <strong id="set-size">0</strong>
+                <span id="set-grade" class="tag tag-bad">trivial</span>
+              </div>
+              <div data-lab-cap style="color:var(--text-faint);font-size:0.85rem">cap 32 (simulator; matches playground)</div>
+            </div>
+            <div class="meter"><i id="set-meter"></i></div>
+            <div class="feed" id="lab-feed" aria-live="polite" aria-label="Live set simulation activity"></div>
+          </div>
+          <div class="lab-side">
+            <label style="font-size:0.8rem;color:var(--text-dim)">
+              Wallet note selection
+              <select id="pick-mode" style="display:block;width:100%;margin-top:0.35rem;padding:0.55rem 0.7rem;border-radius:10px;border:1px solid var(--stroke);background:var(--bg2);color:var(--text);font:inherit">
+                <option value="newest">Newest first (default convenience)</option>
+                <option value="oldest">Oldest first</option>
+                <option value="random">Random among mine</option>
+              </select>
+            </label>
+            <button type="button" class="btn btn-primary" id="btn-dep">+ Deposit</button>
+            <button type="button" class="btn" id="btn-xfer">⇄ Rotate my selected note</button>
+            <button type="button" class="btn" id="btn-wd">↓ Withdraw (my selection)</button>
+            <button type="button" class="btn btn-ghost" id="btn-reset">Reset demo</button>
+            <div class="callout">
+              <strong>Not LIFO-on-chain.</strong> “Newest first” is a wallet default for which of
+              <em>your</em> open notes to spend. Protocol allows any note you can prove.
+              On-chain, the proof hides which compatible note was spent — it does not label “the last deposit.”
+              Gray chips are other operators’ notes (you cannot spend them); they can enlarge the candidate
+              set only when timing and other public knowledge leave them plausibly compatible.
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- IS / ISN'T -->
       <section class="panel reveal" id="is-isnt">
@@ -86,28 +259,30 @@
             <h3>It is</h3>
             <p>
               A <strong>single-asset, fixed-denomination</strong> shielded pool on Bitcoin Cash.
-              You hold keys, RPC, and broadcast. State is a <strong>State NFT tip</strong> plus Merkle trees.
+              You hold wallet keys and choose an RPC/indexer and broadcaster. State is a <strong>State NFT tip</strong>
+              committing to Merkle roots that clients reconstruct from history.
               Groth16 is checked by <strong>covenant unlocks</strong> (densFuel pin), not a bridge.
             </p>
             <p style="margin-top:0.8rem">
               <span class="tag tag-ok">deposit</span>
-              <span class="tag tag-ok">private transfer</span>
+              <span class="tag tag-ok">same-wallet note rotation</span>
               <span class="tag tag-ok">withdraw</span>
               <span class="tag tag-ok">your genesis</span>
               <span class="tag tag-ok">no admin after birth</span>
+              <span class="tag tag-ok">no sequencer</span>
+              <span class="tag tag-ok">no protocol fee</span>
             </p>
           </div>
           <div class="card no">
             <h3>It is not</h3>
             <p>
               Not EVM. Not multi-asset. Not hosted privacy SaaS. Not network anonymity.
-              Not “anonymous” when only one note is live. Not upgradeable after genesis.
+              Not “anonymous” merely because more than one note is live. Not upgradeable after genesis.
               The Chipnet <em>playground</em> is a different instance than a pool you create.
             </p>
             <p style="margin-top:0.8rem">
-              <span class="tag tag-bad">no sequencer</span>
-              <span class="tag tag-bad">no protocol fee</span>
               <span class="tag tag-bad">no magic mixer crowd</span>
+              <span class="tag tag-bad">no mainnet claim</span>
             </p>
           </div>
         </div>
@@ -117,46 +292,47 @@
       <section class="panel reveal" id="lenses">
         <div class="kicker">Perspectives</div>
         <h2>Same system · five jobs</h2>
-        <div class="seg" data-group="lens">
-          <button type="button" class="active" data-pane="user">End user</button>
-          <button type="button" data-pane="dev">Developer</button>
-          <button type="button" data-pane="ops">Operator</button>
-          <button type="button" data-pane="obs">Observer</button>
-          <button type="button" data-pane="cry">Crypto</button>
+        <div class="seg" data-group="lens" role="tablist" aria-label="ShieldKit perspectives">
+          <button type="button" class="active" data-pane="user" id="lens-user-tab" role="tab" aria-selected="true" aria-controls="lens-user-panel">End user</button>
+          <button type="button" data-pane="dev" id="lens-dev-tab" role="tab" aria-selected="false" aria-controls="lens-dev-panel">Developer</button>
+          <button type="button" data-pane="ops" id="lens-ops-tab" role="tab" aria-selected="false" aria-controls="lens-ops-panel">Operator</button>
+          <button type="button" data-pane="obs" id="lens-obs-tab" role="tab" aria-selected="false" aria-controls="lens-obs-panel">Observer</button>
+          <button type="button" data-pane="cry" id="lens-cry-tab" role="tab" aria-selected="false" aria-controls="lens-cry-panel">Crypto</button>
         </div>
 
-        <div class="pane active" data-group="lens" data-pane="user">
+        <div class="pane active" data-group="lens" data-pane="user" id="lens-user-panel" role="tabpanel" aria-labelledby="lens-user-tab">
           <div class="flow">
             <div class="step"><div class="n">01</div><strong>Deposit</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">0.1 BCH in. You receive an open note only your wallet can spend.</p></div>
             <div class="arr">→</div>
-            <div class="step"><div class="n">02</div><strong>Hold / transfer</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">Optional private handoff. Pool balance unchanged; ownership secrets change.</p></div>
+            <div class="step"><div class="n">02</div><strong>Hold / rotate</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">Optional same-wallet note rotation. Reserve and live count stay unchanged.</p></div>
             <div class="arr">→</div>
             <div class="step"><div class="n">03</div><strong>Withdraw</strong><p style="margin:.4rem 0 0;color:var(--text-dim);font-size:.9rem">Cash out 0.1 BCH. Your wallet picks which of <em>your</em> notes to spend.</p></div>
           </div>
           <div class="callout" style="margin-top:1rem">
-            <strong>Privacy is not automatic.</strong> Protection scales with how many notes are
-            <em>live in the pool when you spend</em>. Fill the set first — then withdraw.
+            <strong>Privacy is not automatic.</strong> More live notes can enlarge the candidate set, but
+            protection also depends on timing, prior knowledge, and whether the notes are independently plausible.
           </div>
         </div>
-        <div class="pane" data-group="lens" data-pane="dev">
+        <div class="pane" data-group="lens" data-pane="dev" id="lens-dev-panel" role="tabpanel" aria-labelledby="lens-dev-tab">
           <pre class="code"><span class="c">// Birth + act</span>
 create-pool --with-genesis --max-notes <span class="n">16</span> --scan-fund --broadcast
-shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
+shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast <span class="c">// transfer = same-wallet rotation today</span>
 
 <span class="c">// Spine</span>
 <span class="k">completeAction</span>({ kind, priorOpenNotes, funding, … })
   → prepHex + settleHex · digests · pin lens</pre>
         </div>
-        <div class="pane" data-group="lens" data-pane="ops">
+        <div class="pane" data-group="lens" data-pane="ops" id="lens-ops-panel" role="tabpanel" aria-labelledby="lens-ops-tab">
           <p style="color:var(--text-dim);margin:0">
-            You run instance + hot fee wallet + RPC. Doctor checks tip, fees, capacity.
+            You run an instance and hot fee wallet, and connect to an RPC/indexer. The playground defaults to
+            public Chipnet Fulcrum servers; self-hosting is an available trust and availability choice. Doctor checks tip, fees, capacity.
             Deposit needs a fee UTXO ≳ ~10.07M sats (0.1 BCH + PF7/bind/settle pads);
             transfer/withdraw floors are ~71k sats. Tip is one UTXO — settles serialize.
             Multi-user wallets each keep their own open-note journal; a shared ops
             <code>state.json</code> is a lab convenience, not the multi-tenant product model.
           </p>
         </div>
-        <div class="pane" data-group="lens" data-pane="obs">
+        <div class="pane" data-group="lens" data-pane="obs" id="lens-obs-panel" role="tabpanel" aria-labelledby="lens-obs-tab">
           <p style="color:var(--text-dim);margin:0">
             You see every settle’s graph, size, fee, roots, nullifiers, boundaries.
             You do not cryptographically learn which live commitment a nullifier opens —
@@ -164,7 +340,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
             Wallet selection order is not a field on the transaction.
           </p>
         </div>
-        <div class="pane" data-group="lens" data-pane="cry">
+        <div class="pane" data-group="lens" data-pane="cry" id="lens-cry-panel" role="tabpanel" aria-labelledby="lens-cry-tab">
           <p style="color:var(--text-dim);margin:0">
             Relation shielded-action-v2 · Groth16 BN254 · packet 752 B · note tree depth 32 ·
             sparse nullifier 128 · densFuel unlocks on chain · state commitment binds roots,
@@ -235,14 +411,14 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         <p class="lead" style="margin-bottom:0.75rem">
           Step through what the chain actually does. Secrets and open-note journals stay off-chain.
         </p>
-        <div class="seg" data-group="covlife">
-          <button type="button" class="active" data-pane="genesis">1 · Genesis</button>
-          <button type="button" data-pane="prep">2 · PREP</button>
-          <button type="button" data-pane="settle">3 · SETTLE</button>
-          <button type="button" data-pane="journal">4 · Journal</button>
+        <div class="seg" data-group="covlife" role="tablist" aria-label="Pool lifecycle">
+          <button type="button" class="active" data-pane="genesis" id="cov-genesis-tab" role="tab" aria-selected="true" aria-controls="cov-genesis-panel">1 · Genesis</button>
+          <button type="button" data-pane="prep" id="cov-prep-tab" role="tab" aria-selected="false" aria-controls="cov-prep-panel">2 · PREP</button>
+          <button type="button" data-pane="settle" id="cov-settle-tab" role="tab" aria-selected="false" aria-controls="cov-settle-panel">3 · SETTLE</button>
+          <button type="button" data-pane="journal" id="cov-journal-tab" role="tab" aria-selected="false" aria-controls="cov-journal-panel">4 · Journal</button>
         </div>
         <div class="diagram" id="diag-lifecycle"></div>
-        <div class="pane active" data-group="covlife" data-pane="genesis">
+        <div class="pane active" data-group="covlife" data-pane="genesis" id="cov-genesis-panel" role="tabpanel" aria-labelledby="cov-genesis-tab">
           <div class="callout">
             <strong>Genesis</strong> spends a tokenless category input (vout&nbsp;0). It mints the sole
             <em>mutable</em> State NFT under that category, locks it with the profile’s state trampoline,
@@ -250,7 +426,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
             Fee = wireBytes × 1. <code>maximumReserve</code> / capacity is frozen here forever.
           </div>
         </div>
-        <div class="pane" data-group="covlife" data-pane="prep">
+        <div class="pane" data-group="covlife" data-pane="prep" id="cov-prep-panel" role="tabpanel" aria-labelledby="cov-prep-tab">
           <div class="callout">
             <strong>Complete PREP</strong> is a public funding tx with <em>exactly 10 outputs</em>:
             PF7 carriers <code>exec0…exec4</code>, <code>genesis</code>, <code>terminal</code> (indices 0–6),
@@ -259,7 +435,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
             PREP does <em>not</em> move the tip.
           </div>
         </div>
-        <div class="pane" data-group="covlife" data-pane="settle">
+        <div class="pane" data-group="covlife" data-pane="settle" id="cov-settle-panel" role="tabpanel" aria-labelledby="cov-settle-tab">
           <div class="callout">
             <strong>SETTLE</strong> has exactly 10 inputs in fixed order:
             7 densFuel unlocks · binding (unlock = PUSHDATA2 + 752-byte SCAR packet) ·
@@ -269,7 +445,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
             Groth16 is enforced by the PF7 unlocks; the packet digests pre/post state + context.
           </div>
         </div>
-        <div class="pane" data-group="covlife" data-pane="journal">
+        <div class="pane" data-group="covlife" data-pane="journal" id="cov-journal-panel" role="tabpanel" aria-labelledby="cov-journal-tab">
           <div class="callout">
             <strong>openNotes</strong> is a wallet journal (ρ, r, sk, leaf index) — not a chain UTXO list.
             On-chain you see roots, live count, nullifiers, and ciphertext recovery records.
@@ -278,11 +454,13 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         </div>
 
         <h3 style="margin-top:1.35rem">How value and counts move</h3>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="How value and counts move table">
         <table class="t">
+          <caption>How value and counts move</caption>
           <thead>
             <tr>
               <th>Event</th>
-              <th>Tip value</th>
+              <th>Tip value change</th>
               <th>live / reserve</th>
               <th>Binding input</th>
               <th>Extra output</th>
@@ -304,7 +482,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
               <td>state + change</td>
             </tr>
             <tr>
-              <td>Transfer settle</td>
+              <td>Rotation (<code>transfer</code>) settle</td>
               <td class="mono">unchanged</td>
               <td class="mono">same</td>
               <td class="mono">1000</td>
@@ -319,6 +497,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
             </tr>
           </tbody>
         </table>
+        </div>
 
         <h3 style="margin-top:1.35rem">On-chain vs local</h3>
         <div class="grid grid-2">
@@ -346,28 +525,6 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         </div>
       </section>
 
-      <!-- ACTIONS -->
-      <section class="panel reveal" id="actions">
-        <div class="kicker">Value flow</div>
-        <h2>Three actions</h2>
-        <div class="seg" data-group="flow">
-          <button type="button" class="active" data-pane="deposit">Deposit</button>
-          <button type="button" data-pane="transfer">Transfer</button>
-          <button type="button" data-pane="withdraw">Withdraw</button>
-        </div>
-        <div class="diagram" id="diag-flow"></div>
-        <table class="t" style="margin-top:1rem">
-          <thead>
-            <tr><th>Action</th><th>Reserve</th><th>Live notes</th><th>On-chain mark</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Deposit</td><td class="mono">+0.1 BCH</td><td class="mono">+1</td><td>Boundary in · root update</td></tr>
-            <tr><td>Transfer</td><td class="mono">unchanged</td><td class="mono">same count</td><td>Nullifier + new commitment</td></tr>
-            <tr><td>Withdraw</td><td class="mono">−0.1 BCH</td><td class="mono">−1</td><td>Nullifier + BCH out</td></tr>
-          </tbody>
-        </table>
-      </section>
-
       <!-- SETTLE -->
       <section class="panel reveal" id="settle">
         <div class="kicker">On-chain machine</div>
@@ -375,7 +532,9 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         <p class="lead">Each act is PREP then SETTLE. Hover a role below. The animation walks the <strong>fixed 10-input order</strong> — teaching sweep, not a live node and not a fee meter. Wire size is pin/kind-dependent (example ~57kB, hard cap ≤59kB).</p>
         <div class="diagram" id="diag-settle"></div>
         <p id="role-hint" style="text-align:center;color:var(--text-faint);font-size:0.88rem;min-height:1.4em;margin:0.5rem 0 0">Hover an input</p>
-        <canvas id="settleCanvas" width="900" height="280" aria-label="Sequential input verification illustration"></canvas>
+        <div class="canvas-scroll" tabindex="0" role="region" aria-label="Scrollable sequential input verification illustration">
+          <canvas id="settleCanvas" width="900" height="280" aria-label="Sequential input verification illustration"></canvas>
+        </div>
       </section>
 
       <!-- VERIFIER (collapsed by default) -->
@@ -508,74 +667,11 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
         </details>
       </section>
 
-      <!-- LAB -->
-      <section class="panel reveal" id="lab">
-        <div class="kicker">Interactive</div>
-        <h2>Live set lab</h2>
-        <p class="lead">
-          Privacy scales with <strong>how many notes are live when you spend</strong> — not with wallet list order.
-          Selection policy below is <em>local only</em>; the chain never labels “newest” or “oldest.”
-        </p>
-        <div class="lab">
-          <div>
-            <div class="pool-stage" id="pool-stage">
-              <div class="empty-hint">Empty pool — deposit to grow the live set</div>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;gap:1rem;flex-wrap:wrap">
-              <div>
-                Live set: <strong id="set-size">0</strong>
-                <span id="set-grade" class="tag tag-bad">trivial</span>
-              </div>
-              <div style="color:var(--text-faint);font-size:0.85rem">cap 16 (demo)</div>
-            </div>
-            <div class="meter"><i id="set-meter"></i></div>
-            <div class="feed" id="lab-feed"></div>
-          </div>
-          <div class="lab-side">
-            <label style="font-size:0.8rem;color:var(--text-dim)">
-              Wallet note selection
-              <select id="pick-mode" style="display:block;width:100%;margin-top:0.35rem;padding:0.55rem 0.7rem;border-radius:10px;border:1px solid var(--stroke);background:var(--bg2);color:var(--text);font:inherit">
-                <option value="newest">Newest first (default convenience)</option>
-                <option value="oldest">Oldest first</option>
-                <option value="random">Random among mine</option>
-              </select>
-            </label>
-            <button type="button" class="btn btn-primary" id="btn-dep">+ Deposit</button>
-            <button type="button" class="btn" id="btn-xfer">⇄ Transfer (my selection)</button>
-            <button type="button" class="btn" id="btn-wd">↓ Withdraw (my selection)</button>
-            <button type="button" class="btn btn-ghost" id="btn-reset">Reset demo</button>
-            <div class="callout">
-              <strong>Not LIFO-on-chain.</strong> “Newest first” is a wallet default for which of
-              <em>your</em> open notes to spend. Protocol allows any note you can prove.
-              On-chain, a withdraw is “one of N live notes” — not “the last deposit.”
-              Gray chips are other operators’ notes (you cannot spend them); they still enlarge the set.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PRIVACY -->
-      <section class="panel reveal" id="privacy">
-        <div class="kicker">Leakage</div>
-        <h2>Hidden vs public</h2>
-        <div class="diagram" id="diag-privacy"></div>
-        <table class="t" style="margin-top:1rem">
-          <thead><tr><th>Signal</th><th>Status</th><th>Detail</th></tr></thead>
-          <tbody>
-            <tr><td>Which live note is spent</td><td><span class="tag tag-priv">hidden*</span></td><td>*if live set &gt; 1</td></tr>
-            <tr><td>Deposit → withdraw link</td><td><span class="tag tag-priv">hidden*</span></td><td>Collapses if N=1 or unique timing</td></tr>
-            <tr><td>Wallet pick order</td><td><span class="tag tag-ok">not on chain</span></td><td>Local policy only</td></tr>
-            <tr><td>Nullifier</td><td><span class="tag tag-pub">public</span></td><td>Spent marker, not opening</td></tr>
-            <tr><td>IP / RPC / traffic</td><td><span class="tag tag-warn">out of claim</span></td><td>No network anonymity promise</td></tr>
-          </tbody>
-        </table>
-      </section>
-
       <!-- FEES -->
       <section class="panel reveal" id="fees">
         <div class="kicker">Economics</div>
         <h2>Fees: 1 sat per byte — every protocol tx</h2>
-        <p class="lead">Not settlement-only. Category fund, genesis, prep, deposit, transfer, withdraw — all exact.</p>
+        <p class="lead">Not settlement-only. Category fund, genesis, prep, deposit, same-wallet rotation, withdraw — all exact.</p>
         <div class="grid grid-2">
           <div class="card">
             <h3>Law</h3>
@@ -586,9 +682,8 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
           </div>
           <div class="card">
             <h3>Interactive size → fee</h3>
-            <label style="font-size:0.85rem;color:var(--text-dim)">Wire bytes (example settle size)
-              <input id="fee-bytes" type="range" min="200" max="59000" value="57000" style="width:100%;accent-color:var(--cyan)" />
-            </label>
+            <label for="fee-bytes" style="font-size:0.85rem;color:var(--text-dim)">Wire bytes (example settle size)</label>
+            <input id="fee-bytes" type="range" min="200" max="59000" value="57000" style="width:100%;accent-color:var(--cyan)" aria-describedby="fee-bch" />
             <div class="stat" id="fee-out">57,000 sats</div>
             <div class="meter"><i id="fee-bar"></i></div>
             <p id="fee-bch" style="margin:0;color:var(--text-dim)">≈ 0.00057000 BCH · real settles vary; cap ≤ 59,000 B</p>
@@ -602,7 +697,9 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
         <h2>How large can the live set be?</h2>
         <div class="grid grid-2">
           <div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Capacity limits table">
             <table class="t">
+              <caption>Capacity limits</caption>
               <thead><tr><th>Layer</th><th>Limit</th></tr></thead>
               <tbody>
                 <tr><td>Default genesis</td><td class="mono">16 notes (1.6 BCH)</td></tr>
@@ -612,13 +709,15 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
                 <tr><td>Settlement wire</td><td class="mono">≤ 59 000 B</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
           <div class="card">
             <h3>Explore max-notes</h3>
             <p style="margin:0 0 0.5rem;color:var(--text-dim);font-size:0.82rem">
               Same range as CLI soft max (<code>1…1024</code>). Default product value is <strong>16</strong>.
             </p>
-            <input id="cap-range" type="range" min="1" max="1024" value="16" style="width:100%;accent-color:var(--violet)" />
+            <label for="cap-range" style="font-size:0.85rem;color:var(--text-dim)">Maximum live notes for a new pool</label>
+            <input id="cap-range" type="range" min="1" max="1024" value="16" style="width:100%;accent-color:var(--violet)" aria-describedby="cap-bch cap-grade" />
             <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-faint);font-family:var(--mono)">
               <span>1</span><span>16 default</span><span>1024 soft max</span>
             </div>
@@ -635,37 +734,19 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
         <h2>How many can interact at once?</h2>
         <div class="grid grid-2">
           <div class="card">
-            <h3>Offline prove / unlock</h3>
-            <div class="stat">∞</div>
-            <p>Many machines in parallel. No tip lock while proving.</p>
+            <h3>Prepare and prove</h3>
+            <div class="stat">parallel</div>
+            <p>Not protocol-limited, but bounded by client resources. Work is tied to a tip and can become stale.</p>
           </div>
           <div class="card">
             <h3>On-chain settle</h3>
             <div class="stat">1</div>
-            <p>Single State NFT tip. Concurrent settles race; loser rebuilds.</p>
+            <p>Single State NFT tip. Concurrent settles race; the loser rebuilds and may need to re-prove.</p>
           </div>
         </div>
         <p style="color:var(--text-dim);margin:1rem 0 0">
           Many users can <em>hold</em> notes at once (up to maxLiveNotes). They cannot all advance the tip simultaneously.
         </p>
-      </section>
-
-      <!-- CLI -->
-      <section class="panel reveal" id="cli">
-        <div class="kicker">Operate</div>
-        <h2>Hands-on path</h2>
-        <pre class="code"><span class="c"># Birth — capacity immutable after this</span>
-npm run create-pool -- --out ./my-pool --with-genesis \
-  --scan-fund --max-notes <span class="n">16</span> --wallets ./wallets.json --broadcast
-
-npm run shieldkit -- doctor --pool ./my-pool
-
-<span class="c"># Grow live set, then spend (prove+unlock often 30–90s)</span>
-npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
-npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
-npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadcast
-
-<span class="c"># playground ≠ your pool (different instanceId)</span></pre>
       </section>
 
       <!-- STACK -->
@@ -681,7 +762,7 @@ npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadc
 
       <footer class="site-foot">
         <span>ShieldKit explainer · unaudited WIP · Chipnet-first</span>
-        <span>See also: CHARTER · PRIVACY · ARCHITECTURE · SECURITY</span>
+        <span>See also: <a href="https://github.com/toorik2/ShieldKit-SDK/blob/main/03-create-your-own-pool/docs/CHARTER.md">CHARTER</a> · <a href="https://github.com/toorik2/ShieldKit-SDK/blob/main/03-create-your-own-pool/docs/PRIVACY.md">PRIVACY</a> · <a href="https://github.com/toorik2/ShieldKit-SDK/blob/main/03-create-your-own-pool/docs/ARCHITECTURE.md">ARCHITECTURE</a> · <a href="https://github.com/toorik2/ShieldKit-SDK/blob/main/SECURITY.md">SECURITY</a></span>
       </footer>
     </main>
   </div>

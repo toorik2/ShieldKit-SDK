@@ -1,6 +1,11 @@
 /** SVG builders */
 
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = (s) => String(s)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 
 function box(x, y, w, h, fill, stroke, lines, id) {
   const arr = Array.isArray(lines) ? lines : [lines];
@@ -8,12 +13,16 @@ function box(x, y, w, h, fill, stroke, lines, id) {
   const texts = arr.map((ln, i) =>
     `<text x="${x + w / 2}" y="${ty + i * 15}" text-anchor="middle" fill="#eef3fb" font-size="12.5" font-family="Inter,Segoe UI,sans-serif">${esc(ln)}</text>`
   ).join('');
-  const hid = id ? ` data-hot="${id}" class="hotspot"` : '';
+  const hid = id
+    ? ` data-hot="${id}" class="hotspot" role="button" tabindex="0" aria-pressed="false" aria-label="Show details: ${esc(arr.join(' '))}"`
+    : '';
   return `<g${hid}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${texts}</g>`;
 }
 
 export function systemMapSvg() {
-  return `<svg viewBox="0 0 920 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ShieldKit system map">
+  return `<svg viewBox="0 0 920 440" xmlns="http://www.w3.org/2000/svg" role="group" aria-labelledby="system-map-title system-map-desc">
+  <title id="system-map-title">ShieldKit system map</title>
+  <desc id="system-map-desc">Interactive diagram. Select a labeled region to hear how local wallet operations and public Bitcoin Cash records fit together.</desc>
   <defs>
     <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#16324a"/><stop offset="100%" stop-color="#101a2a"/></linearGradient>
     <linearGradient id="arrg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2ee6c8"/><stop offset="100%" stop-color="#b49cff"/></linearGradient>
@@ -45,7 +54,7 @@ export function systemMapSvg() {
   ${box(410, 290, 210, 70, '#1a1528', '#b49cff', ['Encrypted note record', 'ciphertext only'], 'chain-record')}
   ${box(650, 290, 210, 70, '#152238', '#6eb6ff', ['Nullifier', 'spent marker · not which note'], 'chain-null')}
 
-  <text x="632" y="385" text-anchor="middle" fill="#64748b" font-size="11">Click a box · observer sees shape &amp; roots, not ownership</text>
+  <text x="632" y="385" text-anchor="middle" fill="#91a4bd" font-size="11">Click a box · observer sees shape &amp; roots, not which plausible note was spent</text>
 </svg>`;
 }
 
@@ -57,13 +66,15 @@ export function settlementSvg() {
   const w = 74, g = 8, start = 40;
   const boxes = roles.map(([n, c], i) => {
     const x = start + i * (w + g);
-    return `<g data-role="${i}" class="hotspot">
+    return `<g data-role="${i}" class="hotspot" role="button" tabindex="0" aria-pressed="false" aria-label="Show settlement input ${i}: ${n}">
       <rect x="${x}" y="78" width="${w}" height="108" rx="10" fill="#121c2c" stroke="${c}" stroke-width="1.5"/>
       <text x="${x + w / 2}" y="125" text-anchor="middle" fill="${c}" font-size="11" font-family="JetBrains Mono,monospace">${n}</text>
       <text x="${x + w / 2}" y="145" text-anchor="middle" fill="#64748b" font-size="10">in[${i}]</text>
     </g>`;
   }).join('');
-  return `<svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="group" aria-labelledby="settlement-title settlement-desc">
+    <title id="settlement-title">Settlement transaction inputs</title>
+    <desc id="settlement-desc">Interactive diagram of the fixed ten-input settlement transaction. Select an input to hear its role.</desc>
     <rect width="920" height="260" rx="16" fill="#070c14"/>
     <text x="460" y="34" text-anchor="middle" fill="#eef3fb" font-size="14" font-weight="650">Settlement — exactly 10 inputs</text>
     <text x="460" y="54" text-anchor="middle" fill="#64748b" font-size="11">PF7 densFuel · binding(+SCAR packet unlock) · state tip · fee  ·  fee = wireBytes × 1</text>
@@ -133,7 +144,7 @@ export function covenantStateSvg() {
     const body = L.lines.map((ln, i) =>
       `<tspan x="${padX + 20}" dy="${i === 0 ? lineH + 4 : lineH}">${esc(ln)}</tspan>`
     ).join('');
-    const g = `<g data-hot="${L.id}" class="hotspot">
+    const g = `<g data-hot="${L.id}" class="hotspot" role="button" tabindex="0" aria-pressed="false" aria-label="Show details: ${esc(L.title)}">
       <rect x="${padX}" y="${y}" width="${boxW}" height="${h}" rx="14"
         fill="${L.fill}" stroke="${L.stroke}" stroke-width="1.5"/>
       <text x="${padX + 20}" y="${titleY}" fill="${L.stroke}" font-size="13.5"
@@ -146,7 +157,9 @@ export function covenantStateSvg() {
   }).join('');
 
   const totalH = y + 16;
-  return `<svg viewBox="0 0 920 ${totalH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="State tip layers">
+  return `<svg viewBox="0 0 920 ${totalH}" xmlns="http://www.w3.org/2000/svg" role="group" aria-labelledby="covenant-title covenant-desc">
+    <title id="covenant-title">State tip layers</title>
+    <desc id="covenant-desc">Interactive diagram of the State NFT covenant UTXO. Select a layer for its details.</desc>
     <rect width="920" height="${totalH}" rx="16" fill="#070c14"/>
     <text x="460" y="28" text-anchor="middle" fill="#eef3fb" font-size="14"
       font-weight="650" font-family="Inter,Segoe UI,sans-serif">State tip = one covenant UTXO</text>
@@ -158,7 +171,9 @@ export function covenantStateSvg() {
 
 /** Groth16 + densFuel overview */
 export function verifierSvg() {
-  return `<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verifier stack">
+  return `<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="verifier-title verifier-desc">
+    <title id="verifier-title">Verifier stack</title>
+    <desc id="verifier-desc">A private witness is proven with Groth16 and checked on Bitcoin Cash by densFuel and PF7 covenant unlocks.</desc>
     <rect width="920" height="300" rx="16" fill="#070c14"/>
     <text x="460" y="28" text-anchor="middle" fill="#eef3fb" font-size="14" font-weight="650">From secrets to a BCH-checked proof</text>
 
@@ -195,7 +210,9 @@ export function verifierSvg() {
 
 /** Pairing / public-input bridge */
 export function pairingSvg() {
-  return `<svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Public input bridge">
+  return `<svg viewBox="0 0 920 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pairing-title pairing-desc">
+    <title id="pairing-title">Public input bridge</title>
+    <desc id="pairing-desc">The private witness produces two public field limbs derived from the SHA256 hash of the 752-byte SCAR packet.</desc>
     <rect width="920" height="220" rx="16" fill="#070c14"/>
     <text x="460" y="30" text-anchor="middle" fill="#eef3fb" font-size="13" font-weight="650">Tiny public surface · fat private witness</text>
 
@@ -245,9 +262,11 @@ export function provePathSvg() {
       ${texts}
     </g>`;
   }).join('');
-  return `<svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 920 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="prove-path-title prove-path-desc">
+    <title id="prove-path-title">Operator proof path</title>
+    <desc id="prove-path-desc">Five steps: make a witness, prove locally, build densFuel unlocks, assemble settlement, then broadcast.</desc>
     <rect width="920" height="210" rx="16" fill="#070c14"/>
-    <text x="460" y="36" text-anchor="middle" fill="#eef3fb" font-size="13" font-weight="650">Operator path · prove stays local</text>
+    <text x="460" y="36" text-anchor="middle" fill="#eef3fb" font-size="13" font-weight="650">Operator path · proof generation stays local</text>
     ${boxes}
     <text x="460" y="195" text-anchor="middle" fill="#64748b" font-size="11">Miners / nodes only evaluate unlocks — they never see ρ, r, or sk</text>
   </svg>`;
@@ -289,7 +308,9 @@ export function lifecycleSvg(stage = 'genesis') {
   const mid = (lines, x, y) => lines.map((ln, i) =>
     `<text x="${x}" y="${y + i * 16}" text-anchor="middle" fill="#eef3fb" font-size="12.5">${esc(ln)}</text>`
   ).join('');
-  return `<svg viewBox="0 0 920 200" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 920 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="lifecycle-title lifecycle-desc">
+    <title id="lifecycle-title">${esc(f.t)}</title>
+    <desc id="lifecycle-desc">Lifecycle diagram showing inputs, transaction operation, and resulting state for the selected stage.</desc>
     <defs><marker id="lc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${f.c}"/></marker></defs>
     <rect width="920" height="200" rx="16" fill="#070c14"/>
     <text x="460" y="30" text-anchor="middle" fill="${f.c}" font-size="13" font-weight="650">${esc(f.t)}</text>
@@ -314,7 +335,7 @@ export function flowSvg(kind) {
       c: '#2ee6c8',
     },
     transfer: {
-      t: 'TRANSFER — reserve unchanged; ownership secrets change',
+      t: 'INTERNAL NOTE ROTATION — reserve unchanged; wallet secrets rotate',
       L: ['Open note A', '(you pick which)'],
       M: ['PREP + SETTLE', 'nullifier A'],
       R: ['Open note B', 'new secrets', 'live count same'],
@@ -332,7 +353,9 @@ export function flowSvg(kind) {
   const mid = (lines, x, y) => lines.map((ln, i) =>
     `<text x="${x}" y="${y + i * 16}" text-anchor="middle" fill="#eef3fb" font-size="12.5">${esc(ln)}</text>`
   ).join('');
-  return `<svg viewBox="0 0 920 200" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 920 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="flow-title flow-desc">
+    <title id="flow-title">${esc(f.t)}</title>
+    <desc id="flow-desc">Action flow diagram showing wallet input, PREP plus SETTLE, and the resulting public pool state.</desc>
     <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${f.c}"/></marker></defs>
     <rect width="920" height="200" rx="16" fill="#070c14"/>
     <text x="460" y="30" text-anchor="middle" fill="${f.c}" font-size="13" font-weight="650">${esc(f.t)}</text>
@@ -348,7 +371,9 @@ export function flowSvg(kind) {
 }
 
 export function privacySvg() {
-  return `<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="privacy-title privacy-desc">
+    <title id="privacy-title">Public and hidden information</title>
+    <desc id="privacy-desc">The diagram distinguishes chain-visible transaction and state information from wallet secrets and the spend link protected by the proof system when a meaningful candidate set remains.</desc>
     <rect width="920" height="300" rx="16" fill="#070c14"/>
     <rect x="40" y="40" width="400" height="220" rx="16" fill="#121c2c" stroke="#6eb6ff"/>
     <text x="240" y="72" text-anchor="middle" fill="#6eb6ff" font-size="13" font-weight="650">PUBLIC on chain</text>
@@ -363,9 +388,9 @@ export function privacySvg() {
     <text x="680" y="72" text-anchor="middle" fill="#b49cff" font-size="13" font-weight="650">HIDDEN by design</text>
     <text x="504" y="108" fill="#eef3fb" font-size="12.5">• Which live note a nullifier opens</text>
     <text x="504" y="132" fill="#eef3fb" font-size="12.5">• Deposit → later withdraw link*</text>
-    <text x="504" y="156" fill="#eef3fb" font-size="12.5">• Transfer internal ownership</text>
+    <text x="504" y="156" fill="#eef3fb" font-size="12.5">• Same-wallet note rotation link</text>
     <text x="504" y="180" fill="#eef3fb" font-size="12.5">• ρ, r, sk, recovery keys</text>
-    <text x="504" y="214" fill="#64748b" font-size="11">* only if live set &gt; 1 and timing does not collapse it</text>
-    <text x="504" y="236" fill="#64748b" font-size="11">Wallet pick order is not a chain label</text>
+    <text x="504" y="214" fill="#91a4bd" font-size="11">* requires &gt;1 plausible candidate; timing and prior knowledge can collapse it</text>
+    <text x="504" y="236" fill="#91a4bd" font-size="11">Wallet pick order is not a chain label</text>
   </svg>`;
 }
