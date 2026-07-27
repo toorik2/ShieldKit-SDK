@@ -25,3 +25,10 @@ export {
 } from './product-api.mjs';
 
 export { syncTipForestFromSettlementLog } from './sync-tip-from-log.mjs';
+
+export {
+  SettlementLogFetchError,
+  fetchSettlementLogFromTip,
+  settlementLogLooksComplete,
+  applySettlementLog,
+} from './chain-settlement-log.mjs';

@@ -10,8 +10,17 @@ Your pool: [`../03-create-your-own-pool/`](../03-create-your-own-pool/).
 | Aliases | `playground`, `chipnet-playground` |
 | Pins | [`instance.json`](./instance.json) · [`docs/PROFILES.md`](../03-create-your-own-pool/docs/PROFILES.md) |
 
-You only spend notes you create. Other notes in the tip are not yours without their seeds.  
-To deposit onto a multi-note tip, local `openNotes` must rebuild that tip (operator journal or equivalent) — empty wallet + multi-note tip fails closed (`OPEN_SET_DESYNC`).
+You only spend notes you create. Other notes in the tip are not yours without their seeds.
+
+**Blank machine join:** the playground tip is usually multi-history (not empty).  
+`playground tip` and `deposit`/`withdraw` automatically:
+
+1. discover the live State NFT tip  
+2. walk settle parents tip → genesis on Electrum  
+3. fill `state.json` `settlementLog`  
+4. rebuild the **public** tip forest (no foreign note secrets)
+
+Your `openNotes` stay empty until *you* deposit. You never need strangers’ seeds.
 
 ## Setup
 
@@ -20,18 +29,19 @@ npm install                         # deps + unlock toolchain (postinstall)
 npm run fetch-playground-bundle     # ~455MB profile arts (sha256 in instance.json)
 npm run rpc:probe
 npm run shieldkit -- playground doctor
-npm run shieldkit -- playground tip   # writes state.json cache; tip moves every settle
+npm run shieldkit -- playground tip   # tip + settlementLog + public tipForest
 ```
 
 ## Act
 
-Needs: funded Chipnet hot wallet in `wallets.json` (never commit), tip known/refreshed.
+Needs: funded Chipnet hot wallet in `wallets.json` (never commit; gitignored).
 
 ```bash
 # wallets.json: hot.{address,publicKeyHex,privateKeyHex,lockingBytecodeHex}
 npm run shieldkit -- playground deposit  --wallets ./wallets.json --scan-fees --broadcast
 npm run shieldkit -- playground withdraw --wallets ./wallets.json --scan-fees --broadcast
 # force tip rescan: --refresh-tip
+# skip chain walk (debug only): --no-fetch-settlement-log
 ```
 
 | | Fee UTXO value floor (fee **rate** always **1 sat/B**) |

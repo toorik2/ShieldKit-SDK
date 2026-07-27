@@ -151,10 +151,13 @@ export async function completeAction(input) {
 
   const ECIP_DIVERSITY_ATTEMPTS = Number(input.ecipDiversityAttempts ?? 12);
   let lastEcipErr = null;
+  const productQuiet = process.env.SHIELDKIT_VERBOSE !== '1'
+    && !(Array.isArray(process.argv) && process.argv.includes('--verbose'));
 
   for (let ecipAttempt = 0; ecipAttempt < ECIP_DIVERSITY_ATTEMPTS; ecipAttempt++) {
-    // +1 sat per attempt: changes prep txid/outpoints → SCCT → public inputs.
-    const feeFunding = String(feeFundingBase + ecipAttempt);
+    // Larger steps find nfail≤2 public inputs faster than +1 sat (still exact 1 sat/B on wire;
+    // surplus returns as fee change). +17×attempt spreads SCCT digests.
+    const feeFunding = String(feeFundingBase + ecipAttempt * 17);
     const prepIn = {
       kind,
       bundleDirectory,
@@ -267,12 +270,17 @@ export async function completeAction(input) {
         packetPath,
         outDir: path.join(workDir, `unlocks-${kind}${attemptTag}`),
         requirePinLens: true,
+        quiet: productQuiet,
       });
     } catch (e) {
       if (e.code === 'ECIP_NFAIL' || e.code === 'GATE_FAIL') {
         lastEcipErr = e;
-        // Hidden from product path unless SHIELDKIT_VERBOSE=1 (fee diversity retry).
-        if (process.env.SHIELDKIT_VERBOSE === '1') {
+        // Product: one short line. Internals only when verbose.
+        if (productQuiet) {
+          console.error(
+            `Adjusting proof inputs (retry ${ecipAttempt + 1}/${ECIP_DIVERSITY_ATTEMPTS})…`,
+          );
+        } else {
           console.error(JSON.stringify({
             phase: 'ecip-diversity-retry',
             kind,
@@ -293,6 +301,7 @@ export async function completeAction(input) {
           packetPath,
           outDir: path.join(workDir, `unlocks-${kind}${attemptTag}-retry`),
           requirePinLens: true,
+          quiet: productQuiet,
         });
       } else {
         throw e;

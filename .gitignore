@@ -17,6 +17,11 @@ HANDOVER.md
 .grok/
 .local/
 
+# Operator wallets (never commit keys)
+wallets.json
+**/wallets.json
+!**/fixtures/**/wallets.json
+
 # large profile artifacts (not in git)
 02-use-chipnet-demo-pool/bundle/
 02-use-chipnet-demo-pool/state.json

@@ -80,16 +80,22 @@ What happens under the hood (you should not need these):
 
 ## Track B — Playground (shared demo)
 
+The demo tip is usually **multi-history** (other operators already deposited).  
+Blank machines do **not** need a residual journal: `tip` / first act walk chain history
+(tip → genesis), fill `settlementLog`, and rebuild the public tip forest automatically.
+
 ```bash
 npm install
 npm run fetch-playground-bundle
 npm run rpc:probe
 npm run shieldkit -- playground doctor
-npm run shieldkit -- playground tip
+npm run shieldkit -- playground tip   # discovers tip + rebuilds public forest from chain
 
 npm run shieldkit -- playground deposit --wallets ./wallets.json --broadcast
 npm run shieldkit -- playground withdraw --wallets ./wallets.json --broadcast
 ```
+
+`wallets.json` is gitignored — never commit keys. Prefer `.local/wallets.json` if you like.
 
 See also [`PLAYGROUND.md`](./PLAYGROUND.md) and `02-use-chipnet-demo-pool/`.
 

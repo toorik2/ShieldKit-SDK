@@ -43,6 +43,9 @@ import {
   syncTipForestFromSettlementLog,
   assertNoGlobalOpenSetGate,
   ownedNoteFromOpenMeta,
+  fetchSettlementLogFromTip,
+  settlementLogLooksComplete,
+  applySettlementLog,
 } from '../packages/pool/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -522,6 +525,9 @@ async function main() {
   assertNoGlobalOpenSetGate(state.openNotes.length, Number(state.tipForest?.state?.liveNoteCount || 0) || 0);
 
   let tipNftCommitmentHex = null;
+  let tipSeqFromNft = state.tipMeta?.actionSequence != null
+    ? String(state.tipMeta.actionSequence)
+    : null;
   if (stateTxid) {
     try {
       const raw = await rpc._electrumCall?.('blockchain.transaction.get', [stateTxid, false]);
@@ -529,16 +535,16 @@ async function main() {
         const tipTx = decodeTransaction(hexToBin(raw));
         if (typeof tipTx !== 'string' && tipTx.outputs?.[0]?.token?.nft?.commitment) {
           tipNftCommitmentHex = binToHex(tipTx.outputs[0].token.nft.commitment);
-          const tipSeq = BigInt(
+          tipSeqFromNft = BigInt(
             `0x${Buffer.from(tipNftCommitmentHex.slice(144, 160), 'hex').reverse().toString('hex')}`,
           ).toString();
           const forestSeq = state.tipForest?.state?.actionSequence;
-          if (forestSeq != null && forestSeq !== tipSeq) {
+          if (forestSeq != null && forestSeq !== tipSeqFromNft) {
             debugLog({
               phase: 'tip-forest-stale',
-              tipActionSequence: tipSeq,
+              tipActionSequence: tipSeqFromNft,
               forestSeq,
-              note: 'rebuilding public tip from settlementLog if present',
+              note: 'rebuilding public tip from settlementLog / chain walk',
             });
           }
         }
@@ -548,73 +554,135 @@ async function main() {
     }
   }
 
-  // Chain-as-log tip rebuild when we have genesis + ≥1 settle hex
+  // Blank join / multi-history tip: walk tip→genesis on Electrum and fill settlementLog.
+  const forestSeqNow = state.tipForest?.state?.actionSequence != null
+    ? String(state.tipForest.state.actionSequence)
+    : null;
+  const forestMatchesTip = tipSeqFromNft != null && forestSeqNow === tipSeqFromNft;
+  const logComplete = settlementLogLooksComplete(state.settlementLog, tipSeqFromNft);
+  if (
+    !hasFlag('no-fetch-settlement-log')
+    && instance.genesisTxid
+    && stateTxid
+    && (!logComplete || !forestMatchesTip)
+  ) {
+    const needWalk = !logComplete
+      || (tipSeqFromNft != null && tipSeqFromNft !== '0' && !forestMatchesTip);
+    if (needWalk) {
+      productLog('Rebuilding pool tip from chain history…');
+      try {
+        const fetched = await fetchSettlementLogFromTip({
+          rpc,
+          tipTxid: stateTxid,
+          genesisTxid: instance.genesisTxid,
+          decodeTransaction,
+          binToHex,
+        });
+        applySettlementLog(state, fetched);
+        writeFileSync(statePath, JSON.stringify(state, null, 2));
+        productLog(
+          fetched.depth === 0
+            ? 'Tip is genesis (empty live set).'
+            : `Public tip history ready (${fetched.depth} settle${fetched.depth === 1 ? '' : 's'}).`,
+        );
+        debugLog({
+          phase: 'settlement-log-fetch',
+          depth: fetched.depth,
+          settleTxids: fetched.settleTxids,
+        });
+      } catch (e) {
+        debugLog({
+          phase: 'settlement-log-fetch-fail',
+          err: String(e.message || e).slice(0, 220),
+        });
+        if (tipSeqFromNft && tipSeqFromNft !== '0' && !forestMatchesTip) {
+          throw new Error(
+            `Cannot rebuild tip from chain (${e.message || e}). `
+            + 'Need Electrum access to walk settles tip→genesis, or a residual tipForest in state.json.',
+          );
+        }
+      }
+    }
+  }
+
+  // Chain-as-log tip rebuild when we have genesis + settles (or residual complete log)
   if (
     state.settlementLog?.genesisHex
     && Array.isArray(state.settlementLog.settles)
-    && state.settlementLog.settles.length > 0
+    && (state.settlementLog.settles.length > 0 || tipSeqFromNft === '0')
   ) {
-    try {
-      const vsPath = path.join(bundleDir, 'artifacts/verifier-set.bin');
-      const vs = JSON.parse(readFileSync(vsPath, 'utf8'));
-      const auth = parsePf7CarrierAuthority(vs);
-      // Prefer full secrets already on openNotes (wallet path); residual tipForest only fills gaps.
-      const secretMetaByIndex = {};
-      for (const m of state.tipForest?.openNoteMeta || []) {
-        if (m?.noteIndex != null && m?.note1) secretMetaByIndex[Number(m.noteIndex)] = m;
-      }
-      const myOpenNotes = state.openNotes.map((n, i) => {
-        // Prefer notes that already carry note1/key1/nfLeaf1 from deposit write
-        if (n.note1 && n.key1 != null && n.nfLeaf1) {
+    if (state.settlementLog.settles.length > 0) {
+      try {
+        const vsPath = path.join(bundleDir, 'artifacts/verifier-set.bin');
+        const vs = JSON.parse(readFileSync(vsPath, 'utf8'));
+        const auth = parsePf7CarrierAuthority(vs);
+        // Prefer full secrets already on openNotes (wallet path); residual tipForest only fills gaps.
+        const secretMetaByIndex = {};
+        for (const m of state.tipForest?.openNoteMeta || []) {
+          if (m?.noteIndex != null && m?.note1) secretMetaByIndex[Number(m.noteIndex)] = m;
+        }
+        const myOpenNotes = state.openNotes.map((n, i) => {
+          // Prefer notes that already carry note1/key1/nfLeaf1 from deposit write
+          if (n.note1 && n.key1 != null && n.nfLeaf1) {
+            return {
+              noteIndex: n.noteIndex != null ? n.noteIndex : i,
+              leaf: n.leaf,
+              key1: String(n.key1),
+              nfLeaf1: n.nfLeaf1,
+              note1: n.note1,
+              witnessSeed: n.witnessSeed,
+              depositDigest: n.depositDigest,
+            };
+          }
           return {
             noteIndex: n.noteIndex != null ? n.noteIndex : i,
             leaf: n.leaf,
-            key1: String(n.key1),
-            nfLeaf1: n.nfLeaf1,
-            note1: n.note1,
             witnessSeed: n.witnessSeed,
             depositDigest: n.depositDigest,
+            key1: n.key1,
+            nfLeaf1: n.nfLeaf1,
+            note1: n.note1,
           };
+        });
+        const synced = await syncTipForestFromSettlementLog({
+          genesisTransactionId: state.settlementLog.genesisTxid || instance.genesisTxid,
+          genesisTransactionHex: state.settlementLog.genesisHex,
+          settleTransactionHexes: state.settlementLog.settles,
+          profileId: (instance.profileId || '').replace(/^sha256:/, ''),
+          instanceId: (instance.instanceId || '').replace(/^sha256:/, ''),
+          stateNftCategory: (instance.categoryTxid || instance.stateNftCategory || '').toLowerCase(),
+          stateLockingBytecodeHex: Buffer.from(auth.settlementKernel.stateLock).toString('hex'),
+          stateCarrierBaseSatoshis: '1080',
+          tipNftCommitmentHex: tipNftCommitmentHex || undefined,
+          myOpenNotes,
+          // Only residual fill-in when openNotes still lack secrets (legacy state.json)
+          secretMetaByIndex,
+        });
+        state.tipForest = synced.tipForest;
+        state.publicTip = synced.publicTip;
+        writeFileSync(statePath, JSON.stringify(state, null, 2));
+        productLog(
+          `Tip forest ready (live ${synced.publicTip.state.liveNoteCount}, seq ${synced.publicTip.state.actionSequence}).`,
+        );
+        debugLog({
+          phase: 'tip-rebuild-from-log',
+          events: synced.publicTip.eventCount,
+          liveNoteCount: synced.publicTip.state.liveNoteCount,
+          actionSequence: synced.publicTip.state.actionSequence,
+          myOpenNotes: state.openNotes.length,
+        });
+      } catch (e) {
+        debugLog({
+          phase: 'tip-rebuild-from-log-fail',
+          err: String(e.message || e).slice(0, 200),
+        });
+        // Fall through to residual tipForest if rebuild fails (e.g. incomplete log)
+        if (tipSeqFromNft && tipSeqFromNft !== '0' && !forestMatchesTip) {
+          throw new Error(
+            `tip rebuild from settlement log failed: ${e.message || e}`,
+          );
         }
-        return {
-          noteIndex: n.noteIndex != null ? n.noteIndex : i,
-          leaf: n.leaf,
-          witnessSeed: n.witnessSeed,
-          depositDigest: n.depositDigest,
-          key1: n.key1,
-          nfLeaf1: n.nfLeaf1,
-          note1: n.note1,
-        };
-      });
-      const synced = await syncTipForestFromSettlementLog({
-        genesisTransactionId: state.settlementLog.genesisTxid || instance.genesisTxid,
-        genesisTransactionHex: state.settlementLog.genesisHex,
-        settleTransactionHexes: state.settlementLog.settles,
-        profileId: (instance.profileId || '').replace(/^sha256:/, ''),
-        instanceId: (instance.instanceId || '').replace(/^sha256:/, ''),
-        stateNftCategory: (instance.categoryTxid || instance.stateNftCategory || '').toLowerCase(),
-        stateLockingBytecodeHex: Buffer.from(auth.settlementKernel.stateLock).toString('hex'),
-        stateCarrierBaseSatoshis: '1080',
-        tipNftCommitmentHex: tipNftCommitmentHex || undefined,
-        myOpenNotes,
-        // Only residual fill-in when openNotes still lack secrets (legacy state.json)
-        secretMetaByIndex,
-      });
-      state.tipForest = synced.tipForest;
-      state.publicTip = synced.publicTip;
-      debugLog({
-        phase: 'tip-rebuild-from-log',
-        events: synced.publicTip.eventCount,
-        liveNoteCount: synced.publicTip.state.liveNoteCount,
-        actionSequence: synced.publicTip.state.actionSequence,
-        myOpenNotes: state.openNotes.length,
-      });
-    } catch (e) {
-      debugLog({
-        phase: 'tip-rebuild-from-log-fail',
-        err: String(e.message || e).slice(0, 200),
-      });
-      // Fall through to residual tipForest if rebuild fails (e.g. incomplete log)
+      }
     }
   }
   const digests = {

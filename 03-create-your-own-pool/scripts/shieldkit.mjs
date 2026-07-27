@@ -236,6 +236,15 @@ async function cmdTip() {
     const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
     const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
     const { parsePf7CarrierAuthority } = await import('../packages/prove/authority.mjs');
+    const {
+      fetchSettlementLogFromTip,
+      settlementLogLooksComplete,
+      applySettlementLog,
+      syncTipForestFromSettlementLog,
+    } = await import('../packages/pool/index.mjs');
+    const {
+      decodeTransaction, hexToBin, binToHex,
+    } = await import('../packages/action/node_modules/@bitauth/libauth/build/index.js');
     const rpc = await createChainRpc({ network });
     const vs = JSON.parse(readFileSync(path.join(bundleDir, 'artifacts/verifier-set.bin'), 'utf8'));
     const authority = parsePf7CarrierAuthority(vs);
@@ -283,7 +292,79 @@ async function cmdTip() {
       feeUtxos: prev.feeUtxos || [],
       history: prev.history || [],
       openNotes: prev.openNotes || [],
+      settlementLog: prev.settlementLog || null,
+      tipForest: prev.tipForest || null,
+      publicTip: prev.publicTip || null,
     };
+
+    // Blank join: walk tip→genesis and rebuild public tipForest (no private note secrets).
+    let settlementLog = next.settlementLog;
+    let tipForestMeta = null;
+    const tipSeq = String(useTip.actionSequence);
+    const skipLog = flag('no-fetch-settlement-log');
+    if (!skipLog && instance.genesisTxid && useTip.stateTxid) {
+      const forestSeq = next.tipForest?.state?.actionSequence != null
+        ? String(next.tipForest.state.actionSequence)
+        : null;
+      const needFetch = !settlementLogLooksComplete(settlementLog, tipSeq)
+        || (tipSeq !== '0' && forestSeq !== tipSeq);
+      if (needFetch) {
+        try {
+          const fetched = await fetchSettlementLogFromTip({
+            rpc,
+            tipTxid: useTip.stateTxid,
+            genesisTxid: instance.genesisTxid,
+            decodeTransaction,
+            binToHex,
+          });
+          applySettlementLog(next, fetched);
+          settlementLog = next.settlementLog;
+        } catch (e) {
+          // Soft on tip verb: still write tip cache; act path will fail closed if needed.
+          next.settlementLogFetchError = String(e.message || e).slice(0, 200);
+        }
+      }
+    }
+
+    if (
+      settlementLog?.genesisHex
+      && Array.isArray(settlementLog.settles)
+      && settlementLog.settles.length > 0
+    ) {
+      try {
+        let tipNftCommitmentHex;
+        const raw = await rpc._electrumCall?.('blockchain.transaction.get', [useTip.stateTxid, false]);
+        if (typeof raw === 'string') {
+          const tipTx = decodeTransaction(hexToBin(raw));
+          if (typeof tipTx !== 'string' && tipTx.outputs?.[0]?.token?.nft?.commitment) {
+            tipNftCommitmentHex = binToHex(tipTx.outputs[0].token.nft.commitment);
+          }
+        }
+        const synced = await syncTipForestFromSettlementLog({
+          genesisTransactionId: settlementLog.genesisTxid || instance.genesisTxid,
+          genesisTransactionHex: settlementLog.genesisHex,
+          settleTransactionHexes: settlementLog.settles,
+          profileId: (instance.profileId || '').replace(/^sha256:/, ''),
+          instanceId: (instance.instanceId || '').replace(/^sha256:/, ''),
+          stateNftCategory: (instance.stateNftCategory || '').toLowerCase(),
+          stateLockingBytecodeHex: Buffer.from(authority.settlementKernel.stateLock).toString('hex'),
+          stateCarrierBaseSatoshis: '1080',
+          tipNftCommitmentHex,
+          myOpenNotes: next.openNotes || [],
+          secretMetaByIndex: {},
+        });
+        next.tipForest = synced.tipForest;
+        next.publicTip = synced.publicTip;
+        tipForestMeta = {
+          liveNoteCount: synced.publicTip.state.liveNoteCount,
+          actionSequence: synced.publicTip.state.actionSequence,
+          eventCount: synced.publicTip.eventCount,
+        };
+      } catch (e) {
+        next.tipForestRebuildError = String(e.message || e).slice(0, 200);
+      }
+    }
+
     if (!flag('no-write')) {
       writeFileSync(statePath, JSON.stringify(next, null, 2));
     }
@@ -299,8 +380,10 @@ async function cmdTip() {
       source: useTip.source || tip.source,
       unspentMatches: tip.unspentMatches,
       scanned: tip.scanned,
+      settlementLogDepth: settlementLog?.depth ?? settlementLog?.settles?.length ?? null,
+      tipForest: tipForestMeta,
       wrote: !flag('no-write') ? statePath : null,
-      note: 'Tip moves every settle. Re-run tip / --refresh-tip before acting if others used the pool.',
+      note: 'Tip moves every settle. settlementLog + public tipForest rebuilt from chain when needed (blank join).',
     });
   } catch (e) {
     failJson(e.code || e.name || 'TIP_FAILED', e.message || String(e), 1);

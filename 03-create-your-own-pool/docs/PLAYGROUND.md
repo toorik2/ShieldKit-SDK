@@ -17,4 +17,6 @@ npm run shieldkit -- playground deposit --wallets ./wallets.json --broadcast
 npm run shieldkit -- playground withdraw --wallets ./wallets.json --broadcast
 ```
 
-Fees and tip discovery are automatic. Details: [`02-use-chipnet-demo-pool/README.md`](../../02-use-chipnet-demo-pool/README.md).
+Fees, tip discovery, and **chain-as-log tip rebuild** (tip → genesis settlement walk) are automatic —
+blank join on a multi-history playground tip does not require a pre-seeded `tipForest`.  
+Details: [`02-use-chipnet-demo-pool/README.md`](../../02-use-chipnet-demo-pool/README.md).

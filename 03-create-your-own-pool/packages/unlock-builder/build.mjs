@@ -57,7 +57,13 @@ export async function buildVerifierUnlocks(input) {
   const outDir = path.resolve(input.outDir);
   const requirePinLens = input.requirePinLens !== false;
 
-  const quiet = input.quiet === true || process.env.SHIELDKIT_UNLOCK_QUIET === '1';
+  // Quiet by default (product path). Verbose only when explicitly requested:
+  //   input.quiet === false | SHIELDKIT_VERBOSE=1 | SHIELDKIT_UNLOCK_VERBOSE=1 | --verbose
+  const verboseEnv = process.env.SHIELDKIT_VERBOSE === '1'
+    || process.env.SHIELDKIT_UNLOCK_VERBOSE === '1'
+    || (Array.isArray(process.argv) && process.argv.includes('--verbose'));
+  const quiet = input.quiet === true
+    || (input.quiet !== false && process.env.SHIELDKIT_UNLOCK_QUIET !== '0' && !verboseEnv);
   const log = (obj) => {
     if (!quiet) console.error(JSON.stringify(obj));
   };

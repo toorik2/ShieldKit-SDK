@@ -12,7 +12,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const PKGS = path.join(ROOT, '03-create-your-own-pool/packages');
 
 const STEPS = [
-  { dir: path.join(PKGS, 'action'), cmd: ['npm', 'install', '--no-fund', '--no-audit'] },
+  // action first: pool-act / complete-action import libauth from packages/action/node_modules
+  {
+    dir: path.join(PKGS, 'action'),
+    cmd: ['npm', 'install', '--no-fund', '--no-audit',
+      '@bitauth/libauth@^3.1.0-next.8', 'circomlibjs@^0.1.7'],
+  },
   { dir: path.join(PKGS, 'profile'), cmd: ['npm', 'install', '--no-fund', '--no-audit'] },
   {
     dir: path.join(PKGS, 'kit'),
@@ -33,6 +38,13 @@ const STEPS = [
   { dir: path.join(PKGS, 'unlock-builder'), cmd: ['npm', 'install', '--no-fund', '--no-audit'] },
 ];
 
+/** Hard gate: blank-machine acts fail with ERR_MODULE_NOT_FOUND if these are missing. */
+const REQUIRED_MODULES = [
+  path.join(PKGS, 'action/node_modules/@bitauth/libauth/build/index.js'),
+  path.join(PKGS, 'kit/node_modules/@bitauth/libauth/build/index.js'),
+  path.join(PKGS, 'profile/node_modules/snarkjs/package.json'),
+];
+
 function run(dir, cmd) {
   if (!existsSync(dir)) {
     console.error(`skip missing ${dir}`);
@@ -49,6 +61,15 @@ function run(dir, cmd) {
 }
 
 for (const s of STEPS) run(s.dir, s.cmd);
+
+for (const mod of REQUIRED_MODULES) {
+  if (!existsSync(mod)) {
+    console.error(`install-deps: missing required module after install: ${path.relative(ROOT, mod)}`);
+    console.error('Re-run: npm run install:deps');
+    process.exit(1);
+  }
+}
+console.log('install-deps: required modules present (action/kit libauth, profile snarkjs)');
 
 // densFuel pin: cashc dist + harness/build node_modules (gitignored)
 const unlockSetup = path.join(ROOT, '03-create-your-own-pool/scripts/setup-unlock-toolchain.mjs');
