@@ -46,7 +46,7 @@
     <main class="content">
       <!-- INTRO -->
       <header class="hero reveal" id="intro">
-        <div class="kicker">Bitcoin Cash · fixed 0.1 BCH notes</div>
+        <div class="kicker">Bitcoin Cash · fixed 0.1 BCH notes · Chipnet-first</div>
         <h1>Private notes. Public rules. Your pool.</h1>
         <p class="lead">
           ShieldKit is a toolkit to birth and run <em>your own</em> shielded pool on BCH:
@@ -54,6 +54,10 @@
           withdraw to transparent scripts. Proofs stay local; the chain only verifies.
           This site explains the system clearly — the notes stay private.
         </p>
+        <div class="callout" style="margin-bottom:1.1rem">
+          <strong>Unaudited WIP.</strong> Teaching page for the current profile — not an audit report,
+          not a mainnet product claim. Prefer Chipnet until SECURITY and red-team docs say otherwise.
+        </div>
         <div class="grid grid-3">
           <div class="card">
             <h3>Denomination</h3>
@@ -63,7 +67,7 @@
           <div class="card">
             <h3>Default capacity</h3>
             <div class="stat">16 live</div>
-            <p>Genesis reserve 1.6 BCH. Live set ≤ notes currently unspent.</p>
+            <p>Max reserve 1.6 BCH if full. Live count = unspent notes (starts at 0).</p>
           </div>
           <div class="card">
             <h3>Miner fee</h3>
@@ -146,7 +150,8 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
         <div class="pane" data-group="lens" data-pane="ops">
           <p style="color:var(--text-dim);margin:0">
             You run instance + hot fee wallet + RPC. Doctor checks tip, fees, capacity.
-            Deposit needs a fee UTXO ≳ 11.5M sats. Tip is one UTXO — settles serialize.
+            Deposit needs a fee UTXO ≳ ~10.07M sats (0.1 BCH + PF7/bind/settle pads);
+            transfer/withdraw floors are ~71k sats. Tip is one UTXO — settles serialize.
             Multi-user wallets each keep their own open-note journal; a shared ops
             <code>state.json</code> is a lab convenience, not the multi-tenant product model.
           </p>
@@ -367,7 +372,7 @@ shieldkit deposit|transfer|withdraw --pool ./my-pool --broadcast
       <section class="panel reveal" id="settle">
         <div class="kicker">On-chain machine</div>
         <h2>Settlement anatomy</h2>
-        <p class="lead">Each act is PREP then SETTLE. Hover a role below. The animation walks the <strong>fixed 10-input order</strong> — teaching sweep, not a live node and not a fee meter.</p>
+        <p class="lead">Each act is PREP then SETTLE. Hover a role below. The animation walks the <strong>fixed 10-input order</strong> — teaching sweep, not a live node and not a fee meter. Wire size is pin/kind-dependent (example ~57kB, hard cap ≤59kB).</p>
         <div class="diagram" id="diag-settle"></div>
         <p id="role-hint" style="text-align:center;color:var(--text-faint);font-size:0.88rem;min-height:1.4em;margin:0.5rem 0 0">Hover an input</p>
         <canvas id="settleCanvas" width="900" height="280" aria-label="Sequential input verification illustration"></canvas>
@@ -543,6 +548,7 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
               <strong>Not LIFO-on-chain.</strong> “Newest first” is a wallet default for which of
               <em>your</em> open notes to spend. Protocol allows any note you can prove.
               On-chain, a withdraw is “one of N live notes” — not “the last deposit.”
+              Gray chips are other operators’ notes (you cannot spend them); they still enlarge the set.
             </div>
           </div>
         </div>
@@ -580,12 +586,12 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
           </div>
           <div class="card">
             <h3>Interactive size → fee</h3>
-            <label style="font-size:0.85rem;color:var(--text-dim)">Wire bytes
-              <input id="fee-bytes" type="range" min="200" max="59000" value="56964" style="width:100%;accent-color:var(--cyan)" />
+            <label style="font-size:0.85rem;color:var(--text-dim)">Wire bytes (example settle size)
+              <input id="fee-bytes" type="range" min="200" max="59000" value="57000" style="width:100%;accent-color:var(--cyan)" />
             </label>
-            <div class="stat" id="fee-out">56,964 sats</div>
+            <div class="stat" id="fee-out">57,000 sats</div>
             <div class="meter"><i id="fee-bar"></i></div>
-            <p id="fee-bch" style="margin:0;color:var(--text-dim)">≈ 0.00056964 BCH</p>
+            <p id="fee-bch" style="margin:0;color:var(--text-dim)">≈ 0.00057000 BCH · real settles vary; cap ≤ 59,000 B</p>
           </div>
         </div>
       </section>
@@ -650,14 +656,14 @@ on_chain: densFuel_PF7(π, public, VK_pin) ∧ covenants(state, binding)
         <h2>Hands-on path</h2>
         <pre class="code"><span class="c"># Birth — capacity immutable after this</span>
 npm run create-pool -- --out ./my-pool --with-genesis \
-  --scan-fund --max-notes <span class="n">16</span> --broadcast
+  --scan-fund --max-notes <span class="n">16</span> --wallets ./wallets.json --broadcast
 
 npm run shieldkit -- doctor --pool ./my-pool
 
-<span class="c"># Grow live set, then spend</span>
-npm run shieldkit -- deposit  --pool ./my-pool --wallets … --broadcast
-npm run shieldkit -- deposit  --pool ./my-pool --wallets … --broadcast
-npm run shieldkit -- withdraw --pool ./my-pool --wallets … --broadcast
+<span class="c"># Grow live set, then spend (prove+unlock often 30–90s)</span>
+npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
+npm run shieldkit -- deposit  --pool ./my-pool --wallets ./wallets.json --broadcast
+npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadcast
 
 <span class="c"># playground ≠ your pool (different instanceId)</span></pre>
       </section>
@@ -669,13 +675,13 @@ npm run shieldkit -- withdraw --pool ./my-pool --wallets … --broadcast
         <pre class="code">01-learn-about-this-system/   <span class="c">this site (learn)</span>
 02-use-chipnet-demo-pool/     <span class="c">CLI Chipnet demo</span>
 03-create-your-own-pool/       <span class="c">product — birth &amp; run your pool</span>
-  packages/  kit · profile · action · prove · recover
+  packages/  kit · pool · profile · action · prove · recover · unlock-builder
   scripts/   create-pool · shieldkit · doctor · pool-act</pre>
       </section>
 
       <footer class="site-foot">
-        <span>ShieldKit explainer · for humans learning the system</span>
-        <span>See also: CHARTER · PRIVACY · ARCHITECTURE in <code>03-create-your-own-pool/docs/</code></span>
+        <span>ShieldKit explainer · unaudited WIP · Chipnet-first</span>
+        <span>See also: CHARTER · PRIVACY · ARCHITECTURE · SECURITY</span>
       </footer>
     </main>
   </div>

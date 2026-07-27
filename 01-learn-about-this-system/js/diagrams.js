@@ -26,7 +26,7 @@ export function systemMapSvg() {
   <text x="161" y="68" text-anchor="middle" fill="#f0c14b" font-size="13" font-weight="650" font-family="Inter,sans-serif">YOUR MACHINE</text>
   <text x="161" y="88" text-anchor="middle" fill="#64748b" font-size="11">offline · secrets · prove</text>
   ${box(58, 110, 206, 48, '#1a2438', '#b49cff', ['Wallet secrets  ρ · r · sk'], 'local-secrets')}
-  ${box(58, 174, 206, 48, '#1a2438', '#b49cff', ['Groth16 prove  ~10s'], 'local-prove')}
+  ${box(58, 174, 206, 48, '#1a2438', '#b49cff', ['Groth16 prove  ~10–30s'], 'local-prove')}
   ${box(58, 238, 206, 48, '#1a2438', '#b49cff', ['Unlock build densFuel ~30s'], 'local-unlock')}
   ${box(58, 302, 206, 48, '#1a2438', '#2ee6c8', ['Assemble PREP + SETTLE'], 'local-assemble')}
 
@@ -38,7 +38,7 @@ export function systemMapSvg() {
   <text x="632" y="88" text-anchor="middle" fill="#64748b" font-size="11">consensus-visible · no note secrets</text>
 
   ${box(410, 115, 210, 54, '#152238', '#6eb6ff', ['PREP  10 outs · PF7+bind+fee'], 'chain-prep')}
-  ${box(650, 115, 210, 54, '#152238', '#2ee6c8', ['SETTLE  ~57kB · 10 inputs'], 'chain-settle')}
+  ${box(650, 115, 210, 54, '#152238', '#2ee6c8', ['SETTLE  ≤59kB · 10 inputs'], 'chain-settle')}
   <line x1="620" y1="142" x2="650" y2="142" stroke="#2ee6c8" stroke-width="2" marker-end="url(#m)"/>
 
   ${box(410, 195, 450, 72, '#121c2c', '#f0c14b', ['State NFT tip (mutable)', 'value=1080+reserve · SHST commitment'], 'chain-state')}
@@ -176,7 +176,7 @@ export function verifierSvg() {
     <rect x="312" y="48" width="220" height="200" rx="14" fill="#121c2c" stroke="#2ee6c8" stroke-width="1.5"/>
     <text x="422" y="78" text-anchor="middle" fill="#2ee6c8" font-size="12" font-weight="650">GROTH16 · BN254</text>
     <text x="422" y="112" text-anchor="middle" fill="#eef3fb" font-size="12">relation v2</text>
-    <text x="422" y="134" text-anchor="middle" fill="#eef3fb" font-size="12">prove ~10s local</text>
+    <text x="422" y="134" text-anchor="middle" fill="#eef3fb" font-size="12">prove ~10–30s local</text>
     <text x="422" y="168" text-anchor="middle" fill="#f0c14b" font-size="12">π  +  public limbs</text>
     <text x="422" y="200" text-anchor="middle" fill="#64748b" font-size="11">public = SHA256(SCAR)</text>
     <text x="422" y="220" text-anchor="middle" fill="#64748b" font-size="11">two u128 limbs only</text>
@@ -309,21 +309,21 @@ export function flowSvg(kind) {
     deposit: {
       t: 'DEPOSIT — transparent BCH enters; a new open note is created',
       L: ['Your wallet', '0.1 BCH in'],
-      M: ['PREP + SETTLE', 'wire ≈ 57kB'],
+      M: ['PREP + SETTLE', 'wire ≤ 59kB'],
       R: ['Reserve +0.1', 'Open notes +1', 'Encrypted receipt'],
       c: '#2ee6c8',
     },
     transfer: {
       t: 'TRANSFER — reserve unchanged; ownership secrets change',
       L: ['Open note A', '(you pick which)'],
-      M: ['SETTLE', 'nullifier A'],
+      M: ['PREP + SETTLE', 'nullifier A'],
       R: ['Open note B', 'new secrets', 'live count same'],
       c: '#b49cff',
     },
     withdraw: {
       t: 'WITHDRAW — BCH out; live set shrinks by one',
       L: ['Open note', 'wallet selects'],
-      M: ['SETTLE', 'nullifier'],
+      M: ['PREP + SETTLE', 'nullifier'],
       R: ['Transparent', '0.1 BCH out', 'open notes −1'],
       c: '#f0c14b',
     },

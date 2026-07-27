@@ -93,7 +93,7 @@ const HOT = {
   },
   'local-prove': {
     t: 'Groth16 prove',
-    d: 'Local snarkjs + pin zkey (~10s). Public input is two limbs of SHA256 of the 752-byte SCAR action packet — not your note secrets.',
+    d: 'Local snarkjs + pin zkey (often ~10–30s). Public input is two limbs of SHA256 of the 752-byte SCAR action packet — not your note secrets. Prove+unlock together often land in 30–90s.',
   },
   'local-unlock': {
     t: 'Unlock build',
@@ -105,11 +105,11 @@ const HOT = {
   },
   'chain-prep': {
     t: 'Preparation tx',
-    d: 'Exactly 10 outputs: PF7 exec0–4, genesis, terminal (0–6), binding (7), fee funding (8), P2PKH change (9). Does not spend the tip.',
+    d: 'Exactly 10 outputs: PF7 exec0–4, genesis, terminal (0–6), binding (7), fee funding (8), P2PKH change (9). Does not spend the tip. Required before every settle (deposit, transfer, withdraw).',
   },
   'chain-settle': {
     t: 'Settlement tx',
-    d: 'Exactly 10 inputs: exec0–4, genesis, terminal, binding (SCAR packet unlock), state tip, fee. ~57kB. Only one can spend the current tip.',
+    d: 'Exactly 10 inputs: exec0–4, genesis, terminal, binding (SCAR packet unlock), state tip, fee. Wire size is pin/kind-dependent (example ~57kB, hard cap ≤59kB). Only one can spend the current tip.',
   },
   'chain-state': {
     t: 'State NFT tip',
@@ -213,6 +213,7 @@ document.getElementById('diag-settle')?.addEventListener('mouseover', (e) => {
 
 /* ---------- Anonymity lab ---------- */
 const CAP = 16;
+/** Live notes in the tip. mine=true ⇒ this wallet can spend; others enlarge the set only. */
 let notes = [];
 let nid = 1;
 const pool = $('#pool-stage');
@@ -230,34 +231,51 @@ function log(html, priv = false) {
   feed.prepend(el);
 }
 
+function mineNotes() {
+  return notes.map((n, i) => ({ n, i })).filter(({ n }) => n.mine);
+}
+
 function renderNotes() {
   if (!pool) return;
-  // remove chips only
   $$('.note', pool).forEach((n) => n.remove());
   pool.classList.toggle('has-notes', notes.length > 0);
   notes.forEach((n, i) => {
     const chip = document.createElement('span');
-    chip.className = 'note';
-    chip.innerHTML = `<span class="who">yours</span> #${n.id} · slot ${i + 1}`;
-    chip.title = `Local wallet entry — not a chain label. seed …${n.seed}`;
+    chip.className = n.mine ? 'note' : 'note note-other';
+    const who = n.mine ? 'yours' : 'other';
+    chip.innerHTML = `<span class="who">${who}</span> #${n.id} · slot ${i + 1}`;
+    chip.title = n.mine
+      ? `Local wallet entry — not a chain label. seed …${n.seed}`
+      : 'Another operator’s note — enlarges the live set; you cannot spend it';
     pool.appendChild(chip);
   });
   const n = notes.length;
+  const mine = mineNotes().length;
   if (setSize) setSize.textContent = String(n);
   if (meter) meter.style.width = `${(n / CAP) * 100}%`;
   if (grade) {
     const g = n <= 1 ? 'trivial' : n < 8 ? 'thin' : 'meaningful';
-    grade.textContent = g;
+    grade.textContent = mine < n ? `${g} · ${mine} yours` : g;
     grade.className = `tag ${n <= 1 ? 'tag-bad' : n < 8 ? 'tag-warn' : 'tag-ok'}`;
   }
 }
 
-function pickIndex() {
-  if (notes.length === 0) return -1;
+function pickMineIndex() {
+  const mine = mineNotes();
+  if (mine.length === 0) return -1;
   const mode = pickMode?.value || 'newest';
-  if (mode === 'oldest') return 0;
-  if (mode === 'random') return Math.floor(Math.random() * notes.length);
-  return notes.length - 1; // newest
+  if (mode === 'oldest') return mine[0].i;
+  if (mode === 'random') return mine[Math.floor(Math.random() * mine.length)].i;
+  return mine[mine.length - 1].i; // newest among mine
+}
+
+/** Occasionally seed an “other” deposit so the lab shows multi-user set growth. */
+function maybeOtherDeposit() {
+  if (notes.length >= CAP) return;
+  if (Math.random() > 0.45) return;
+  const id = nid++;
+  notes.push({ id, mine: false, seed: Math.random().toString(16).slice(2, 8) });
+  log(`<span class="tag tag-pub">chain</span> Someone else deposited. Live set = <strong>${notes.length}</strong> (their note is not yours).`);
 }
 
 $('#btn-dep')?.addEventListener('click', () => {
@@ -266,36 +284,36 @@ $('#btn-dep')?.addEventListener('click', () => {
     return;
   }
   const id = nid++;
-  notes.push({ id, seed: Math.random().toString(16).slice(2, 8) });
-  log(`<span class="tag tag-pub">chain</span> Deposit settled. <strong>Live set = ${notes.length}</strong>. Reserve +0.1 BCH. Root updated. Your wallet stores this open note privately.`);
+  notes.push({ id, mine: true, seed: Math.random().toString(16).slice(2, 8) });
+  log(`<span class="tag tag-pub">chain</span> Your deposit settled. <strong>Live set = ${notes.length}</strong>. Reserve +0.1 BCH. Root updated. Your wallet stores this open note privately.`);
+  maybeOtherDeposit();
   renderNotes();
 });
 
 $('#btn-xfer')?.addEventListener('click', () => {
-  const i = pickIndex();
+  const i = pickMineIndex();
   if (i < 0) {
-    log('No open note in this wallet.');
+    log('No open note in this wallet. Deposit first (gray chips are not yours).');
     return;
   }
   const old = notes[i];
-  const neu = { id: nid++, seed: Math.random().toString(16).slice(2, 8), from: old.id };
+  const neu = { id: nid++, mine: true, seed: Math.random().toString(16).slice(2, 8), from: old.id };
   notes.splice(i, 1, neu);
   log(
-    `<span class="tag tag-priv">wallet pick</span> Transfer spent note #${old.id} (selection: <em>${pickMode?.value}</em>) → new note #${neu.id}. Live count still <strong>${notes.length}</strong>. Nullifier public; which note is not.`,
+    `<span class="tag tag-priv">wallet pick</span> Transfer spent note #${old.id} (selection: <em>${pickMode?.value}</em>) → new note #${neu.id}. Live count still <strong>${notes.length}</strong> (includes others). Nullifier public; which note is not.`,
     true,
   );
   renderNotes();
 });
 
 $('#btn-wd')?.addEventListener('click', () => {
-  const i = pickIndex();
+  const i = pickMineIndex();
   if (i < 0) {
-    log('No open note in this wallet.');
+    log('No open note in this wallet. Deposit first (gray chips are not yours).');
     return;
   }
   const before = notes.length;
   const [gone] = notes.splice(i, 1);
-  // animate leave
   log(
     `<span class="tag tag-pub">chain</span> Withdraw. Wallet selected note #${gone.id} via <em>${pickMode?.value || 'newest'}</em> (local policy only). On-chain: one nullifier among <strong>${before}</strong> live notes → now ${notes.length}. Observer does not see “newest” as a label.`,
   );
@@ -320,11 +338,13 @@ const feeBytes = $('#fee-bytes');
 const feeOut = $('#fee-out');
 const feeBar = $('#fee-bar');
 function updateFee() {
-  const b = Number(feeBytes?.value || 56964);
+  const b = Number(feeBytes?.value || 57000);
   if (feeOut) feeOut.textContent = `${b.toLocaleString()} sats`;
   if (feeBar) feeBar.style.width = `${Math.min(100, (b / 59000) * 100)}%`;
   const bch = $('#fee-bch');
-  if (bch) bch.textContent = `≈ ${(b / 1e8).toFixed(8)} BCH`;
+  if (bch) {
+    bch.textContent = `≈ ${(b / 1e8).toFixed(8)} BCH · real settles vary; cap ≤ 59,000 B`;
+  }
 }
 feeBytes?.addEventListener('input', updateFee);
 updateFee();
@@ -337,8 +357,8 @@ function updateCap() {
   const n = Number(capRange?.value || 16);
   if (capOut) capOut.textContent = String(n);
   // Avoid float noise: N × 0.1 BCH
-  const bch = (n / 10).toFixed(n % 10 === 0 ? 1 : 1);
-  if (capBch) capBch.textContent = `${bch} BCH reserve cap (N × 0.1 BCH)`;
+  const bch = (n / 10).toFixed(1);
+  if (capBch) capBch.textContent = `${bch} BCH max reserve if full (N × 0.1 BCH)`;
   const gradeEl = $('#cap-grade');
   if (gradeEl) {
     let g;
@@ -367,7 +387,7 @@ if (canvas && canvas.getContext) {
   const roles = [
     { n: 'e0', c: '#2ee6c8' }, { n: 'e1', c: '#2ee6c8' }, { n: 'e2', c: '#2ee6c8' },
     { n: 'e3', c: '#2ee6c8' }, { n: 'e4', c: '#2ee6c8' }, { n: 'gen', c: '#f0c14b' },
-    { n: 'term', c: '#f0c14b' }, { n: 'pkt', c: '#b49cff' }, { n: 'st', c: '#6eb6ff' }, { n: 'fee', c: '#ff7a93' },
+    { n: 'term', c: '#f0c14b' }, { n: 'bind', c: '#b49cff' }, { n: 'st', c: '#6eb6ff' }, { n: 'fee', c: '#ff7a93' },
   ];
   let t = 0;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -435,7 +455,7 @@ if (canvas && canvas.getContext) {
     ctx.fillStyle = '#93a4bd';
     ctx.font = '12px Inter, sans-serif';
     ctx.fillText(label, W / 2, 175);
-    ctx.fillText('wire ≈ 56,964 B  →  fee = 56,964 sats (exactly 1 sat/byte)', W / 2, 196);
+    ctx.fillText('example wire ~57kB → fee = wireBytes sats (exactly 1 sat/byte; cap ≤59kB)', W / 2, 196);
 
     // Progress = verification sweep across 10 inputs (not a fee “pulse”)
     const barX = 100;

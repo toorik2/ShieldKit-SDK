@@ -489,6 +489,13 @@ button.btn-sm.active {
   animation: noteOut 0.35s var(--ease) forwards;
 }
 .note .who { opacity: 0.55; font-size: 0.7rem; }
+.note.note-other {
+  background: linear-gradient(135deg, rgba(40, 48, 62, 0.7), rgba(24, 30, 42, 0.75));
+  border-color: rgba(100, 116, 139, 0.45);
+  color: var(--text-faint);
+  box-shadow: none;
+  filter: grayscale(0.35);
+}
 @keyframes noteIn {
   from { transform: scale(0.6) translateY(8px); opacity: 0; }
   to { transform: scale(1) translateY(0); opacity: 1; }

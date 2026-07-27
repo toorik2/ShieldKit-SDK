@@ -621,7 +621,7 @@ async function cmdAct(verb) {
         kind: requestKind,
         fullAct: 'npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --broadcast',
         prepOnly: 'playground deposit --request prep.json',
-        feeNote: 'Deposit needs a fee UTXO ≳ 11.5M sats (0.1 BCH + carriers + fee). See 02-use-chipnet-demo-pool/README.md',
+        feeNote: 'Deposit needs a fee UTXO ≳ ~10.07M sats (0.1 BCH + PF7/bind/settle pads); transfer/withdraw ~71k. See 02-use-chipnet-demo-pool/README.md',
         rpc: 'Public Chipnet Fulcrum used by default; override with SHIELDKIT_RPC_URL or SHIELDKIT_ELECTRUM',
       },
     );
