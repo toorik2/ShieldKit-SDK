@@ -91,9 +91,10 @@ export async function recoverAuthenticatedChainHistory(value) {
     if (!exactState(previous, decoded.preState)) fail('HISTORY_DISCONTINUITY', `packet ${index} pre-state does not match the preceding authenticated state`);
     assertTransition(decoded, index);
     if (decoded.kind !== 'deposit') {
+      // Spends are linked to owned notes by nullifier only. The public packet
+      // deliberately omits the spent commitment (privacy); do not require it.
       const spent = notesByNullifier.get(decoded.inputNullifier);
       if (spent !== undefined) {
-        if (spent.cm !== decoded.inputCommitment) fail('OWNED_NOTE_MISMATCH', `packet ${index} nullifier matches an owned note but commitment differs`);
         if (spent.spentAtActionSequence !== null) fail('DUPLICATE_NULLIFIER', `packet ${index} spends an already-spent owned note`);
         spent.spentAtActionSequence = decoded.postState.actionSequence;
       }

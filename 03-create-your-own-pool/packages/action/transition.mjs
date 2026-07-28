@@ -332,7 +332,10 @@ export async function createShieldedTransitionReference() {
     if (BigInt(pre.actionSequence) === (1n << 64n) - 1n) fail('action sequence overflow');
     let noteRoot = pre.noteRoot; let nullifierRoot = pre.nullifierRoot;
     let live = BigInt(pre.liveNoteCount); let reserve = BigInt(pre.reserveSats);
-    let inputCm = ZERO_FR; let inputNf = ZERO_FR; let outputCm = ZERO_FR;
+    // Packet field inputCommitment is always zero on the consensus transcript so
+    // a passive observer cannot link spends to prior public outputCommitment values.
+    // Membership still uses the real spent commitment in the private witness.
+    let packetInputCm = ZERO_FR; let spentCm = ZERO_FR; let inputNf = ZERO_FR; let outputCm = ZERO_FR;
     let outputRecord; let boundaryAmount = 0n; let withdrawalScriptHash = ZERO_DIGEST;
     if (kind === 'deposit') {
       if (parseUint(action.depositSats, 64, 'deposit contribution') !== DENOMINATION_SATS) fail('deposit contribution must equal denomination');
@@ -340,11 +343,11 @@ export async function createShieldedTransitionReference() {
       noteRoot = appendNote(pre, output.cm, action.noteAppendPath); outputRecord = recordBytes(action.outputRecord, true); boundaryAmount = DENOMINATION_SATS;
       live += 1n; reserve += DENOMINATION_SATS;
     } else if (kind === 'transfer') {
-      const spent = spendNote(pre, action.spend); inputCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
+      const spent = spendNote(pre, action.spend); spentCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
       const output = deriveOutputNote({ ...action.outputNote, profileId: pre.profileId, instanceId: pre.instanceId }); outputCm = output.cm;
       noteRoot = appendNote(pre, output.cm, action.noteAppendPath); outputRecord = recordBytes(action.outputRecord, true);
     } else {
-      const spent = spendNote(pre, action.spend); inputCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
+      const spent = spendNote(pre, action.spend); spentCm = spent.note.cm; inputNf = spent.note.nf; nullifierRoot = spent.postNullifierRoot;
       exactKeys(action.withdrawal, 'withdrawal boundary', ['amountSats', 'scriptHash']);
       if (parseUint(action.withdrawal.amountSats, 64, 'withdrawal amount') !== DENOMINATION_SATS) fail('withdrawal amount must equal denomination');
       withdrawalScriptHash = parseIdentifier(action.withdrawal.scriptHash, 'withdrawal script hash'); outputRecord = recordBytes(action.outputRecord, false); boundaryAmount = DENOMINATION_SATS;
@@ -355,11 +358,11 @@ export async function createShieldedTransitionReference() {
     if (reserve > maximum) fail('post-state reserve exceeds maximum reserve');
     const post = buildState({ profileId: pre.profileId, instanceId: pre.instanceId, noteRoot, nullifierRoot, nextLeafIndex: (BigInt(pre.nextLeafIndex) + (kind === 'withdrawal' ? 0n : 1n)).toString(), actionSequence: (BigInt(pre.actionSequence) + 1n).toString(), liveNoteCount: live.toString(), reserveSats: reserve.toString(), maximumReserve: maximum.toString() });
     const suppliedPost = normalizeState(action.postState, 'post-state'); compareStates(suppliedPost, post);
-    const packet = serializeActionPacket({ kind, networkId: action.networkId, preState: pre, postState: post, inputCm, inputNf, outputCm, outputRecord, boundaryAmount, withdrawalScriptHash, transactionContextDigest: action.transactionContextDigest });
+    const packet = serializeActionPacket({ kind, networkId: action.networkId, preState: pre, postState: post, inputCm: packetInputCm, inputNf, outputCm, outputRecord, boundaryAmount, withdrawalScriptHash, transactionContextDigest: action.transactionContextDigest });
     const publicInputs = action.publicInputs === undefined && !requirePublicInputs
       ? Object.freeze(sha256DigestLimbs(createHash('sha256').update(packet).digest()).map(frToHex))
       : checkPublicInputs(packet, action.publicInputs);
-    return Object.freeze({ kind, preState: pre, postState: post, actionPacket: packet, actionDigest: createHash('sha256').update(packet).digest('hex'), publicInputs, inputCm, inputNf, outputCm });
+    return Object.freeze({ kind, preState: pre, postState: post, actionPacket: packet, actionDigest: createHash('sha256').update(packet).digest('hex'), publicInputs, inputCm: packetInputCm, spentCm, inputNf, outputCm });
   };
 
   const emptyState = ({ profileId, instanceId, maximumReserve }) => buildState({ profileId, instanceId, noteRoot: frToHex(noteEmpty[NOTE_TREE_DEPTH]), nullifierRoot: frToHex(nullifierEmpty[NULLIFIER_TREE_DEPTH]), nextLeafIndex: '0', actionSequence: '0', liveNoteCount: '0', reserveSats: '0', maximumReserve });
