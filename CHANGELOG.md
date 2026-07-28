@@ -4,17 +4,31 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
 
 ## [Unreleased]
 
-### Changed
-- Playground switched to the real Chipnet-qualified 32-note instance
-  (`cfe741f6…`, 3.2 BCH reserve cap) and hash-pinned bundle
-  **`playground-bundle-v3`**.
-
 ### Fixed
+- **Privacy:** spend packets no longer publish the spent note commitment on the
+  consensus SCAR transcript (`inputCommitment` is canonically zero). Membership
+  stays a private witness; nullifiers remain public for double-spend prevention.
+  Passive deposit→withdraw equality linking fails under the fixed transcript.
+- Pin artifacts **v2** (development-only Groth16 setup) match the privacy
+  relation and rebound densFuel locks. Fetch with
+  `npm run fetch-pin-artifacts` (default manifest is now v2). **Not** a
+  multi-party ceremony; Chipnet research/demo only. Existing v1 pools cannot
+  prove spends against the new JS without the v2 pin (and vice versa).
 - Custom pool instances now publish their State NFT category and category
   outpoint; tip discovery also recovers this identity from the verified bundle
   manifest for older instance descriptors.
 
+### Changed
+- Default pin trust manifest is
+  `03-create-your-own-pool/pins/shieldkit-pin-artifacts-v2.manifest.json`.
+- Playground switched to the real Chipnet-qualified 32-note instance
+  (`cfe741f6…`, 3.2 BCH reserve cap) and hash-pinned bundle
+  **`playground-bundle-v3`**.
+
 ### Added
+- Offline `analyze-packet-linkability.mjs` for settlement-log privacy checks.
+- `rebind-verifier-set-from-unlock-dump.mjs` to rebind densFuel locks after a
+  verification-key change.
 - Real Chipnet 32-note qualification: category/genesis
   `a42804c7…` / `6a9fe6f6…`, deposit settlement `9191f189…`
   (56,964 bytes), and withdrawal settlement `b2fcc9e7…` (56,998 bytes).
