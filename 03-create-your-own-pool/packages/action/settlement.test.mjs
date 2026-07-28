@@ -108,7 +108,7 @@ function fixture(kind = 'deposit', feeDeltaSatoshis = 0n) {
     networkId: 2,
     preState: pre,
     postState: post,
-    inputCommitment: kind === 'deposit' ? hex(0, 32) : hex(0x88, 32),
+    inputCommitment: hex(0, 32),
     inputNullifier: kind === 'deposit' ? hex(0, 32) : hex(0x99, 32),
     outputCommitment: kind === 'withdrawal' ? hex(0, 32) : hex(0xaa, 32),
     outputRecord: Buffer.alloc(192, kind === 'withdrawal' ? 0 : 1),

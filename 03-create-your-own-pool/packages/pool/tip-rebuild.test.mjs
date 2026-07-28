@@ -50,7 +50,7 @@ function wdrEvent(pre, post, nf) {
     postState: post,
     outputCommitment: '0'.repeat(64),
     inputNullifier: nf,
-    inputCommitment: 'aa'.repeat(32),
+    inputCommitment: '0'.repeat(64),
   };
 }
 
