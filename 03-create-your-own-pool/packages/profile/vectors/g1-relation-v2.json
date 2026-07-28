@@ -35,6 +35,5 @@
       ],
       "stateCommitment": "26ece2a1d0bea374453de80e794de14e04d3863edb425617a6f071feb3c9755e"
     }
-  },
-  "privacyNote": "Spend packets force inputCommitment=0; membership remains private witness; nullifiers remain public."
+  }
 }

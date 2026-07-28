@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Offline passive-observer linkability check on a pool's settlement log.
- * Uses the shipped SCAR decoder only — no reimplementation of packet layout.
+ * Offline SCAR action-packet inspector for a pool settlement log or raw packet.
+ * Uses the shipped decoder only — no reimplementation of packet layout.
  *
  * Usage:
- *   node 03-create-your-own-pool/scripts/analyze-packet-linkability.mjs --pool <pool-dir>
- *   node 03-create-your-own-pool/scripts/analyze-packet-linkability.mjs --packet <752-byte-file> [--deposit-cm <hex64>]
+ *   node 03-create-your-own-pool/scripts/inspect-action-packet.mjs --pool <pool-dir>
+ *   node 03-create-your-own-pool/scripts/inspect-action-packet.mjs --packet <752-byte-file> [--deposit-cm <hex64>]
  */
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';

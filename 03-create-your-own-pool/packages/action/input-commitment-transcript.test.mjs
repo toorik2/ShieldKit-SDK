@@ -1,5 +1,4 @@
-// Multi-note passive red-team: consensus-visible spend packets must not carry
-// the spent note commitment. Drives the real transition + packet encode path.
+// Multi-note transcript: spend packets use inactive inputCommitment (zero).
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
@@ -189,7 +188,7 @@ async function twoDepositThenSpend({ spendKind }) {
   };
 }
 
-test('multi-note transfer: passive observer cannot equality-link spent note via inputCommitment', async () => {
+test('multi-note transfer: spend packet carries inactive inputCommitment', async () => {
   const { derivedA, derivedB, acceptedA, acceptedB, acceptedSpend } = await twoDepositThenSpend({ spendKind: 'transfer' });
 
   const priorOutputCommitments = new Set([
@@ -207,7 +206,7 @@ test('multi-note transfer: passive observer cannot equality-link spent note via 
   assert.equal(spendPacket.inputNullifier, derivedA.nf);
   assert.notEqual(spendPacket.outputCommitment, ZERO32);
 
-  // Pre-fix exact equality link must fail.
+  // Spend packets do not republish a prior note commitment in inputCommitment.
   assert.equal(priorOutputCommitments.has(spendPacket.inputCommitment), false);
   assert.notEqual(spendPacket.inputCommitment, derivedA.cm);
   assert.notEqual(spendPacket.inputCommitment, derivedB.cm);
@@ -216,7 +215,7 @@ test('multi-note transfer: passive observer cannot equality-link spent note via 
   assert.equal(acceptedSpend.inputCm, ZERO32);
 });
 
-test('multi-note withdrawal: zero inputCommitment, public nullifier, tip rebuild accepts', async () => {
+test('multi-note withdrawal: inactive inputCommitment, public nullifier, tip rebuild accepts', async () => {
   const {
     profileId, instanceId, initial, derivedA, acceptedA, acceptedB, acceptedSpend,
   } = await twoDepositThenSpend({ spendKind: 'withdrawal' });

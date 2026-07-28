@@ -8,12 +8,11 @@ Status: **Unaudited WIP**. Chipnet research/demo. Not production-qualified or ap
 
 ### Changed
 - Toolkit version **0.2.1**.
-- Default pin artifacts use the current trust manifest
-  (`shieldkit-pin-artifacts-v2.manifest.json`). Fetch with
-  `npm run fetch-pin-artifacts`.
-- Live Chipnet playground uses **playground-bundle-v4** (32 × 0.1 BCH
-  capacity). Fetch with `npm run fetch-playground-bundle`. New profile and
-  instance identity vs earlier playground bundles.
+- Current default proving pin and densFuel verifier set (fetch with
+  `npm run fetch-pin-artifacts`).
+- Live Chipnet playground profile (32 × 0.1 BCH capacity; fetch with
+  `npm run fetch-playground-bundle`). New profile and instance identity vs
+  earlier playground bundles.
 
 ### Fixed
 - Custom pool instances now publish their State NFT category and category
@@ -21,7 +20,7 @@ Status: **Unaudited WIP**. Chipnet research/demo. Not production-qualified or ap
   manifest for older instance descriptors.
 
 ### Added
-- Offline packet inspection helper `analyze-packet-linkability.mjs`.
+- Offline SCAR packet inspector `inspect-action-packet.mjs`.
 - densFuel verifier-set rebind helper
   `rebind-verifier-set-from-unlock-dump.mjs` for profile maintenance after a
   verification-key change.
