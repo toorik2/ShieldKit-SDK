@@ -7,16 +7,19 @@ Content hashes, not toolkit semver. Setup/VK/zkey change ⇒ new profile + new g
 | Field | Value |
 |-------|--------|
 | Ref | `02-use-chipnet-demo-pool` (`playground`, `chipnet-playground`) |
-| profileId | `sha256:79782441a9d56f7d8199d9812ba566daddad63e20142fc9e7d2a33c7a66e5bf7` |
-| instanceId | `sha256:cfe741f64d0e47cf995a3c22bb7070e1afcf5c8a277594124d8ea445cde4a8ea` |
+| profileId | `sha256:15586a31bd2d57b6dd6048470c4531fd4421adebe58b73a2d4983c94c1a0d2b0` |
+| instanceId | `sha256:f4fdcbe3e76bb1eb3637c0212fe78d6594eec1823edb1bf63fc38c3fb95c3615` |
 | Capacity | 32 × 0.1 BCH (`reserveCapSatoshis` = 320000000) |
-| stateNftCategory | `a42804c79fdc61ac1c8c9d86025bbd1eaf0fdbe0d8ad3f9d13835e8adc7503b8` |
-| Genesis txid | `6a9fe6f6ba0c075859240f3fe2535ab8420ec0f1eece1ed405b0b6f3578a36e6` |
-| Bundle tag | `playground-bundle-v3` |
-| Bundle URL | https://github.com/toorik2/ShieldKit-SDK/releases/download/playground-bundle-v3/chipnet-playground-profile-bundle.tar.gz |
-| Bundle sha256 | `sha256:e3800562cf6b5f57258dc0ccc5029a17711ffd497767a103972b58d84a7de970` |
-| Proving key sha256 | `sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a` |
+| stateNftCategory | `127401ae2be67c6c9ab33ad2e2ff7efac67ff098278f3cd56d1ac362d3579197` |
+| Genesis txid | `97f5bb616d10d4568c61f07009c0a7590a06594df92a982bd84982443e282d2d` |
+| Bundle tag | `playground-bundle-v4` |
+| Bundle URL | https://github.com/toorik2/ShieldKit-SDK/releases/download/playground-bundle-v4/chipnet-playground-profile-bundle.tar.gz |
+| Bundle sha256 | `sha256:f996a15ebdb5a1969474a11da302d110ab00a8b9631fd1b1bb29537ea1b757f7` |
+| Proving key sha256 | `sha256:493ea7e7ac0d4f2fe891e279a0253fb7278292d18219e693d786c4cd9a757bc2` |
+| Pin | privacy **v2** (spent note commitment not published in SCAR) |
 | Fetch | `npm run fetch-playground-bundle` |
 | Descriptor | [`../../02-use-chipnet-demo-pool/instance.json`](../../02-use-chipnet-demo-pool/instance.json) |
 
 Your pool pins live in that pool’s `instance.json` + bundle `manifest.json`.
+
+**Supersedes** playground-bundle-v3 (v1 pin / equality-linkable spent commitment transcript).

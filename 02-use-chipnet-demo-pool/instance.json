@@ -1,18 +1,18 @@
 {
   "id": "02-use-chipnet-demo-pool",
-  "label": "ShieldKit Chipnet playground (32-note qualified instance)",
+  "label": "ShieldKit Chipnet playground (32-note pin-v2 privacy instance)",
   "role": "playground",
   "network": "chipnet",
   "setupMode": "development-only",
-  "profileId": "sha256:79782441a9d56f7d8199d9812ba566daddad63e20142fc9e7d2a33c7a66e5bf7",
-  "instanceId": "sha256:cfe741f64d0e47cf995a3c22bb7070e1afcf5c8a277594124d8ea445cde4a8ea",
-  "stateNftCategory": "a42804c79fdc61ac1c8c9d86025bbd1eaf0fdbe0d8ad3f9d13835e8adc7503b8",
+  "profileId": "sha256:15586a31bd2d57b6dd6048470c4531fd4421adebe58b73a2d4983c94c1a0d2b0",
+  "instanceId": "sha256:f4fdcbe3e76bb1eb3637c0212fe78d6594eec1823edb1bf63fc38c3fb95c3615",
+  "stateNftCategory": "127401ae2be67c6c9ab33ad2e2ff7efac67ff098278f3cd56d1ac362d3579197",
   "reserveCapSatoshis": "320000000",
   "denominationSatoshis": "10000000",
   "maxLiveNotes": 32,
-  "genesisTxid": "6a9fe6f6ba0c075859240f3fe2535ab8420ec0f1eece1ed405b0b6f3578a36e6",
+  "genesisTxid": "97f5bb616d10d4568c61f07009c0a7590a06594df92a982bd84982443e282d2d",
   "categoryInputOutpoint": {
-    "txid": "a42804c79fdc61ac1c8c9d86025bbd1eaf0fdbe0d8ad3f9d13835e8adc7503b8",
+    "txid": "127401ae2be67c6c9ab33ad2e2ff7efac67ff098278f3cd56d1ac362d3579197",
     "vout": "0"
   },
   "capacity": {
@@ -23,17 +23,17 @@
   },
   "explorers": {
     "tx": "https://chipnet.chaingraph.cash/tx/{txid}",
-    "genesis": "https://chipnet.chaingraph.cash/tx/6a9fe6f6ba0c075859240f3fe2535ab8420ec0f1eece1ed405b0b6f3578a36e6",
-    "tipAtSwitch": "https://chipnet.chaingraph.cash/tx/b2fcc9e7dfd7c6924b68f187b3cc37fc01ea5a43b822be22ce8e74b55c2d0df3"
+    "genesis": "https://chipnet.chaingraph.cash/tx/97f5bb616d10d4568c61f07009c0a7590a06594df92a982bd84982443e282d2d",
+    "tipAtSwitch": "https://chipnet.chaingraph.cash/tx/11b8137c30fd6f2a5fc15c1bc3b33ad582e1a05607c396678db65f330a9d5ccb"
   },
   "profileBundle": {
     "path": "bundle",
-    "provingKeySha256": "sha256:254a7bb27113deb14abb58da2bb476861b689f47e062915a507482e29314882a",
+    "provingKeySha256": "sha256:493ea7e7ac0d4f2fe891e279a0253fb7278292d18219e693d786c4cd9a757bc2",
     "release": {
-      "tag": "playground-bundle-v3",
-      "url": "https://github.com/toorik2/ShieldKit-SDK/releases/download/playground-bundle-v3/chipnet-playground-profile-bundle.tar.gz",
-      "sha256": "sha256:e3800562cf6b5f57258dc0ccc5029a17711ffd497767a103972b58d84a7de970",
-      "bytesApprox": 197129223
+      "tag": "playground-bundle-v4",
+      "url": "https://github.com/toorik2/ShieldKit-SDK/releases/download/playground-bundle-v4/chipnet-playground-profile-bundle.tar.gz",
+      "sha256": "sha256:f996a15ebdb5a1969474a11da302d110ab00a8b9631fd1b1bb29537ea1b757f7",
+      "bytesApprox": 197098473
     },
     "fetch": "npm run fetch-playground-bundle",
     "searchPaths": [
@@ -44,8 +44,9 @@
   },
   "warnings": [
     "Example instance only \u2014 not a hosted product for third-party apps.",
-    "Shared 32-note-cap Chipnet demo; capacity is not the live anonymity set. Use your own fee keys and RPC. Not production privacy.",
+    "Shared 32-note-cap Chipnet demo on privacy pin v2 (spent note commitment not published). Capacity is not the live anonymity set. Use your own fee keys and RPC. Not production privacy.",
     "Existing notes in the set are not yours unless you hold their seeds; deposit/transfer/withdraw only notes you create.",
-    "Create your own pool for real use (same kit, your genesis)."
+    "Create your own pool for real use (same kit, your genesis).",
+    "playground-bundle-v3 / prior tips used the linkable v1 pin and are not compatible with this instance."
   ]
 }

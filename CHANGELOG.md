@@ -19,19 +19,18 @@ Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROF
   manifest for older instance descriptors.
 
 ### Changed
+- Live Chipnet playground is **playground-bundle-v4** on privacy pin v2
+  (genesis `97f5bb61…`, instance `f4fdcbe3…`, 32 × 0.1 BCH). Supersedes
+  playground-bundle-v3 (v1 pin / linkable spent-cm transcript).
 - Default pin trust manifest is
   `03-create-your-own-pool/pins/shieldkit-pin-artifacts-v2.manifest.json`.
-- Playground switched to the real Chipnet-qualified 32-note instance
-  (`cfe741f6…`, 3.2 BCH reserve cap) and hash-pinned bundle
-  **`playground-bundle-v3`**.
 
 ### Added
 - Offline `analyze-packet-linkability.mjs` for settlement-log privacy checks.
 - `rebind-verifier-set-from-unlock-dump.mjs` to rebind densFuel locks after a
   verification-key change.
-- Real Chipnet 32-note qualification: category/genesis
-  `a42804c7…` / `6a9fe6f6…`, deposit settlement `9191f189…`
-  (56,964 bytes), and withdrawal settlement `b2fcc9e7…` (56,998 bytes).
+- Pin-v2 playground qualification: category/genesis
+  `127401ae…` / `97f5bb61…`, deposit settlement `11b8137c…`.
 
 ## [0.2.0] — 2026-07-27
 
