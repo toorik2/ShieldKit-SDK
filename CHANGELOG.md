@@ -2,35 +2,29 @@
 
 Toolkit only. Profile pins: [docs/PROFILES.md](03-create-your-own-pool/docs/PROFILES.md).
 
-## [Unreleased]
+## [0.2.1] — 2026-07-28
+
+Status: **Unaudited WIP**. Chipnet research/demo. Not production-qualified or approved for mainnet use.
+
+### Changed
+- Toolkit version **0.2.1**.
+- Default pin artifacts use the current trust manifest
+  (`shieldkit-pin-artifacts-v2.manifest.json`). Fetch with
+  `npm run fetch-pin-artifacts`.
+- Live Chipnet playground uses **playground-bundle-v4** (32 × 0.1 BCH
+  capacity). Fetch with `npm run fetch-playground-bundle`. New profile and
+  instance identity vs earlier playground bundles.
 
 ### Fixed
-- **Privacy:** spend packets no longer publish the spent note commitment on the
-  consensus SCAR transcript (`inputCommitment` is canonically zero). Membership
-  stays a private witness; nullifiers remain public for double-spend prevention.
-  Passive deposit→withdraw equality linking fails under the fixed transcript.
-- Pin artifacts **v2** (development-only Groth16 setup) match the privacy
-  relation and rebound densFuel locks. Fetch with
-  `npm run fetch-pin-artifacts` (default manifest is now v2). **Not** a
-  multi-party ceremony; Chipnet research/demo only. Existing v1 pools cannot
-  prove spends against the new JS without the v2 pin (and vice versa).
 - Custom pool instances now publish their State NFT category and category
   outpoint; tip discovery also recovers this identity from the verified bundle
   manifest for older instance descriptors.
 
-### Changed
-- Live Chipnet playground is **playground-bundle-v4** on privacy pin v2
-  (genesis `97f5bb61…`, instance `f4fdcbe3…`, 32 × 0.1 BCH). Supersedes
-  playground-bundle-v3 (v1 pin / linkable spent-cm transcript).
-- Default pin trust manifest is
-  `03-create-your-own-pool/pins/shieldkit-pin-artifacts-v2.manifest.json`.
-
 ### Added
-- Offline `analyze-packet-linkability.mjs` for settlement-log privacy checks.
-- `rebind-verifier-set-from-unlock-dump.mjs` to rebind densFuel locks after a
+- Offline packet inspection helper `analyze-packet-linkability.mjs`.
+- densFuel verifier-set rebind helper
+  `rebind-verifier-set-from-unlock-dump.mjs` for profile maintenance after a
   verification-key change.
-- Pin-v2 playground qualification: category/genesis
-  `127401ae…` / `97f5bb61…`, deposit settlement `11b8137c…`.
 
 ## [0.2.0] — 2026-07-27
 
@@ -89,7 +83,7 @@ production-qualified or approved for mainnet use.
 
 ## [0.1.0] — 2026-07-25
 
-Toolkit hygiene baseline. Status: Unaudited WIP. (Historical demo blob tag was `playground-bundle-v1`; current pin is v2 — see PROFILES.)
+Toolkit hygiene baseline. Status: Unaudited WIP. (Historical demo blob tag was `playground-bundle-v1`; see PROFILES.)
 
 [0.1.0]: https://github.com/toorik2/ShieldKit-SDK/releases/tag/v0.1.0
 [0.2.0]: https://github.com/toorik2/ShieldKit-SDK/releases/tag/v0.2.0

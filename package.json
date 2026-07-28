@@ -1,8 +1,8 @@
 {
   "name": "shieldkit",
   "private": true,
-  "version": "0.2.0",
-  "description": "ShieldKit toolkit 0.2.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
+  "version": "0.2.1",
+  "description": "ShieldKit toolkit 0.2.1 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "engines": {
     "node": ">=20"

@@ -75,7 +75,7 @@ const stateBytes = (value, label) => {
 const sameState = (left, right) => STATE_KEYS.every((key) => left[key] === right[key]);
 const canonicalActionFields = (decoded) => {
   const outputRecordIsZero = zero(decoded.outputRecord);
-  // Privacy: inputCommitment is always zero on the consensus transcript.
+  // inputCommitment is inactive (zero) for all kinds on the consensus transcript.
   if (decoded.kind === 'deposit') {
     if (decoded.inputCommitment !== ZERO_32 || decoded.inputNullifier !== ZERO_32 || decoded.outputCommitment === ZERO_32 || decoded.boundaryAmount !== DENOMINATION_SATS.toString() || decoded.withdrawalScriptHash !== ZERO_32) fail('NONCANONICAL_ACTION', 'deposit packet contains noncanonical action fields');
   } else if (decoded.kind === 'transfer') {

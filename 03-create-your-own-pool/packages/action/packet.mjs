@@ -157,8 +157,8 @@ function decodeState(bytes, offset) {
 
 function checkCanonicalActionFields(decoded) {
   const outputRecordIsZero = decoded.outputRecord.equals(Buffer.alloc(OUTPUT_RECORD_BYTES));
-  // Privacy: inputCommitment is never published. Spends prove membership in-circuit
-  // and publish only the nullifier on the consensus transcript.
+  // inputCommitment is inactive (zero) for all kinds; spends prove membership
+  // in-circuit and publish the nullifier on the consensus transcript.
   if (decoded.kind === 'deposit') {
     if (
       decoded.inputCommitment !== ZERO_32

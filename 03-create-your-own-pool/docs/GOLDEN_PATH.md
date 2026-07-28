@@ -49,11 +49,10 @@ Fees are **automatic** (1 sat/B). The client scans and may merge small UTXOs for
 ```bash
 git clone <this-repo> && cd shieldkit-sdk   # or your remote
 npm ci
-npm run fetch-pin-artifacts               # ~450MB pin v2 (privacy transcript); once per machine
+npm run fetch-pin-artifacts               # ~450MB proving pin; once per machine
 npm run unlock-builder:setup              # immutable vendored toolchain
 
 # Birth pool + genesis on Chipnet (uses wallets + scan-fund)
-# New pin ⇒ new profile/instance/genesis (do not reuse v1 pool dirs).
 npm run create-pool -- \
   --out ./my-pool \
   --with-genesis \
@@ -70,10 +69,8 @@ npm run shieldkit -- deposit --pool ./my-pool --wallets ./wallets.json --broadca
 npm run shieldkit -- withdraw --pool ./my-pool --wallets ./wallets.json --broadcast
 ```
 
-**Pin v2 privacy note:** conforming spend packets set `inputCommitment` to zero so
-a passive chain observer cannot equality-link deposit `outputCommitment` to a
-later withdraw/transfer. Nullifiers remain public. This pin is a development-only
-setup (Chipnet research), not a multi-party production ceremony.
+Pin artifacts are development-only (Chipnet research), not a multi-party production
+ceremony. A new setup/VK implies a new profile and genesis.
 
 What happens under the hood (you should not need these):
 

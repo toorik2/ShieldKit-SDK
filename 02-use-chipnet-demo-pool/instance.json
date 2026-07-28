@@ -1,6 +1,6 @@
 {
   "id": "02-use-chipnet-demo-pool",
-  "label": "ShieldKit Chipnet playground (32-note pin-v2 privacy instance)",
+  "label": "ShieldKit Chipnet playground (32-note instance)",
   "role": "playground",
   "network": "chipnet",
   "setupMode": "development-only",
@@ -44,9 +44,8 @@
   },
   "warnings": [
     "Example instance only \u2014 not a hosted product for third-party apps.",
-    "Shared 32-note-cap Chipnet demo on privacy pin v2 (spent note commitment not published). Capacity is not the live anonymity set. Use your own fee keys and RPC. Not production privacy.",
+    "Shared 32-note-cap Chipnet demo. Capacity is not the live anonymity set. Use your own fee keys and RPC. Not production privacy.",
     "Existing notes in the set are not yours unless you hold their seeds; deposit/transfer/withdraw only notes you create.",
-    "Create your own pool for real use (same kit, your genesis).",
-    "playground-bundle-v3 / prior tips used the linkable v1 pin and are not compatible with this instance."
+    "Create your own pool for real use (same kit, your genesis)."
   ]
 }

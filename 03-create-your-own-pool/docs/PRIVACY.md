@@ -1,6 +1,6 @@
 # Privacy claim (V1)
 
-Document version: 0.3
+Document version: 0.4
 
 ## Claim
 
@@ -13,10 +13,8 @@ Requires: ratified profile/instance/denomination/shapes; crypto assumptions; und
 ## Transcript rules (consensus-visible SCAR packet)
 
 - **Published on spend:** `inputNullifier` (double-spend prevention), post-state roots/counters, and for transfers a new `outputCommitment`.
-- **Not published on spend:** the spent note commitment. Packet field `inputCommitment` is canonically **zero** for deposit, transfer, and withdrawal. Membership of the spent note is a private witness; it is not equality-matchable to prior public `outputCommitment` values from the packet alone.
+- **Spend membership:** the spent note is proven in the private witness; the consensus packet field `inputCommitment` is the inactive (zero) value for all action kinds under the current profile.
 - **Still public:** each deposit/transfer `outputCommitment` (note-tree leaf material), state commitments, and fixed denomination boundaries.
-
-Historical on-chain settlements produced before this rule may still contain non-zero spend `inputCommitment` values; the claim applies to conforming actions under the fixed transcript.
 
 ## Leakage matrix
 
@@ -29,8 +27,8 @@ Historical on-chain settlements produced before this rule may still contain non-
 | Tx shape, I/O count, scripts, sizes | Yes | Public |
 | State roots, nullifiers, counters | Yes | Public markers |
 | Encrypted note-record location/length | Yes | Ciphertext on chain |
-| Which candidate note is spent | No (claim) | Core unlinkability target — spent `cm` not in packet |
-| Deposit→withdraw link | No (claim) | Core unlinkability target — no cleartext spent-cm equality |
+| Which candidate note is spent | No (claim) | Core unlinkability target |
+| Deposit→withdraw link | No (claim) | Core unlinkability target |
 | Internal sender/recipient | No (claim) | Unless boundary/external data reveals |
 | Fees, fee inputs, change | Yes if present | Public |
 | Timing / set size | Yes | Inference surface |

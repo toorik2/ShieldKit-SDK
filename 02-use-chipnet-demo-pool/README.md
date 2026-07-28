@@ -1,6 +1,6 @@
 # Chipnet playground (CLI)
 
-Shared **development-only** Chipnet instance on **privacy pin v2** (spent commitment not published) — not a browser app, not hosted SaaS.  
+Shared **development-only** Chipnet instance — not a browser app, not hosted SaaS.  
 Your pool: [`../03-create-your-own-pool/`](../03-create-your-own-pool/).
 
 | | |
@@ -27,7 +27,7 @@ Your `openNotes` stay empty until *you* deposit. You never need strangers’ see
 ```bash
 npm ci                              # immutable root workspace
 npm run unlock-builder:setup        # immutable vendored verifier toolchain
-npm run fetch-playground-bundle     # ~455MB pin-v2 profile arts (sha256 in instance.json)
+npm run fetch-playground-bundle     # ~455MB profile arts (sha256 in instance.json)
 npm run rpc:probe
 npm run shieldkit -- playground doctor
 npm run shieldkit -- playground tip   # tip + settlementLog + public tipForest

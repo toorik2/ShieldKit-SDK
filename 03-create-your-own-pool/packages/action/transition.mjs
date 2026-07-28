@@ -332,9 +332,8 @@ export async function createShieldedTransitionReference() {
     if (BigInt(pre.actionSequence) === (1n << 64n) - 1n) fail('action sequence overflow');
     let noteRoot = pre.noteRoot; let nullifierRoot = pre.nullifierRoot;
     let live = BigInt(pre.liveNoteCount); let reserve = BigInt(pre.reserveSats);
-    // Packet field inputCommitment is always zero on the consensus transcript so
-    // a passive observer cannot link spends to prior public outputCommitment values.
-    // Membership still uses the real spent commitment in the private witness.
+    // Packet field inputCommitment is the inactive (zero) value; membership uses
+    // the real spent commitment only in the private witness.
     let packetInputCm = ZERO_FR; let spentCm = ZERO_FR; let inputNf = ZERO_FR; let outputCm = ZERO_FR;
     let outputRecord; let boundaryAmount = 0n; let withdrawalScriptHash = ZERO_DIGEST;
     if (kind === 'deposit') {
