@@ -157,6 +157,8 @@ function decodeState(bytes, offset) {
 
 function checkCanonicalActionFields(decoded) {
   const outputRecordIsZero = decoded.outputRecord.equals(Buffer.alloc(OUTPUT_RECORD_BYTES));
+  // Privacy: inputCommitment is never published. Spends prove membership in-circuit
+  // and publish only the nullifier on the consensus transcript.
   if (decoded.kind === 'deposit') {
     if (
       decoded.inputCommitment !== ZERO_32
@@ -169,7 +171,7 @@ function checkCanonicalActionFields(decoded) {
     }
   } else if (decoded.kind === 'transfer') {
     if (
-      decoded.inputCommitment === ZERO_32
+      decoded.inputCommitment !== ZERO_32
       || decoded.inputNullifier === ZERO_32
       || decoded.outputCommitment === ZERO_32
       || decoded.boundaryAmount !== '0'
@@ -178,7 +180,7 @@ function checkCanonicalActionFields(decoded) {
       fail('transfer packet contains noncanonical action fields');
     }
   } else if (
-    decoded.inputCommitment === ZERO_32
+    decoded.inputCommitment !== ZERO_32
     || decoded.inputNullifier === ZERO_32
     || decoded.outputCommitment !== ZERO_32
     || decoded.boundaryAmount !== DENOMINATION_SATS.toString()

@@ -25,7 +25,7 @@ async function historyFixture() {
   const terminal = actionState({ profileId, instanceId, sequence: 2, next: 2, live: 1, reserve: 10_000_000, marker: 7 });
   const actions = [
     { kind: 'deposit', networkId: 2, preState: initial, postState: postDeposit, inputCommitment: hex(0), inputNullifier: hex(0), outputCommitment: deposited.output.cm, outputRecord: deposited.record, boundaryAmount: '10000000', withdrawalScriptHash: hex(0), transactionContextDigest: hex(20) },
-    { kind: 'transfer', networkId: 2, preState: postDeposit, postState: terminal, inputCommitment: first.cm, inputNullifier: first.nf, outputCommitment: transferred.output.cm, outputRecord: transferred.record, boundaryAmount: '0', withdrawalScriptHash: hex(0), transactionContextDigest: hex(21) },
+    { kind: 'transfer', networkId: 2, preState: postDeposit, postState: terminal, inputCommitment: hex(0), inputNullifier: first.nf, outputCommitment: transferred.output.cm, outputRecord: transferred.record, boundaryAmount: '0', withdrawalScriptHash: hex(0), transactionContextDigest: hex(21) },
   ];
   const packets = serializeChainHistoryActions(actions);
   return { accountSeed, profileId, instanceId, initial, terminal, packets, actions, deposited, transferred };

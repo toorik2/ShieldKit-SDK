@@ -116,7 +116,7 @@ tip = rebuildPublicTip({
     },
     {
       kind: 'withdrawal', preState: s2, postState: s3,
-      outputCommitment: Z, inputNullifier: nfA, inputCommitment: cmA,
+      outputCommitment: Z, inputNullifier: nfA, inputCommitment: Z,
     },
   ],
   tipNft: { stateCommitment: s3.stateCommitment, actionSequence: '3', instanceId: INSTANCE },
@@ -137,7 +137,7 @@ const tip2 = rebuildPublicTip({
     },
     {
       kind: 'withdrawal', preState: s2, postState: s3,
-      outputCommitment: Z, inputNullifier: nfA, inputCommitment: cmA,
+      outputCommitment: Z, inputNullifier: nfA, inputCommitment: Z,
     },
   ],
   tipNft: { stateCommitment: s3.stateCommitment, actionSequence: '3' },

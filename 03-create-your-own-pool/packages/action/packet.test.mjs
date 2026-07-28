@@ -99,21 +99,29 @@ test('enforces canonical transfer and withdrawal inactive fields', () => {
   const transfer = {
     ...base,
     kind: 'transfer',
-    inputCommitment: hex('aa'),
+    inputCommitment: hex('00'),
     inputNullifier: hex('bb'),
     boundaryAmount: '0',
   };
   assert.equal(decodeActionPacket(encodeActionPacket(transfer)).kind, 'transfer');
+  assert.throws(
+    () => encodeActionPacket({ ...transfer, inputCommitment: hex('aa') }),
+    /transfer packet contains noncanonical action fields/,
+  );
   const withdrawal = {
     ...base,
     kind: 'withdrawal',
-    inputCommitment: hex('aa'),
+    inputCommitment: hex('00'),
     inputNullifier: hex('bb'),
     outputCommitment: hex('00'),
     outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES),
     withdrawalScriptHash: hex('cc'),
   };
   assert.equal(decodeActionPacket(encodeActionPacket(withdrawal)).kind, 'withdrawal');
+  assert.throws(
+    () => encodeActionPacket({ ...withdrawal, inputCommitment: hex('aa') }),
+    /withdrawal packet contains noncanonical action fields/,
+  );
   assert.throws(
     () => encodeActionPacket({ ...withdrawal, outputRecord: Buffer.alloc(OUTPUT_RECORD_BYTES, 1) }),
     /withdrawal packet contains noncanonical action fields/,
