@@ -269,11 +269,15 @@ Usage:
   shieldkit-v2 [--home <dir>] wallet set-funding <funding-wallet.json>
   shieldkit-v2 [--home <dir>] pool create --broadcast --category-utxo <txid:vout>
   shieldkit-v2 [--home <dir>] pool join|add <descriptor.json>
+  shieldkit-v2 [--home <dir>] pool default          # attach shipped active Chipnet pool
   shieldkit-v2 [--home <dir>] sync | status | doctor
   shieldkit-v2 [--home <dir>] deposit --broadcast
   shieldkit-v2 [--home <dir>] transfer --note <id> --broadcast
   shieldkit-v2 [--home <dir>] withdraw --note <id> [--to <cashaddr>] --broadcast
   shieldkit-v2 [--home <dir>] recover
+
+Default pool: Protocol-design-v2/demo/chipnet-default-pool.json
+  (auto-attached on init / first use; 5 live seed tickets for anonymity set)
 
 Chain access (blank machine default = public Chipnet Fulcrum TLS):
   V2_CHIPNET_LIVE=1                 required for any --broadcast
@@ -317,10 +321,75 @@ function poolPath(home) {
   return path.join(home, 'pool.json');
 }
 
-function loadPool(home) {
+/**
+ * Shipped default active Chipnet pool (public tip only).
+ * Protocol-design-v2/demo/chipnet-default-pool.json — 5 live seed tickets.
+ */
+function resolveDefaultPoolDescriptorPath() {
+  if (process.env.V2_DEFAULT_POOL_JSON) {
+    return path.resolve(process.env.V2_DEFAULT_POOL_JSON);
+  }
+  // cli/ → v2-direct → packages → 03 → repo root → Protocol-design-v2/demo
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const shipped = path.resolve(
+    here,
+    '../../../../Protocol-design-v2/demo/chipnet-default-pool.json',
+  );
+  return existsSync(shipped) ? shipped : null;
+}
+
+function installPoolFromDescriptor(home, descriptor, { source = 'descriptor' } = {}) {
+  assertNetworkAllowed(descriptor.networkId || NETWORK_CHIPNET, {});
+  const pool = {
+    profileId: descriptor.profileId,
+    instanceId: descriptor.instanceId,
+    networkId: descriptor.networkId || NETWORK_CHIPNET,
+    maximumLiveNotes: descriptor.maximumLiveNotes || PLAYGROUND_MAXIMUM_LIVE_NOTES,
+    genesisTxid: descriptor.genesisTxid || null,
+    genesisVout: descriptor.genesisVout ?? 0,
+    noteDepth: descriptor.noteDepth || CIRCUIT_TREE_DEPTH,
+    nullifierDepth: descriptor.nullifierDepth || CIRCUIT_TREE_DEPTH,
+    liveTip: descriptor.liveTip || null,
+    maturity: descriptor.maturity || 'dev-keys-only-not-for-real-money-privacy',
+    defaultPoolSource: source,
+  };
+  savePool(home, pool);
+  if (pool.liveTip) {
+    atomicWriteJson(path.join(home, 'live-tip.json'), pool.liveTip, { mode: PRIVATE_FILE_MODE });
+  }
+  const secretsPath = path.join(home, 'wallet', 'secrets.json');
+  if (existsSync(secretsPath)) {
+    const secrets = JSON.parse(readFileSync(secretsPath, 'utf8'));
+    secrets.profileId = pool.profileId;
+    secrets.instanceId = pool.instanceId;
+    secrets.networkId = pool.networkId;
+    atomicWriteJson(secretsPath, secrets, { mode: PRIVATE_FILE_MODE });
+  }
+  return pool;
+}
+
+function loadPool(home, { allowDefault = true } = {}) {
   const p = poolPath(home);
-  if (!existsSync(p)) throw new Error('no pool configured; run pool add');
-  return JSON.parse(readFileSync(p, 'utf8'));
+  if (existsSync(p)) return JSON.parse(readFileSync(p, 'utf8'));
+  if (!allowDefault || process.env.V2_NO_DEFAULT_POOL === '1') {
+    throw new Error('no pool configured; run pool create, pool join <descriptor>, or init');
+  }
+  const def = resolveDefaultPoolDescriptorPath();
+  if (!def) {
+    throw new Error(
+      'no pool configured and no shipped default at Protocol-design-v2/demo/chipnet-default-pool.json',
+    );
+  }
+  const descriptor = JSON.parse(readFileSync(def, 'utf8'));
+  const pool = installPoolFromDescriptor(home, descriptor, { source: `default:${def}` });
+  console.error(JSON.stringify({
+    phase: 'default-pool-attached',
+    source: def,
+    instanceId: pool.instanceId,
+    genesisTxid: pool.genesisTxid,
+    note: 'Attached shipped Chipnet default active pool (public tip). Seed note secrets are not included.',
+  }));
+  return pool;
 }
 
 function savePool(home, pool) {
@@ -409,6 +478,13 @@ async function main(argv = process.argv.slice(2)) {
     } else {
       funding = loadFundingWallet({ home: args.home });
     }
+    // Attach shipped default active Chipnet pool (5 live seed tickets) when present.
+    let defaultPool = null;
+    const defPath = resolveDefaultPoolDescriptorPath();
+    if (defPath && process.env.V2_NO_DEFAULT_POOL !== '1') {
+      const descriptor = JSON.parse(readFileSync(defPath, 'utf8'));
+      defaultPool = installPoolFromDescriptor(args.home, descriptor, { source: `default:${defPath}` });
+    }
     console.log(JSON.stringify({
       ok: true,
       command: 'init',
@@ -417,13 +493,26 @@ async function main(argv = process.argv.slice(2)) {
       fundingAddress: funding.address,
       fundingWalletPath: fundingPath,
       noteWalletSecrets: wallet.secretsPath,
-      next: [
-        '1. Fund fundingAddress on Chipnet (≥ ~0.2 BCH for pool create + first deposit)',
-        '2. V2_CHIPNET_LIVE=1 shieldkit-v2 --home <home> wallet funding-scan',
-        '3. pick a pure-P2PKH UTXO (prefer vout 0) as --category-utxo',
-        '4. V2_CHIPNET_LIVE=1 … pool create --broadcast --category-utxo <txid:vout>',
-        '5. … deposit --broadcast  |  pool join <descriptor.json> for an existing pool',
-      ],
+      defaultPool: defaultPool && {
+        instanceId: defaultPool.instanceId,
+        genesisTxid: defaultPool.genesisTxid,
+        source: defaultPool.defaultPoolSource,
+        tipLive: defaultPool.liveTip ? 'see live-tip.json' : null,
+        note: 'Default pool has seeded live notes for anonymity set; you can deposit/withdraw your own notes.',
+      },
+      next: defaultPool
+        ? [
+          '1. Fund fundingAddress on Chipnet (≥ ~0.11 BCH per deposit)',
+          '2. V2_CHIPNET_LIVE=1 … wallet funding-scan',
+          '3. V2_CHIPNET_LIVE=1 … deposit --broadcast  (interacts with default active pool)',
+          '4. Optional: pool create --broadcast to birth your own pool instead',
+        ]
+        : [
+          '1. Fund fundingAddress on Chipnet',
+          '2. wallet funding-scan',
+          '3. pool create --broadcast --category-utxo <txid:vout>',
+          '4. deposit --broadcast',
+        ],
       maturity: 'dev-keys-only-not-for-real-money-privacy',
     }, null, 2));
     return 0;
@@ -668,35 +757,36 @@ async function main(argv = process.argv.slice(2)) {
   if (cmd === 'pool' && (sub === 'add' || sub === 'join')) {
     const descPath = args._[2];
     if (!descPath) throw new Error(`pool ${sub} requires descriptor path`);
-    const descriptor = JSON.parse(readFileSync(descPath, 'utf8'));
+    const descriptor = JSON.parse(readFileSync(path.resolve(descPath), 'utf8'));
     assertNetworkAllowed(descriptor.networkId || NETWORK_CHIPNET, {
       iUnderstandMainnet: args.iUnderstandMainnet,
     });
-    const pool = {
-      profileId: descriptor.profileId,
-      instanceId: descriptor.instanceId,
-      networkId: descriptor.networkId || NETWORK_CHIPNET,
-      maximumLiveNotes: descriptor.maximumLiveNotes || PLAYGROUND_MAXIMUM_LIVE_NOTES,
-      genesisTxid: descriptor.genesisTxid || null,
-      genesisVout: descriptor.genesisVout ?? 0,
-      noteDepth: CIRCUIT_TREE_DEPTH,
-      nullifierDepth: CIRCUIT_TREE_DEPTH,
-      liveTip: descriptor.liveTip || null,
-      maturity: 'dev-keys-only-not-for-real-money-privacy',
-    };
-    savePool(args.home, pool);
-    if (pool.liveTip) {
-      atomicWriteJson(path.join(args.home, 'live-tip.json'), pool.liveTip, { mode: PRIVATE_FILE_MODE });
+    const pool = installPoolFromDescriptor(args.home, descriptor, {
+      source: path.resolve(descPath),
+    });
+    console.log(JSON.stringify({ ok: true, command: `pool ${sub}`, pool }, null, 2));
+    return 0;
+  }
+
+  if (cmd === 'pool' && sub === 'default') {
+    // Re-attach / show shipped default active pool
+    const def = resolveDefaultPoolDescriptorPath();
+    if (!def) throw new Error('no shipped default pool descriptor found');
+    if (args.broadcast === true || args._.includes('attach') || process.env.V2_ATTACH_DEFAULT === '1') {
+      // no-op flag support; always attach on this subcommand
     }
-    // Rebind wallet profile/instance if present
-    const secretsPath = path.join(args.home, 'wallet', 'secrets.json');
-    if (existsSync(secretsPath)) {
-      const secrets = JSON.parse(readFileSync(secretsPath, 'utf8'));
-      secrets.profileId = pool.profileId;
-      secrets.instanceId = pool.instanceId;
-      atomicWriteJson(secretsPath, secrets, { mode: PRIVATE_FILE_MODE });
-    }
-    console.log(JSON.stringify({ ok: true, pool }, null, 2));
+    const descriptor = JSON.parse(readFileSync(def, 'utf8'));
+    const pool = installPoolFromDescriptor(args.home, descriptor, { source: `default:${def}` });
+    console.log(JSON.stringify({
+      ok: true,
+      command: 'pool default',
+      source: def,
+      instanceId: pool.instanceId,
+      genesisTxid: pool.genesisTxid,
+      tipSummary: descriptor.tipSummary || null,
+      liveNoteCount: descriptor.tipSummary?.liveNoteCount ?? null,
+      note: 'Default pool attached. Seed tickets are not spendable without ops secrets; deposit your own notes.',
+    }, null, 2));
     return 0;
   }
 

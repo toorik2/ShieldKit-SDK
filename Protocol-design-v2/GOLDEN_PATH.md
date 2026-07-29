@@ -33,12 +33,40 @@ mkdir -p "$V2_DENSFUEL_TMPDIR"
 
 ---
 
-## Track A — Create your own pool
+## Default active pool (shipped)
+
+On `init` (and on first command that needs a pool), the CLI attaches:
+
+**`Protocol-design-v2/demo/chipnet-default-pool.json`**
+
+- Live Chipnet pool with **5 seed tickets** (live notes) left in for anonymity set
+- Public tip only — seed note secrets are **not** published
+- You deposit/withdraw **your own** notes into this pool by default
+
+```bash
+export SK_HOME="$PWD/Protocol-design-v2/.home-lab"
+export V2_CHIPNET_LIVE=1
+export V2_DENSFUEL_TMPDIR="$HOME/.cache/skd"
+
+node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" init
+# fund fundingAddress, then:
+node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" wallet funding-scan
+node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" deposit --broadcast
+node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" withdraw --note note-1 --to bchtest:q… --broadcast
+```
+
+Re-attach default: `pool default`  
+Disable auto-default: `V2_NO_DEFAULT_POOL=1`
+
+---
+
+## Track A — Create your own pool (optional)
 
 ```bash
 export SK_HOME="$PWD/Protocol-design-v2/.home-lab"   # any private dir
 export V2_CHIPNET_LIVE=1
 export V2_DENSFUEL_TMPDIR="$HOME/.cache/skd"
+export V2_NO_DEFAULT_POOL=1   # optional: skip attaching demo pool
 
 # 1) Bootstrap shielded + transparent funding wallets
 node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" init
