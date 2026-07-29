@@ -32,6 +32,9 @@ import {
   loadFundingWallet,
   selectFundingUtxoFromList,
   resolveFundingWalletPath,
+  generateFundingWalletMaterial,
+  saveFundingWalletJson,
+  mergeFundingUtxos,
 } from '../operator/funding-wallet.mjs';
 import {
   buildPoolGenesis,
@@ -158,7 +161,9 @@ async function liveProductBroadcast({
   feeUtxoOverride = null,
 }) {
   assertNetworkAllowed(pool.networkId || NETWORK_CHIPNET);
-  const live = createLiveNetworkGate();
+  const live = await createLiveNetworkGate({
+    network: pool.networkId === NETWORK_MAINNET ? 'mainnet' : 'chipnet',
+  });
   const bundle = loadLiveBundle(pool, home);
   if (!bundle) {
     const err = new Error(
@@ -243,33 +248,41 @@ async function liveProductBroadcast({
 const ROOT_FLAG = '--home';
 
 function usage() {
-  return `shieldkit-v2 — Protocol-design-v2 CLI (Chipnet · dev keys · unaudited)
+  return `shieldkit-v2 — Protocol-design-v2 (one CLI: create pools + interact)
 
 ${MATURITY_BANNER}
 
+Blank-machine story (Chipnet):
+  1) init                         → home + shielded wallet + transparent funding address
+  2) fund the printed address     → Chipnet faucet / peer (out-of-band)
+  3) wallet funding-scan          → pull UTXOs from public Fulcrum (no bitcoind required)
+  4) pool create --broadcast --category-utxo <txid:vout>
+  5) deposit|transfer|withdraw --broadcast
+  6) pool join <descriptor.json>  → interact with an existing live pool
+
 Usage:
+  shieldkit-v2 [--home <dir>] init
   shieldkit-v2 [--home <dir>] wallet create
   shieldkit-v2 [--home <dir>] wallet receive
+  shieldkit-v2 [--home <dir>] wallet funding-create
+  shieldkit-v2 [--home <dir>] wallet funding-scan
   shieldkit-v2 [--home <dir>] wallet set-funding <funding-wallet.json>
   shieldkit-v2 [--home <dir>] pool create --broadcast --category-utxo <txid:vout>
-  shieldkit-v2 [--home <dir>] pool add <descriptor.json>
-  shieldkit-v2 [--home <dir>] sync
+  shieldkit-v2 [--home <dir>] pool join|add <descriptor.json>
+  shieldkit-v2 [--home <dir>] sync | status | doctor
   shieldkit-v2 [--home <dir>] deposit --broadcast
   shieldkit-v2 [--home <dir>] transfer --note <id> --broadcast
   shieldkit-v2 [--home <dir>] withdraw --note <id> [--to <cashaddr>] --broadcast
   shieldkit-v2 [--home <dir>] recover
-  shieldkit-v2 [--home <dir>] status
-  shieldkit-v2 [--home <dir>] doctor
 
-Funding (blank-machine — no hard-coded agent paths):
-  --funding-wallet <json>   or  V2_FUNDING_WALLET_JSON  or  <home>/funding-wallet.json
-  funding-wallet.json fields: privateKeyHex, publicKeyHex, lockingBytecodeHex, address?, utxos?
+Chain access (blank machine default = public Chipnet Fulcrum TLS):
+  V2_CHIPNET_LIVE=1                 required for any --broadcast
+  SHIELDKIT_ELECTRUM=host:port      optional override
+  SHIELDKIT_RPC_URL=https://…       optional JSON-RPC
+  (lab) SSH layer1-node used only if Fulcrum/RPC unavailable
 
-Live broadcast:
-  V2_CHIPNET_LIVE=1   (required for --broadcast on Chipnet)
-  Mainnet: refused unless V2_ALLOW_MAINNET=1 and --i-understand-mainnet (still ungated for privacy)
-
-Docs: Protocol-design-v2/README.md · PRIVACY.md · MATURITY.md
+Mainnet: refused unless V2_ALLOW_MAINNET=1 and --i-understand-mainnet
+Docs: Protocol-design-v2/README.md · GOLDEN_PATH.md · PRIVACY.md · MATURITY.md
 `;
 }
 
@@ -380,6 +393,42 @@ async function main(argv = process.argv.slice(2)) {
   const [cmd, sub] = args._;
   ensureHome(args.home);
 
+  if (cmd === 'init') {
+    // One-shot blank-machine bootstrap: shielded wallet + transparent funding key.
+    const wallet = createNoteWallet(path.join(args.home, 'wallet'), {
+      networkId: NETWORK_CHIPNET,
+      profileId: createHash('sha256').update('pending-profile').digest('hex'),
+      instanceId: createHash('sha256').update('pending-instance').digest('hex'),
+    });
+    const fundingPath = path.join(args.home, 'funding-wallet.json');
+    let funding;
+    if (!existsSync(fundingPath)) {
+      const material = await generateFundingWalletMaterial({ networkId: NETWORK_CHIPNET });
+      saveFundingWalletJson(fundingPath, material);
+      funding = material;
+    } else {
+      funding = loadFundingWallet({ home: args.home });
+    }
+    console.log(JSON.stringify({
+      ok: true,
+      command: 'init',
+      home: args.home,
+      // Transparent Chipnet address to fund (P2PKH). Shielded notes use secrets under wallet/.
+      fundingAddress: funding.address,
+      fundingWalletPath: fundingPath,
+      noteWalletSecrets: wallet.secretsPath,
+      next: [
+        '1. Fund fundingAddress on Chipnet (≥ ~0.2 BCH for pool create + first deposit)',
+        '2. V2_CHIPNET_LIVE=1 shieldkit-v2 --home <home> wallet funding-scan',
+        '3. pick a pure-P2PKH UTXO (prefer vout 0) as --category-utxo',
+        '4. V2_CHIPNET_LIVE=1 … pool create --broadcast --category-utxo <txid:vout>',
+        '5. … deposit --broadcast  |  pool join <descriptor.json> for an existing pool',
+      ],
+      maturity: 'dev-keys-only-not-for-real-money-privacy',
+    }, null, 2));
+    return 0;
+  }
+
   if (cmd === 'wallet' && sub === 'create') {
     const wallet = createNoteWallet(path.join(args.home, 'wallet'), {
       networkId: NETWORK_CHIPNET,
@@ -392,6 +441,57 @@ async function main(argv = process.argv.slice(2)) {
       secretsPath: wallet.secretsPath,
       secretsMode: (statSync(wallet.secretsPath).mode & 0o777).toString(8),
       address: wallet.address,
+    }, null, 2));
+    return 0;
+  }
+
+  if (cmd === 'wallet' && sub === 'funding-create') {
+    const dest = path.join(args.home, 'funding-wallet.json');
+    if (existsSync(dest) && process.env.V2_FORCE_FUNDING_CREATE !== '1') {
+      throw new Error(`funding-wallet.json already exists at ${dest} (set V2_FORCE_FUNDING_CREATE=1 to overwrite)`);
+    }
+    const material = await generateFundingWalletMaterial({ networkId: NETWORK_CHIPNET });
+    saveFundingWalletJson(dest, material);
+    console.log(JSON.stringify({
+      ok: true,
+      fundingWalletPath: dest,
+      address: material.address,
+      next: [
+        'Fund this Chipnet address (faucet/peer).',
+        'Then: wallet funding-scan',
+      ],
+      maturity: 'dev-keys-only-not-for-real-money-privacy',
+    }, null, 2));
+    return 0;
+  }
+
+  if (cmd === 'wallet' && sub === 'funding-scan') {
+    const fw = loadFundingWallet({ home: args.home, path: args.fundingWallet });
+    if (!fw.address) throw new Error('funding wallet missing address field');
+    // Scan does not require V2_CHIPNET_LIVE (read-only), but uses same RPC stack.
+    const { createChipnetRpc } = await import('../operator/chipnet-rpc.mjs');
+    const rpc = await createChipnetRpc({ network: 'chipnet' });
+    const listed = await rpc.scanAddress(fw.address, fw.lockingBytecode.toString('hex'));
+    const scanned = (listed || []).map((u) => ({
+      txid: u.txid,
+      vout: u.vout,
+      valueSats: BigInt(u.sats ?? u.valueSats ?? 0),
+    })).filter((u) => u.valueSats > 0n);
+    const merged = mergeFundingUtxos(fw.path, scanned);
+    const total = merged.reduce((a, u) => a + BigInt(u.valueSats), 0n);
+    console.log(JSON.stringify({
+      ok: true,
+      backend: rpc.backend,
+      label: rpc.label,
+      address: fw.address,
+      utxoCount: merged.length,
+      totalSats: total.toString(),
+      utxos: merged.map((u) => ({
+        outpoint: `${u.txid}:${u.vout}`,
+        valueSats: String(u.valueSats),
+        vout0: Number(u.vout) === 0,
+      })),
+      hint: 'Use a vout0 pure-P2PKH outpoint for pool create --category-utxo (or let CLI split).',
     }, null, 2));
     return 0;
   }
@@ -491,7 +591,7 @@ async function main(argv = process.argv.slice(2)) {
         'category UTXO not in funding-wallet.json utxos[]; add it or set V2_CATEGORY_VALUE_SATS',
       );
     }
-    const live = createLiveNetworkGate();
+    const live = await createLiveNetworkGate({ network: 'chipnet' });
     // Force vout=0 for CashToken category mint
     let working = { ...catUtxo };
     if (working.vout !== 0) {
@@ -499,7 +599,9 @@ async function main(argv = process.argv.slice(2)) {
       if (split.splitTxHex) {
         const splitTxid = await live.broadcastRawTransaction(split.splitTxHex);
         working = { txid: splitTxid, vout: 0, valueSats: split.splitKeep };
-        console.error(JSON.stringify({ phase: 'category-vout0-split', txid: splitTxid }));
+        console.error(JSON.stringify({
+          phase: 'category-vout0-split', txid: splitTxid, backend: live.backend, label: live.label,
+        }));
       }
     }
     const profileId = args.profileId || randomProfileId();
@@ -563,9 +665,9 @@ async function main(argv = process.argv.slice(2)) {
     return 0;
   }
 
-  if (cmd === 'pool' && sub === 'add') {
+  if (cmd === 'pool' && (sub === 'add' || sub === 'join')) {
     const descPath = args._[2];
-    if (!descPath) throw new Error('pool add requires descriptor path');
+    if (!descPath) throw new Error(`pool ${sub} requires descriptor path`);
     const descriptor = JSON.parse(readFileSync(descPath, 'utf8'));
     assertNetworkAllowed(descriptor.networkId || NETWORK_CHIPNET, {
       iUnderstandMainnet: args.iUnderstandMainnet,

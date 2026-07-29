@@ -15,8 +15,17 @@
  *   "utxos": [{ "txid", "vout", "valueSats" | "value" }]  // optional
  * }
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, chmodSync } from 'node:fs';
 import path from 'node:path';
+import {
+  generatePrivateKey,
+  instantiateSecp256k1,
+  privateKeyToP2pkhCashAddress,
+  privateKeyToP2pkhLockingBytecode,
+  binToHex,
+} from '@bitauth/libauth';
+import { atomicWriteJson, PRIVATE_FILE_MODE } from '../../kit/secure-files.mjs';
+import { NETWORK_CHIPNET, NETWORK_MAINNET } from '../constants.mjs';
 
 export class FundingWalletError extends Error {
   constructor(message, code = 'FUNDING_WALLET') {
@@ -127,9 +136,78 @@ export function selectFundingUtxoFromList(wallet, need, label = 'funding') {
   if (!hit) {
     throw new FundingWalletError(
       `FUNDING_UTXO_REQUIRED: need ≥ ${needN} sats for ${label}; `
-        + `add utxos to funding-wallet.json or pass --category-utxo / --fee-utxo`,
+        + `run wallet funding-scan after funding the address, or add utxos[] manually`,
       'FUNDING_UTXO_REQUIRED',
     );
   }
   return hit;
+}
+
+/**
+ * Generate a new transparent P2PKH funding wallet (Chipnet by default).
+ * @param {{ networkId?: number }} [opts]
+ */
+export async function generateFundingWalletMaterial(opts = {}) {
+  const networkId = opts.networkId ?? NETWORK_CHIPNET;
+  const prefix = networkId === NETWORK_MAINNET ? 'bitcoincash' : 'bchtest';
+  const privateKey = generatePrivateKey();
+  const secp = await instantiateSecp256k1();
+  const publicKey = secp.derivePublicKeyCompressed(privateKey);
+  const lock = privateKeyToP2pkhLockingBytecode({ privateKey });
+  const enc = privateKeyToP2pkhCashAddress({ privateKey, prefix });
+  const address = typeof enc === 'string' ? enc : enc.address;
+  return {
+    privateKeyHex: binToHex(privateKey),
+    publicKeyHex: binToHex(publicKey),
+    lockingBytecodeHex: binToHex(lock),
+    address,
+    networkId,
+    utxos: [],
+    createdAt: new Date().toISOString(),
+    note: 'DEV KEYS — fund this address out-of-band (Chipnet faucet). chmod 600. Never commit.',
+  };
+}
+
+/**
+ * Write funding wallet JSON (mode 0600).
+ * @param {string} destPath
+ * @param {object} material
+ */
+export function saveFundingWalletJson(destPath, material) {
+  atomicWriteJson(destPath, material, { mode: PRIVATE_FILE_MODE });
+  try { chmodSync(destPath, 0o600); } catch { /* best effort */ }
+  return destPath;
+}
+
+/**
+ * Merge scanned UTXOs into funding wallet on disk.
+ * @param {string} walletPath
+ * @param {{ txid: string, vout: number, valueSats: bigint|number|string }[]} scanned
+ */
+export function mergeFundingUtxos(walletPath, scanned) {
+  if (!existsSync(walletPath)) {
+    throw new FundingWalletError(`funding wallet not found: ${walletPath}`, 'FUNDING_WALLET_MISSING');
+  }
+  const raw = JSON.parse(readFileSync(walletPath, 'utf8'));
+  const map = new Map();
+  for (const u of raw.utxos || []) {
+    map.set(`${String(u.txid).toLowerCase()}:${Number(u.vout)}`, {
+      txid: String(u.txid).toLowerCase(),
+      vout: Number(u.vout),
+      valueSats: String(u.valueSats ?? u.value),
+    });
+  }
+  for (const u of scanned) {
+    const txid = String(u.txid).toLowerCase();
+    const vout = Number(u.vout);
+    map.set(`${txid}:${vout}`, {
+      txid,
+      vout,
+      valueSats: String(u.valueSats ?? u.sats ?? u.value),
+    });
+  }
+  raw.utxos = [...map.values()];
+  raw.scannedAt = new Date().toISOString();
+  saveFundingWalletJson(walletPath, raw);
+  return raw.utxos;
 }
