@@ -13,8 +13,11 @@
   },
   "scripts": {
     "cli": "node ./bin/shieldkit-v2.mjs",
+    "init": "node ./bin/shieldkit-v2.mjs init",
+    "help": "node ./bin/shieldkit-v2.mjs --help",
+    "doctor": "node ./bin/shieldkit-v2.mjs doctor",
     "test": "node --test ../03-create-your-own-pool/packages/v2-direct/cli/*.test.mjs ../03-create-your-own-pool/packages/v2-direct/operator/funding-wallet.test.mjs",
-    "help": "node ./bin/shieldkit-v2.mjs --help"
+    "golden-path": "node -e \"console.log(require('fs').readFileSync(require('path').join('Protocol-design-v2','GOLDEN_PATH.md'),'utf8'))\""
   },
   "engines": {
     "node": ">=20"

@@ -42,3 +42,9 @@ wallets.json
 
 # Local audit reports
 /docs/audits/2026-07-28-pool-scalability-audit.md
+
+# Protocol-design-v2 local lab homes / secrets
+Protocol-design-v2/.home*/
+Protocol-design-v2/**/funding-wallet.json
+Protocol-design-v2/**/secrets.json
+

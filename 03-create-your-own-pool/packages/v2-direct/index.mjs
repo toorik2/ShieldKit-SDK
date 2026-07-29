@@ -60,6 +60,9 @@ export {
   loadFundingWallet,
   selectFundingUtxoFromList,
   resolveFundingWalletPath,
+  generateFundingWalletMaterial,
+  saveFundingWalletJson,
+  mergeFundingUtxos,
 } from './operator/funding-wallet.mjs';
 export {
   buildPoolGenesis,
