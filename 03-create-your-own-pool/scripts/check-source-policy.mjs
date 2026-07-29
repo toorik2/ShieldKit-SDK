@@ -38,6 +38,9 @@ for (const filename of sourceFiles) {
 const allowedRawSenders = new Set([
   '03-create-your-own-pool/packages/kit/chipnet-rpc.mjs',
   '03-create-your-own-pool/packages/kit/transaction-coordinator.mjs',
+  // V2 Direct product path uses its own network gate (not V1 coordinator).
+  '03-create-your-own-pool/packages/v2-direct/network-gate.mjs',
+  '03-create-your-own-pool/packages/v2-direct/operator/chipnet-rpc.mjs',
 ]);
 for (const filename of policyFiles) {
   const source = readFileSync(path.join(repositoryRoot, filename), 'utf8');
