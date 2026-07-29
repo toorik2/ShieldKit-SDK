@@ -25,6 +25,7 @@ import {
   installImmutableNodeDependencies,
   packageClosureRows,
   parseQ04CampaignArguments,
+  pinnedRustEnvironment,
   rustBuildLayout,
   rustBuildCommand,
   rustCheckerBuildCommand,
@@ -91,6 +92,9 @@ test("Q-04 scrubs inherited build/package controls and pins npm to the snapshot 
   assert.equal(environment.RUSTFLAGS, undefined);
   assert.equal(environment.RUSTC_WRAPPER, undefined);
   assert.equal(environment.npm_config_userconfig, undefined);
+  const rustEnvironment = pinnedRustEnvironment();
+  assert.equal(rustEnvironment.MISE_RUST_VERSION, "1.97.1");
+  assert.equal(rustEnvironment.RUSTUP_TOOLCHAIN, "1.97.1");
   const calls = [];
   await installImmutableNodeDependencies(snapshot, async (executable, arguments_, options) => {
     calls.push({ executable, arguments_, options });
@@ -159,6 +163,8 @@ test("Q-04 Rust layout cannot select a checkout-stale binary", (t) => {
   const command = rustBuildCommand("/immutable/snapshot/03-create-your-own-pool/crates/shieldkit-v2-recovery", layout);
   assert.equal(command.cwd, "/immutable/snapshot/03-create-your-own-pool/crates/shieldkit-v2-recovery");
   assert.equal(command.env.CARGO_TARGET_DIR, layout.cargoTarget);
+  assert.equal(command.env.MISE_RUST_VERSION, "1.97.1");
+  assert.equal(command.env.RUSTUP_TOOLCHAIN, "1.97.1");
   assert.equal(command.env.RUSTFLAGS, undefined);
   assert.deepEqual(command.arguments, ["+1.97.1", "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"]);
   const checkerCommand = rustCheckerBuildCommand(
@@ -170,6 +176,8 @@ test("Q-04 Rust layout cannot select a checkout-stale binary", (t) => {
     "/immutable/snapshot/03-create-your-own-pool/crates/shieldkit-v2-q04-certificate",
   );
   assert.equal(checkerCommand.env.CARGO_TARGET_DIR, layout.cargoTarget);
+  assert.equal(checkerCommand.env.MISE_RUST_VERSION, "1.97.1");
+  assert.equal(checkerCommand.env.RUSTUP_TOOLCHAIN, "1.97.1");
   assert.deepEqual(checkerCommand.arguments, [
     "+1.97.1",
     "build",

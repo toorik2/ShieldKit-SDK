@@ -34,6 +34,7 @@ const Q04_HISTORY_COUNT = 4;
 const Q04_ENTRIES_PER_HISTORY = 25_000;
 const Q04_CHECKPOINT_INTERVAL = 1_000;
 const Q04_REQUIRED_PROBE_COUNT = 5;
+const Q04_RUST_TOOLCHAIN = "1.97.1";
 
 export class V2Q04CampaignError extends Error {
   constructor(message) {
@@ -261,11 +262,19 @@ async function archiveGitCommit(gitCommit, snapshotRoot) {
 export function sanitizedEnvironment(additions = {}) {
   const environment = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (/^(?:CARGO_TARGET_DIR|CARGO_ENCODED_RUSTFLAGS|RUSTFLAGS|RUSTDOCFLAGS|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER)$/u.test(key)) continue;
+    if (/^(?:CARGO_TARGET_DIR|CARGO_ENCODED_RUSTFLAGS|MISE_RUST_VERSION|RUSTFLAGS|RUSTUP_TOOLCHAIN|RUSTDOCFLAGS|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER)$/u.test(key)) continue;
     if (/^npm_config_/iu.test(key)) continue;
     environment[key] = value;
   }
   return Object.freeze({ ...environment, ...additions });
+}
+
+export function pinnedRustEnvironment(additions = {}) {
+  return sanitizedEnvironment({
+    ...additions,
+    MISE_RUST_VERSION: Q04_RUST_TOOLCHAIN,
+    RUSTUP_TOOLCHAIN: Q04_RUST_TOOLCHAIN,
+  });
 }
 
 export async function createImmutableSnapshot(bundle, gitCommit) {
@@ -345,9 +354,9 @@ export function snapshotExecutionPaths(snapshotRoot, bundle) {
 export function rustBuildCommand(recoveryCwd, layout) {
   return Object.freeze({
     executable: "cargo",
-    arguments: Object.freeze(["+1.97.1", "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"]),
+    arguments: Object.freeze([`+${Q04_RUST_TOOLCHAIN}`, "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"]),
     cwd: recoveryCwd,
-    env: sanitizedEnvironment({ CARGO_TARGET_DIR: layout.cargoTarget }),
+    env: pinnedRustEnvironment({ CARGO_TARGET_DIR: layout.cargoTarget }),
   });
 }
 
@@ -355,7 +364,7 @@ export function rustCheckerBuildCommand(checkerCwd, layout) {
   return Object.freeze({
     executable: "cargo",
     arguments: Object.freeze([
-      "+1.97.1",
+      `+${Q04_RUST_TOOLCHAIN}`,
       "build",
       "--locked",
       "--release",
@@ -363,7 +372,7 @@ export function rustCheckerBuildCommand(checkerCwd, layout) {
       "shieldkit-v2-q04-certificate",
     ]),
     cwd: checkerCwd,
-    env: sanitizedEnvironment({ CARGO_TARGET_DIR: layout.cargoTarget }),
+    env: pinnedRustEnvironment({ CARGO_TARGET_DIR: layout.cargoTarget }),
   });
 }
 
@@ -640,7 +649,18 @@ export async function runQ04Campaign({ outputParent, dependencies = undefined } 
     const nodeDependencyAttestation = bundleReference(bundle, writeJson(join(bundle, "raw/node-dependency-attestation.json"), poseidonLiteAttestation));
     const nodeVersion = process.version;
     const sqliteVersion = (await version("sqlite3", ["--version"], deps.spawnCapture, "sqlite3 --version")).split(/\s/u)[0];
-    const rustVersion = await version("rustup", ["run", "1.97.1", "rustc", "--version"], deps.spawnCapture, "pinned rustc --version");
+    const rustVersion = (
+      await commandOrFail(
+        "rustc",
+        ["--version"],
+        {
+          cwd: workspaceRoot,
+          env: pinnedRustEnvironment(),
+        },
+        "pinned rustc --version",
+        deps.spawnCapture,
+      )
+    ).stdout.trim();
     if (!/^rustc 1\.97\.1(?:\s|$)/.test(rustVersion)) fail("Q-04 requires Rust 1.97.1");
     const rustLayout = executionPaths.rust;
     const rustBuild = rustBuildCommand(recoveryCwd, rustLayout);
