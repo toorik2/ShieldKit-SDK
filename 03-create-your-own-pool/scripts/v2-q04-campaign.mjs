@@ -398,6 +398,58 @@ function copiedReference(bundle, destination, origin) {
   return Object.freeze({ path: destination, bytes: bytes.length, sha256: sha256(bytes) });
 }
 
+export function copiedGeneratedBinaryReference(
+  bundle,
+  destination,
+  origin,
+  buildRoot,
+) {
+  const source = assertContained(
+    buildRoot,
+    origin,
+    "Q-04 generated binary source",
+  );
+  const observed = lstatSync(source);
+  if (
+    !observed.isFile()
+    || observed.isSymbolicLink()
+    || observed.size === 0
+  ) {
+    fail("Q-04 generated binary source must be a nonempty regular file");
+  }
+  const sourceBefore = readFileSync(source);
+  const sourceBeforeSha256 = sha256(sourceBefore);
+  const target = assertContained(
+    bundle,
+    join(bundle, destination),
+    "Q-04 generated binary destination",
+  );
+  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+  privateDirectory(dirname(target));
+  if (lstatSync(target, { throwIfNoEntry: false }) !== undefined) {
+    fail(`Q-04 refuses to reuse an artifact path: ${destination}`);
+  }
+  copyFileSync(source, target, constants.COPYFILE_EXCL);
+  chmodSync(target, 0o600);
+  const targetMetadata = regularSource(target);
+  const sourceAfter = readFileSync(source);
+  const targetBytes = readFileSync(target);
+  if (
+    sourceAfter.length !== sourceBefore.length
+    || sha256(sourceAfter) !== sourceBeforeSha256
+    || targetMetadata.size !== sourceBefore.length
+    || targetBytes.length !== sourceBefore.length
+    || sha256(targetBytes) !== sourceBeforeSha256
+  ) {
+    fail("Q-04 generated binary changed during single-link handoff");
+  }
+  return Object.freeze({
+    path: destination,
+    bytes: targetBytes.length,
+    sha256: sourceBeforeSha256,
+  });
+}
+
 function sourceArtifacts(bundle, snapshotRoot, definitions) {
   const records = [];
   const copyLane = (lane, definitions) => definitions.map((definition, index) => {
@@ -667,7 +719,12 @@ export async function runQ04Campaign({ outputParent, dependencies = undefined } 
     const rustBuildStartedNs = process.hrtime.bigint();
     await commandOrFail(rustBuild.executable, rustBuild.arguments, { cwd: rustBuild.cwd, env: rustBuild.env }, "pinned Rust KAT build", deps.spawnCapture);
     const rustBuildElapsedMs = elapsedMilliseconds(rustBuildStartedNs);
-    const binary = copiedReference(bundle, "bin/q04-poseidon-oracle", rustLayout.builtBinary);
+    const binary = copiedGeneratedBinaryReference(
+      bundle,
+      "bin/q04-poseidon-oracle",
+      rustLayout.builtBinary,
+      rustLayout.cargoTarget,
+    );
     const binaryPath = join(bundle, binary.path);
     const rustRunStartedNs = process.hrtime.bigint();
     const rustRun = await commandOrFail(binaryPath, [], { cwd: bundle, env: sanitizedEnvironment() }, "Rust KAT", deps.spawnCapture);
@@ -684,10 +741,11 @@ export async function runQ04Campaign({ outputParent, dependencies = undefined } 
       deps.spawnCapture,
     );
     const checkerBuildElapsedMs = elapsedMilliseconds(checkerBuildStartedNs);
-    const checkerBinary = copiedReference(
+    const checkerBinary = copiedGeneratedBinaryReference(
       bundle,
       "bin/shieldkit-v2-q04-certificate",
       rustLayout.checkerBuiltBinary,
+      rustLayout.cargoTarget,
     );
     const checkerBinaryPath = join(bundle, checkerBinary.path);
     const depth4Certificate = snapshot.depth4.runProductionDepth4StateSpace({ parameterSourcePath });

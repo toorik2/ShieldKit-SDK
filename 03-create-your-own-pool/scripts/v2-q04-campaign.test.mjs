@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   chmodSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -21,6 +22,7 @@ import {
   assertFreshHistoryExecutions,
   assertSnapshotSourcesUnchanged,
   createQ04HistoryPlan,
+  copiedGeneratedBinaryReference,
   elapsedMilliseconds,
   installImmutableNodeDependencies,
   packageClosureRows,
@@ -186,6 +188,29 @@ test("Q-04 Rust layout cannot select a checkout-stale binary", (t) => {
     "--bin",
     "shieldkit-v2-q04-certificate",
   ]);
+});
+
+test("Q-04 detaches Cargo hard-linked binaries before execution", (t) => {
+  const bundle = mkdtempSync(join(tmpdir(), "q04-binary-handoff-"));
+  t.after(() => rmSync(bundle, { recursive: true, force: true }));
+  const rustTarget = join(bundle, "rust-target");
+  mkdirSync(join(rustTarget, "release", "deps"), { recursive: true });
+  const origin = join(rustTarget, "release", "qualifier");
+  const cargoLink = join(rustTarget, "release", "deps", "qualifier-copy");
+  writeFileSync(origin, "qualified-binary");
+  linkSync(origin, cargoLink);
+  assert.equal(lstatSync(origin).nlink, 2);
+  const artifact = copiedGeneratedBinaryReference(
+    bundle,
+    "bin/qualifier",
+    origin,
+    rustTarget,
+  );
+  const detached = join(bundle, artifact.path);
+  assert.equal(lstatSync(detached).nlink, 1);
+  assert.equal(readFileSync(detached, "utf8"), "qualified-binary");
+  writeFileSync(cargoLink, "mutated-hard-link");
+  assert.equal(readFileSync(detached, "utf8"), "qualified-binary");
 });
 
 test("Q-04 rejects a dirty tree before allocating a bundle", async (t) => {
