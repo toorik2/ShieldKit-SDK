@@ -430,7 +430,7 @@ export function copiedGeneratedBinaryReference(
     fail(`Q-04 refuses to reuse an artifact path: ${destination}`);
   }
   copyFileSync(source, target, constants.COPYFILE_EXCL);
-  chmodSync(target, 0o600);
+  chmodSync(target, 0o700);
   const targetMetadata = regularSource(target);
   const sourceAfter = readFileSync(source);
   const targetBytes = readFileSync(target);

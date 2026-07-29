@@ -208,6 +208,7 @@ test("Q-04 detaches Cargo hard-linked binaries before execution", (t) => {
   );
   const detached = join(bundle, artifact.path);
   assert.equal(lstatSync(detached).nlink, 1);
+  assert.equal(lstatSync(detached).mode & 0o777, 0o700);
   assert.equal(readFileSync(detached, "utf8"), "qualified-binary");
   writeFileSync(cargoLink, "mutated-hard-link");
   assert.equal(readFileSync(detached, "utf8"), "qualified-binary");
