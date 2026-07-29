@@ -1,0 +1,20 @@
+[package]
+name = "shieldkit-v2-direct"
+version = "0.2.0"
+edition = "2021"
+publish = false
+description = "Cross-language SKS2/SDA2 codecs and public-input limbs for ShieldKit V2 Direct"
+
+[lib]
+name = "shieldkit_v2_direct"
+path = "src/lib.rs"
+
+[[bin]]
+name = "v2-direct-kat"
+path = "src/bin/kat.rs"
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

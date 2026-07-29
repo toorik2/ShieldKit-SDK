@@ -7,13 +7,12 @@
  * adapter is pure waste (~30s × N).
  *
  * Call this *before* spawning densFuel. On ECIP_NFAIL the caller must change
- * public inputs (fee diversity / witness seed) and re-prove — never re-unlock.
+ * public inputs (pin-compatible transactionContextHash binding) and prove once —
+ * never re-unlock the same adapter.
  */
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { UnlockBuilderError } from './errors.mjs';
 import { LIVE_UNLOCK_FLAGS } from './env.mjs';
 
@@ -23,23 +22,23 @@ const ECIP_FILE = path.join(PKG, 'vendor/verifier/build/chunked/pairing/gen_vkx_
 /** Live pin envelope — must match C7_MAXTRY / require(nfail <= MT) in densFuel. */
 export const PIN_ECIP_MAX_TRY = Number(LIVE_UNLOCK_FLAGS.C7_MAXTRY);
 
-let _ecip = null;
+let _measure = null;
 
-async function loadEcip() {
-  if (_ecip) return _ecip;
+async function loadMeasure() {
+  if (_measure) return _measure;
   if (!existsSync(ECIP_FILE)) {
     throw new UnlockBuilderError('ECIP_MISSING', `gen_vkx_ecip.mjs not found: ${ECIP_FILE}`);
   }
-  // Point class identity must match gen_vkx_ecip's @noble resolution (may be
-  // external verifier.cash install via createRequire walk).
-  const require = createRequire(ECIP_FILE);
-  const noblePath = require.resolve('@noble/curves/bn254.js');
-  const [{ bn254 }, ecip] = await Promise.all([
-    import(pathToFileURL(noblePath).href),
-    import(pathToFileURL(ECIP_FILE).href),
-  ]);
-  _ecip = { G1: bn254.G1.Point, zkEcipHint: ecip.zkEcipHint, ecipVerify: ecip.ecipVerify };
-  return _ecip;
+  // Import measure from the ECIP module itself so G1 identity matches zkEcipHint.
+  const ecip = await import(pathToFileURL(ECIP_FILE).href);
+  if (typeof ecip.measureEcipNfailFromAffine !== 'function') {
+    throw new UnlockBuilderError(
+      'ECIP_MISSING',
+      'gen_vkx_ecip.mjs missing measureEcipNfailFromAffine export',
+    );
+  }
+  _measure = ecip.measureEcipNfailFromAffine;
+  return _measure;
 }
 
 /**
@@ -47,44 +46,67 @@ async function loadEcip() {
  *   adapterPath?: string,
  *   adapter?: object,
  *   maxTry?: number,
+ *   in0?: string|bigint,
+ *   in1?: string|bigint,
+ *   ic?: { x: string|bigint, y: string|bigint }[],
  * }} input
  * @returns {Promise<{ nfail: number, ok: boolean, retry0: boolean, maxTry: number, withinBudget: boolean }>}
  */
 export async function measureEcipPinBudget(input = {}) {
   const maxTry = input.maxTry ?? PIN_ECIP_MAX_TRY;
-  const adapter = input.adapter
-    ?? JSON.parse(readFileSync(input.adapterPath, 'utf8'));
-  const fix = adapter?.verifierCashFixture;
-  const vk = adapter?.verifierCashVk;
-  if (!fix || fix.in0 == null || fix.in1 == null) {
-    throw new UnlockBuilderError('ECIP_INPUT', 'adapter.verifierCashFixture.in0/in1 required');
-  }
-  if (!Array.isArray(vk?.ic) || vk.ic.length !== 3) {
-    throw new UnlockBuilderError('ECIP_INPUT', 'adapter.verifierCashVk.ic must be length-3');
+  let ic = input.ic;
+  let in0 = input.in0;
+  let in1 = input.in1;
+
+  if (ic == null || in0 == null || in1 == null) {
+    const adapter = input.adapter
+      ?? JSON.parse(readFileSync(input.adapterPath, 'utf8'));
+    const fix = adapter?.verifierCashFixture;
+    const vk = adapter?.verifierCashVk;
+    if (!fix || fix.in0 == null || fix.in1 == null) {
+      throw new UnlockBuilderError('ECIP_INPUT', 'adapter.verifierCashFixture.in0/in1 required');
+    }
+    if (!Array.isArray(vk?.ic) || vk.ic.length !== 3) {
+      throw new UnlockBuilderError('ECIP_INPUT', 'adapter.verifierCashVk.ic must be length-3');
+    }
+    ic = vk.ic;
+    in0 = fix.in0;
+    in1 = fix.in1;
   }
 
-  const { G1, zkEcipHint, ecipVerify } = await loadEcip();
-  const IC = vk.ic.map((p, i) => {
-    if (p?.x == null || p?.y == null) {
-      throw new UnlockBuilderError('ECIP_INPUT', `ic[${i}] missing x/y`);
+  if (!Array.isArray(ic) || ic.length !== 3) {
+    throw new UnlockBuilderError('ECIP_INPUT', 'ic must be length-3 affine points');
+  }
+
+  const measure = await loadMeasure();
+  try {
+    const v = measure(ic, [1n, BigInt(in0), BigInt(in1)]);
+    return {
+      nfail: v.nfail,
+      ok: v.ok,
+      retry0: v.retry0,
+      maxTry,
+      withinBudget: v.nfail <= maxTry,
+    };
+  } catch (e) {
+    // gen_vkx_ecip throws when try-and-increment exceeds MAXTRY=8 — treat as
+    // far outside the live pin budget (nfail > 2), not as a tool crash.
+    if (/MAXTRY exceeded/i.test(String(e?.message || e))) {
+      return {
+        nfail: 9,
+        ok: true,
+        retry0: false,
+        maxTry,
+        withinBudget: false,
+      };
     }
-    return G1.fromAffine({ x: BigInt(p.x), y: BigInt(p.y) });
-  });
-  const scalars = [1n, BigInt(fix.in0), BigInt(fix.in1)];
-  const hint = zkEcipHint(IC, scalars);
-  const v = ecipVerify(IC, scalars, hint);
-  return {
-    nfail: v.nfail,
-    ok: v.ok,
-    retry0: v.retry0,
-    maxTry,
-    withinBudget: v.nfail <= maxTry,
-  };
+    throw e;
+  }
 }
 
 /**
  * Throw ECIP_NFAIL if public inputs exceed the live pin's nfail budget.
- * Cheap relative to densFuel (~1s vs ~30s); deterministic for fixed adapter.
+ * Cheap relative to densFuel (~ms–1s vs ~30s); deterministic for fixed limbs+VK.
  */
 export async function assertEcipWithinPinBudget(input = {}) {
   const m = await measureEcipPinBudget(input);
@@ -99,7 +121,7 @@ export async function assertEcipWithinPinBudget(input = {}) {
     throw new UnlockBuilderError(
       'ECIP_NFAIL',
       `public inputs need ECIP nfail=${m.nfail} > pin maxTry=${m.maxTry}; `
-        + 're-prove with different public inputs (fee/seed diversity) — do not re-unlock',
+        + 'bind pin-compatible transactionContextHash before prove — do not re-unlock',
       m,
     );
   }

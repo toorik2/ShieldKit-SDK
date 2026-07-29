@@ -229,6 +229,34 @@ export function fsChallenge(in0, in1, Qx, Qy, h) {
 export const MAXTRY = 8;
 const nextX = (x) => vmInt31(createHash('sha256').update(le32(x)).digest());
 const rhsOf = (x) => fadd(fmul(fmul(x, x), x), 3n);
+/**
+ * Measure ECIP nfail from affine IC + public scalars using *this module's* G1.
+ * Avoids the cross-instance `@noble/curves` ProjectivePoint bug when callers
+ * construct points from a differently resolved bn254 package copy.
+ *
+ * @param {{ x: string|bigint, y: string|bigint }[]} icAffine length-3
+ * @param {bigint[]} scalars [1n, in0, in1]
+ * @returns {ReturnType<typeof ecipVerify>}
+ */
+export function measureEcipNfailFromAffine(icAffine, scalars) {
+  if (!Array.isArray(icAffine) || icAffine.length !== 3) {
+    throw new Error('measureEcipNfailFromAffine: icAffine must be length-3');
+  }
+  if (!Array.isArray(scalars) || scalars.length !== 3) {
+    throw new Error('measureEcipNfailFromAffine: scalars must be [1, in0, in1]');
+  }
+  const IC = icAffine.map((p, i) => {
+    const x = BigInt(p.x);
+    const y = BigInt(p.y);
+    // snarkjs infinity encoding for optional IC0
+    if (x === 0n && y === 1n) return G1.ZERO;
+    return G1.fromAffine({ x, y });
+  });
+  const scal = scalars.map((s) => BigInt(s));
+  const h = zkEcipHint(IC, scal);
+  return ecipVerify(IC, scal, h);
+}
+
 export function ecipVerify(IC, scalars, h) {
   const Qx = h.Qx, Qy = h.Qy;
   const xseed = fsChallenge(scalars[1], scalars[2], Qx, Qy, h);

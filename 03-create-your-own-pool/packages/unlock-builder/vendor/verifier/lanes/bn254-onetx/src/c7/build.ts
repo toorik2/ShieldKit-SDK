@@ -154,7 +154,7 @@ const STRICT_DEPLOYMENT = CONFIG.mode.strictDeployment; // bind the fixed deploy
 // Public verifier-bench supplies value=1000 and sequence=0. Keep that envelope
 // as an explicit build profile; the strict research profile remains 10000/ffff.
 const PUBLIC_BENCH_CONTEXT = CONFIG.mode.publicBenchContext;
-const SOURCE_VALUE_SATS = STRICT_DEPLOYMENT && !PUBLIC_BENCH_CONTEXT ? 10000n : 1000n;
+const SOURCE_VALUE_SATS = process.env.C7_SOURCE_VALUE_SATS ? BigInt(process.env.C7_SOURCE_VALUE_SATS) : (STRICT_DEPLOYMENT && !PUBLIC_BENCH_CONTEXT ? 10000n : 1000n);
 const SOURCE_SEQUENCE = STRICT_DEPLOYMENT && !PUBLIC_BENCH_CONTEXT ? 0xffffffff : 0;
 const SPEND_OUTPUT_VALUE_SATS = 1000n;
 const DRIVER_PACK_DERIVED = STRIPED && CONFIG.mode.driverPackDerived; // mode schedule is code-derived from blkidx
@@ -194,22 +194,27 @@ function eligInstanceLocal(): { pf: any; inputs: bigint[] } {
 const ELIG = eligInstanceLocal();
 console.log('=== ELIG_INSTANCE (c7_merge) ===', JSON.stringify({ sel: activeInstance.source, idx: CONFIG.proofSelection.rawIndex ?? null, inputs: ELIG.inputs.map(String), adapterSha256: activeInstance.artifact?.sha256 }));
 // Bounded shield.cash verifier-context experiment. Input 7 carries one exact
-// SHA-pinned 752-byte SCAR packet. The digest is witness data only: genesis
-// binds it bijectively to in0/in1, and terminal hashes input 7 at runtime.
-// Packet bytes, digest bytes, and public-input values never enter source locks.
+// SHA-pinned action packet (SCAR 752 V1 or SDA2 552 V2 Direct). The digest is
+// witness data only: genesis binds it bijectively to in0/in1, and terminal
+// hashes input 7 at runtime. Packet bytes never enter source locks.
 const STRUCTURAL_ROLE_COUNT = CONFIG.mode.structuralRoleCount;
 const packetIngress = SHIELD_ACTION_SEAM
   ? loadPinnedShieldActionPacket(CONFIG.shieldAction.packet)
   : undefined;
 const packetBytes = packetIngress?.bytes ?? new Uint8Array();
 const packetDigest = packetIngress?.digest ?? new Uint8Array();
+const packetPushHeader = packetIngress?.pushHeader ?? SHIELD_ACTION_PACKET_PUSH_HEADER;
+const packetByteLen = packetIngress?.packetBytes ?? SHIELD_ACTION_PACKET_BYTES;
 const packetUnlock = STRUCTURAL_ROLE_COUNT === 3 ? encodeDataPush(packetBytes) : new Uint8Array();
 if (SHIELD_ACTION_SEAM) {
   assertActionDigestPublicInputs(packetDigest, ELIG.inputs);
-  if (packetBytes.length !== SHIELD_ACTION_PACKET_BYTES
-      || packetUnlock.length !== SHIELD_ACTION_PACKET_PUSH_HEADER.length + SHIELD_ACTION_PACKET_BYTES
-      || !SHIELD_ACTION_PACKET_PUSH_HEADER.every((value, index) => packetUnlock[index] === value)) {
-    throw new Error('shield action packet unlock must be exactly PUSHDATA2(752) with no suffix');
+  if (packetBytes.length !== packetByteLen
+      || packetUnlock.length !== packetPushHeader.length + packetByteLen
+      || !packetPushHeader.every((value, index) => packetUnlock[index] === value)) {
+    throw new Error(
+      `shield action packet unlock must be PUSHDATA2(${packetByteLen}) with no suffix `
+      + `(version=${packetIngress?.version ?? 'unknown'})`,
+    );
   }
 }
 const SGB_WIDTHS = Array.from({ length: 32 }, (_, p) => (gb3 as any).stateW(p));
@@ -2435,11 +2440,11 @@ const boundaryRoleGuard = (inputIndex: number, roles: Array<[number, Uint8Array]
 // projection bytes remain at the historical [3,451) executor slice.
 const packetDigestGuard = () => STRUCTURAL_ROLE_COUNT === 3
   ? cat(
-    // input 7 = exactly 4d f0 02 || SCAR[752], no trailing bytes.
+    // input 7 = PUSHDATA2(packetLen) || packet, no trailing bytes (SCAR 752 or SDA2 552).
     pushInt(PACKET_INPUT_INDEX), b(OP.INPUTBYTECODE, 0x82),
-    pushInt(SHIELD_ACTION_PACKET_PUSH_HEADER.length + SHIELD_ACTION_PACKET_BYTES), b(OP.EQUALVERIFY),
-    pushInt(SHIELD_ACTION_PACKET_PUSH_HEADER.length), b(OP.SPLIT, 0x7c),
-    push(SHIELD_ACTION_PACKET_PUSH_HEADER), b(OP.EQUALVERIFY, 0xa8),
+    pushInt(packetPushHeader.length + packetByteLen), b(OP.EQUALVERIFY),
+    pushInt(packetPushHeader.length), b(OP.SPLIT, 0x7c),
+    push(packetPushHeader), b(OP.EQUALVERIFY, 0xa8),
     // genesis = 4d e0 01 || projectionContext[448] || digest[32] || ...
     pushInt(genesisIndex), b(OP.INPUTBYTECODE),
     pushInt(SHIELD_PROJECTION_SIGNAL_PUSH_HEADER.length), b(OP.SPLIT, 0x7c),

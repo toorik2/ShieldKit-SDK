@@ -1,0 +1,21 @@
+{
+  "name": "@shieldkit/v2-direct",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./cli": "./cli/shieldkit-v2.mjs"
+  },
+  "private": true,
+  "dependencies": {
+    "@bitauth/libauth": "^3.1.0-next.8",
+    "poseidon-lite": "0.3.0",
+    "snarkjs": "0.7.6",
+    "circom2": "0.2.16"
+  },
+  "scripts": {
+    "test": "node --test --test-force-exit ./*.test.mjs ./test/*.test.mjs ./trees/*.test.mjs ./wallet/*.test.mjs ./covenant/*.test.mjs ./prove/*.test.mjs ./cli/*.test.mjs ./recover/*.test.mjs",
+    "cli": "node ./cli/shieldkit-v2.mjs"
+  }
+}

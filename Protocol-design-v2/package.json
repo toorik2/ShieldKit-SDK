@@ -1,0 +1,30 @@
+{
+  "name": "@shieldkit/protocol-design-v2",
+  "version": "0.2.0",
+  "private": true,
+  "description": "ShieldKit Protocol-design-v2 — Chipnet lab product surface. Dev keys only; not for real-money privacy. Unaudited WIP.",
+  "type": "module",
+  "bin": {
+    "shieldkit-v2": "./bin/shieldkit-v2.mjs"
+  },
+  "exports": {
+    ".": "../03-create-your-own-pool/packages/v2-direct/index.mjs",
+    "./cli": "./bin/shieldkit-v2.mjs"
+  },
+  "scripts": {
+    "cli": "node ./bin/shieldkit-v2.mjs",
+    "test": "node --test ../03-create-your-own-pool/packages/v2-direct/cli/*.test.mjs ../03-create-your-own-pool/packages/v2-direct/operator/funding-wallet.test.mjs",
+    "help": "node ./bin/shieldkit-v2.mjs --help"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "bitcoin-cash",
+    "shieldkit",
+    "zk",
+    "chipnet",
+    "protocol-v2"
+  ],
+  "license": "UNLICENSED"
+}

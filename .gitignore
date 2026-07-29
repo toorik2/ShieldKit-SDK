@@ -39,3 +39,6 @@ wallets.json
 
 # large profile artifacts (not in git)
 02-use-chipnet-demo-pool/bundle/
+
+# Local audit reports
+/docs/audits/2026-07-28-pool-scalability-audit.md
