@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { chmodSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +23,7 @@ import {
   createQ04HistoryPlan,
   elapsedMilliseconds,
   installImmutableNodeDependencies,
+  packageClosureRows,
   parseQ04CampaignArguments,
   rustBuildLayout,
   rustBuildCommand,
@@ -101,6 +112,26 @@ test("Q-04 detects source mutation after its snapshot evidence capture", (t) => 
   assert.doesNotThrow(() => assertSnapshotSourcesUnchanged([record]));
   writeFileSync(source, "export const stable = false;\n", { mode: 0o600 });
   assert.throws(() => assertSnapshotSourcesUnchanged([record]), /source changed after capture/u);
+});
+
+test("Q-04 dependency attestation walks its package root and rejects links", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "q04-dependency-closure-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(join(directory, "nested"));
+  writeFileSync(join(directory, "package.json"), "{}\n");
+  writeFileSync(join(directory, "nested", "index.js"), "export {};\n");
+  assert.deepEqual(
+    packageClosureRows(directory).map(([path, size]) => [path, size]),
+    [
+      ["nested/index.js", "11"],
+      ["package.json", "3"],
+    ],
+  );
+  symlinkSync(join(directory, "nested"), join(directory, "linked"));
+  assert.throws(
+    () => packageClosureRows(directory),
+    /contains a symbolic link/u,
+  );
 });
 
 test("Q-04 records elapsed time from monotonic measurements, never a placeholder", () => {

@@ -438,8 +438,14 @@ export function assertSnapshotSourcesUnchanged(records) {
   }
 }
 
-function packageClosureRows(root, relative = "") {
-  const directory = assertContained(root, join(root, relative), "Q-04 dependency closure");
+export function packageClosureRows(root, relative = "") {
+  const directory = relative === ""
+    ? resolve(root)
+    : assertContained(
+        root,
+        join(root, relative),
+        "Q-04 dependency closure",
+      );
   const observed = lstatSync(directory);
   if (!observed.isDirectory() || observed.isSymbolicLink()) fail(`Q-04 dependency closure contains a non-directory: ${directory}`);
   const rows = [];
