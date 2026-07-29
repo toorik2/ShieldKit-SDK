@@ -1,0 +1,15 @@
+[package]
+name = "shieldkit-v2-codec"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+ark-bn254 = "=0.5.0"
+ark-ff = "=0.5.0"
+light-poseidon = "=0.4.0"
+num-bigint = "=0.4.6"
+num-traits = "=0.2.19"
+rand_core = "=0.6.4"
+sha2 = "=0.10.9"

@@ -129,11 +129,15 @@ const setFlag = (environment, name, value) => {
   if (value) environment[name] = '1';
 };
 
-export const toLegacyEnvironment = (profileInput, fixture) => {
+export const toLegacyEnvironment = (profileInput, fixture, shieldAdapter) => {
   const profile = readBuildProfile(profileInput);
   const environment = {
-    ELIG_INSTANCE: 'file',
-    ELIG_FILE: fixture,
+    ...(shieldAdapter === undefined
+      ? { ELIG_INSTANCE: 'file', ELIG_FILE: fixture }
+      : {
+          C7_SHIELD_ADAPTER_FILE: shieldAdapter.path,
+          C7_SHIELD_ADAPTER_SHA256: shieldAdapter.sha256,
+        }),
     KWIN: String(profile.layout.windowSize),
     STRIPED_FRAGS: String(profile.layout.stripedFragments),
     SW: String(profile.packing.stateWidth),
@@ -193,7 +197,8 @@ export const legacyEnvironmentKeys = Object.freeze([
   'C7_NOMUL1', 'C7_NOOPT', 'C7_NOPALIAS', 'C7_NOSTRIP', 'C7_STUB', 'C7_TMP', 'C7_TOOL',
   'CASHC_ROOT', 'CDNW', 'CDWIDTH', 'DERIVE_MODE', 'DIRECT_FINALIZE_STATE', 'DP', 'DP_NODEBAKE',
   'DRIVER_PACK_DERIVED', 'DRIVER_WINDOW_DERIVED', 'DYN_PACK', 'ELIG_FILE', 'ELIG_IDX', 'C7_SHIELD_ADAPTER_FILE', 'C7_SHIELD_ADAPTER_SHA256',
-  'C7_SHIELD_ACTION_PACKET_FILE', 'C7_SHIELD_ACTION_PACKET_SHA256',
+  'C7_SHIELD_ACTION_PACKET_ABI', 'C7_SHIELD_ACTION_PACKET_FILE',
+  'C7_SHIELD_ACTION_PACKET_SHA256',
   'ELIG_INSTANCE', 'FIN_PAD', 'FIXED_WDAT', 'KSPEC', 'KWIN', 'L17SEL', 'LEANBCH_ROOT', 'NITS',
   'NO_TAIL', 'PAD_HASH', 'PUBLIC_BENCH_CONTEXT', 'RESCHEDULE', 'RETAIN_CDAT', 'RETAIN_WDAT',
   'SEAMNARROW', 'SIBLING_READ', 'SR_DROP', 'STRICT_DEPLOYMENT', 'STRIPED', 'STRIPED_FRAGS',

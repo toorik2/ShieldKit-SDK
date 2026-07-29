@@ -61,6 +61,7 @@ import {
   PUBLIC_FILE_MODE,
   readJsonFile,
 } from '../packages/kit/secure-files.mjs';
+import { refuseLegacyProfileCreation } from '../packages/profile/legacy.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DEFAULT_PIN_ART = path.join(ROOT, '.cache/profile-build-live/artifacts');
@@ -456,6 +457,10 @@ async function withGenesis(out, opts) {
 }
 
 async function main() {
+  // This script constructs `shielded-action-v2`, the V1 legacy protocol.
+  // Refuse before resolving output paths, reading wallets, opening RPC, or
+  // staging/broadcasting any transaction.
+  refuseLegacyProfileCreation('the historical create-pool script');
   const out = path.resolve(arg('out', path.join(ROOT, '.cache/my-pool')));
   const unlockRoot = resolveUnlockRoot();
   const leanRoot = resolveLeanRoot();

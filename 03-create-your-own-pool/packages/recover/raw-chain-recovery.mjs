@@ -17,9 +17,125 @@ const displayHash = (value) => bytesToHex(new Uint8Array(hash256(value)).reverse
 const uint32le = (value, offset) => value[offset] | (value[offset + 1] << 8) | (value[offset + 2] << 16) | (value[offset + 3] * 0x1000000);
 const targetFromBits = (bits) => { const exponent = bits >>> 24; const mantissa = bits & 0x007fffff; if ((bits & 0x00800000) !== 0 || mantissa === 0 || exponent === 0 || exponent > 32) fail('INVALID_TARGET', 'header compact target is invalid'); const target = exponent <= 3 ? BigInt(mantissa) >> (8n * BigInt(3 - exponent)) : BigInt(mantissa) << (8n * BigInt(exponent - 3)); if (target <= 0n || target >= U256) fail('INVALID_TARGET', 'header target is outside uint256'); return target; };
 const headerWork = (target) => U256 / (target + 1n);
-const header = (rawHeader, maximumTarget) => { const raw = bytes(rawHeader, 'header'); if (raw.length !== HEADER_BYTES) fail('MALFORMED_HEADER', 'block header must be exactly 80 bytes'); const bits = uint32le(raw, 72); const target = targetFromBits(bits); if (target > maximumTarget) fail('TARGET_EXCEEDS_MAXIMUM', 'header target exceeds pinned maximum target'); const id = displayHash(raw); if (BigInt(`0x${id}`) > target) fail('INVALID_PROOF_OF_WORK', 'header hash does not satisfy its target'); return Object.freeze({ raw, id, previousBlockHash: bytesToHex(raw.subarray(4, 36).reverse()), merkleRoot: bytesToHex(raw.subarray(36, 68).reverse()), bits, target, work: headerWork(target) }); };
+const header = (rawHeader, maximumTarget) => { const raw = bytes(rawHeader, 'header'); if (raw.length !== HEADER_BYTES) fail('MALFORMED_HEADER', 'block header must be exactly 80 bytes'); const bits = uint32le(raw, 72); const target = targetFromBits(bits); if (target > maximumTarget) fail('TARGET_EXCEEDS_MAXIMUM', 'header target exceeds pinned maximum target'); const id = displayHash(raw); if (BigInt(`0x${id}`) > target) fail('INVALID_PROOF_OF_WORK', 'header hash does not satisfy its target'); return Object.freeze({ raw, id, previousBlockHash: bytesToHex(raw.subarray(4, 36).reverse()), merkleRoot: bytesToHex(raw.subarray(36, 68).reverse()), timestamp: uint32le(raw, 68), bits, target, work: headerWork(target) }); };
 const readCount = (bin, index, label) => { const result = readCompactUintMinimal({ bin, index }); if (typeof result === 'string' || result.result > BigInt(MAX_BLOCK_TRANSACTIONS)) fail('MALFORMED_BLOCK', `${label} compact count is invalid`); return { count: Number(result.result), index: result.position.index }; };
 const merkleRoot = (transactions) => { let level = transactions.map((transaction) => new Uint8Array(hash256(transaction.raw))); if (level.length === 0) fail('MALFORMED_BLOCK', 'block must include at least one transaction'); while (level.length > 1) { if (level.length % 2 === 1) level.push(level.at(-1)); const next = []; for (let index = 0; index < level.length; index += 2) { const pair = new Uint8Array(64); pair.set(level[index]); pair.set(level[index + 1], 32); next.push(new Uint8Array(hash256(pair))); } level = next; } return bytesToHex(level[0].reverse()); };
+
+/** Parse and structurally validate one raw BCH header against a pinned maximum
+ * target. This proves only its internal fields and proof of work; canonical
+ * chain membership still requires an authenticated checkpoint and tip. */
+export function parseRawBchHeader(value, { maximumTarget } = {}) {
+  if (
+    typeof maximumTarget !== 'string'
+    || !/^[0-9a-f]{64}$/.test(maximumTarget)
+    || maximumTarget === '0'.repeat(64)
+  ) {
+    fail(
+      'INVALID_MAXIMUM_TARGET',
+      'maximumTarget must be a nonzero 32-byte lowercase hexadecimal target',
+    );
+  }
+  return header(value, BigInt(`0x${maximumTarget}`));
+}
+
+/**
+ * Verify a canonical Bitcoin-style transaction Merkle branch. Branch hashes
+ * use normal explorer/display byte order. `transactionCount` is mandatory so
+ * the verifier can derive the exact tree height and enforce odd-leaf
+ * duplication instead of accepting an ambiguous caller-selected path.
+ */
+export function verifyBchTransactionMerkleProof(value) {
+  exactKeys(value, 'transaction Merkle proof', [
+    'branch',
+    'headerMerkleRoot',
+    'rawTransaction',
+    'transactionCount',
+    'transactionIndex',
+  ]);
+  const rawTransaction = bytes(
+    value.rawTransaction,
+    'transaction Merkle proof rawTransaction',
+  );
+  const headerMerkleRoot = hex32(
+    value.headerMerkleRoot,
+    'transaction Merkle proof headerMerkleRoot',
+  );
+  const transactionCount = uint(
+    value.transactionCount,
+    'transaction Merkle proof transactionCount',
+  );
+  const transactionIndex = uint(
+    value.transactionIndex,
+    'transaction Merkle proof transactionIndex',
+  );
+  if (
+    transactionCount === 0
+    || transactionCount > MAX_BLOCK_TRANSACTIONS
+    || transactionIndex >= transactionCount
+    || !Array.isArray(value.branch)
+  ) {
+    fail(
+      'INVALID_MERKLE_PROOF',
+      'transaction count, index, or branch is invalid',
+    );
+  }
+
+  let expectedLevels = 0;
+  for (let width = transactionCount; width > 1; width = Math.ceil(width / 2)) {
+    expectedLevels += 1;
+  }
+  if (value.branch.length !== expectedLevels) {
+    fail(
+      'INVALID_MERKLE_PROOF',
+      'Merkle branch length does not match transactionCount',
+    );
+  }
+
+  let current = new Uint8Array(hash256(rawTransaction));
+  let index = transactionIndex;
+  let width = transactionCount;
+  for (const [level, siblingValue] of value.branch.entries()) {
+    const siblingDisplay = hex32(
+      siblingValue,
+      `transaction Merkle proof branch ${level}`,
+    );
+    const sibling = new Uint8Array(hexToBytes(siblingDisplay)).reverse();
+    const siblingIndex = (index ^ 1) < width ? (index ^ 1) : index;
+    if (
+      siblingIndex === index
+      && bytesToHex(sibling) !== bytesToHex(current)
+    ) {
+      fail(
+        'INVALID_MERKLE_PROOF',
+        `Merkle branch ${level} does not duplicate the odd terminal node`,
+      );
+    }
+    const pair = new Uint8Array(64);
+    if ((index & 1) === 0) {
+      pair.set(current);
+      pair.set(sibling, 32);
+    } else {
+      pair.set(sibling);
+      pair.set(current, 32);
+    }
+    current = new Uint8Array(hash256(pair));
+    index = Math.floor(index / 2);
+    width = Math.ceil(width / 2);
+  }
+  const computedRoot = bytesToHex(current.reverse());
+  if (computedRoot !== headerMerkleRoot) {
+    fail(
+      'MERKLE_ROOT_MISMATCH',
+      'transaction Merkle branch does not match the raw header root',
+    );
+  }
+  return Object.freeze({
+    merkleRoot: computedRoot,
+    transactionCount,
+    transactionId: displayHash(rawTransaction),
+    transactionIndex,
+  });
+}
 
 /**
  * Parse one complete raw-block-shaped byte string and authenticate its
@@ -37,6 +153,77 @@ export function parseRawBchBlock(value, { maximumTarget } = {}) {
 
 function checkpoint(value) { exactKeys(value, 'checkpoint', ['blockHash', 'chainwork', 'height', 'maximumTarget']); const maximumTarget = hex32(value.maximumTarget, 'checkpoint.maximumTarget'); return Object.freeze({ blockHash: hex32(value.blockHash, 'checkpoint.blockHash'), height: uint(value.height, 'checkpoint.height'), chainwork: decimal(value.chainwork, 'checkpoint.chainwork'), maximumTarget }); }
 function tip(value) { exactKeys(value, 'tip', ['blockHash', 'chainwork', 'height']); return Object.freeze({ blockHash: hex32(value.blockHash, 'tip.blockHash'), height: uint(value.height, 'tip.height'), chainwork: decimal(value.chainwork, 'tip.chainwork') }); }
+
+/**
+ * Verify a compact raw-header suffix against an authenticated checkpoint and
+ * tip. This validates field byte order, linkage, structural PoW, bounded
+ * targets, timestamps, and exact cumulative work. As with raw-block parsing,
+ * canonicality and BCH difficulty/consensus validity must be established by
+ * independent pinned nodes or observers.
+ */
+export function verifyRawHeaderSegment(value) {
+  exactKeys(value, 'raw header segment', ['checkpoint', 'rawHeaders', 'tip']);
+  const anchor = checkpoint(value.checkpoint);
+  const expectedTip = tip(value.tip);
+  if (!Array.isArray(value.rawHeaders)) {
+    fail('INVALID_HEADERS', 'rawHeaders must be an array');
+  }
+  const expectedLength = expectedTip.height - anchor.height;
+  if (
+    expectedLength < 0
+    || expectedLength > MAX_BCHN_SUFFIX_BLOCKS
+    || value.rawHeaders.length !== expectedLength
+  ) {
+    fail(
+      'TRUNCATED_CHAIN',
+      'raw header count does not cover exactly checkpoint through tip',
+    );
+  }
+  let parent = anchor.blockHash;
+  let work = anchor.chainwork;
+  const headers = [];
+  for (const [index, rawHeader] of value.rawHeaders.entries()) {
+    const parsed = parseRawBchHeader(rawHeader, {
+      maximumTarget: anchor.maximumTarget,
+    });
+    if (parsed.previousBlockHash !== parent) {
+      fail(
+        'HEADER_LINKAGE',
+        `header ${index} does not link to its authenticated parent`,
+      );
+    }
+    parent = parsed.id;
+    work += parsed.work;
+    headers.push(Object.freeze({
+      ...parsed,
+      chainwork: work.toString(10),
+      height: anchor.height + index + 1,
+    }));
+  }
+  if (
+    parent !== expectedTip.blockHash
+    || work !== expectedTip.chainwork
+  ) {
+    fail(
+      'TIP_MISMATCH',
+      'raw header chain does not match the pinned tip hash and chainwork',
+    );
+  }
+  return Object.freeze({
+    schema: 'shield.cash/raw-header-segment/v1',
+    qualification:
+      'structural raw-header linkage, PoW, bounded target, timestamp, and cumulative-work verification only; canonicality and BCH consensus require independent authenticated nodes',
+    checkpoint: Object.freeze({
+      ...anchor,
+      chainwork: anchor.chainwork.toString(10),
+    }),
+    tip: Object.freeze({
+      ...expectedTip,
+      chainwork: expectedTip.chainwork.toString(10),
+    }),
+    headers: Object.freeze(headers),
+  });
+}
 
 /**
  * Verify an untrusted contiguous raw-block suffix against caller-pinned

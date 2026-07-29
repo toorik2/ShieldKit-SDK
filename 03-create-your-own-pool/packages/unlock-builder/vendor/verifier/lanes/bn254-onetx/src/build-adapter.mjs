@@ -25,6 +25,17 @@ export const validateBuild = (build) => {
   if (build.structuralRoleCount !== undefined && build.structuralRoleCount !== 3) {
     throw new Error('BN254 one-tx build.structuralRoleCount must be exactly 3 when supplied');
   }
+  if (build.shieldAdapter !== undefined) {
+    if (build.shieldAdapter === null || typeof build.shieldAdapter !== 'object'
+        || Array.isArray(build.shieldAdapter)
+        || Object.keys(build.shieldAdapter).sort().join('\0') !== 'path\0sha256'
+        || typeof build.shieldAdapter.path !== 'string'
+        || !build.shieldAdapter.path.startsWith('/')
+        || typeof build.shieldAdapter.sha256 !== 'string'
+        || !/^[0-9a-f]{64}$/.test(build.shieldAdapter.sha256)) {
+      throw new Error('BN254 shieldAdapter must contain an absolute path and lowercase SHA256');
+    }
+  }
   if (build.structuralRoleCount === 3) {
     if (build.shieldActionPacket === null || typeof build.shieldActionPacket !== 'object'
         || Array.isArray(build.shieldActionPacket)
@@ -35,8 +46,18 @@ export const validateBuild = (build) => {
         || !/^[0-9a-f]{64}$/.test(build.shieldActionPacket.sha256)) {
       throw new Error('BN254 ten-input build requires shieldActionPacket with absolute path and lowercase SHA256');
     }
+    if (
+      build.shieldActionPacketAbi !== 'scar-v1'
+      && build.shieldActionPacketAbi !== 'sda2-v2-direct'
+    ) {
+      throw new Error(
+        'BN254 ten-input build requires shieldActionPacketAbi scar-v1 or sda2-v2-direct',
+      );
+    }
   } else if (build.shieldActionPacket !== undefined) {
     throw new Error('BN254 build.shieldActionPacket requires structuralRoleCount=3');
+  } else if (build.shieldActionPacketAbi !== undefined) {
+    throw new Error('BN254 build.shieldActionPacketAbi requires structuralRoleCount=3');
   }
   if (build.terminal !== undefined) {
     if (build.terminal === null || typeof build.terminal !== 'object' || Array.isArray(build.terminal)) {
@@ -116,7 +137,11 @@ export const buildCandidate = ({ candidate, candidatePath, runId, outDir, repoRo
   }
   const environment = {
     ...sanitizeLegacyEnvironment(process.env),
-    ...toLegacyEnvironment(candidate.build.profile, fixture),
+    ...toLegacyEnvironment(
+      candidate.build.profile,
+      fixture,
+      candidate.build.shieldAdapter,
+    ),
     C7_TMP: buildDir,
     C7_GEN: generatedDir,
     TMPDIR: processTmpDir,
@@ -154,6 +179,7 @@ export const buildCandidate = ({ candidate, candidatePath, runId, outDir, repoRo
         C7_STRUCTURAL_ROLE_COUNT: '3',
         C7_SHIELD_ACTION_PACKET_FILE: candidate.build.shieldActionPacket.path,
         C7_SHIELD_ACTION_PACKET_SHA256: candidate.build.shieldActionPacket.sha256,
+        C7_SHIELD_ACTION_PACKET_ABI: candidate.build.shieldActionPacketAbi,
       } : {}),
       ...(candidate.build.idealVariant ? { C7_IDEAL_VARIANT: String(candidate.build.idealVariant) } : {}),
       ...(candidate.build.scalarEndpoint === true ? { C7_SCALAR_ENDPOINT: '1' } : {}),

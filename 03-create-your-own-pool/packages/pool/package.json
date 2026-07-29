@@ -6,9 +6,10 @@
   "description": "Shared multi-user pool: public tip rebuild (chain-as-log) + private note wallet",
   "main": "index.mjs",
   "exports": {
-    ".": "./index.mjs"
+    ".": "./index.mjs",
+    "./v2": "./v2/index.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   }
 }

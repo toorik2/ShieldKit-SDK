@@ -7,7 +7,8 @@
     ".": "./index.mjs",
     "./kit.mjs": "./kit.mjs",
     "./network.mjs": "./network.mjs",
-    "./chipnet-rpc.mjs": "./chipnet-rpc.mjs"
+    "./chipnet-rpc.mjs": "./chipnet-rpc.mjs",
+    "./v2": "./v2/index.mjs"
   },
   "private": true,
   "dependencies": {

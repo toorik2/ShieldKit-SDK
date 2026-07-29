@@ -1,8 +1,16 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { createReadStream, fstat, readSync } from 'node:fs';
+import { constants as fsConstants, fstat, readSync } from 'node:fs';
 import {
-  lstat, mkdir, readFile, realpath, rm, writeFile,
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  realpath,
+  rename,
+  rm,
 } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,9 +18,24 @@ import { promisify } from 'node:util';
 import { readBinFile } from '@iden3/binfileutils';
 import { readR1csHeader } from 'r1csfile';
 import { canonicalJson } from '../load.mjs';
+import {
+  canonicalDevelopmentSetupAttestation,
+  DEVELOPMENT_SETUP_ATTESTATION_SCHEMA,
+  DEVELOPMENT_SETUP_ENTROPY_COMMITMENT_DOMAIN,
+  verifyCircuitBuildAttestationAgainstRepository,
+  verifyDevelopmentSetupAttestationPair,
+} from '../v2/build-attestation.mjs';
+import {
+  collectNpmBuildClosure,
+  verifyNpmBuildClosure,
+} from '../v2/npm-closure.mjs';
+import {
+  reproduceV2CircuitBuild,
+} from '../v2/circuit-build-reproduction.mjs';
 
 export const SNARKJS_VERSION = '0.7.6';
-export const ENTROPY_DOMAIN = 'shield.cash/local-development-phase2-entropy/v1\0';
+export const ENTROPY_DOMAIN =
+  DEVELOPMENT_SETUP_ENTROPY_COMMITMENT_DOMAIN;
 const INITIALIZER_DOMAIN = 'shield.cash/local-development-initializer/v1\0';
 const MAX_ENTROPY_BYTES = 4096;
 const MIN_ENTROPY_BYTES = 32;
@@ -25,8 +48,8 @@ const fstatAsync = promisify(fstat);
 
 /**
  * Well-known Phase-1 ptau pins for development-only.
- * Hash match is the integrity check; full `snarkjs powersoftau verify` is optional (hours for power 20).
- * Ceremony/production path always runs full verify (see ceremony.mjs).
+ * The policy helper can classify a hash-only development pin, but the V2
+ * setup producer below always runs full `snarkjs powersoftau verify`.
  */
 export const TRUSTED_DEVELOPMENT_PTAU = Object.freeze({
   'hermez-powersOfTau28_hez_final_20': Object.freeze({
@@ -36,15 +59,6 @@ export const TRUSTED_DEVELOPMENT_PTAU = Object.freeze({
     note: 'Hermez / Perpetual Powers of Tau final_20 (community-distributed). Not a ShieldKit ceremony.',
   }),
 });
-
-const PTAU_HASH_ONLY_IMPLICATIONS = Object.freeze([
-  'development-only: snarkjs powersoftau verify was skipped after SHA-256 pin match',
-  'you trust the pin identity (e.g. Hermez final_20) and that the file bytes match that pin',
-  'hash-only does NOT re-check the multi-party Phase-1 transcript or contribution chain',
-  'hash-only is NOT an external-contribution transcript or mainnet qualification evidence',
-  'a wrong pin (or malicious pin) would accept a bad ptau without full verify',
-  'pass setup.verifyPtau=true or CLI --verify-ptau to force full snarkjs powersoftau verify',
-]);
 
 export class LocalSetupError extends Error {
   constructor(message) { super(message); this.name = 'LocalSetupError'; }
@@ -74,21 +88,79 @@ const exactKeys = (value, label, keys) => {
 async function regularFile(sourcePath, label) {
   const requested = path.resolve(text(sourcePath, label));
   const details = await lstat(requested).catch(() => fail(`${label} does not exist`));
-  if (!details.isFile() || details.isSymbolicLink()) fail(`${label} must be a regular non-symlink file`);
+  if (!details.isFile() || details.isSymbolicLink() || details.nlink !== 1) {
+    fail(`${label} must be a unique regular non-symlink file`);
+  }
   const resolved = await realpath(requested).catch(() => fail(`${label} cannot be resolved`));
   if (resolved !== requested) fail(`${label} must not use symlinks`);
   return resolved;
 }
 
+function sameIdentity(left, right) {
+  return (
+    left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs
+  );
+}
+
+async function measureFile(file, label, { capture = false } = {}) {
+  const requested = path.resolve(file);
+  const beforePath = await lstat(requested, { bigint: true }).catch(() =>
+    fail(`${label} does not exist`));
+  if (
+    !beforePath.isFile()
+    || beforePath.isSymbolicLink()
+    || beforePath.nlink !== 1n
+  ) {
+    fail(`${label} must be a unique regular non-symlink file`);
+  }
+  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0);
+  let handle;
+  try {
+    handle = await open(requested, flags);
+    const before = await handle.stat({ bigint: true });
+    if (!before.isFile() || before.nlink !== 1n) {
+      fail(`${label} has an unsafe file identity`);
+    }
+    const hasher = createHash('sha256');
+    const chunks = capture ? [] : undefined;
+    for await (const chunk of handle.createReadStream({
+      autoClose: false,
+      highWaterMark: 64 * 1024,
+    })) {
+      hasher.update(chunk);
+      chunks?.push(Buffer.from(chunk));
+    }
+    const after = await handle.stat({ bigint: true });
+    const afterPath = await lstat(requested, { bigint: true });
+    if (
+      !sameIdentity(beforePath, before)
+      || !sameIdentity(before, after)
+      || !sameIdentity(after, afterPath)
+    ) {
+      fail(`${label} changed while it was measured`);
+    }
+    const bytes = Number(after.size);
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      fail(`${label} has an invalid size`);
+    }
+    const evidence = {
+      bytes,
+      sha256: `sha256:${hasher.digest('hex')}`,
+    };
+    if (capture) evidence.data = Buffer.concat(chunks, bytes);
+    return Object.freeze(evidence);
+  } finally {
+    await handle?.close();
+  }
+}
+
 /** Stream artifact hashes: ptau and zkey files are deliberately not buffered. */
 export async function hashFileStreaming(file) {
-  return new Promise((resolve, reject) => {
-    const hasher = createHash('sha256');
-    const stream = createReadStream(file, { highWaterMark: 64 * 1024 });
-    stream.on('data', (chunk) => hasher.update(chunk));
-    stream.on('error', () => reject(new LocalSetupError('artifact cannot be hashed')));
-    stream.on('end', () => resolve(`sha256:${hasher.digest('hex')}`));
-  });
+  return (await measureFile(file, 'artifact')).sha256;
 }
 
 const digestFile = hashFileStreaming;
@@ -115,7 +187,14 @@ async function readR1csCapacity(r1csPath) {
     const header = await readR1csHeader(fd, sections, true);
     const terms = header.nConstraints + header.nPubInputs + header.nOutputs;
     const requiredPower = Math.ceil(Math.log2(terms + 1));
-    return { nConstraints: header.nConstraints, nPublicInputs: header.nPubInputs, nOutputs: header.nOutputs, requiredPower };
+    return {
+      nConstraints: header.nConstraints,
+      nPrivateInputs: header.nPrvInputs,
+      nPublicInputs: header.nPubInputs,
+      nOutputs: header.nOutputs,
+      nWires: header.nVars,
+      requiredPower,
+    };
   } finally {
     await fd.close();
   }
@@ -182,25 +261,6 @@ export function resolveDevelopmentPtauVerification({
     trusted: null,
     reason: 'default: ptau is not a known development pin → full snarkjs powersoftau verify',
   };
-}
-
-function warnPtauHashOnly(policy, ptauSha256) {
-  process.stderr.write(
-    [
-      '',
-      '╔══════════════════════════════════════════════════════════════════════╗',
-      '║  WARNING: development-only ptau check is HASH-ONLY                   ║',
-      '╚══════════════════════════════════════════════════════════════════════╝',
-      `  mode:        hash-only (snarkjs powersoftau verify SKIPPED)`,
-      `  ptau sha256: ${ptauSha256}`,
-      `  pin source:  ${policy.trusted?.source ?? '(none)'}`,
-      `  reason:      ${policy.reason}`,
-      '  Implications:',
-      ...PTAU_HASH_ONLY_IMPLICATIONS.map((line) => `    • ${line}`),
-      '  This setup remains development-only. It is not production privacy.',
-      '',
-    ].join('\n'),
-  );
 }
 
 async function runPinnedSnarkjs(args, { cwd, entropy = undefined, capture = false, label = undefined } = {}) {
@@ -342,10 +402,46 @@ async function assertNewDestination(destination) {
   return target;
 }
 
-async function ensureNewDestination(destination) {
+async function createSetupStage(destination) {
   const target = await assertNewDestination(destination);
-  await mkdir(target, { mode: 0o700 });
-  return target;
+  const parent = path.dirname(target);
+  const stage = await mkdtemp(path.join(parent, '.shieldkit-setup-stage-'));
+  await chmod(stage, 0o700);
+  return Object.freeze({ parent, stage, target });
+}
+
+async function writePrivateBytes(filename, bytes) {
+  let handle;
+  try {
+    handle = await open(filename, 'wx', 0o600);
+    await handle.writeFile(bytes);
+    await handle.sync();
+  } finally {
+    await handle?.close();
+  }
+  await chmod(filename, 0o600);
+}
+
+async function syncDirectory(directory) {
+  let handle;
+  try {
+    handle = await open(directory, fsConstants.O_RDONLY);
+    await handle.sync();
+  } finally {
+    await handle?.close();
+  }
+}
+
+function bareHash(value, label) {
+  return hash(value, label).slice('sha256:'.length);
+}
+
+function attestationArtifact(pathname, evidence) {
+  return Object.freeze({
+    bytes: evidence.bytes,
+    path: pathname,
+    sha256: bareHash(evidence.sha256, `${pathname} hash`),
+  });
 }
 
 /** Recheck direct-file identity and hashes before publishing setup metadata. */
@@ -357,27 +453,29 @@ export async function assertUnchangedSetupInputs({ r1csPath, ptauPath, r1csSha25
   if (await digestFile(currentPtauPath) !== ptauSha256) fail('ptau changed during setup');
 }
 
-function commandRecord(args) {
-  return { argv: [process.execPath, snarkjsCliPath, ...args] };
+function logicalCommandRecord(args) {
+  return Object.freeze({
+    executable: 'process.execPath',
+    argv: Object.freeze([
+      'node_modules/snarkjs/build/cli.cjs',
+      ...args,
+    ]),
+  });
 }
 
 /**
- * Execute exactly one local Groth16 Phase-2 contribution. The entropy is
- * supplied only through inherited stdin or an already-open private fd and is
- * never placed in argv, metadata, logs, or an environment dump.
- *
- * Optional input fields:
- * - verifyPtau: true  → always run snarkjs powersoftau verify
- * - verifyPtau: false → hash-only (requires TRUSTED_DEVELOPMENT_PTAU pin match)
- * - omit verifyPtau   → hash-only if pin-eligible, else full verify
- *
- * Hash-only is development convenience only. Ceremony path never skips verify.
+ * Execute one fully attested, development-only Groth16 Phase-2 contribution.
+ * The entropy is supplied only through inherited stdin or an already-open
+ * private fd and is never placed in argv, metadata, logs, or an environment
+ * dump. This path always performs full PTau and final-zkey verification.
  */
 export async function initializeDevelopmentGroth16(input) {
   if (input === null || Array.isArray(input) || typeof input !== 'object') fail('local setup input must be an object');
   const required = [
-    'destination', 'r1csPath', 'ptauPath', 'ptauSource', 'expectedR1csSha256',
-    'expectedPtauSha256', 'expectedPtauPower', 'expectedSnarkjs', 'entropySource',
+    'buildAttestationPath', 'destination', 'entropySource',
+    'expectedPtauPower', 'expectedPtauSha256', 'expectedR1csSha256',
+    'expectedSnarkjs', 'ptauPath', 'ptauSource', 'repositoryRoot', 'r1csPath',
+    'sourceManifestPath',
   ];
   for (const key of required) {
     if (!Object.hasOwn(input, key)) fail(`local setup input missing ${key}`);
@@ -387,113 +485,661 @@ export async function initializeDevelopmentGroth16(input) {
       fail(`local setup input has unknown property: ${key}`);
     }
   }
-  if (Object.hasOwn(input, 'verifyPtau') && typeof input.verifyPtau !== 'boolean') {
-    fail('verifyPtau must be a boolean when set');
+  if (Object.hasOwn(input, 'verifyPtau') && input.verifyPtau !== true) {
+    fail('the attested V2 setup path requires verifyPtau=true');
   }
   if (!Number.isInteger(input.expectedPtauPower) || input.expectedPtauPower < 1 || input.expectedPtauPower > 28) fail('expected ptau power must be an integer from 1 to 28');
   const ptauSource = text(input.ptauSource, 'ptau source');
+  const requestedRoot = path.resolve(text(input.repositoryRoot, 'repository root'));
+  const repositoryRoot = await realpath(requestedRoot).catch(() =>
+    fail('repository root cannot be resolved'));
+  const rootMetadata = await lstat(requestedRoot);
+  if (
+    repositoryRoot !== requestedRoot
+    || !rootMetadata.isDirectory()
+    || rootMetadata.isSymbolicLink()
+  ) {
+    fail('repository root must be a canonical non-symlink directory');
+  }
+  const buildAttestationPath = await regularFile(
+    input.buildAttestationPath,
+    'circuit build attestation',
+  );
+  const buildAttestationEvidence = await measureFile(
+    buildAttestationPath,
+    'circuit build attestation',
+    { capture: true },
+  );
+  const sourceManifestPath = await regularFile(
+    input.sourceManifestPath,
+    'relation source manifest',
+  );
+  const sourceManifestEvidence = await measureFile(
+    sourceManifestPath,
+    'relation source manifest',
+    { capture: true },
+  );
+  let buildAttestation;
+  try {
+    buildAttestation =
+      await verifyCircuitBuildAttestationAgainstRepository(
+        buildAttestationEvidence.data,
+        {
+          repositoryRoot,
+          sourceManifestBytes: sourceManifestEvidence.data,
+        },
+      );
+  } catch (error) {
+    fail(`circuit build attestation is invalid: ${
+      error instanceof Error ? error.message : String(error)
+    }`);
+  }
+  try {
+    await reproduceV2CircuitBuild({
+      buildAttestationBytes: buildAttestationEvidence.data,
+      repositoryRoot,
+      sourceManifestBytes: sourceManifestEvidence.data,
+    });
+  } catch (error) {
+    fail(`circuit build cannot be independently reproduced: ${
+      error instanceof Error ? error.message : String(error)
+    }`);
+  }
   phase('hashing r1cs + ptau (streaming) …');
   const r1csPath = await regularFile(input.r1csPath, 'r1cs path'); const ptauPath = await regularFile(input.ptauPath, 'ptau path');
   const r1cs = await readR1csCapacity(r1csPath);
   if (r1cs.nPublicInputs !== 2 || r1cs.nOutputs !== 0) fail('r1cs must use the shield.cash ABI: exactly 2 public inputs and 0 outputs');
-  const r1csSha256 = await digestFile(r1csPath); const ptauSha256 = await digestFile(ptauPath);
+  const r1csEvidence = await measureFile(r1csPath, 'r1cs');
+  const ptauEvidence = await measureFile(ptauPath, 'ptau');
+  const r1csSha256 = r1csEvidence.sha256;
+  const ptauSha256 = ptauEvidence.sha256;
   phase(`r1cs sha256 ${r1csSha256}`);
   phase(`ptau sha256 ${ptauSha256}`);
   if (hash(input.expectedR1csSha256, 'expected r1cs hash') !== r1csSha256) fail('r1cs hash mismatch');
   if (hash(input.expectedPtauSha256, 'expected ptau hash') !== ptauSha256) fail('ptau hash mismatch');
+  if (
+    buildAttestation.artifacts.r1cs.bytes !== r1csEvidence.bytes
+    || buildAttestation.artifacts.r1cs.sha256
+      !== bareHash(r1csSha256, 'r1cs hash')
+    || buildAttestation.r1csAbi.constraints !== r1cs.nConstraints
+    || buildAttestation.r1csAbi.privateInputs !== r1cs.nPrivateInputs
+    || buildAttestation.r1csAbi.publicInputs !== r1cs.nPublicInputs
+    || buildAttestation.r1csAbi.publicOutputs !== r1cs.nOutputs
+    || buildAttestation.r1csAbi.wires !== r1cs.nWires
+  ) {
+    fail('r1cs or its ABI differs from the circuit build attestation');
+  }
   const ptau = await readPtauCapacity(ptauPath);
   if (ptau.power !== input.expectedPtauPower) fail('ptau power mismatch');
   if (ptau.power < r1cs.requiredPower) fail('ptau power is insufficient for r1cs capacity');
   const snarkjs = await pinnedSnarkjsInfo(input.expectedSnarkjs);
-  const destination = safeDestination(input.destination);
-  // Refuse collision before costly validation or any output creation.
-  await assertNewDestination(destination);
-
-  const ptauPolicy = resolveDevelopmentPtauVerification({
-    ptauSource,
-    ptauSha256,
-    expectedPtauPower: input.expectedPtauPower,
-    verifyPtau: input.verifyPtau,
+  const snarkjsClosure = await collectNpmBuildClosure({
+    repositoryRoot,
+    roots: ['node_modules/snarkjs'],
   });
-  let ptauVerificationRecord;
-  if (ptauPolicy.mode === 'hash-only') {
-    warnPtauHashOnly(ptauPolicy, ptauSha256);
-    ptauVerificationRecord = Object.freeze({
-      mode: 'hash-only',
-      snarkjsPowersoftauVerify: false,
-      trustedSource: ptauPolicy.trusted.source,
-      trustedSha256: ptauPolicy.trusted.sha256,
-      measuredSha256: ptauSha256,
-      reason: ptauPolicy.reason,
-      implications: PTAU_HASH_ONLY_IMPLICATIONS,
-    });
-    phase('ptau: hash-only (full powersoftau verify skipped)');
-  } else {
-    phase('ptau: full snarkjs powersoftau verify (can take a long time for high power) …');
-    await runPinnedSnarkjs(['powersoftau', 'verify', ptauPath], { label: 'powersoftau verify' });
-    ptauVerificationRecord = Object.freeze({
-      mode: 'full',
-      snarkjsPowersoftauVerify: true,
-      trustedSource: ptauPolicy.trusted?.source ?? null,
-      measuredSha256: ptauSha256,
-      reason: ptauPolicy.reason,
-    });
-  }
-
-  let created = false; let entropy;
+  const snarkjsPackage = snarkjsClosure.packages.find(
+    (entry) => entry.packagePath === 'node_modules/snarkjs',
+  );
+  const closureCli = snarkjsPackage?.installed.files.find(
+    (entry) => entry.path === 'build/cli.cjs',
+  );
+  const closurePackage = snarkjsPackage?.installed.files.find(
+    (entry) => entry.path === 'package.json',
+  );
+  const snarkjsCliEvidence = await measureFile(
+    snarkjsCliPath,
+    'pinned snarkjs CLI',
+  );
+  const snarkjsPackageEvidence = await measureFile(
+    snarkjsPackagePath,
+    'pinned snarkjs package metadata',
+    { capture: true },
+  );
+  let snarkjsPackageMetadata;
   try {
-    await ensureNewDestination(destination); created = true;
+    snarkjsPackageMetadata = JSON.parse(
+      snarkjsPackageEvidence.data.toString('utf8'),
+    );
+  } catch {
+    fail('pinned snarkjs package metadata is not JSON');
+  }
+  if (
+    snarkjsPackage?.lock.version !== SNARKJS_VERSION
+    || snarkjsPackageMetadata.name !== 'snarkjs'
+    || snarkjsPackageMetadata.version !== SNARKJS_VERSION
+    || closureCli?.bytes !== snarkjsCliEvidence.bytes
+    || closureCli?.sha256 !== bareHash(
+      snarkjsCliEvidence.sha256,
+      'snarkjs CLI hash',
+    )
+    || closurePackage?.bytes !== snarkjsPackageEvidence.bytes
+    || closurePackage?.sha256 !== bareHash(
+      snarkjsPackageEvidence.sha256,
+      'snarkjs package metadata hash',
+    )
+    || snarkjs.sha256 !== snarkjsCliEvidence.sha256
+  ) {
+    fail('pinned snarkjs files differ from their complete npm closure');
+  }
+  const destination = safeDestination(input.destination);
+  await assertNewDestination(destination);
+  phase('ptau: full snarkjs powersoftau verify …');
+  await runPinnedSnarkjs(
+    ['powersoftau', 'verify', ptauPath],
+    { label: 'powersoftau verify' },
+  );
+  const ptauVerificationRecord = Object.freeze({
+    mode: 'full',
+    snarkjsPowersoftauVerify: true,
+    measuredSha256: ptauSha256,
+    reason: 'mandatory full verification for V2 setup attestation',
+  });
+
+  let entropy;
+  let stage;
+  let published = false;
+  try {
+    stage = await createSetupStage(destination);
     entropy = await collectEntropy(input.entropySource);
     const randomnessCommitment = sha256Parts(ENTROPY_DOMAIN, entropy);
     const initializerCommitment = sha256(Buffer.from(`${INITIALIZER_DOMAIN}${r1csSha256}\0${ptauSha256}\0${randomnessCommitment}`, 'utf8'));
-    const initialZkey = path.join(destination, 'initial.zkey'); const finalZkey = path.join(destination, 'final.zkey'); const verificationKey = path.join(destination, 'verification_key.json');
+    const initialZkey = path.join(stage.stage, 'initial.zkey');
+    const finalZkey = path.join(stage.stage, 'final.zkey');
+    const verificationKey = path.join(stage.stage, 'verification_key.json');
     const setupArgs = ['groth16', 'setup', r1csPath, ptauPath, initialZkey];
     const contributeArgs = ['zkey', 'contribute', initialZkey, finalZkey];
-    // Multi-thread MSM remains enabled inside snarkjs/ffjavascript (do not force singleThread).
-    await runPinnedSnarkjs(setupArgs, { cwd: destination, label: 'groth16 setup' });
-    await runPinnedSnarkjs(contributeArgs, { cwd: destination, entropy, label: 'zkey contribute' });
-    await runPinnedSnarkjs(['zkey', 'verify', r1csPath, ptauPath, finalZkey], { cwd: destination, label: 'zkey verify' });
-    await runPinnedSnarkjs(['zkey', 'export', 'verificationkey', finalZkey, verificationKey], { cwd: destination, label: 'export verification key' });
-    await rm(initialZkey, { force: false });
-    const finalZkeySha256 = await digestFile(finalZkey); const verificationKeySha256 = await digestFile(verificationKey);
+    await runPinnedSnarkjs(setupArgs, {
+      cwd: stage.stage,
+      label: 'groth16 setup',
+    });
+    await chmod(initialZkey, 0o600);
+    const initialZkeyEvidence = await measureFile(
+      initialZkey,
+      'initial zkey',
+    );
+    await runPinnedSnarkjs(contributeArgs, {
+      cwd: stage.stage,
+      entropy,
+      label: 'zkey contribute',
+    });
+    await chmod(finalZkey, 0o600);
+    const finalZkeyEvidence = await measureFile(finalZkey, 'final zkey');
+    if (initialZkeyEvidence.sha256 === finalZkeyEvidence.sha256) {
+      fail('snarkjs contribution did not change the zkey');
+    }
+    await runPinnedSnarkjs(
+      ['zkey', 'verify', r1csPath, ptauPath, finalZkey],
+      { cwd: stage.stage, label: 'zkey verify' },
+    );
+    await runPinnedSnarkjs(
+      [
+        'zkey',
+        'export',
+        'verificationkey',
+        finalZkey,
+        verificationKey,
+      ],
+      { cwd: stage.stage, label: 'export verification key' },
+    );
+    await chmod(verificationKey, 0o600);
+    const verificationKeyEvidence = await measureFile(
+      verificationKey,
+      'verification key',
+    );
+    const finalZkeySha256 = finalZkeyEvidence.sha256;
+    const verificationKeySha256 = verificationKeyEvidence.sha256;
     await assertUnchangedSetupInputs({ r1csPath, ptauPath, r1csSha256, ptauSha256 });
+    const finalBuildEvidence = await measureFile(
+      buildAttestationPath,
+      'circuit build attestation',
+      { capture: true },
+    );
+    const finalSourceManifestEvidence = await measureFile(
+      sourceManifestPath,
+      'relation source manifest',
+      { capture: true },
+    );
+    if (
+      finalBuildEvidence.bytes !== buildAttestationEvidence.bytes
+      || finalBuildEvidence.sha256 !== buildAttestationEvidence.sha256
+      || !finalBuildEvidence.data.equals(buildAttestationEvidence.data)
+    ) {
+      fail('circuit build attestation changed during setup');
+    }
+    if (
+      finalSourceManifestEvidence.bytes !== sourceManifestEvidence.bytes
+      || finalSourceManifestEvidence.sha256 !== sourceManifestEvidence.sha256
+      || !finalSourceManifestEvidence.data.equals(sourceManifestEvidence.data)
+    ) {
+      fail('relation source manifest changed during setup');
+    }
+    await verifyCircuitBuildAttestationAgainstRepository(
+      finalBuildEvidence.data,
+      {
+        repositoryRoot,
+        sourceManifestBytes: finalSourceManifestEvidence.data,
+      },
+    );
+    await verifyNpmBuildClosure(snarkjsClosure, { repositoryRoot });
+    const developmentAttestation =
+      canonicalDevelopmentSetupAttestation({
+        schema: DEVELOPMENT_SETUP_ATTESTATION_SCHEMA,
+        claims: Object.freeze({
+          contributionIndependence: 'not-established',
+          developmentOnly: true,
+          externalTranscript: false,
+          finalCeremony: false,
+          production: false,
+          release: false,
+        }),
+        buildAttestation: attestationArtifact(
+          'circuit-build-attestation.json',
+          finalBuildEvidence,
+        ),
+        r1cs: attestationArtifact(
+          buildAttestation.artifacts.r1cs.path,
+          r1csEvidence,
+        ),
+        ptau: Object.freeze({
+          source: ptauSource,
+          artifact: attestationArtifact(
+            'powers-of-tau.ptau',
+            ptauEvidence,
+          ),
+          power: ptau.power,
+          ceremonyPower: ptau.ceremonyPower,
+          verified: true,
+        }),
+        snarkjs: Object.freeze({
+          version: SNARKJS_VERSION,
+          node: Object.freeze({
+            version: process.versions.node,
+            modulesAbi: process.versions.modules,
+          }),
+          cli: attestationArtifact(
+            'node_modules/snarkjs/build/cli.cjs',
+            snarkjsCliEvidence,
+          ),
+          packageMetadata: attestationArtifact(
+            'node_modules/snarkjs/package.json',
+            snarkjsPackageEvidence,
+          ),
+          npmClosure: snarkjsClosure,
+        }),
+        commands: Object.freeze({
+          powersOfTauVerify: Object.freeze([
+            'node_modules/snarkjs/build/cli.cjs',
+            'powersoftau',
+            'verify',
+            '$PTAU',
+          ]),
+          setup: Object.freeze([
+            'node_modules/snarkjs/build/cli.cjs',
+            'groth16',
+            'setup',
+            '$R1CS',
+            '$PTAU',
+            '$INITIAL_ZKEY',
+          ]),
+          contribute: Object.freeze([
+            'node_modules/snarkjs/build/cli.cjs',
+            'zkey',
+            'contribute',
+            '$INPUT_ZKEY',
+            '$OUTPUT_ZKEY',
+          ]),
+          verifyFinalZkey: Object.freeze([
+            'node_modules/snarkjs/build/cli.cjs',
+            'zkey',
+            'verify',
+            '$R1CS',
+            '$PTAU',
+            '$FINAL_ZKEY',
+          ]),
+          exportVerificationKey: Object.freeze([
+            'node_modules/snarkjs/build/cli.cjs',
+            'zkey',
+            'export',
+            'verificationkey',
+            '$FINAL_ZKEY',
+            '$VERIFICATION_KEY',
+          ]),
+        }),
+        zkeyChain: Object.freeze({
+          initial: attestationArtifact(
+            'initial.zkey',
+            initialZkeyEvidence,
+          ),
+          contributions: Object.freeze([
+            Object.freeze({
+              sequence: 1,
+              inputZkeySha256: bareHash(
+                initialZkeyEvidence.sha256,
+                'initial zkey hash',
+              ),
+              output: attestationArtifact(
+                'final.zkey',
+                finalZkeyEvidence,
+              ),
+              entropyCommitmentDomain: ENTROPY_DOMAIN,
+              entropyCommitment: bareHash(
+                randomnessCommitment,
+                'entropy commitment',
+              ),
+            }),
+          ]),
+        }),
+        finalEvidence: Object.freeze({
+          finalZkeySha256: bareHash(
+            finalZkeySha256,
+            'final zkey hash',
+          ),
+          finalZkeyVerified: true,
+          verificationKeyExported: true,
+          verificationKey: attestationArtifact(
+            'verification_key.json',
+            verificationKeyEvidence,
+          ),
+        }),
+      });
+    await writePrivateBytes(
+      path.join(stage.stage, 'circuit-build-attestation.json'),
+      finalBuildEvidence.data,
+    );
+    await writePrivateBytes(
+      path.join(stage.stage, 'relation-source-manifest.json'),
+      finalSourceManifestEvidence.data,
+    );
+    await writePrivateBytes(
+      path.join(stage.stage, 'development-setup-attestation.json'),
+      developmentAttestation.bytes,
+    );
     const setup = {
       mode: 'development-only',
       provenance: { method: 'local-initialization', initializerCommitment },
       material: {
         phase1: { ptauSource, ptauSha256, verification: ptauVerificationRecord },
-        phase2: { initializationCommand: commandRecord(setupArgs), contributionCommand: commandRecord(contributeArgs), randomnessCommitment, finalZkeySha256 },
+        phase2: {
+          initializationCommand: logicalCommandRecord([
+            'groth16',
+            'setup',
+            '$R1CS',
+            '$PTAU',
+            '$INITIAL_ZKEY',
+          ]),
+          contributionCommand: logicalCommandRecord([
+            'zkey',
+            'contribute',
+            '$INPUT_ZKEY',
+            '$OUTPUT_ZKEY',
+          ]),
+          randomnessCommitment,
+          finalZkeySha256,
+        },
       },
       transcript: { status: 'not-applicable' }, contributions: [],
     };
     const metadata = {
       schema: 'shield.cash/local-development-setup/v1', mode: 'development-only',
       inputs: {
+        buildAttestation: {
+          path: 'circuit-build-attestation.json',
+          sha256: buildAttestationEvidence.sha256,
+        },
+        sourceManifest: {
+          path: 'relation-source-manifest.json',
+          sha256: sourceManifestEvidence.sha256,
+        },
         r1cs: {
           sha256: r1csSha256, requiredPower: r1cs.requiredPower,
-          nConstraints: r1cs.nConstraints, nPublicInputs: r1cs.nPublicInputs, nOutputs: r1cs.nOutputs,
+          nConstraints: r1cs.nConstraints,
+          nPrivateInputs: r1cs.nPrivateInputs,
+          nPublicInputs: r1cs.nPublicInputs,
+          nOutputs: r1cs.nOutputs,
+          nWires: r1cs.nWires,
         },
         ptau: {
           source: ptauSource, sha256: ptauSha256, power: ptau.power, ceremonyPower: ptau.ceremonyPower,
           verification: ptauVerificationRecord,
         },
       },
-      outputs: { provingKey: { path: 'final.zkey', sha256: finalZkeySha256 }, verificationKey: { path: 'verification_key.json', sha256: verificationKeySha256 } },
+      outputs: {
+        initialProvingKey: {
+          path: 'initial.zkey',
+          sha256: initialZkeyEvidence.sha256,
+        },
+        provingKey: { path: 'final.zkey', sha256: finalZkeySha256 },
+        verificationKey: {
+          path: 'verification_key.json',
+          sha256: verificationKeySha256,
+        },
+        setupAttestation: {
+          path: 'development-setup-attestation.json',
+          sha256: `sha256:${developmentAttestation.sha256}`,
+        },
+      },
       setup, toolchain: { generator: snarkjs },
     };
-    await writeFile(path.join(destination, 'setup-metadata.json'), `${canonicalJson(metadata)}\n`, { mode: 0o600, flag: 'wx' });
+    await writePrivateBytes(
+      path.join(stage.stage, 'setup-metadata.json'),
+      Buffer.from(`${canonicalJson(metadata)}\n`, 'utf8'),
+    );
+    await assertNewDestination(stage.target);
+    await syncDirectory(stage.stage);
+    await rename(stage.stage, stage.target);
+    published = true;
+    await syncDirectory(stage.parent);
     phase(`setup complete → ${destination}`);
-    return Object.freeze({ directory: destination, metadata: Object.freeze(metadata) });
+    return Object.freeze({
+      directory: destination,
+      metadata: Object.freeze(metadata),
+      setupAttestation: Object.freeze({
+        path: path.join(destination, 'development-setup-attestation.json'),
+        sha256: developmentAttestation.sha256,
+      }),
+    });
   } catch (error) {
-    if (created) await rm(destination, { recursive: true, force: true });
     if (error instanceof LocalSetupError) throw error;
     throw new LocalSetupError(error?.message ?? 'local setup failed');
   } finally {
     entropy?.fill(0);
+    if (!published && stage !== undefined) {
+      await rm(stage.stage, {
+        recursive: true,
+        force: true,
+        maxRetries: 1,
+      });
+    }
   }
 }
 
 export async function getPinnedSnarkjsInfo() {
   const cli = await regularFile(snarkjsCliPath, 'pinned snarkjs CLI');
   return { version: SNARKJS_VERSION, cliSha256: await digestFile(cli) };
+}
+
+function assertAttestedArtifact(record, evidence, label) {
+  if (
+    record.bytes !== evidence.bytes
+    || record.sha256 !== bareHash(evidence.sha256, `${label} hash`)
+  ) {
+    fail(`${label} differs from the setup attestation`);
+  }
+}
+
+/**
+ * Independently consume a development setup record: re-verify both npm
+ * closures, every referenced setup artifact, the full PTau transcript, the
+ * final zkey, and a freshly exported verification key.
+ */
+export async function verifyDevelopmentGroth16Artifacts({
+  repositoryRoot,
+  buildAttestationBytes,
+  sourceManifestBytes,
+  setupAttestationBytes,
+  initialZkeyPath,
+  provingKeyPath,
+  ptauPath,
+  r1csPath,
+  verificationKeyPath,
+} = {}) {
+  const requestedRoot = path.resolve(text(repositoryRoot, 'repository root'));
+  const root = await realpath(requestedRoot).catch(() =>
+    fail('repository root cannot be resolved'));
+  if (root !== requestedRoot) {
+    fail('repository root must not use symlink traversal');
+  }
+  let pair;
+  try {
+    pair = await verifyDevelopmentSetupAttestationPair(
+      setupAttestationBytes,
+      {
+        buildAttestationBytes,
+        repositoryRoot: root,
+        sourceManifestBytes,
+      },
+    );
+  } catch (error) {
+    fail(`development setup attestation pair is invalid: ${
+      error instanceof Error ? error.message : String(error)
+    }`);
+  }
+  try {
+    await reproduceV2CircuitBuild({
+      buildAttestationBytes,
+      repositoryRoot: root,
+      sourceManifestBytes,
+    });
+  } catch (error) {
+    fail(`circuit build cannot be independently reproduced: ${
+      error instanceof Error ? error.message : String(error)
+    }`);
+  }
+  const paths = {
+    initialZkey: await regularFile(initialZkeyPath, 'initial zkey'),
+    provingKey: await regularFile(provingKeyPath, 'final zkey'),
+    ptau: await regularFile(ptauPath, 'ptau'),
+    r1cs: await regularFile(r1csPath, 'r1cs'),
+    verificationKey: await regularFile(
+      verificationKeyPath,
+      'verification key',
+    ),
+  };
+  const evidence = {
+    initialZkey: await measureFile(paths.initialZkey, 'initial zkey'),
+    provingKey: await measureFile(paths.provingKey, 'final zkey'),
+    ptau: await measureFile(paths.ptau, 'ptau'),
+    r1cs: await measureFile(paths.r1cs, 'r1cs'),
+    verificationKey: await measureFile(
+      paths.verificationKey,
+      'verification key',
+    ),
+  };
+  assertAttestedArtifact(
+    pair.setup.zkeyChain.initial,
+    evidence.initialZkey,
+    'initial zkey',
+  );
+  assertAttestedArtifact(
+    pair.setup.zkeyChain.contributions[0].output,
+    evidence.provingKey,
+    'final zkey',
+  );
+  assertAttestedArtifact(
+    pair.setup.ptau.artifact,
+    evidence.ptau,
+    'ptau',
+  );
+  assertAttestedArtifact(pair.setup.r1cs, evidence.r1cs, 'r1cs');
+  assertAttestedArtifact(
+    pair.setup.finalEvidence.verificationKey,
+    evidence.verificationKey,
+    'verification key',
+  );
+  phase('independent consumer: full powersoftau verify …');
+  await runPinnedSnarkjs(
+    ['powersoftau', 'verify', paths.ptau],
+    { label: 'independent powersoftau verify' },
+  );
+  phase('independent consumer: final zkey verify …');
+  await runPinnedSnarkjs(
+    [
+      'zkey',
+      'verify',
+      paths.r1cs,
+      paths.ptau,
+      paths.provingKey,
+    ],
+    { label: 'independent zkey verify' },
+  );
+  const temporaryParent = path.join(root, '.codex-build/test-tmp');
+  await mkdir(temporaryParent, { recursive: true, mode: 0o700 });
+  if (await realpath(temporaryParent) !== temporaryParent) {
+    fail('verification temporary directory must not use symlink traversal');
+  }
+  await chmod(temporaryParent, 0o700);
+  const temporary = await mkdtemp(path.join(
+    temporaryParent,
+    'v2-vk-export-',
+  ));
+  try {
+    const exported = path.join(temporary, 'verification_key.json');
+    await runPinnedSnarkjs(
+      [
+        'zkey',
+        'export',
+        'verificationkey',
+        paths.provingKey,
+        exported,
+      ],
+      {
+        cwd: temporary,
+        label: 'independent verification-key export',
+      },
+    );
+    const exportedEvidence = await measureFile(
+      exported,
+      'independently exported verification key',
+    );
+    assertAttestedArtifact(
+      pair.setup.finalEvidence.verificationKey,
+      exportedEvidence,
+      'independently exported verification key',
+    );
+    if (
+      exportedEvidence.sha256 !== evidence.verificationKey.sha256
+      || exportedEvidence.bytes !== evidence.verificationKey.bytes
+    ) {
+      fail('verification key differs from a fresh final-zkey export');
+    }
+  } finally {
+    await rm(temporary, {
+      recursive: true,
+      force: true,
+      maxRetries: 1,
+    });
+  }
+  const finalEvidence = {
+    initialZkey: await measureFile(paths.initialZkey, 'initial zkey'),
+    provingKey: await measureFile(paths.provingKey, 'final zkey'),
+    ptau: await measureFile(paths.ptau, 'ptau'),
+    r1cs: await measureFile(paths.r1cs, 'r1cs'),
+    verificationKey: await measureFile(
+      paths.verificationKey,
+      'verification key',
+    ),
+  };
+  for (const name of Object.keys(evidence)) {
+    if (
+      evidence[name].bytes !== finalEvidence[name].bytes
+      || evidence[name].sha256 !== finalEvidence[name].sha256
+    ) {
+      fail(`${name} changed during independent setup verification`);
+    }
+  }
+  return Object.freeze({
+    build: pair.build,
+    setup: pair.setup,
+    evidence: Object.freeze(evidence),
+  });
 }

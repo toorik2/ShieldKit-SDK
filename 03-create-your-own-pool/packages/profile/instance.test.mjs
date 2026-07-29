@@ -53,7 +53,7 @@ test('instanceToKitConfig requires loaded bundle', () => {
   );
 });
 
-test('full playground load when matching profile bundle present', async (t) => {
+test('full playground load when matching profile bundle present', async () => {
   // Prefer playground/local ticket10-shaped bundle (instanceId must match instance.json).
   const candidates = [
     path.join(root, '02-use-chipnet-demo-pool/bundle'),
@@ -69,10 +69,11 @@ test('full playground load when matching profile bundle present', async (t) => {
       // try next
     }
   }
-  if (!bundleDir) {
-    t.skip('no local playground-matching profile bundle');
-    return;
-  }
+  assert.ok(
+    bundleDir,
+    'PREREQUISITE_MISSING: materialize an authenticated playground-matching profile bundle '
+      + `at one of: ${candidates.map((candidate) => path.join(candidate, 'manifest.json')).join(', ')}`,
+  );
   const instance = await loadInstance('02-use-chipnet-demo-pool', { bundleDirectory: bundleDir });
   assert.equal(instance.bundleDirectory, bundleDir);
   assert.ok(instance.loaded);

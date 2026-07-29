@@ -1,4 +1,6 @@
 {
+  "_status": "SUPERSEDED AND QUARANTINED: legacy V1 init template; do not use for a new pool or operation.",
+  "_replacement": "docs/protocol/v2-direct/IMPLEMENTATION_PLAN.md and the explicit --protocol v2-direct CLI surface",
   "mode": "development-only",
   "setup": {
     "destination": "/ABS/PATH/new-setup-dir-must-not-exist",
@@ -17,5 +19,5 @@
   },
   "bundle": null,
   "load": false,
-  "_comment": "03-create-your-own-pool init. development-only. ptau: for hermez-powersOfTau28_hez_final_20 pin, default/hash-only skips multi-hour snarkjs powersoftau verify after SHA-256 match — NOT ceremony/production evidence. Set verifyPtau:true or CLI --verify-ptau for full verify. Ceremony mode always full-verifies. Entropy fd must be chmod 600 UTF-8 text, no newlines (3<entropy.txt)."
+  "_legacyComment": "Superseded V1 development-only input. Its hash-only PTau option and all V1 init/create-pool flows are quarantined; this file is historical reference, not an executable template."
 }

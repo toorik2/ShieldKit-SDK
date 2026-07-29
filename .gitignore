@@ -1,9 +1,12 @@
 node_modules/
 .codex-artifacts/
+.codex-build/
+.tmp/
 .cache/
 coverage/
 dist/
 target/
+**/.shieldkit-v2-recovery-target-*/
 *.log
 
 # Project-local worktrees only — never create worktrees outside this repo
@@ -31,6 +34,10 @@ wallets.json
 **/runs/
 **/.shieldkit/
 **/inputs_dump.json
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.sqlite-journal
 !**/fixtures/**/state.json
 !**/fixtures/**/inputs_dump.json
 

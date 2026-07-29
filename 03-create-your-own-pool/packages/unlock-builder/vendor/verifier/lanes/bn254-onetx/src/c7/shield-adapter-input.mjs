@@ -1,4 +1,4 @@
-// Pinned import boundary for shield.cash's local snarkjs adapter result. This
+// Pinned import boundary for ShieldKit's V2 Direct local snarkjs adapter result. This
 // intentionally accepts a complete, immutable conversion result, not separate
 // caller-selected VK/proof/public files: one SHA-256 pin binds their relation.
 import { createHash } from 'node:crypto';
@@ -10,7 +10,7 @@ const BASE_FIELD = 2188824287183927522224640574525727508869631115729782366268903
 const SCALAR_FIELD = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const fail = (message) => { throw new Error(`shield adapter input: ${message}`); };
+const fail = (message) => { throw new Error(`V2 Direct Groth16 adapter input: ${message}`); };
 
 const object = (value, label) => {
   if (value === null || Array.isArray(value) || typeof value !== 'object') fail(`${label} must be an object`);
@@ -92,7 +92,7 @@ const decimal = (value, label, modulus) => {
 const g1 = (value, label) => {
   if (value !== null && !Array.isArray(value) && typeof value === 'object' && Object.hasOwn(value, 'infinity')) {
     exactKeys(value, label, ['infinity', 'x', 'y']);
-    if (value.infinity === true && value.x === '0' && value.y === '1') fail(`${label} is canonical infinity; PF7 currently requires finite IC points`);
+    if (value.infinity === true && value.x === '0' && value.y === '1') fail(`${label} is canonical infinity; V2 Direct requires finite IC points`);
   }
   exactKeys(value, label, ['x', 'y']);
   return Object.freeze({ x: decimal(value.x, `${label}.x`, BASE_FIELD), y: decimal(value.y, `${label}.y`, BASE_FIELD) });
@@ -110,22 +110,22 @@ const artifact = (value, label) => {
     || !Number.isSafeInteger(value.bytes) || value.bytes < 0) fail(`${label} is not a canonical adapter artifact record`);
 };
 
-export function validateShieldAdapterResult(raw) {
+export function validateV2DirectGroth16AdapterResult(raw) {
   exactKeys(raw, 'adapter result', ['byteOrder', 'qualification', 'schema', 'source', 'verificationKey', 'verifierCashFixture', 'verifierCashVk']);
-  if (raw.schema !== 'shield.cash/snarkjs-groth16-pf7-adapter/v1') fail('unsupported schema');
+  if (raw.schema !== 'shieldkit-v2-direct-groth16-adapter-v1') fail('unsupported schema');
   if (typeof raw.qualification !== 'string') fail('qualification must be a string');
   exactKeys(raw.source, 'source', ['proof', 'publicSignals', 'verificationKey']);
   artifact(raw.source.verificationKey, 'source.verificationKey'); artifact(raw.source.proof, 'source.proof'); artifact(raw.source.publicSignals, 'source.publicSignals');
   exactKeys(raw.byteOrder, 'byteOrder', ['g1', 'g2', 'scalars']);
   for (const name of ['g1', 'g2', 'scalars']) if (typeof raw.byteOrder[name] !== 'string' || raw.byteOrder[name].length === 0) fail(`byteOrder.${name} must be a nonempty string`);
   exactKeys(raw.verificationKey, 'verificationKey', ['ic', 'publicArity']);
-  if (raw.verificationKey.publicArity !== 2 || raw.verificationKey.ic !== 3) fail('PF7 requires exactly two public signals and three IC points');
+  if (raw.verificationKey.publicArity !== 2 || raw.verificationKey.ic !== 3) fail('V2 Direct requires exactly two public signals and three IC points');
   exactKeys(raw.verifierCashVk, 'verifierCashVk', ['alpha', 'beta', 'delta', 'gamma', 'ic']);
   if (!Array.isArray(raw.verifierCashVk.ic) || raw.verifierCashVk.ic.length !== 3) fail('verifierCashVk.ic must contain exactly three points');
   const vk = Object.freeze({
     alpha: g1(raw.verifierCashVk.alpha, 'verifierCashVk.alpha'), beta: g2(raw.verifierCashVk.beta, 'verifierCashVk.beta'),
     gamma: g2(raw.verifierCashVk.gamma, 'verifierCashVk.gamma'), delta: g2(raw.verifierCashVk.delta, 'verifierCashVk.delta'),
-    // PF7's ECIP/MSM input requires finite affine IC points. The adapter may
+    // V2 Direct's ECIP/MSM input requires finite affine IC points. The adapter may
     // represent an infinity IC0, but this generator rejects it rather than
     // substituting an identity encoding.
     ic: Object.freeze(raw.verifierCashVk.ic.map((value, index) => g1(value, `verifierCashVk.ic[${index}]`))),
@@ -141,7 +141,7 @@ export function validateShieldAdapterResult(raw) {
   return Object.freeze({ vk, fixture });
 }
 
-export async function loadPinnedShieldAdapterResult(record) {
+export async function loadPinnedV2DirectGroth16AdapterResult(record) {
   exactKeys(record, 'adapter pin', ['path', 'sha256']);
   if (typeof record.path !== 'string' || record.path.length === 0 || typeof record.sha256 !== 'string' || !SHA256.test(record.sha256)) fail('adapter pin must contain a path and lowercase SHA-256');
   const filename = path.resolve(record.path);
@@ -163,5 +163,5 @@ export async function loadPinnedShieldAdapterResult(record) {
   const afterPostRead = await lstat(filename);
   if (!afterPostRead.isFile() || afterPostRead.isSymbolicLink() || afterPostRead.dev !== before.dev || afterPostRead.ino !== before.ino || afterPostRead.size !== before.size) fail('changed during post-read hash');
   if (postReadHash !== record.sha256) fail('hash drift after read');
-  return Object.freeze({ artifact: Object.freeze({ path: filename, sha256: hash, bytes: before.size }), ...validateShieldAdapterResult(parseStrictJson(bytes, 'adapter result')) });
+  return Object.freeze({ artifact: Object.freeze({ path: filename, sha256: hash, bytes: before.size }), ...validateV2DirectGroth16AdapterResult(parseStrictJson(bytes, 'adapter result')) });
 }

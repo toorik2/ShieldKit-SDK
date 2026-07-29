@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.mjs",
   "exports": {
-    ".": "./index.mjs"
+    ".": "./index.mjs",
+    "./v2": "./v2/index.mjs"
   },
   "private": true,
   "dependencies": {

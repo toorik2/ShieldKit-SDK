@@ -16,7 +16,7 @@ const vectorsPath = path.join(repoRoot, 'harness/src/checkpoints/pairing-vectors
 const multiproofPath = path.join(repoRoot, 'harness/src/bch/groth16-singleton-multiproof-vectors.json');
 
 const adapterResultFor = (vec, fixture = undefined) => ({
-  schema: 'shield.cash/snarkjs-groth16-pf7-adapter/v1',
+  schema: 'shieldkit-v2-direct-groth16-adapter-v1',
   qualification: 'test-only static-vector equivalence; not a profile or deployment result',
   source: {
     verificationKey: { path: '/pinned/vk.json', sha256: '1'.repeat(64), bytes: 1 },
@@ -152,6 +152,6 @@ test('adapter mode forbids static-vector selectors and no longer permits a secon
     readFile(path.join(repoRoot, 'lanes/bn254-onetx/src/c7/build.ts'), 'utf8'),
     readFile(path.join(repoRoot, 'build/chunked/pairing/_szmath.mjs'), 'utf8'),
   ]);
-  assert.doesNotMatch(build, /\bACTIVE_VK\b|\bactivePairsFor\b|loadPinnedShieldAdapterResult/);
+  assert.doesNotMatch(build, /\bACTIVE_VK\b|\bactivePairsFor\b|loadPinnedV2DirectGroth16AdapterResult/);
   assert.doesNotMatch(sz, /\bvec\b/);
 });

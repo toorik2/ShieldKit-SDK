@@ -36,12 +36,19 @@ const lockFor = (redeem) => Buffer.concat([Buffer.from([0xaa, 0x20]), hash256(re
 const push = (bytes) => Buffer.concat([Buffer.from([bytes.length]), bytes]).toString('hex');
 const names = ['exec0', 'exec1', 'exec2', 'exec3', 'exec4', 'genesis', 'terminal'];
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-const provenanceSkip = existsSync(path.join(repositoryRoot, '.local/provenance/series.json'))
-  && existsSync(path.join(repositoryRoot, '.local/provenance/seam-series.json'))
-  ? false
-  : 'optional local PF7 provenance archive is not shipped in a clean clone';
+const provenanceFiles = [
+  path.join(repositoryRoot, '.local/provenance/series.json'),
+  path.join(repositoryRoot, '.local/provenance/seam-series.json'),
+];
 
-test('retained PF7 format-patch chain is hash-pinned and complete', { skip: provenanceSkip }, async () => {
+test('retained PF7 format-patch chain is hash-pinned and complete', async () => {
+  const missing = provenanceFiles.filter((filename) => !existsSync(filename));
+  assert.equal(
+    missing.length,
+    0,
+    'PREREQUISITE_MISSING: materialize the authenticated, hash-pinned PF7 provenance archive '
+      + `under ${path.join(repositoryRoot, '.local/provenance')}; missing: ${missing.join(', ')}`,
+  );
   const reference = await validateProvenance();
   assert.equal(reference.patches.length, 7);
   assert.equal(reference.terminal.commit, '17c6b9552c48b0fc5271be626a1578fb0065df09');

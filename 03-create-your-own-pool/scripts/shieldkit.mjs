@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ShieldKit CLI — verbs: init | deposit | transfer | withdraw | recover | doctor
+ * ShieldKit CLI — legacy V1 plus explicit, unqualified V2 Direct local surface.
  * Fail-closed: missing required inputs → ok:false, exit ≠ 0 (no false success).
  * Single --mode flag (setupMode). JSON errors only (no raw stacks to users).
  */
@@ -26,6 +26,17 @@ function arg(name, def) {
 }
 function flag(name) {
   return process.argv.includes(`--${name}`);
+}
+
+const V1_LINKABILITY_WARNING = [
+  'V1_LINKABILITY_WARNING',
+  'V1 mutation may be linkable and does not provide V2 Direct privacy; V1 artifacts and state cannot migrate to V2.',
+];
+
+function legacyProtocolWarnings() {
+  return arg('protocol') === 'v1-legacy'
+    ? [V1_LINKABILITY_WARNING[1]]
+    : [];
 }
 
 /** Single setup mode flag. --setup-mode is a deprecated alias. */
@@ -62,7 +73,13 @@ function okJson(body, code = 0) {
     ok: true,
     toolkitVersion: TOOLKIT_VERSION,
     productStatus: PRODUCT_STATUS,
-    warnings: productWarnings({ network, setupMode: body.setupMode ?? body.mode ?? peekMode() }),
+    warnings: [
+      ...productWarnings({
+        network,
+        setupMode: body.setupMode ?? body.mode ?? peekMode(),
+      }),
+      ...legacyProtocolWarnings(),
+    ],
     ...body,
   }, null, 2));
   process.exit(code);
@@ -89,31 +106,40 @@ Product tree: 03-create-your-own-pool/  (kit · profile · CLI)
 Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Create and operate your pool
-  init --config 03-create-your-own-pool/templates/init.development.json
+  init  # V1 legacy creation is quarantined; use the attested V2 pipeline
   request-template --kind deposit --bundle <profile-dir>
   genesis-plan --bundle <dir> --category-input <json>
   genesis-finalize --bundle <dir> --category-input <json> --signature <64hex>
   # Full act (prove + verifier unlocks + assemble)
-  deposit|transfer|withdraw --pool <pool-dir> --wallets <json> [--broadcast]
+  deposit|transfer|withdraw --protocol v1-legacy --pool <pool-dir> --wallets <json> [--broadcast]
   # Offline prep-only (legacy)
-  deposit|transfer|withdraw --bundle <profile-dir> --request <prep.json>
+  deposit|transfer|withdraw --protocol v1-legacy --bundle <profile-dir> --request <prep.json>
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor [--pool <dir>] | profile-info | config-check | explorer
 
-  # Golden path (see docs/GOLDEN_PATH.md)
-  npm run fetch-pin-artifacts
-  npm run create-pool -- --out ./my-pool --with-genesis --wallets <json> --scan-fund --broadcast
-  deposit|withdraw --pool ./my-pool --wallets <json> --broadcast
-  (fees, tip sync, coin merge automatic; --verbose for internals)
+  # V2 Direct local surface (explicit opt-in; final qualification is blocked)
+  wallet create|receive --protocol v2-direct
+  pool add <descriptor> --protocol v2-direct
+  sync|recover|status|doctor --protocol v2-direct
+  deposit|transfer|withdraw ... --protocol v2-direct --broadcast
+  operation resume|reconcile|rebroadcast|confirm|rebase|abandon <v2op:64-lowercase-hex> --protocol v2-direct
+  operation resume <id> [--broadcast]              # resume durable local work; no send without --broadcast
+  operation reconcile <id>                          # observe chain/delivery only; never resends
+  operation rebroadcast <id> --broadcast --attempt-token <prior-token> --acknowledgement resubmit-exact-persisted-transaction
+  operation confirm <id>                            # observe and settle an already-broadcast action
+  operation rebase <id>                             # explicit/manual retry with fresh private action
+  operation abandon <id> --reason <printable-text>  # terminal local abandonment
+  (no automatic resend, sponsor, faucet, or batching; V2 final qualification remains blocked)
 
   # Optional live demo (CLI only — not a web wallet)
   npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup
   playground doctor|tip|profile-info|request-template
-  playground deposit|transfer|withdraw --wallets <json> [--broadcast] [--refresh-tip]
+  playground deposit|transfer|withdraw --protocol v1-legacy --wallets <json> [--broadcast] [--refresh-tip]
   (RPC: public Chipnet Fulcrum by default; tip auto-discovered from chain when missing)
 
 Flags:
   --version
+  --protocol v2-direct|v1-legacy
   --network chipnet|mainnet
   --mode development-only|local-contribution-simulation
   --pool <pool-dir>   (full act / doctor preflight)
@@ -449,7 +475,7 @@ async function cmdPlaygroundDoctor() {
       kit: kitInfo,
       next: bundleOk
         ? [
-          'optional: playground deposit --request prep.json (learn the flow)',
+          'optional: playground deposit --protocol v1-legacy --request prep.json (learn the flow)',
           'product: 03-create-your-own-pool/ — init + genesis',
           'You supply RPC, fees, proofs, broadcast',
         ]
@@ -607,56 +633,18 @@ async function cmdProfileInfo() {
 }
 
 async function cmdInit() {
-  const { mode, deprecatedSetupModeFlag } = resolveMode();
-  const configPath = arg('config');
-  if (!configPath) {
-    failJson(
-      'CONFIG_REQUIRED',
-      'init requires --config <init.json> that matches profile.init input ({ mode, setup, bundle?, load? })',
-      2,
-      {
-        mode,
-        api: "import { init } from './03-create-your-own-pool/packages/profile/init.mjs'",
-        template: '03-create-your-own-pool/templates/init.development.json',
-        note: 'new setup ⇒ new profile + new genesis; no hot-swap',
-        path: '03-create-your-own-pool/',
-        ...(deprecatedSetupModeFlag ? { deprecation: '--setup-mode is deprecated; use --mode' } : {}),
-      },
-    );
-  }
-  const input = await loadJsonFile(configPath, '--config');
-  if (!input.mode) input.mode = mode;
-  if (input.mode !== mode && arg('mode')) {
-    failJson('MODE_MISMATCH', 'CLI --mode must match config.mode when both set', 2, {
-      cliMode: mode,
-      configMode: input.mode,
-    });
-  }
-  // Force full snarkjs powersoftau verify (slow). Default development path may hash-only trusted Hermez pins.
-  if (flag('verify-ptau')) {
-    if (!input.setup || typeof input.setup !== 'object') {
-      failJson('SETUP_REQUIRED', '--verify-ptau requires config.setup object', 2);
-    }
-    input.setup = { ...input.setup, verifyPtau: true };
-  }
-  try {
-    const { init } = await import('../packages/profile/init.mjs');
-    const result = await init(input);
-    okJson({
-      verb: 'init',
-      mode: result.mode,
-      setupDirectory: result.setupDirectory,
-      bundleDirectory: result.bundleDirectory,
-      profileId: result.profileId,
-      instanceId: result.instanceId,
-      loaded: Boolean(result.loaded),
-      ptauVerification: result.setupMetadata?.inputs?.ptau?.verification
-        ?? result.setupMetadata?.setup?.material?.phase1?.verification
-        ?? null,
-    });
-  } catch (e) {
-    failJson(e.name || 'INIT_FAILED', e.message || String(e), 1);
-  }
+  failJson(
+    'LEGACY_PROFILE_CREATION_QUARANTINED',
+    'shieldkit init created the V1 legacy shielded-action-v2 profile and is quarantined; use the attested V2 Direct setup and development-profile pipeline',
+    64,
+    {
+      setupCommand:
+        'node 03-create-your-own-pool/packages/profile/setup/development-cli.mjs --input <attested-v2-setup.json>',
+      profileCommand:
+        'node 03-create-your-own-pool/scripts/v2-development-profile.mjs <all pinned artifact arguments>',
+      note: 'V1 artifacts cannot be relabeled or migrated into V2 Direct',
+    },
+  );
 }
 
 async function cmdAct(verb) {
@@ -708,8 +696,8 @@ async function cmdAct(verb) {
       {
         verb,
         kind: requestKind,
-        fullAct: 'npm run shieldkit -- playground deposit --wallets ./wallets.json --scan-fees --broadcast',
-        prepOnly: 'playground deposit --request prep.json',
+        fullAct: 'npm run shieldkit -- playground deposit --protocol v1-legacy --wallets ./wallets.json --scan-fees --broadcast',
+        prepOnly: 'playground deposit --protocol v1-legacy --request prep.json',
         feeNote: 'Deposit needs a fee UTXO ≳ ~10.07M sats (0.1 BCH + PF7/bind/settle pads); transfer/withdraw ~71k. See 02-use-chipnet-demo-pool/README.md',
         rpc: 'Public Chipnet Fulcrum used by default; override with SHIELDKIT_RPC_URL or SHIELDKIT_ELECTRUM',
       },
@@ -850,7 +838,7 @@ async function cmdRequestTemplate() {
       profileId: kit.profile.profileId,
       instanceId: kit.profile.instanceId,
       template,
-      writeHint: 'Save template JSON and fill funding fields, then: deposit|transfer|withdraw --request …',
+      writeHint: 'Save template JSON and fill funding fields, then use the matching V1 action with --protocol v1-legacy --request …',
     });
   } catch (e) {
     failJson(e.code || e.name || 'TEMPLATE_FAILED', e.message || String(e), 1);
@@ -946,8 +934,99 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   process.exit(0);
 }
 
+const cliArguments = process.argv.slice(2);
+const protocolOptionIndexes = cliArguments
+  .map((value, index) => value === '--protocol' ? index : -1)
+  .filter((index) => index !== -1);
+if (protocolOptionIndexes.length > 1) {
+  failJson(
+    'DUPLICATE_OPTION',
+    '--protocol may be supplied only once',
+    2,
+  );
+}
+const protocolIndex = protocolOptionIndexes[0];
+const explicitProtocol = protocolIndex === undefined
+  ? undefined
+  : cliArguments[protocolIndex + 1];
+if (
+  protocolIndex !== undefined
+  && (
+    explicitProtocol === undefined
+    || explicitProtocol.startsWith('--')
+  )
+) {
+  failJson('OPTION_VALUE_REQUIRED', '--protocol requires one value', 2);
+}
+const directMutation = ['deposit', 'transfer', 'withdraw'].includes(cmd);
+const playgroundMutation = cmd === 'playground'
+  && ['deposit', 'transfer', 'withdraw'].includes(process.argv[3]);
+const legacyMutation = directMutation || playgroundMutation;
+if (legacyMutation && explicitProtocol === undefined) {
+  failJson(
+    'PROTOCOL_REQUIRED',
+    'mutation commands require --protocol v1-legacy or explicit --protocol v2-direct; V2 is not the default until qualification',
+    2,
+    {
+      protocols: ['v1-legacy', 'v2-direct'],
+      v2Qualification: 'blocked',
+    },
+  );
+}
+if (
+  legacyMutation
+  && !['v1-legacy', 'v2-direct'].includes(explicitProtocol)
+) {
+  failJson(
+    'UNSUPPORTED_PROTOCOL',
+    `unsupported mutation protocol: ${explicitProtocol}`,
+    2,
+  );
+}
+if (legacyMutation && explicitProtocol === 'v1-legacy') {
+  console.error(JSON.stringify({
+    warning: {
+      code: V1_LINKABILITY_WARNING[0],
+      message: V1_LINKABILITY_WARNING[1],
+    },
+  }));
+}
+
+async function dispatchV2Cli() {
+  const {
+    executeV2Cli,
+    isV2CliInvocation,
+    v2CliErrorResult,
+  } = await import('../packages/kit/v2/cli.mjs');
+  if (!isV2CliInvocation(cliArguments)) return false;
+  try {
+    const result = await executeV2Cli(cliArguments);
+    console.log(JSON.stringify({
+      toolkitVersion: TOOLKIT_VERSION,
+      ...result,
+    }, null, 2));
+    process.exit(0);
+  } catch (error) {
+    const rendered = v2CliErrorResult(error);
+    console.log(JSON.stringify({
+      toolkitVersion: TOOLKIT_VERSION,
+      ...rendered.body,
+    }, null, 2));
+    process.exit(rendered.exitCode);
+  }
+}
+
+const v2Dispatch = (
+  ['wallet', 'pool', 'sync', 'status', 'operation'].includes(cmd)
+  || explicitProtocol === 'v2-direct'
+);
+
 // playground <sub>  →  bind official Chipnet instance, run sub-verb
-if (cmd === 'playground') {
+if (v2Dispatch) {
+  Promise.resolve(dispatchV2Cli()).catch((e) => {
+    failJson(e.code || e.name || 'V2_CLI_UNCAUGHT', e.message || String(e), 1);
+  });
+} else if (cmd === 'playground') {
   const sub = process.argv[3] || 'doctor';
   const playgroundMap = {
     doctor: cmdPlaygroundDoctor,

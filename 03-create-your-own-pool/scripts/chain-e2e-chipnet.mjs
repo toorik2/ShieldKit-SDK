@@ -35,6 +35,7 @@ import {
   stageOperation,
   transactionIdFromHex,
 } from '../packages/kit/transaction-coordinator.mjs';
+import { refuseLegacyProfileCreation } from '../packages/profile/legacy.mjs';
 
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -117,6 +118,10 @@ async function signP2pkhInput({ secp, privateKey, publicKey, sourceOutput, trans
 }
 
 async function main() {
+  // This historical E2E constructs and broadcasts the V1 legacy relation.
+  // Refuse before creating an output directory, reading wallet material,
+  // opening RPC, or constructing a funding transaction.
+  refuseLegacyProfileCreation('the historical Chipnet chain E2E script');
   const outDir = path.resolve(arg('out-dir', path.join(monorepoRoot, '.cache/chain-e2e-run')));
   const setupDir = path.resolve(arg('setup-dir', path.join(monorepoRoot, '.cache/e2e-cli-full-20260725/setup')));
   const walletRoot = path.resolve(arg(

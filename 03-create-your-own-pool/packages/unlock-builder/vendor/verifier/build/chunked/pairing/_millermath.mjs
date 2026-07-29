@@ -171,7 +171,7 @@ if (shieldAdapterRequested && process.env.T7 === '1') {
   throw new Error('T7 requires committed synthetic toxic-waste scalars and is forbidden with C7_SHIELD_ADAPTER_*');
 }
 const shieldAdapter = shieldAdapterRequested
-  ? await (await import('../../../lanes/bn254-onetx/src/c7/shield-adapter-input.mjs')).loadPinnedShieldAdapterResult({ path: shieldAdapterFile, sha256: shieldAdapterSha256 })
+  ? await (await import('../../../lanes/bn254-onetx/src/c7/v2-direct-groth16-adapter-input.mjs')).loadPinnedV2DirectGroth16AdapterResult({ path: shieldAdapterFile, sha256: shieldAdapterSha256 })
   : undefined;
 const committedVec = shieldAdapter ? undefined : JSON.parse(readFileSync(join(repoRoot, 'harness/src/checkpoints/pairing-vectors.json'), 'utf8'));
 const g1 = (o) => bn254.G1.Point.fromAffine({ x: BigInt(o.x), y: BigInt(o.y) });

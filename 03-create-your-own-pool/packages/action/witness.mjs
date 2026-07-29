@@ -1,4 +1,4 @@
-// Typed, local witness material for the pinned V2 low128 G1 relation. This is
+// Typed, local witness material for the V1 legacy low128 G1 relation. This is
 // deliberately profile-bound and does not initialize setup, make proofs, or
 // construct BCH transactions.
 import { createHash } from 'node:crypto';
@@ -473,7 +473,7 @@ export async function generateFreshWitnessInputs(input) {
   if ((netName !== 'chipnet' && netName !== 'mainnet')
     || bundle.manifest.profile.relation.id !== 'shielded-action-v2'
     || bundle.manifest.profile.publicInputAbi.id !== 'shielded-action-public-input-v1') {
-    fail('bundle must be chipnet|mainnet with pinned V2 relation and packet ABI');
+    fail('bundle must be chipnet|mainnet with the pinned V1 legacy relation and packet ABI');
   }
   if (input.expectedProfile.network !== netName) {
     fail(`expectedProfile.network (${input.expectedProfile.network}) !== bundle network (${netName})`);

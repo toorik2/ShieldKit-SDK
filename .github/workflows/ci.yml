@@ -1,11 +1,21 @@
 name: CI
 
+# Portable CI is necessary but cannot satisfy the external V2 Direct release gates.
+# The fail-closed qualification:external:* commands enumerate the required BCHN,
+# final-ceremony/audit, clean-host, and 30-day Chipnet evidence.
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_local_verifier_qualification:
+        description: Run development-only local verifier artifact provisioning and lane tests
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -15,10 +25,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  node:
-    name: Node policy, audit, and tests
+  source-policy:
+    name: Source policy (Node 22)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -34,12 +44,149 @@ jobs:
         run: npm run check:source
       - name: Audit production dependency closure
         run: npm audit --omit=dev --audit-level=high
+
+  unit:
+    name: Mandatory tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Install pinned Rust toolchain required by native wrapper tests
+        run: rustup toolchain install 1.97.1 --profile minimal
       - name: Run portable domain tests
         run: npm test
+
+  typescript:
+    name: Strict V2 TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Typecheck strict V2 codec
+        run: npm run check:type:v2
+
+  strict-codec-campaign:
+    name: Mandatory V2 strict-codec campaign
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Run exhaustive V2 strict-codec qualification
+        run: npm run test:v2:campaign:strict-codec
+
+  depth4-campaign:
+    name: Mandatory V2 depth-4 campaign
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Run bounded V2 depth-4 qualification
+        run: npm run test:v2:campaign:depth4
+
+  rust:
+    name: Locked V2 Rust crates (Rust 1.97.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal
+      - name: Run locked V2 Rust tests
+        run: npm run test:rust:v2
+
+  local-covenants:
+    name: Local covenant qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
       - name: Materialize immutable vendored qualification toolchain
         run: npm run unlock-builder:setup
       - name: Run covenant qualification tests
-        run: npm run test:qualification:covenants
+        run: npm run test:qualification:local-covenants
+
+  local-verifier-lane:
+    name: Development-only pinned verifier-lane qualification
+    # This consumes development-only ignored proof artifacts. It is deliberately
+    # opt-in and is not evidence for an external or release gate.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_local_verifier_qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Materialize immutable vendored qualification toolchain
+        run: npm run unlock-builder:setup
+      - name: Provision V2 development circuit and proof artifacts
+        run: npm run qualification:local-verifier-artifacts
+      - name: Run pinned BN254 verifier-lane tests
+        run: npm run test:qualification:local-verifier-lane
 
   formal:
     name: LeanBCH formal gate

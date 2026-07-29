@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -14,6 +22,83 @@ import { generateFreshWitnessInputs } from './witness.mjs';
 const execFileAsync = promisify(execFile);
 const hex = (byte) => Buffer.alloc(32, byte).toString('hex');
 
+const fixturePrerequisite = (message) => {
+  throw new Error(`EXTERNAL_AUTHENTICATED_FIXTURE_REQUIRED: ${message}`);
+};
+
+async function authenticatedFixtureBundle() {
+  const configuredRoot = process.env.SHIELD_EXTERNAL_FIXTURE_ROOT;
+  const configuredBundle = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE;
+  if (typeof configuredRoot !== 'string' || configuredRoot.length === 0) {
+    fixturePrerequisite(
+      'set SHIELD_EXTERNAL_FIXTURE_ROOT to an absolute canonical fixture directory',
+    );
+  }
+  if (typeof configuredBundle !== 'string' || configuredBundle.length === 0) {
+    fixturePrerequisite(
+      'set SHIELD_FRESH_WITNESS_TEST_BUNDLE to a bundle path relative to SHIELD_EXTERNAL_FIXTURE_ROOT',
+    );
+  }
+  if (!path.isAbsolute(configuredRoot) || path.isAbsolute(configuredBundle)) {
+    fixturePrerequisite(
+      'SHIELD_EXTERNAL_FIXTURE_ROOT must be absolute and SHIELD_FRESH_WITNESS_TEST_BUNDLE must be relative',
+    );
+  }
+  const root = path.resolve(configuredRoot);
+  const rootMetadata = await lstat(root).catch(() =>
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT does not exist'));
+  if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink()) {
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT must be a real non-symlink directory');
+  }
+  const canonicalRoot = await realpath(root).catch(() =>
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT cannot be resolved'));
+  if (canonicalRoot !== root) {
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT must not traverse symlinks');
+  }
+  const bundleDirectory = path.resolve(canonicalRoot, configuredBundle);
+  if (
+    bundleDirectory === canonicalRoot
+    || !bundleDirectory.startsWith(`${canonicalRoot}${path.sep}`)
+  ) {
+    fixturePrerequisite('SHIELD_FRESH_WITNESS_TEST_BUNDLE must remain beneath SHIELD_EXTERNAL_FIXTURE_ROOT');
+  }
+  const loaded = await loadVerifierProfileBundle(bundleDirectory).catch((error) =>
+    fixturePrerequisite(`SHIELD_FRESH_WITNESS_TEST_BUNDLE failed authenticated loading: ${error.message}`));
+  assert.equal(
+    loaded.manifest.setup.mode,
+    'development-only',
+    'authenticated external fixture must be development-only',
+  );
+  return Object.freeze({ bundleDirectory, fixtureRoot: canonicalRoot, loaded });
+}
+
+async function authenticatedFixtureFile(root, environmentName) {
+  const configured = process.env[environmentName];
+  if (typeof configured !== 'string' || configured.length === 0) {
+    fixturePrerequisite(
+      `set ${environmentName} to a file path relative to SHIELD_EXTERNAL_FIXTURE_ROOT`,
+    );
+  }
+  if (path.isAbsolute(configured)) {
+    fixturePrerequisite(`${environmentName} must be relative to SHIELD_EXTERNAL_FIXTURE_ROOT`);
+  }
+  const filename = path.resolve(root, configured);
+  if (!filename.startsWith(`${root}${path.sep}`)) {
+    fixturePrerequisite(`${environmentName} must remain beneath SHIELD_EXTERNAL_FIXTURE_ROOT`);
+  }
+  const metadata = await lstat(filename).catch(() =>
+    fixturePrerequisite(`${environmentName} does not exist`));
+  if (!metadata.isFile() || metadata.isSymbolicLink()) {
+    fixturePrerequisite(`${environmentName} must be a regular non-symlink file`);
+  }
+  const canonical = await realpath(filename).catch(() =>
+    fixturePrerequisite(`${environmentName} cannot be resolved`));
+  if (canonical !== filename || !canonical.startsWith(`${root}${path.sep}`)) {
+    fixturePrerequisite(`${environmentName} must not traverse symlinks`);
+  }
+  return canonical;
+}
+
 test('fresh generator fails before loading a bundle when fixed-point inputs are malformed', async () => {
   await assert.rejects(
     () => generateFreshWitnessInputs({ bundleDirectory: '/not-loaded', expectedProfile: {}, witnessSeed: hex(1), withdrawalScriptHash: hex(2), transactionContextDigests: { deposit: hex(3), transfer: hex(4) } }),
@@ -21,10 +106,8 @@ test('fresh generator fails before loading a bundle when fixed-point inputs are 
   );
 });
 
-test('authenticated development profile produces relation-valid chained packets', async (t) => {
-  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE;
-  if (!bundleDirectory) return t.skip('set SHIELD_FRESH_WITNESS_TEST_BUNDLE to an authenticated development-only bundle');
-  const loaded = await loadVerifierProfileBundle(bundleDirectory);
+test('authenticated development profile produces relation-valid chained packets', async () => {
+  const { bundleDirectory, loaded } = await authenticatedFixtureBundle();
   const expectedProfile = { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId };
   const result = await generateFreshWitnessInputs({ bundleDirectory, expectedProfile, witnessSeed: hex(0x41), withdrawalScriptHash: hex(0x42), transactionContextDigests: { deposit: hex(0x51), transfer: hex(0x52), withdrawal: hex(0x53) } });
   await assert.rejects(
@@ -53,16 +136,8 @@ test('authenticated development profile produces relation-valid chained packets'
   assert.throws(() => reference.transition({ ...malformedWithdrawal, publicInputs: result.actions.withdrawal.publicInputs }), /inactive output record must be all zero/);
 });
 
-test('priorCycles continues actionSequence and note roots from completed history', async (t) => {
-  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE
-    || '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/.cache/profile-build-live/profile-bundle';
-  let loaded;
-  try {
-    loaded = await loadVerifierProfileBundle(bundleDirectory);
-  } catch {
-    return t.skip('no authenticated development-only bundle available');
-  }
-  if (loaded.manifest.setup.mode !== 'development-only') return t.skip('bundle is not development-only');
+test('priorCycles continues actionSequence and note roots from completed history', async () => {
+  const { bundleDirectory, loaded } = await authenticatedFixtureBundle();
   const expectedProfile = { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId };
   const digests0 = { deposit: hex(0x10), transfer: hex(0x11), withdrawal: hex(0x12) };
   const digests1 = { deposit: hex(0x20), transfer: hex(0x21), withdrawal: hex(0x22) };
@@ -90,16 +165,8 @@ test('priorCycles continues actionSequence and note roots from completed history
   }
 });
 
-test('transferHops=0 builds deposit→withdrawal without transfer action', async (t) => {
-  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE
-    || '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/.cache/profile-build-live/profile-bundle';
-  let loaded;
-  try {
-    loaded = await loadVerifierProfileBundle(bundleDirectory);
-  } catch {
-    return t.skip('no authenticated development-only bundle available');
-  }
-  if (loaded.manifest.setup.mode !== 'development-only') return t.skip('bundle is not development-only');
+test('transferHops=0 builds deposit→withdrawal without transfer action', async () => {
+  const { bundleDirectory, loaded } = await authenticatedFixtureBundle();
   const expectedProfile = { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId };
   const digests = { deposit: hex(0x81), transfer: hex(0x00), withdrawal: hex(0x83) };
   const result = await generateFreshWitnessInputs({
@@ -125,14 +192,23 @@ test('transferHops=0 builds deposit→withdrawal without transfer action', async
 });
 
 test('authenticated G1 WASM accepts all generated relation inputs when supplied with a pinned generator', async (t) => {
-  const bundleDirectory = process.env.SHIELD_FRESH_WITNESS_TEST_BUNDLE; const wasm = process.env.SHIELD_FRESH_WITNESS_TEST_WASM; const generator = process.env.SHIELD_FRESH_WITNESS_TEST_GENERATOR;
-  if (!bundleDirectory || !wasm || !generator) return t.skip('set SHIELD_FRESH_WITNESS_TEST_BUNDLE, SHIELD_FRESH_WITNESS_TEST_WASM, and SHIELD_FRESH_WITNESS_TEST_GENERATOR');
+  const { bundleDirectory, fixtureRoot, loaded } = await authenticatedFixtureBundle();
+  const wasm = await authenticatedFixtureFile(
+    fixtureRoot,
+    'SHIELD_FRESH_WITNESS_TEST_WASM',
+  );
+  const generator = await authenticatedFixtureFile(
+    fixtureRoot,
+    'SHIELD_FRESH_WITNESS_TEST_GENERATOR',
+  );
   assert.equal((await stat(wasm)).size, 9_977_099);
-  const loaded = await loadVerifierProfileBundle(bundleDirectory);
   const witnessArtifact = loaded.manifest.artifacts.find((artifact) => artifact.kind === 'witness-generator');
   assert.ok(witnessArtifact);
   assert.equal(`sha256:${createHash('sha256').update(await readFile(wasm)).digest('hex')}`, witnessArtifact.sha256);
-  assert.ok((await stat(generator)).isFile());
+  assert.equal(
+    `sha256:${createHash('sha256').update(await readFile(generator)).digest('hex')}`,
+    loaded.manifest.toolchain.generator.sha256,
+  );
   const result = await generateFreshWitnessInputs({ bundleDirectory, expectedProfile: { network: 'chipnet', profileId: loaded.profileId, instanceId: loaded.instanceId }, witnessSeed: hex(0x61), withdrawalScriptHash: hex(0x62), transactionContextDigests: { deposit: hex(0x71), transfer: hex(0x72), withdrawal: hex(0x73) } });
   const root = await mkdtemp(path.join(tmpdir(), 'shield-fresh-witness-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));

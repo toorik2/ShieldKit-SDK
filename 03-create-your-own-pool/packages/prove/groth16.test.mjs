@@ -7,6 +7,10 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SnarkjsAdapterError, adaptSnarkjsGroth16, sha256Bytes } from './groth16.mjs';
+import {
+  adaptV2DirectGroth16,
+  V2_DIRECT_GROTH16_ADAPTER_SCHEMA,
+} from './v2-direct-groth16-adapter.mjs';
 
 const execFile = promisify(execFileCallback);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +66,15 @@ test('adapts a real snarkjs-verified two-public BN254 Groth16 fixture into PF7 f
     Cx: rawProof.pi_c[0], Cy: rawProof.pi_c[1], in0: '3', in1: '5',
   });
   assert.match(result.byteOrder.g2, /no component reversal/);
+});
+
+test('emits a V2 Direct development-proof adapter with no PF7 schema identity', async () => {
+  const result = await adaptV2DirectGroth16(await records());
+  assert.equal(result.schema, V2_DIRECT_GROTH16_ADAPTER_SCHEMA);
+  assert.doesNotMatch(result.schema, /pf7/i);
+  assert.doesNotMatch(result.qualification, /pf7/i);
+  assert.match(result.qualification, /development-proof conversion only/);
+  assert.deepEqual(result.verifierCashFixture, (await adaptSnarkjsGroth16(await records())).verifierCashFixture);
 });
 
 test('rejects duplicate JSON keys before Groth16 interpretation', async () => {

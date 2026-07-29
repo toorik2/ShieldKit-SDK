@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "noEmitOnError": true,
+    "outDir": "../../../../../.codex-build/v2-typescript",
+    "rootDir": ".",
+    "skipLibCheck": true
+  },
+  "include": ["*.ts"]
+}

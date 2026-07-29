@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const BUNDLE = path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle');
 
-async function liveCoords() {
+async function requireLiveCoords() {
   try {
     const loaded = await loadVerifierProfileBundle(BUNDLE);
     return {
@@ -21,8 +21,11 @@ async function liveCoords() {
         instanceId: loaded.instanceId,
       },
     };
-  } catch {
-    return null;
+  } catch (error) {
+    throw new Error(
+      `PREREQUISITE_MISSING: authenticated local profile bundle required at ${BUNDLE}`,
+      { cause: error },
+    );
   }
 }
 
@@ -45,9 +48,8 @@ test('network mismatch fails before profile load', async () => {
   );
 });
 
-test('createKit chipnet with live bundle', async (t) => {
-  const coords = await liveCoords();
-  if (!coords) return t.skip('no local profile bundle');
+test('createKit chipnet with live bundle', async () => {
+  const coords = await requireLiveCoords();
   const kit = await createKit({ network: 'chipnet', ...coords });
   assert.equal(kit.network.name, 'chipnet');
   assert.equal(kit.profile.setupMode, 'development-only');
@@ -55,9 +57,8 @@ test('createKit chipnet with live bundle', async (t) => {
   assert.match(kit.explorerTxUrl('11'.repeat(32)), /chipnet/);
 });
 
-test('broadcastRaw invokes callback after gate', async (t) => {
-  const coords = await liveCoords();
-  if (!coords) return t.skip('no local profile bundle');
+test('broadcastRaw invokes callback after gate', async () => {
+  const coords = await requireLiveCoords();
   let seen = null;
   const kit = await createKit({
     network: 'chipnet',

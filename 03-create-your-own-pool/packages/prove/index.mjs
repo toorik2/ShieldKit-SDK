@@ -1,5 +1,9 @@
 export { adaptSnarkjsGroth16 } from './groth16.mjs';
 export {
+  adaptV2DirectGroth16,
+  V2_DIRECT_GROTH16_ADAPTER_SCHEMA,
+} from './v2-direct-groth16-adapter.mjs';
+export {
   measurePf7FixedPointCandidate,
   verifyPf7FixedPointCandidate,
   enumeratePf7FixedPointCandidates,

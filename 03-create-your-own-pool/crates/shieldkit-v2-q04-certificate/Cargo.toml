@@ -1,0 +1,12 @@
+[package]
+name = "shieldkit-v2-q04-certificate"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[dependencies]
+hex = "=0.4.3"
+serde = "=1.0.228"
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"

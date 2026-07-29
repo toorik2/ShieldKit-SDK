@@ -2,7 +2,12 @@
 
 Unaudited work in progress. **Chipnet first.**
 
-**Start here:** [**GOLDEN_PATH.md**](./GOLDEN_PATH.md) — install → pins → fund → deposit → withdraw.
+There is no public V2 Direct golden path while final qualification remains
+open. The permitted V2 Direct topology and nonclaims are in
+[`protocol/v2-direct/PROHIBITED_TOPOLOGIES.md`](./protocol/v2-direct/PROHIBITED_TOPOLOGIES.md)
+and [`protocol/v2-direct/PRIVACY_AND_ROLLOUT.md`](./protocol/v2-direct/PRIVACY_AND_ROLLOUT.md).
+Historical V1 instructions are not a V2 fallback and must not be followed as a
+V2 workflow.
 
 ## What you do
 
@@ -15,17 +20,13 @@ Unaudited work in progress. **Chipnet first.**
 
 You do **not** manage fee coin inventories, densFuel, or ECIP by hand — the client handles tip sync and fees.
 
-## Blank machine (summary)
+## Current V2 status
 
-1. `npm ci`
-2. `npm run fetch-pin-artifacts` (your pool) **or** `npm run fetch-playground-bundle` (demo)
-3. `npm run unlock-builder:setup`
-4. Fund hot wallet on Chipnet
-5. Create pool *or* use playground
-6. `shieldkit deposit … --broadcast`
-7. `shieldkit withdraw … --broadcast`
-
-Full commands: [GOLDEN_PATH.md](./GOLDEN_PATH.md).
+The V2 CLI is an explicit `--protocol v2-direct` development-only surface.
+It is not the default, has no public clean-machine qualification, and must not
+be represented as a public live-pool path. V1 material is distinct and requires
+an explicit `--protocol v1-legacy` mutation invocation with its linkability
+warning; it cannot create or migrate V2 state or artifacts.
 
 ## Backup
 
@@ -35,6 +36,6 @@ Full commands: [GOLDEN_PATH.md](./GOLDEN_PATH.md).
 
 ## Not covered here
 
-- Operator genesis internals beyond the golden path  
+- Operator genesis internals
 - Mainnet product claims  
 - Research packages under unlock-builder / verifier vendor trees  

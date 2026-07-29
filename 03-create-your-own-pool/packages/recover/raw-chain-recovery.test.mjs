@@ -3,7 +3,17 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { decodeTransactionBch, encodeTransaction, hash256 } from '@bitauth/libauth';
-import { createRawChainRecoveryJournal, extractProfileBoundSettlements, fetchBchnRawChainSegment, parseRawBchBlock, RawChainRecoveryError, verifyRawChainSegment } from './raw-chain-recovery.mjs';
+import {
+  createRawChainRecoveryJournal,
+  extractProfileBoundSettlements,
+  fetchBchnRawChainSegment,
+  parseRawBchBlock,
+  parseRawBchHeader,
+  RawChainRecoveryError,
+  verifyBchTransactionMerkleProof,
+  verifyRawChainSegment,
+  verifyRawHeaderSegment,
+} from './raw-chain-recovery.mjs';
 
 const fixtureUrl = new URL('./fixtures/', import.meta.url);
 const fromHex = (value) => Uint8Array.from(Buffer.from(value, 'hex'));
@@ -17,6 +27,23 @@ const merkle = (transactions) => {
   let level = transactions.map((transaction) => hash(transaction));
   while (level.length > 1) { if (level.length % 2 === 1) level.push(level.at(-1)); const next = []; for (let index = 0; index < level.length; index += 2) next.push(hash(Buffer.concat([level[index], level[index + 1]]))); level = next; }
   return level[0];
+};
+const merkleBranch = (transactions, transactionIndex) => {
+  let level = transactions.map((transaction) => hash(transaction));
+  let index = transactionIndex;
+  const branch = [];
+  while (level.length > 1) {
+    const siblingIndex = (index ^ 1) < level.length ? (index ^ 1) : index;
+    branch.push(Buffer.from(level[siblingIndex]).reverse().toString('hex'));
+    if (level.length % 2 === 1) level.push(level.at(-1));
+    const next = [];
+    for (let offset = 0; offset < level.length; offset += 2) {
+      next.push(hash(Buffer.concat([level[offset], level[offset + 1]])));
+    }
+    level = next;
+    index = Math.floor(index / 2);
+  }
+  return branch;
 };
 function mineBlock(previous, transactions, salt) {
   const head = new Uint8Array(80); head.set(u32(1), 0); head.set(fromHex(previous).reverse(), 4); head.set(merkle(transactions), 36); head.set(u32(salt), 68); head.set(Uint8Array.of(0xff, 0xff, 0x7f, 0x20), 72);
@@ -35,6 +62,57 @@ async function fixtures() {
 function chain(blocks) {
   const checkpoint = { blockHash: '00'.repeat(32), height: 100, chainwork: '100', maximumTarget }; const tip = { blockHash: blocks.at(-1).id, height: checkpoint.height + blocks.length, chainwork: (100n + work * BigInt(blocks.length)).toString(10) }; return { checkpoint, tip, rawBlocks: blocks.map((block) => block.raw) };
 }
+
+test('authenticates compact raw-header chains and canonical transaction Merkle branches', async () => {
+  const values = await fixtures();
+  const transactions = [values.deposit, values.transfer, values.withdrawal];
+  const first = mineBlock('00'.repeat(32), transactions, 0x0102_0304);
+  const input = chain([first]);
+  const segment = verifyRawHeaderSegment({
+    checkpoint: input.checkpoint,
+    rawHeaders: [first.header],
+    tip: input.tip,
+  });
+  assert.equal(segment.headers.length, 1);
+  assert.equal(segment.headers[0].id, first.id);
+  assert.equal(segment.headers[0].previousBlockHash, input.checkpoint.blockHash);
+  assert.equal(segment.headers[0].timestamp, 0x0102_0304);
+  const parsedHeader = parseRawBchHeader(first.header, { maximumTarget });
+  assert.equal(parsedHeader.merkleRoot, Buffer.from(merkle(transactions)).reverse().toString('hex'));
+
+  for (const [transactionIndex, rawTransaction] of transactions.entries()) {
+    const proof = verifyBchTransactionMerkleProof({
+      branch: merkleBranch(transactions, transactionIndex),
+      headerMerkleRoot: parsedHeader.merkleRoot,
+      rawTransaction,
+      transactionCount: transactions.length,
+      transactionIndex,
+    });
+    assert.equal(proof.transactionId, display(rawTransaction));
+  }
+
+  const terminalBranch = merkleBranch(transactions, 2);
+  expect(() => verifyBchTransactionMerkleProof({
+    branch: ['11'.repeat(32), ...terminalBranch.slice(1)],
+    headerMerkleRoot: parsedHeader.merkleRoot,
+    rawTransaction: transactions[2],
+    transactionCount: transactions.length,
+    transactionIndex: 2,
+  }), 'INVALID_MERKLE_PROOF');
+  expect(() => verifyBchTransactionMerkleProof({
+    branch: terminalBranch.slice(0, -1),
+    headerMerkleRoot: parsedHeader.merkleRoot,
+    rawTransaction: transactions[2],
+    transactionCount: transactions.length,
+    transactionIndex: 2,
+  }), 'INVALID_MERKLE_PROOF');
+  const wrongParent = mineBlock('11'.repeat(32), transactions, 0x0102_0305);
+  expect(() => verifyRawHeaderSegment({
+    checkpoint: input.checkpoint,
+    rawHeaders: [wrongParent.header],
+    tip: input.tip,
+  }), 'HEADER_LINKAGE');
+});
 
 test('structurally parses existing Chipnet settlement fixtures inside locally mined non-consensus blocks', async () => {
   const values = await fixtures(); const first = mineBlock('00'.repeat(32), [values.deposit], 1); const second = mineBlock(first.id, [values.transfer], 2); const third = mineBlock(second.id, [values.withdrawal], 3); const input = chain([first, second, third]); const segment = verifyRawChainSegment(input);

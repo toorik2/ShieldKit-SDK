@@ -4,7 +4,8 @@
 // roles 7..9, not a proof/PF7/G2 acceptance claim.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import {
   generateSigningSerializationBch,
@@ -13,6 +14,7 @@ import {
   SigningSerializationTypeBch,
 } from '@bitauth/libauth';
 import { parsePf7CarrierAuthority } from '../prove/authority.mjs';
+import { loadVerifierProfileBundle } from '../profile/load.mjs';
 import { generateFreshWitnessInputs } from './witness.mjs';
 import {
   finalizeCompletePreparationTransaction,
@@ -25,11 +27,55 @@ import {
   planCompleteSettlement,
 } from './assemble.mjs';
 
-const bundleDirectory = process.env.SHIELD_G2_PROFILE_V2_BUNDLE;
 const kinds = ['deposit', 'transfer', 'withdrawal'];
 const feePrivateKey = Buffer.concat([Buffer.alloc(31), Buffer.of(7)]);
 const withdrawalLockingBytecode = '51';
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+const fixturePrerequisite = (message) => {
+  throw new Error(`EXTERNAL_AUTHENTICATED_FIXTURE_REQUIRED: ${message}`);
+};
+
+async function authenticatedFixtureBundle() {
+  const configuredRoot = process.env.SHIELD_EXTERNAL_FIXTURE_ROOT;
+  const configuredBundle = process.env.SHIELD_G2_PROFILE_V2_BUNDLE;
+  if (typeof configuredRoot !== 'string' || configuredRoot.length === 0) {
+    fixturePrerequisite(
+      'set SHIELD_EXTERNAL_FIXTURE_ROOT to an absolute canonical fixture directory',
+    );
+  }
+  if (typeof configuredBundle !== 'string' || configuredBundle.length === 0) {
+    fixturePrerequisite(
+      'set SHIELD_G2_PROFILE_V2_BUNDLE to a bundle path relative to SHIELD_EXTERNAL_FIXTURE_ROOT',
+    );
+  }
+  if (!path.isAbsolute(configuredRoot) || path.isAbsolute(configuredBundle)) {
+    fixturePrerequisite(
+      'SHIELD_EXTERNAL_FIXTURE_ROOT must be absolute and SHIELD_G2_PROFILE_V2_BUNDLE must be relative',
+    );
+  }
+  const root = path.resolve(configuredRoot);
+  const rootMetadata = await lstat(root).catch(() =>
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT does not exist'));
+  if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink()) {
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT must be a real non-symlink directory');
+  }
+  const canonicalRoot = await realpath(root).catch(() =>
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT cannot be resolved'));
+  if (canonicalRoot !== root) {
+    fixturePrerequisite('SHIELD_EXTERNAL_FIXTURE_ROOT must not traverse symlinks');
+  }
+  const bundleDirectory = path.resolve(canonicalRoot, configuredBundle);
+  if (
+    bundleDirectory === canonicalRoot
+    || !bundleDirectory.startsWith(`${canonicalRoot}${path.sep}`)
+  ) {
+    fixturePrerequisite('SHIELD_G2_PROFILE_V2_BUNDLE must remain beneath SHIELD_EXTERNAL_FIXTURE_ROOT');
+  }
+  const loaded = await loadVerifierProfileBundle(bundleDirectory).catch((error) =>
+    fixturePrerequisite(`SHIELD_G2_PROFILE_V2_BUNDLE failed authenticated loading: ${error.message}`));
+  return Object.freeze({ bundleDirectory, loaded });
+}
 const transactionOutputJson = (output) => ({
   valueSatoshis: output.valueSatoshis.toString(),
   lockingBytecode: Buffer.from(output.lockingBytecode).toString('hex'),
@@ -78,12 +124,9 @@ async function signPreparation(input, plan) {
   return finalizeCompletePreparationTransaction(input, Buffer.from(signature).toString('hex'));
 }
 
-test('profile-v2 preparation hand-off constructs structurally exact ten-role settlements', async (t) => {
-  if (!bundleDirectory) {
-    t.skip('set SHIELD_G2_PROFILE_V2_BUNDLE to the canonical authenticated profile-v2 bundle');
-    return;
-  }
-  const manifest = JSON.parse(await readFile(`${bundleDirectory}/manifest.json`, 'utf8'));
+test('profile-v2 preparation hand-off constructs structurally exact ten-role settlements', async () => {
+  const { bundleDirectory, loaded } = await authenticatedFixtureBundle();
+  const manifest = loaded.manifest;
   const verifierSet = JSON.parse(await readFile(`${bundleDirectory}/artifacts/bch-verifier-set.json`, 'utf8'));
   const authority = parsePf7CarrierAuthority(verifierSet);
   const expectedProfile = {

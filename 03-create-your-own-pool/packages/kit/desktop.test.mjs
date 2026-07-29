@@ -95,9 +95,22 @@ test('desktop facade rejects unauthenticated profile paths before exposing plann
   );
 });
 
-test('desktop facade composes portable methods from an authenticated profile bundle', {
-  skip: process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE === undefined,
-}, async () => {
+test('desktop facade composes portable methods from an authenticated profile bundle', async () => {
+  assert.ok(
+    typeof process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE === 'string'
+      && process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE.length > 0,
+    'PREREQUISITE_MISSING: set SHIELD_CASH_TEST_PROFILE_BUNDLE to an authenticated local profile bundle',
+  );
+  assert.ok(
+    typeof process.env.SHIELD_CASH_TEST_PROFILE_ID === 'string'
+      && process.env.SHIELD_CASH_TEST_PROFILE_ID.length > 0,
+    'PREREQUISITE_MISSING: set SHIELD_CASH_TEST_PROFILE_ID for that authenticated local profile bundle',
+  );
+  assert.ok(
+    typeof process.env.SHIELD_CASH_TEST_INSTANCE_ID === 'string'
+      && process.env.SHIELD_CASH_TEST_INSTANCE_ID.length > 0,
+    'PREREQUISITE_MISSING: set SHIELD_CASH_TEST_INSTANCE_ID for that authenticated local profile bundle',
+  );
   const sdk = await createDesktopComposition({
     bundleDirectory: process.env.SHIELD_CASH_TEST_PROFILE_BUNDLE,
     expectedProfile: {

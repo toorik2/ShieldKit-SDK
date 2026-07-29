@@ -1,18 +1,24 @@
 # `@shieldkit/profile`
 
-init → bundle → genesis → `loadInstance` → `createKit`.
+V2 attested setup → V2 development profile → V2 instance package →
+`loadInstance` → `createKit`.
+
+The historical generic `init` and setup-to-profile bridge created the V1 legacy
+`shielded-action-v2` relation. They are retained only as fail-closed compatibility
+boundaries and cannot create or relabel a V2 Direct profile.
 
 ```js
-import { init, loadInstance, instanceToKitConfig } from './index.mjs';
-const born = await init({ mode: 'development-only', setup: {…}, bundle: {…}, load: true });
+import { loadInstance, instanceToKitConfig } from './index.mjs';
 const mine = await loadInstance('./my-pool');
 ```
 
 | Export | Role |
 |--------|------|
-| `init` | setup → build → load |
 | `loadInstance` / `instanceToKitConfig` | instance binding |
 | `planGenesis` / `finalizeGenesis` | genesis |
-| `initializeDevelopmentGroth16` / `initializeCeremonyGroth16` | via init |
+| `initializeDevelopmentGroth16` | exact attested V2 Direct development setup |
+| `buildV2DevelopmentProfilePackage` | exact V2 Direct profile package |
+| `init` | quarantined historical V1 creation boundary |
 
-New setup ⇒ new profile + genesis. Mode laundering refused.
+V1 bundles remain readable as V1. They cannot be converted, relabeled, or
+migrated into V2 Direct.

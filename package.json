@@ -5,7 +5,7 @@
   "description": "ShieldKit toolkit 0.2.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   },
   "workspaces": [
     "03-create-your-own-pool/packages/action",
@@ -19,9 +19,29 @@
   "scripts": {
     "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
     "install:deps": "npm ci --include-workspace-root",
-    "test": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs",
-    "test:qualification:covenants": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --include-qualification",
-    "test:live-fixtures": "SHIELDKIT_LIVE_FIXTURES=1 node --test 03-create-your-own-pool/packages/kit/pool-act-fail-closed.test.mjs",
+    "test": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite portable",
+    "test:v2:circuit-model": "node --test 03-create-your-own-pool/packages/action/v2/circuit-model.test.mjs",
+    "test:v2:campaign:strict-codec": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign",
+    "test:v2:campaign:depth4": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-depth4-campaign",
+    "test:qualification:covenants": "npm run test:qualification:local-covenants",
+    "test:qualification:local-covenants": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-covenants",
+    "test:qualification:local-verifier-lane": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-verifier-lane",
+    "qualification:local-verifier-artifacts": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --provision-local-verifier-artifacts",
+    "test:external:fixtures": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite external-fixtures",
+    "test:external:verifier-source": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite external-verifier-source",
+    "test:live-fixtures": "npm run test:external:fixtures",
+    "check:type:v2": "tsc --project 03-create-your-own-pool/packages/action/v2/typescript/tsconfig.json --noEmit",
+    "test:rust:v2": "node 03-create-your-own-pool/scripts/run-rust-tests.mjs",
+    "qualification:v2:crash10k": "node 03-create-your-own-pool/scripts/v2-crash-qualification.mjs",
+    "qualification:v2:reorg-concurrency": "node 03-create-your-own-pool/scripts/v2-reorg-concurrency-qualification.mjs",
+    "qualification:v2:clean-machine": "node 03-create-your-own-pool/scripts/v2-clean-machine-qualification.mjs",
+    "qualification:v2:q08-pair": "node 03-create-your-own-pool/scripts/v2-q08-pair-qualification.mjs",
+    "qualification:v2:chipnet-soak": "node 03-create-your-own-pool/scripts/v2-chipnet-soak.mjs",
+    "qualification:v2:q02-final-key-corpus": "node 03-create-your-own-pool/scripts/v2-q02-final-key-corpus.mjs",
+    "qualification:v2:pf10-libauth": "node 03-create-your-own-pool/scripts/v2-pf10-libauth-qualification.mjs",
+    "qualification:external:bchn": "node 03-create-your-own-pool/scripts/external-release-gate.mjs --gate bchn",
+    "qualification:external:chipnet": "node 03-create-your-own-pool/scripts/external-release-gate.mjs --gate chipnet",
+    "qualification:external:final-ceremony-and-audits": "node 03-create-your-own-pool/scripts/external-release-gate.mjs --gate final-ceremony-and-audits",
     "shieldkit": "node 03-create-your-own-pool/scripts/shieldkit.mjs",
     "fetch-playground-bundle": "node 03-create-your-own-pool/scripts/fetch-playground-bundle.mjs",
     "version-check": "node 03-create-your-own-pool/scripts/shieldkit.mjs --version",
@@ -34,13 +54,14 @@
     "e2e:multiuser-blank": "node 03-create-your-own-pool/scripts/chipnet-multiuser-blank-e2e.mjs",
     "rpc:probe": "node 03-create-your-own-pool/scripts/rpc-probe.mjs",
     "test:pool": "node --test 03-create-your-own-pool/packages/pool/*.test.mjs",
-    "golden-path": "node -e \"console.log(require('fs').readFileSync('03-create-your-own-pool/docs/GOLDEN_PATH.md','utf8'))\"",
     "audit:dependencies": "npm audit --audit-level=high",
     "check:source": "node 03-create-your-own-pool/scripts/check-source-policy.mjs",
     "test:formal": "bash 03-create-your-own-pool/packages/unlock-builder/vendor/lean/tools/opt-ci/verify.sh"
   },
   "devDependencies": {
+    "circomlib": "2.0.5",
     "pnpm": "10.34.5",
+    "typescript": "5.9.3",
     "yarn": "1.22.22"
   },
   "overrides": {

@@ -22,6 +22,12 @@ import {
   SHIELD_PROJECTION_SIGNAL_BYTES,
   SHIELD_PROJECTION_SIGNAL_PUSH_HEADER,
 } from './shield-action-packet-input.mjs';
+import {
+  assertDirectV2PacketPublicInputs,
+  loadPinnedShieldDirectV2Packet,
+  SHIELD_DIRECT_V2_PACKET_BYTES,
+  SHIELD_DIRECT_V2_PACKET_PUSH_HEADER,
+} from './shield-direct-v2-packet-input.mjs';
 
 normalizeLegacyC7Environment(process.env);
 
@@ -146,6 +152,24 @@ const TERMINAL_BIND_WSEL = process.env.TERMINAL_BIND_WSEL === '1';
 // sequence c[12] || ci[12] || wsel.
 const TERMINAL_W_SELECTOR = process.env.TERMINAL_W_SELECTOR === '1';
 const SHIELD_ACTION_SEAM = CONFIG.shieldAction.packet !== undefined;
+const SHIELD_ACTION_PACKET_ABI =
+  process.env.C7_SHIELD_ACTION_PACKET_ABI ?? 'scar-v1';
+if (
+  SHIELD_ACTION_PACKET_ABI !== 'scar-v1'
+  && SHIELD_ACTION_PACKET_ABI !== 'sda2-v2-direct'
+) {
+  throw new Error(
+    'C7_SHIELD_ACTION_PACKET_ABI must be scar-v1 or sda2-v2-direct',
+  );
+}
+if (
+  !SHIELD_ACTION_SEAM
+  && process.env.C7_SHIELD_ACTION_PACKET_ABI !== undefined
+) {
+  throw new Error(
+    'C7_SHIELD_ACTION_PACKET_ABI requires a pinned shield action packet',
+  );
+}
 const DIRECT_FINALIZE_STATE = CONFIG.mode.directFinalizeState;
 // Direct-state boundary loaders have no NFT/output covenant carrying the stage graph.
 // Bind their complete source-role set at the loader boundary.
@@ -194,22 +218,37 @@ function eligInstanceLocal(): { pf: any; inputs: bigint[] } {
 const ELIG = eligInstanceLocal();
 console.log('=== ELIG_INSTANCE (c7_merge) ===', JSON.stringify({ sel: activeInstance.source, idx: CONFIG.proofSelection.rawIndex ?? null, inputs: ELIG.inputs.map(String), adapterSha256: activeInstance.artifact?.sha256 }));
 // Bounded shield.cash verifier-context experiment. Input 7 carries one exact
-// SHA-pinned 752-byte SCAR packet. The digest is witness data only: genesis
-// binds it bijectively to in0/in1, and terminal hashes input 7 at runtime.
-// Packet bytes, digest bytes, and public-input values never enter source locks.
+// SHA-pinned packet under one explicitly selected ABI. The digest is witness
+// data only: genesis binds it bijectively to in0/in1, and terminal hashes
+// input 7 at runtime. Packet bytes and public inputs never enter source locks.
 const STRUCTURAL_ROLE_COUNT = CONFIG.mode.structuralRoleCount;
+const packetAbi = SHIELD_ACTION_PACKET_ABI === 'sda2-v2-direct'
+  ? {
+      bytes: SHIELD_DIRECT_V2_PACKET_BYTES,
+      pushHeader: SHIELD_DIRECT_V2_PACKET_PUSH_HEADER,
+      load: loadPinnedShieldDirectV2Packet,
+      assertPublicInputs: assertDirectV2PacketPublicInputs,
+    }
+  : {
+      bytes: SHIELD_ACTION_PACKET_BYTES,
+      pushHeader: SHIELD_ACTION_PACKET_PUSH_HEADER,
+      load: loadPinnedShieldActionPacket,
+      assertPublicInputs: assertActionDigestPublicInputs,
+    };
 const packetIngress = SHIELD_ACTION_SEAM
-  ? loadPinnedShieldActionPacket(CONFIG.shieldAction.packet)
+  ? packetAbi.load(CONFIG.shieldAction.packet)
   : undefined;
 const packetBytes = packetIngress?.bytes ?? new Uint8Array();
 const packetDigest = packetIngress?.digest ?? new Uint8Array();
 const packetUnlock = STRUCTURAL_ROLE_COUNT === 3 ? encodeDataPush(packetBytes) : new Uint8Array();
 if (SHIELD_ACTION_SEAM) {
-  assertActionDigestPublicInputs(packetDigest, ELIG.inputs);
-  if (packetBytes.length !== SHIELD_ACTION_PACKET_BYTES
-      || packetUnlock.length !== SHIELD_ACTION_PACKET_PUSH_HEADER.length + SHIELD_ACTION_PACKET_BYTES
-      || !SHIELD_ACTION_PACKET_PUSH_HEADER.every((value, index) => packetUnlock[index] === value)) {
-    throw new Error('shield action packet unlock must be exactly PUSHDATA2(752) with no suffix');
+  packetAbi.assertPublicInputs(packetDigest, ELIG.inputs);
+  if (packetBytes.length !== packetAbi.bytes
+      || packetUnlock.length !== packetAbi.pushHeader.length + packetAbi.bytes
+      || !packetAbi.pushHeader.every((value, index) => packetUnlock[index] === value)) {
+    throw new Error(
+      `shield action packet unlock must be exactly PUSHDATA2(${packetAbi.bytes}) with no suffix`,
+    );
   }
 }
 const SGB_WIDTHS = Array.from({ length: 32 }, (_, p) => (gb3 as any).stateW(p));
@@ -2435,11 +2474,11 @@ const boundaryRoleGuard = (inputIndex: number, roles: Array<[number, Uint8Array]
 // projection bytes remain at the historical [3,451) executor slice.
 const packetDigestGuard = () => STRUCTURAL_ROLE_COUNT === 3
   ? cat(
-    // input 7 = exactly 4d f0 02 || SCAR[752], no trailing bytes.
+    // input 7 = exact ABI-selected PUSHDATA2(packet), no trailing bytes.
     pushInt(PACKET_INPUT_INDEX), b(OP.INPUTBYTECODE, 0x82),
-    pushInt(SHIELD_ACTION_PACKET_PUSH_HEADER.length + SHIELD_ACTION_PACKET_BYTES), b(OP.EQUALVERIFY),
-    pushInt(SHIELD_ACTION_PACKET_PUSH_HEADER.length), b(OP.SPLIT, 0x7c),
-    push(SHIELD_ACTION_PACKET_PUSH_HEADER), b(OP.EQUALVERIFY, 0xa8),
+    pushInt(packetAbi.pushHeader.length + packetAbi.bytes), b(OP.EQUALVERIFY),
+    pushInt(packetAbi.pushHeader.length), b(OP.SPLIT, 0x7c),
+    push(packetAbi.pushHeader), b(OP.EQUALVERIFY, 0xa8),
     // genesis = 4d e0 01 || projectionContext[448] || digest[32] || ...
     pushInt(genesisIndex), b(OP.INPUTBYTECODE),
     pushInt(SHIELD_PROJECTION_SIGNAL_PUSH_HEADER.length), b(OP.SPLIT, 0x7c),

@@ -104,10 +104,16 @@ export interface IntraTxContext {
     /** Optional introspection fields for fixed-deployment benchmark profiles. */
     sequenceNumber?: number;
     outpointTransactionHash?: Uint8Array;
+    outpointIndex?: number;
     /** Optional token on THIS input's spent UTXO (the incoming covenant state a
      * token-covenant redeem reads via tx.inputs[i].nftCommitment). Without it, a
      * token-covenant input rejects at covIn for lack of a commitment. */
-    token?: { category: Uint8Array; capability: 'none' | 'mutable' | 'minting'; commitment: Uint8Array };
+    token?: {
+      amount?: bigint;
+      category: Uint8Array;
+      capability: 'none' | 'mutable' | 'minting';
+      commitment: Uint8Array;
+    };
   }[];
   outputs?: {
     lockingBytecode: Uint8Array;
@@ -139,14 +145,14 @@ export const evaluatePair = (
       lockingBytecode: i.lockingBytecode,
       valueSatoshis: i.valueSatoshis ?? 1000n,
       ...(i.token
-        ? { token: { amount: 0n, category: i.token.category, nft: { capability: i.token.capability, commitment: i.token.commitment } } }
+        ? { token: { amount: i.token.amount ?? 0n, category: i.token.category, nft: { capability: i.token.capability, commitment: i.token.commitment } } }
         : {}),
     })),
     transaction: {
       version: 2,
       inputs: intraTx.inputs.map((i, n) => ({
         outpointTransactionHash: i.outpointTransactionHash ?? new Uint8Array(32),
-        outpointIndex: n,
+        outpointIndex: i.outpointIndex ?? n,
         // Keep introspection-sensitive profiles aligned with the concrete BCH2026 envelope.
         sequenceNumber: i.sequenceNumber ?? 0xffffffff,
         unlockingBytecode: i.unlockingBytecode,
