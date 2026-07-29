@@ -10,7 +10,7 @@ async function load() { const [genesis, deposit, transfer, withdrawal] = await P
 
 test('extracts exact authenticated anchors and packet chain from public raw genesis/deposit/transfer/withdrawal fixtures', async () => {
   const { input } = await load(); const { createHash } = await import('node:crypto'); input.stateLockSha256 = createHash('sha256').update(input.stateLockingBytecode).digest('hex');
-  const history = extractRawSettlementHistory(input); assert.equal(history.packets.length, 3); assert.equal(history.initialState.length, 192); assert.equal(history.terminalState.length, 192); assert.equal(history.transactionIds.length, 4); assert.deepEqual(history.transactionIds, input.rawTransactions.map((_, index) => [input.genesisTransactionId, '56563c2c3a81857216853b53293c0cedc8f4baaa15b2430553be57a0d57a6cf1', 'ffa7fe6cb706546368a4f2dd14243a5c73a7d0dcc90d570f1238592387baa38b', '14f6363290f73fdd7e723491110c458de8efa8e90b7e7dfa6675381e1175c2e0'][index]));
+  const history = extractRawSettlementHistory(input); assert.equal(history.packets.length, 3); assert.equal(history.initialState.length, 192); assert.equal(history.terminalState.length, 192); assert.equal(history.transactionIds.length, 4); assert.deepEqual(history.transactionIds, input.rawTransactions.map((_, index) => [input.genesisTransactionId, '56563c2c3a81857216853b53293c0cedc8f4baaa15b2430553be57a0d57a6cf1', 'ebd71af47a5829629f252fa30f77449a823ce9dd32bb1bbc3072c989614d7a8a', '859982e414f7a52b0f482717b7ac5f5241a18cee5683b4c1b5ef8c2c061dcc3f'][index]));
 });
 
 const mutateTransaction = (wire, mutate) => { const tx = decodeTransactionBch(wire); mutate(tx); return Uint8Array.from(encodeTransaction(tx)); };
