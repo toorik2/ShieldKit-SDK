@@ -14,7 +14,8 @@
     "03-create-your-own-pool/packages/profile",
     "03-create-your-own-pool/packages/prove",
     "03-create-your-own-pool/packages/recover",
-    "03-create-your-own-pool/packages/unlock-builder"
+    "03-create-your-own-pool/packages/unlock-builder",
+    "03-create-your-own-pool/packages/v2-direct"
   ],
   "scripts": {
     "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
@@ -37,7 +38,11 @@
     "golden-path": "node -e \"console.log(require('fs').readFileSync('03-create-your-own-pool/docs/GOLDEN_PATH.md','utf8'))\"",
     "audit:dependencies": "npm audit --audit-level=high",
     "check:source": "node 03-create-your-own-pool/scripts/check-source-policy.mjs",
-    "test:formal": "bash 03-create-your-own-pool/packages/unlock-builder/vendor/lean/tools/opt-ci/verify.sh"
+    "test:formal": "bash 03-create-your-own-pool/packages/unlock-builder/vendor/lean/tools/opt-ci/verify.sh",
+    "test:v2-direct": "node --test 03-create-your-own-pool/packages/v2-direct/**/*.test.mjs 03-create-your-own-pool/packages/v2-direct/*.test.mjs",
+    "v2-direct": "node 03-create-your-own-pool/packages/v2-direct/cli/shieldkit-v2.mjs",
+    "protocol-v2": "node Protocol-design-v2/bin/shieldkit-v2.mjs",
+    "test:protocol-v2": "node --test 03-create-your-own-pool/packages/v2-direct/cli/*.test.mjs 03-create-your-own-pool/packages/v2-direct/operator/funding-wallet.test.mjs"
   },
   "devDependencies": {
     "pnpm": "10.34.5",

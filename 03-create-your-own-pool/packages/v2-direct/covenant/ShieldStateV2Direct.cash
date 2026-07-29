@@ -1,0 +1,93 @@
+pragma cashscript ^0.14.0;
+
+// V2 Direct SKS2 state covenant — densFuel PF7 product topology (N=7).
+// Bare locking bytecode (scriptPubKey = contract redeem) so
+// ACTIVEBYTECODE == UTXOBYTECODE.
+//
+// CashTokens OP_UTXOTOKENCATEGORY returns category in P2P/little-endian byte
+// order (same as OUTPOINTTXHASH). Constructor instanceIdCategory is UI/big-endian
+// (SHA-256 / explorer txid hex); reverse before comparing.
+//
+// Layout: ins/outs 0..6 carriers, 7 binding, 8 state, 9+ funding/change/payout
+
+contract ShieldStateV2Direct(
+    bytes bindingCarrierLockingBytecode,
+    bytes32 profileId,
+    bytes32 instanceIdCategory,
+    int stateBaseSats,
+    int carrierCount
+) {
+    function advance() {
+        require(tx.version == 2);
+        require(carrierCount == 7);
+
+        int bindingIn = 7;
+        int stateIn = 8;
+        int stateOut = 8;
+        require(this.activeInputIndex == stateIn);
+
+        // P2SH32-safe: successor must reuse the same locking bytecode as this UTXO.
+        // P2SH hash-preimage already binds this.activeBytecode to the UTXO lock.
+        require(tx.inputs[stateIn].lockingBytecode == tx.outputs[stateOut].lockingBytecode);
+
+        // category (LE) || mutable capability 0x01
+        bytes1 capMut = 0x01;
+        bytes catMut = instanceIdCategory.reverse() + capMut;
+        require(tx.inputs[stateIn].tokenCategory == catMut);
+        require(tx.outputs[stateOut].tokenCategory == catMut);
+        require(tx.inputs[stateIn].tokenAmount == 0);
+        require(tx.outputs[stateOut].tokenAmount == 0);
+
+        require(tx.inputs[bindingIn].lockingBytecode == bindingCarrierLockingBytecode);
+
+        bytes packetUnlock = tx.inputs[bindingIn].unlockingBytecode;
+        require(packetUnlock.length == 555);
+        bytes3 hdr = packetUnlock.split(3)[0];
+        bytes sda2 = packetUnlock.split(3)[1];
+        require(hdr == 0x4d2802);
+        require(sda2.length == 552);
+
+        require(sda2.split(4)[0] == 0x53444132);
+        require(sda2.split(6)[1].split(2)[0] == 0x0000);
+        // packet instanceId is UI/big-endian (same as constructor)
+        require(sda2.split(8)[1].split(32)[0] == instanceIdCategory);
+
+        bytes pre = sda2.split(40)[1].split(128)[0];
+        bytes post = sda2.split(168)[1].split(128)[0];
+        require(pre.split(4)[0] == 0x534b5332);
+        require(post.split(4)[0] == 0x534b5332);
+        require(pre.split(4)[1].split(32)[0] == profileId);
+        require(post.split(4)[1].split(32)[0] == profileId);
+        require(pre.split(108)[1].split(4)[0] == post.split(108)[1].split(4)[0]);
+
+        require(tx.inputs[stateIn].nftCommitment == pre);
+        require(tx.outputs[stateOut].nftCommitment == post);
+
+        int preReserve = int(pre.split(112)[1].split(8)[0]);
+        int postReserve = int(post.split(112)[1].split(8)[0]);
+        require(tx.inputs[stateIn].value == stateBaseSats + preReserve);
+        require(tx.outputs[stateOut].value == stateBaseSats + postReserve);
+
+        bytes kind = sda2.split(5)[1].split(1)[0];
+        int D = 10000000;
+        bytes32 z32 = 0x0000000000000000000000000000000000000000000000000000000000000000;
+
+        if (kind == 0x01) {
+            require(postReserve == preReserve + D);
+            require(sda2.split(296)[1].split(32)[0] == z32);
+            require(sda2.split(488)[1].split(32)[0] == z32);
+        } else if (kind == 0x02) {
+            require(postReserve == preReserve);
+            require(sda2.split(488)[1].split(32)[0] == z32);
+        } else {
+            require(kind == 0x03);
+            require(postReserve == preReserve - D);
+            require(tx.outputs[9].value == D);
+            // protocol withdrawalLockingBytecodeHash is single SHA-256 (not hash256/d)
+            require(sha256(tx.outputs[9].lockingBytecode) == sda2.split(488)[1].split(32)[0]);
+            require(sda2.split(328)[1].split(32)[0] == z32);
+        }
+
+        require(tx.inputs.length == 10);
+    }
+}

@@ -37,7 +37,8 @@ export const LIVE_UNLOCK_FLAGS = Object.freeze({
   STRIPE_BOUNDARY: '1',
   DIRECT_FINALIZE_STATE: '1',
   STRICT_DEPLOYMENT: '1',
-  PUBLIC_BENCH_CONTEXT: '1',
+  // Override PUBLIC_BENCH_CONTEXT=0 for higher SOURCE_VALUE (10k) when funding live Chipnet settles.
+  PUBLIC_BENCH_CONTEXT: process.env.PUBLIC_BENCH_CONTEXT ?? '1',
   DRIVER_PACK_DERIVED: '1',
   DRIVER_WINDOW_DERIVED: '1',
   C7_PROJECTED_BQ_7: '1',
@@ -101,6 +102,13 @@ export function buildLiveUnlockEnv(p) {
     C7_SHIELD_ACTION_PACKET_SHA256: p.packetSha256,
     C7_TMP: p.buildDir,
     C7_GEN: p.genDir,
+    // Optional densFuel source-value override for live fee-viable settles
+    ...(process.env.C7_SOURCE_VALUE_SATS
+      ? { C7_SOURCE_VALUE_SATS: process.env.C7_SOURCE_VALUE_SATS }
+      : {}),
+    ...(process.env.PUBLIC_BENCH_CONTEXT !== undefined
+      ? { PUBLIC_BENCH_CONTEXT: process.env.PUBLIC_BENCH_CONTEXT }
+      : {}),
   };
 }
 

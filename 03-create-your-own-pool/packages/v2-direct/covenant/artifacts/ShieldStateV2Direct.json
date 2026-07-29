@@ -1,0 +1,191 @@
+{
+  "contractName": "ShieldStateV2Direct",
+  "constructorInputs": [
+    {
+      "name": "bindingCarrierLockingBytecode",
+      "type": "bytes"
+    },
+    {
+      "name": "profileId",
+      "type": "bytes32"
+    },
+    {
+      "name": "instanceIdCategory",
+      "type": "bytes32"
+    },
+    {
+      "name": "stateBaseSats",
+      "type": "int"
+    },
+    {
+      "name": "carrierCount",
+      "type": "int"
+    }
+  ],
+  "abi": [
+    {
+      "name": "advance",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_TXVERSION OP_2 OP_NUMEQUALVERIFY OP_4 OP_ROLL OP_7 OP_NUMEQUALVERIFY OP_8 OP_INPUTINDEX OP_OVER OP_NUMEQUALVERIFY OP_8 OP_OVER OP_UTXOBYTECODE OP_OVER OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_1 OP_5 OP_PICK OP_REVERSEBYTES OP_SWAP OP_CAT OP_2 OP_PICK OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_OVER OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_OVER OP_UTXOTOKENAMOUNT OP_0 OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_0 OP_NUMEQUALVERIFY OP_7 OP_DUP OP_UTXOBYTECODE OP_4 OP_ROLL OP_EQUALVERIFY OP_INPUTBYTECODE OP_DUP OP_SIZE OP_NIP 2b02 OP_NUMEQUALVERIFY OP_DUP OP_3 OP_SPLIT OP_DROP 4d2802 OP_EQUALVERIFY OP_3 OP_SPLIT OP_NIP OP_DUP OP_SIZE OP_NIP 2802 OP_NUMEQUALVERIFY OP_DUP OP_4 OP_SPLIT OP_DROP 53444132 OP_EQUALVERIFY OP_DUP OP_6 OP_SPLIT OP_NIP OP_2 OP_SPLIT OP_DROP 0000 OP_EQUALVERIFY OP_DUP OP_8 OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_5 OP_ROLL OP_EQUALVERIFY OP_DUP 28 OP_SPLIT OP_NIP 8000 OP_SPLIT OP_DROP 534b5332 OP_OVER OP_4 OP_SPLIT OP_DROP OP_OVER OP_EQUALVERIFY OP_2 OP_PICK a800 OP_SPLIT OP_NIP 8000 OP_SPLIT OP_DROP OP_DUP OP_4 OP_SPLIT OP_DROP OP_ROT OP_EQUALVERIFY OP_OVER OP_4 OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_6 OP_PICK OP_EQUALVERIFY OP_DUP OP_4 OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_6 OP_ROLL OP_EQUALVERIFY OP_OVER 6c OP_SPLIT OP_NIP OP_4 OP_SPLIT OP_DROP OP_OVER 6c OP_SPLIT OP_NIP OP_4 OP_SPLIT OP_DROP OP_EQUALVERIFY OP_4 OP_PICK OP_UTXOTOKENCOMMITMENT OP_2 OP_PICK OP_EQUALVERIFY OP_3 OP_PICK OP_OUTPUTTOKENCOMMITMENT OP_OVER OP_EQUALVERIFY OP_SWAP 70 OP_SPLIT OP_NIP OP_8 OP_SPLIT OP_DROP OP_BIN2NUM OP_4 OP_ROLL OP_UTXOVALUE OP_5 OP_PICK OP_2 OP_PICK OP_ADD OP_NUMEQUALVERIFY OP_SWAP 70 OP_SPLIT OP_NIP OP_8 OP_SPLIT OP_DROP OP_BIN2NUM OP_3 OP_ROLL OP_OUTPUTVALUE OP_4 OP_ROLL OP_2 OP_PICK OP_ADD OP_NUMEQUALVERIFY 0000000000000000000000000000000000000000000000000000000000000000 80969800 OP_4 OP_PICK OP_5 OP_SPLIT OP_NIP OP_1 OP_SPLIT OP_DROP e801 OP_OVER OP_1 OP_EQUAL OP_IF OP_4 OP_PICK OP_6 OP_PICK OP_4 OP_PICK OP_ADD OP_NUMEQUALVERIFY OP_6 OP_PICK 2801 OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUALVERIFY OP_6 OP_PICK OP_OVER OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUALVERIFY OP_ELSE OP_OVER OP_2 OP_EQUAL OP_IF OP_4 OP_PICK OP_6 OP_PICK OP_NUMEQUALVERIFY OP_6 OP_PICK OP_OVER OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUALVERIFY OP_ELSE OP_OVER OP_3 OP_EQUALVERIFY OP_4 OP_PICK OP_6 OP_PICK OP_4 OP_PICK OP_SUB OP_NUMEQUALVERIFY OP_9 OP_OUTPUTVALUE OP_3 OP_PICK OP_NUMEQUALVERIFY OP_9 OP_OUTPUTBYTECODE OP_SHA256 OP_7 OP_PICK OP_2 OP_PICK OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_EQUALVERIFY OP_6 OP_PICK 4801 OP_SPLIT OP_NIP 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUALVERIFY OP_ENDIF OP_ENDIF OP_TXINPUTCOUNT OP_10 OP_NUMEQUALVERIFY OP_2DROP OP_2DROP OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ^0.14.0;\n\n// V2 Direct SKS2 state covenant — densFuel PF7 product topology (N=7).\n// Bare locking bytecode (scriptPubKey = contract redeem) so\n// ACTIVEBYTECODE == UTXOBYTECODE.\n//\n// CashTokens OP_UTXOTOKENCATEGORY returns category in P2P/little-endian byte\n// order (same as OUTPOINTTXHASH). Constructor instanceIdCategory is UI/big-endian\n// (SHA-256 / explorer txid hex); reverse before comparing.\n//\n// Layout: ins/outs 0..6 carriers, 7 binding, 8 state, 9+ funding/change/payout\n\ncontract ShieldStateV2Direct(\n    bytes bindingCarrierLockingBytecode,\n    bytes32 profileId,\n    bytes32 instanceIdCategory,\n    int stateBaseSats,\n    int carrierCount\n) {\n    function advance() {\n        require(tx.version == 2);\n        require(carrierCount == 7);\n\n        int bindingIn = 7;\n        int stateIn = 8;\n        int stateOut = 8;\n        require(this.activeInputIndex == stateIn);\n\n        // P2SH32-safe: successor must reuse the same locking bytecode as this UTXO.\n        // P2SH hash-preimage already binds this.activeBytecode to the UTXO lock.\n        require(tx.inputs[stateIn].lockingBytecode == tx.outputs[stateOut].lockingBytecode);\n\n        // category (LE) || mutable capability 0x01\n        bytes1 capMut = 0x01;\n        bytes catMut = instanceIdCategory.reverse() + capMut;\n        require(tx.inputs[stateIn].tokenCategory == catMut);\n        require(tx.outputs[stateOut].tokenCategory == catMut);\n        require(tx.inputs[stateIn].tokenAmount == 0);\n        require(tx.outputs[stateOut].tokenAmount == 0);\n\n        require(tx.inputs[bindingIn].lockingBytecode == bindingCarrierLockingBytecode);\n\n        bytes packetUnlock = tx.inputs[bindingIn].unlockingBytecode;\n        require(packetUnlock.length == 555);\n        bytes3 hdr = packetUnlock.split(3)[0];\n        bytes sda2 = packetUnlock.split(3)[1];\n        require(hdr == 0x4d2802);\n        require(sda2.length == 552);\n\n        require(sda2.split(4)[0] == 0x53444132);\n        require(sda2.split(6)[1].split(2)[0] == 0x0000);\n        // packet instanceId is UI/big-endian (same as constructor)\n        require(sda2.split(8)[1].split(32)[0] == instanceIdCategory);\n\n        bytes pre = sda2.split(40)[1].split(128)[0];\n        bytes post = sda2.split(168)[1].split(128)[0];\n        require(pre.split(4)[0] == 0x534b5332);\n        require(post.split(4)[0] == 0x534b5332);\n        require(pre.split(4)[1].split(32)[0] == profileId);\n        require(post.split(4)[1].split(32)[0] == profileId);\n        require(pre.split(108)[1].split(4)[0] == post.split(108)[1].split(4)[0]);\n\n        require(tx.inputs[stateIn].nftCommitment == pre);\n        require(tx.outputs[stateOut].nftCommitment == post);\n\n        int preReserve = int(pre.split(112)[1].split(8)[0]);\n        int postReserve = int(post.split(112)[1].split(8)[0]);\n        require(tx.inputs[stateIn].value == stateBaseSats + preReserve);\n        require(tx.outputs[stateOut].value == stateBaseSats + postReserve);\n\n        bytes kind = sda2.split(5)[1].split(1)[0];\n        int D = 10000000;\n        bytes32 z32 = 0x0000000000000000000000000000000000000000000000000000000000000000;\n\n        if (kind == 0x01) {\n            require(postReserve == preReserve + D);\n            require(sda2.split(296)[1].split(32)[0] == z32);\n            require(sda2.split(488)[1].split(32)[0] == z32);\n        } else if (kind == 0x02) {\n            require(postReserve == preReserve);\n            require(sda2.split(488)[1].split(32)[0] == z32);\n        } else {\n            require(kind == 0x03);\n            require(postReserve == preReserve - D);\n            require(tx.outputs[9].value == D);\n            // protocol withdrawalLockingBytecodeHash is single SHA-256 (not hash256/d)\n            require(sha256(tx.outputs[9].lockingBytecode) == sda2.split(488)[1].split(32)[0]);\n            require(sda2.split(328)[1].split(32)[0] == z32);\n        }\n\n        require(tx.inputs.length == 10);\n    }\n}\n",
+  "fingerprint": "5db780929fb6337fc9b6fb3a1862570009b41de93e0a44c01822e1bd549c7bbc",
+  "debug": {
+    "bytecode": "c2529d547a579d58c0789d5878c778cd88515579bc7c7e5279ce788878d18878d0009d76d3009d5776c7547a88ca768277022b029d76537f75034d280288537f777682770228029d76547f7504534441328876567f77527f750200008876587f7701207f75557a887601287f770280007f7504534b533278547f757888527902a8007f770280007f7576547f757b8878547f7701207f7556798876547f7701207f75567a8878016c7f77547f7578016c7f77547f75885479cf5279885379d278887c01707f77587f7581547ac655795279939d7c01707f77587f7581537acc547a5279939d20000000000000000000000000000000000000000000000000000000000000000004809698005479557f77517f7502e80178518763547956795479939d56790228017f7701207f755479885679787f7701207f755479886778528763547956799d5679787f7701207f7554798867785388547956795479949d59cc53799d59cda8577952797f7701207f758856790248017f7701207f755479886868c35a9d6d6d6d7551",
+    "sourceMap": "21:16:21:26;:30::31;:8::33:1;22:16:22:28:0;;:32::33;:8::35:1;25:22:25:23:0;27:16:27:37;:41::48;:8::50:1;26:23:26:24:0;31:26:31:33;:16::50:1;:65::73:0;:54::90:1;:8::92;34:24:34:28:0;35:23:35:41;;:::51:1;:54::60:0;:23:::1;36:26:36:33:0;;:16::48:1;:52::58:0;:8::60:1;37:27:37:35:0;:16::50:1;:8::62;38:26:38:33:0;:16::46:1;:50::51:0;:8::53:1;39:27:39:35:0;:16::48:1;:52::53:0;:8::55:1;24:24:24:25:0;41:26:41:35;:16::52:1;:56::85:0;;:8::87:1;43:29:43:67;44:16:44:28:0;:::35:1;;:39::42:0;:8::44:1;45:21:45:33:0;:40::41;:21::42:1;:::45;47:23:47:31:0;:8::33:1;46:40:46:41:0;:21::42:1;:::45;48:16:48:20:0;:::27:1;;:31::34:0;:8::36:1;50:16:50:20:0;:27::28;:16::29:1;:::32;:36::46:0;:8::48:1;51:16:51:20:0;:27::28;:16::29:1;:::32;:39::40:0;:16::41:1;:::44;:48::54:0;:8::56:1;53:16:53:20:0;:27::28;:16::29:1;:::32;:39::41:0;:16::42:1;:::45;:49::67:0;;:8::69:1;55:20:55:24:0;:31::33;:20::34:1;:::37;:44::47:0;:20::48:1;:::51;21:8:21:33:0;57:16:57:19;:26::27;:16::28:1;:::31;:35::45:0;:8::47:1;56:21:56:25:0;;:32::35;:21::36:1;:::39;:46::49:0;:21::50:1;:::53;58:16:58:20:0;:27::28;:16::29:1;:::32;:36::46:0;:8::48:1;59:16:59:19:0;:26::27;:16::28:1;:::31;:38::40:0;:16::41:1;:::44;:48::57:0;;:8::59:1;60:16:60:20:0;:27::28;:16::29:1;:::32;:39::41:0;:16::42:1;:::45;:49::58:0;;:8::60:1;61:16:61:19:0;:26::29;:16::30:1;:::33;:40::41:0;:16::42:1;:::45;:49::53:0;:60::63;:49::64:1;:::67;:74::75:0;:49::76:1;:::79;:8::81;63:26:63:33:0;;:16::48:1;:52::55:0;;:8::57:1;64:27:64:35:0;;:16::50:1;:54::58:0;:8::60:1;66:29:66:32:0;:39::42;:29::43:1;:::46;:53::54:0;:29::55:1;:::58;:25::59;68:26:68:33:0;;:16::40:1;:44::57:0;;:60::70;;:44:::1;:8::72;67:30:67:34:0;:41::44;:30::45:1;:::48;:55::56:0;:30::57:1;:::60;:26::61;69:27:69:35:0;;:16::42:1;:46::59:0;;:62::73;;:46:::1;:8::75;73:22:73:88:0;72:16:72:24;71:21:71:25;;:32::33;:21::34:1;:::37;:44::45:0;:21::46:1;:::49;21:8:21:33:0;75:12:75:16;:20::24;:12:::1;:26:79:9:0;76:20:76:31;;:35::45;;:48::49;;:35:::1;:12::51;77:20:77:24:0;;:31::34;:20::35:1;:::38;:45::47:0;:20::48:1;:::51;:55::58:0;;:12::60:1;78:20:78:24:0;;:31::34;:20::35:1;:::38;:45::47:0;:20::48:1;:::51;:55::58:0;;:12::60:1;79:15:89:9:0;:19:79:23;:27::31;:19:::1;:33:82:9:0;80:20:80:31;;:35::45;;:12::47:1;81:20:81:24:0;;:31::34;:20::35:1;:::38;:45::47:0;:20::48:1;:::51;:55::58:0;;:12::60:1;82:15:89:9:0;83:20:83:24;:28::32;:12::34:1;84:20:84:31:0;;:35::45;;:48::49;;:35:::1;:12::51;85:31:85:32:0;:20::39:1;:43::44:0;;:12::46:1;87:38:87:39:0;:27::56:1;:20::57;:61::65:0;;:72::75;;:61::76:1;:::79;:86::88:0;:61::89:1;:::92;:12::94;88:20:88:24:0;;:31::34;:20::35:1;:::38;:45::47:0;:20::48:1;:::51;:55::58:0;;:12::60:1;82:15:89:9;79;91:16:91:32:0;:36::38;:8::40:1;20:23:92:5;;;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 7,
+        "line": 21
+      },
+      {
+        "ip": 11,
+        "line": 22
+      },
+      {
+        "ip": 15,
+        "line": 27
+      },
+      {
+        "ip": 21,
+        "line": 31
+      },
+      {
+        "ip": 32,
+        "line": 36
+      },
+      {
+        "ip": 35,
+        "line": 37
+      },
+      {
+        "ip": 39,
+        "line": 38
+      },
+      {
+        "ip": 43,
+        "line": 39
+      },
+      {
+        "ip": 49,
+        "line": 41
+      },
+      {
+        "ip": 55,
+        "line": 44
+      },
+      {
+        "ip": 61,
+        "line": 47
+      },
+      {
+        "ip": 69,
+        "line": 48
+      },
+      {
+        "ip": 75,
+        "line": 50
+      },
+      {
+        "ip": 84,
+        "line": 51
+      },
+      {
+        "ip": 94,
+        "line": 53
+      },
+      {
+        "ip": 108,
+        "line": 57
+      },
+      {
+        "ip": 122,
+        "line": 58
+      },
+      {
+        "ip": 132,
+        "line": 59
+      },
+      {
+        "ip": 142,
+        "line": 60
+      },
+      {
+        "ip": 157,
+        "line": 61
+      },
+      {
+        "ip": 163,
+        "line": 63
+      },
+      {
+        "ip": 168,
+        "line": 64
+      },
+      {
+        "ip": 185,
+        "line": 68
+      },
+      {
+        "ip": 202,
+        "line": 69
+      },
+      {
+        "ip": 225,
+        "line": 76
+      },
+      {
+        "ip": 236,
+        "line": 77
+      },
+      {
+        "ip": 247,
+        "line": 78
+      },
+      {
+        "ip": 257,
+        "line": 80
+      },
+      {
+        "ip": 268,
+        "line": 81
+      },
+      {
+        "ip": 272,
+        "line": 83
+      },
+      {
+        "ip": 280,
+        "line": 84
+      },
+      {
+        "ip": 285,
+        "line": 85
+      },
+      {
+        "ip": 298,
+        "line": 87
+      },
+      {
+        "ip": 309,
+        "line": 88
+      },
+      {
+        "ip": 314,
+        "line": 91
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.14.0-next.1",
+    "options": {
+      "enforceFunctionParameterTypes": true,
+      "enforceLocktimeGuard": false,
+      "optimizeFor": "size"
+    }
+  },
+  "updatedAt": "2026-07-28T15:26:12.903Z"
+}
