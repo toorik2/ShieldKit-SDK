@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Rebuild PF7 verifier-set.bin scripts/sourceSet/settlementKernel from a densFuel
- * unlocks-*/build/inputs_dump.json produced against a new verification key.
+ * unlocks dump (inputs_dump.json) produced against a new verification key.
  *
  * Usage:
  *   node rebind-verifier-set-from-unlock-dump.mjs \
