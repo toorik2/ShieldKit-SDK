@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packagesRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = new Set(['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool']);
+const allowed = new Set([
+  'kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool',
+  // V2 Direct product path (parallel domain; not a V1 peer of kit facade).
+  'v2-direct',
+]);
 
 test('product packages are only domain peers', () => {
   const peers = readdirSync(packagesRoot, { withFileTypes: true })
@@ -18,7 +22,7 @@ test('product packages are only domain peers', () => {
   for (const p of peers) {
     assert.ok(allowed.has(p), `unexpected top-level package peer: ${p}`);
   }
-  for (const need of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool']) {
+  for (const need of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool', 'v2-direct']) {
     assert.ok(peers.includes(need), `missing domain ${need}`);
   }
   for (const gone of [
@@ -56,7 +60,7 @@ test('ceremony + development setup modules exist', () => {
 });
 
 test('package scope is @shieldkit/*', () => {
-  for (const name of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool']) {
+  for (const name of ['kit', 'profile', 'action', 'prove', 'unlock-builder', 'recover', 'pool', 'v2-direct']) {
     const pkg = JSON.parse(readFileSync(path.join(packagesRoot, name, 'package.json'), 'utf8'));
     assert.equal(pkg.name, `@shieldkit/${name}`);
   }
