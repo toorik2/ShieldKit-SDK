@@ -206,6 +206,33 @@ export function assertFreshHistoryExecutions(executions) {
   });
 }
 
+export async function runQ04HistoriesConcurrently(plans, runHistory) {
+  if (
+    !Array.isArray(plans)
+    || plans.length !== Q04_HISTORY_COUNT
+    || typeof runHistory !== "function"
+  ) {
+    fail("Q-04 concurrent history execution requires exactly four plans and one runner");
+  }
+  const settled = await Promise.allSettled(
+    plans.map((plan) => runHistory(plan)),
+  );
+  const failures = settled.flatMap((outcome, historyIndex) =>
+    outcome.status === "rejected"
+      ? [{
+          historyIndex,
+          message: outcome.reason instanceof Error
+            ? outcome.reason.message
+            : String(outcome.reason),
+        }]
+      : []
+  );
+  if (failures.length !== 0) {
+    fail(`Q-04 history processes failed: ${JSON.stringify(failures)}`);
+  }
+  return Object.freeze(settled.map((outcome) => outcome.value));
+}
+
 function createBundle(outputParent) {
   canonicalAbsolute(outputParent, "Q-04 output parent");
   privateDirectory(outputParent, { create: true });
@@ -797,18 +824,66 @@ export async function runQ04Campaign({ outputParent, dependencies = undefined } 
       ),
     };
     const plans = createQ04HistoryPlan(bundle);
-    const executions = [];
-    const histories = [];
-    for (const plan of plans) {
-      mkdirSync(plan.outputDirectory, { mode: 0o700 });
-      chmodSync(plan.outputDirectory, 0o700);
-      const config = { schema: "shieldkit-v2-direct/q04-history-config/v1", historyIndex: plan.historyIndex, entryCount: plan.entryCount, checkpointInterval: plan.checkpointInterval, outputDirectory: plan.outputDirectory, parameterSourcePath, qualifying: true };
-      const configArtifact = writeJson(join(bundle, "input", `history-${plan.historyIndex}-config.json`), config);
-      const execution = await commandOrFail("node", [historyRunner, configArtifact.path.startsWith("/") ? configArtifact.path : join(bundle, configArtifact.path)], { cwd: snapshotRoot, env: sanitizedEnvironment() }, `Q-04 history ${plan.historyIndex}`, deps.spawnCapture);
-      const result = normalizeHistory(bundle, parseSingleJson(execution.stdout, `Q-04 history ${plan.historyIndex}`), plan, configArtifact.sha256);
-      histories.push(result);
-      executions.push({ historyIndex: plan.historyIndex, pid: execution.pid, exitCode: execution.exitCode, signal: execution.signal, configSha256: configArtifact.sha256, transitionArtifact: result.transitionArtifact, stdoutSha256: sha256(execution.stdout), stderrSha256: sha256(execution.stderr) });
-    }
+    const completedHistories = await runQ04HistoriesConcurrently(
+      plans,
+      async (plan) => {
+        mkdirSync(plan.outputDirectory, { mode: 0o700 });
+        chmodSync(plan.outputDirectory, 0o700);
+        const config = {
+          schema: "shieldkit-v2-direct/q04-history-config/v1",
+          historyIndex: plan.historyIndex,
+          entryCount: plan.entryCount,
+          checkpointInterval: plan.checkpointInterval,
+          outputDirectory: plan.outputDirectory,
+          parameterSourcePath,
+          qualifying: true,
+        };
+        const configArtifact = writeJson(
+          join(
+            bundle,
+            "input",
+            `history-${plan.historyIndex}-config.json`,
+          ),
+          config,
+        );
+        const execution = await commandOrFail(
+          "node",
+          [
+            historyRunner,
+            configArtifact.path.startsWith("/")
+              ? configArtifact.path
+              : join(bundle, configArtifact.path),
+          ],
+          { cwd: snapshotRoot, env: sanitizedEnvironment() },
+          `Q-04 history ${plan.historyIndex}`,
+          deps.spawnCapture,
+        );
+        const result = normalizeHistory(
+          bundle,
+          parseSingleJson(
+            execution.stdout,
+            `Q-04 history ${plan.historyIndex}`,
+          ),
+          plan,
+          configArtifact.sha256,
+        );
+        return Object.freeze({
+          execution: Object.freeze({
+            historyIndex: plan.historyIndex,
+            pid: execution.pid,
+            exitCode: execution.exitCode,
+            signal: execution.signal,
+            configSha256: configArtifact.sha256,
+            transitionArtifact: result.transitionArtifact,
+            stdoutSha256: sha256(execution.stdout),
+            stderrSha256: sha256(execution.stderr),
+          }),
+          history: result,
+        });
+      },
+    );
+    const histories = completedHistories.map(({ history }) => history);
+    const executions = completedHistories.map(({ execution }) => execution);
     assertFreshHistoryExecutions(executions);
     assertSnapshotSourcesUnchanged(sourceCapture.records);
     const inputManifest = bundleReference(bundle, writeJson(join(bundle, "input/manifest.json"), { schema: "shieldkit-v2-direct/q04-campaign-input-manifest/v2", git, plan: Q04_CAMPAIGN_PLAN, schedule: q04.q04ScheduleMetadata(), nodeDependencyAttestation, executionBoundary: { snapshotRoot, npm: { executable: "npm", arguments: ["ci", "--ignore-scripts", "--no-audit", "--no-fund"], cwd: snapshotRoot, environment: "sanitized-no-npm-config" }, rustBuild: { executable: rustBuild.executable, arguments: rustBuild.arguments, cwd: rustBuild.cwd, cargoTarget: rustLayout.cargoTarget, environment: "sanitized-no-inherited-rust-flags-or-wrappers" }, rustRun: { executable: binaryPath, cwd: bundle, binarySha256: binary.sha256, environment: "sanitized-no-inherited-rust-flags-or-wrappers" }, checkerBuild: { executable: checkerBuild.executable, arguments: checkerBuild.arguments, cwd: checkerBuild.cwd, cargoTarget: rustLayout.cargoTarget, environment: "sanitized-no-inherited-rust-flags-or-wrappers" }, checkerRun: { executable: checkerBinaryPath, arguments: [join(bundle, symbolicCertificate.path), productionNullifierSource, checkerSource], cwd: bundle, binarySha256: checkerBinary.sha256, environment: "sanitized-no-inherited-rust-flags-or-wrappers" }, historyRunner: { executable: "node", path: historyRunner, cwd: snapshotRoot, environment: "sanitized-no-npm-config" }, evidenceVerifier: { executable: "node", path: evidenceVerifier, cwd: snapshotRoot, environment: "sanitized-no-npm-config" } }, histories: executions.map(({ historyIndex, configSha256 }) => ({ historyIndex, configSha256 })) }));

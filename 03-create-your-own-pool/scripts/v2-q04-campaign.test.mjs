@@ -32,6 +32,7 @@ import {
   rustBuildCommand,
   rustCheckerBuildCommand,
   runQ04Campaign,
+  runQ04HistoriesConcurrently,
   sanitizedEnvironment,
 } from "./v2-q04-campaign.mjs";
 
@@ -84,6 +85,24 @@ test("Q-04 binds exactly four distinct fresh history process identities", () => 
     { historyIndex: 2, pid: 103 },
     { historyIndex: 3, pid: 104 },
   ]), /fresh processes/u);
+});
+
+test("Q-04 launches all four independent histories before awaiting completion", async () => {
+  const plans = createQ04HistoryPlan(join(tmpdir(), "q04-concurrent-plan"));
+  const started = [];
+  let release;
+  const barrier = new Promise((resolve) => {
+    release = resolve;
+  });
+  const completion = runQ04HistoriesConcurrently(plans, async (plan) => {
+    started.push(plan.historyIndex);
+    await barrier;
+    return plan.historyIndex;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(started, [0, 1, 2, 3]);
+  release();
+  assert.deepEqual(await completion, [0, 1, 2, 3]);
 });
 
 test("Q-04 scrubs inherited build/package controls and pins npm to the snapshot cwd", async (t) => {
