@@ -20,7 +20,9 @@ Unaudited WIP · Chipnet-first · Mainnet gated until Phase D
 | **Getting started** | [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) |
 | **Code** | `../03-create-your-own-pool/packages/v2-direct/` |
 
-## Blank machine (shortest)
+## Blank machine (shortest) — default active pool
+
+`init` attaches the shipped **default Chipnet pool** (`demo/chipnet-default-pool.json`) with **5 live seed tickets** already in the anonymity set. You fund a local address and deposit/withdraw **your** notes into that pool.
 
 ```bash
 # from monorepo root after npm ci + unlock-builder:setup + circuit artifacts
@@ -33,20 +35,15 @@ node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" init
 # fund the printed fundingAddress on Chipnet, then:
 
 node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" wallet funding-scan
-node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" pool create \
-  --broadcast --category-utxo <txid:vout>
-node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" wallet funding-scan
 node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" deposit --broadcast
 ```
 
 **No bitcoind required** by default — public Chipnet Fulcrum TLS.  
 **No hard-coded agent wallets** — keys live under `--home` (mode 0600).
 
-Join someone else’s pool:
-
-```bash
-node Protocol-design-v2/bin/shieldkit-v2.mjs --home "$SK_HOME" pool join ./descriptor.json
-```
+Create your own pool instead: `pool create --broadcast --category-utxo …`  
+Join another descriptor: `pool join ./descriptor.json`  
+Re-attach default: `pool default`
 
 ## npm scripts (repo root)
 

@@ -1,0 +1,92 @@
+{
+  "schema": "shieldkit/v2-direct-pool-descriptor/v1",
+  "role": "default-active-chipnet-pool",
+  "networkId": 2,
+  "network": "chipnet",
+  "profileId": "c0a06731c6694bdbef9f0058e2edbb503a680df0d6b05d744aaf7119d8abd446",
+  "instanceId": "19ea40271e4f2d16d9f75cb5002fa7117fe4985befbe631593c24f636a8d7069",
+  "maximumLiveNotes": 32,
+  "noteDepth": 32,
+  "nullifierDepth": 32,
+  "genesisTxid": "bf250a0c5e9034d88e870a46efce3f4131f7a686285050443a7c1222f93bff14",
+  "genesisVout": 0,
+  "denominationSats": "10000000",
+  "liveTip": {
+    "carriers": [
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 0,
+        "value": "10000",
+        "lockHex": "aa20914ba6d66a6596f183f4bc88ffcf6abc4427cddd86b0f76652ee75cb579b8fff87"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 1,
+        "value": "10000",
+        "lockHex": "aa20914ba6d66a6596f183f4bc88ffcf6abc4427cddd86b0f76652ee75cb579b8fff87"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 2,
+        "value": "10000",
+        "lockHex": "aa20914ba6d66a6596f183f4bc88ffcf6abc4427cddd86b0f76652ee75cb579b8fff87"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 3,
+        "value": "10000",
+        "lockHex": "aa20914ba6d66a6596f183f4bc88ffcf6abc4427cddd86b0f76652ee75cb579b8fff87"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 4,
+        "value": "10000",
+        "lockHex": "aa20914ba6d66a6596f183f4bc88ffcf6abc4427cddd86b0f76652ee75cb579b8fff87"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 5,
+        "value": "10000",
+        "lockHex": "aa200039ca681e784f3406858e93a8cece83cb8e5680eb8e1c2371f11ad9f2170fa787"
+      },
+      {
+        "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+        "vout": 6,
+        "value": "10000",
+        "lockHex": "aa2076a2eb3e31c88d24c7a98b90c7a3a94d295fb4d1c010d8cf0396327b5b01cb0c87"
+      }
+    ],
+    "binding": {
+      "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+      "vout": 7,
+      "value": "10000",
+      "lockHex": "820228028876547f7504534441328876587f75567f77020000887551"
+    },
+    "state": {
+      "txid": "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644",
+      "vout": 8,
+      "value": "50010000",
+      "lockHex": "aa20b0b5659c8f22ae78ae9735cd5d2b5b5bbbeb010d2db6cf4e32e2777ec9984c2d87",
+      "commitmentHex": "534b5332c0a06731c6694bdbef9f0058e2edbb503a680df0d6b05d744aaf7119d8abd4462dde21808304ec5cc948ec5cfac350d9f20eba7a6a291babdac2cf0992e95fbd0bdd3cb3e00af8d875d51029c37c38cf8acbff83fa0a4d6c9717e33b468ce29905000000000000002000000080f0fa02000000000500000000000000"
+    }
+  },
+  "tipSummary": {
+    "noteCount": "5",
+    "nullifierCount": "0",
+    "liveNoteCount": "5",
+    "reserveSats": "50000000",
+    "actionSequence": "5",
+    "noteRoot": "2dde21808304ec5cc948ec5cfac350d9f20eba7a6a291babdac2cf0992e95fbd",
+    "nullifierRoot": "0bdd3cb3e00af8d875d51029c37c38cf8acbff83fa0a4d6c9717e33b468ce299"
+  },
+  "publicDepositTxids": [
+    "d4abbba48a8845dd7544cc582c62e81a5eb6c395326a0faaf39be827133efd5e",
+    "e32f888b45147efed011d1f37188866ea3b221687516f33b3257eb238ed4a8f3",
+    "1d06abe90a40a3099ad3c76c25fbbeb5e3edbb6e7d23885787a406b859a25aa3",
+    "d4239cdb0cc383a867ddf900b6e67351510b689a449756fd377ff65f003da515",
+    "66aad45b33853cb130323c78f54ed38927688584b656fe4a6305687912f75644"
+  ],
+  "seededAt": "2026-07-29T05:41:08.277Z",
+  "maturity": "dev-keys-only-not-for-real-money-privacy",
+  "note": "Public tip only. 5 live notes seeded as anonymity-set tickets; spend keys are NOT published."
+}

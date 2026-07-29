@@ -690,7 +690,12 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    // densFuel/snarkjs may leave open handles; force exit after success.
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
