@@ -8,7 +8,8 @@ use shieldkit_v2_codec::{
 };
 
 const DENOMINATION: u64 = 10_000_000;
-const Q01_VECTORS: &str = include_str!("../../../packages/action/v2/vectors/q01-state-packet-public-input.json");
+const Q01_VECTORS: &str =
+    include_str!("../../../packages/action/v2/vectors/q01-state-packet-public-input.json");
 
 fn q01_string(field: &str) -> &str {
     let prefix = format!("\"{field}\": \"");
@@ -118,11 +119,7 @@ fn frozen_packet_accepted(bytes: &[u8]) -> bool {
     if bytes.len() != ACTION_PACKET_BYTES || &bytes[..4] != b"SDA2" {
         return false;
     }
-    if !matches!(bytes[4], 1 | 2)
-        || !matches!(bytes[5], 1 | 2 | 3)
-        || bytes[6] != 0
-        || bytes[7] != 0
-    {
+    if !matches!(bytes[4], 1 | 2) || !matches!(bytes[5], 1..=3) || bytes[6] != 0 || bytes[7] != 0 {
         return false;
     }
     if !frozen_state_accepted(&bytes[40..168]) || !frozen_state_accepted(&bytes[168..296]) {
@@ -154,7 +151,10 @@ fn cross_language_fixed_state_packet_digest_and_limbs() {
         q01_string("schema"),
         "shieldkit/v2-direct-q01-codec-vectors/v1"
     );
-    assert_eq!(q01_string("denominationSats").parse::<u64>().unwrap(), DENOMINATION);
+    assert_eq!(
+        q01_string("denominationSats").parse::<u64>().unwrap(),
+        DENOMINATION
+    );
     let pre = vector_packet().pre_state;
     assert_eq!(
         pre.encode(DENOMINATION).unwrap().as_slice(),
@@ -316,7 +316,10 @@ fn q01_exhaustive_one_byte_mutations_are_rejected_or_canonical_distinct() {
     ];
     let mut explorer_display = category_wire;
     explorer_display.reverse();
-    assert_eq!(hex(q01_string("categoryWireHex")).as_slice(), category_wire.as_slice());
+    assert_eq!(
+        hex(q01_string("categoryWireHex")).as_slice(),
+        category_wire.as_slice()
+    );
     assert_eq!(
         hex(q01_string("categoryExplorerDisplayHex")).as_slice(),
         explorer_display.as_slice()
@@ -597,6 +600,7 @@ fn cross_language_sdc2_context_vector_decode_and_rejections() {
         hex("9ce7bda7814769a8c9131e104174c01cad150c449a982a3d39c0e2335e12da5d").as_slice(),
     );
     let decoded = CommittedDirectV2TransactionContext::decode(&encoded).unwrap();
+    decoded.validate_role_topology(2).unwrap();
     assert_eq!(decoded.encode().unwrap(), encoded);
     assert_eq!(decoded.sha256().unwrap(), context.sha256().unwrap());
     for offset in [0, 1, 2, 3, 6, 7, 100, 102] {
@@ -638,4 +642,28 @@ fn rejects_sdc2_topology_and_sequence_ambiguity() {
             + (5 * DIRECT_V2_CONTEXT_INPUT_BYTES)
             + (6 * DIRECT_V2_CONTEXT_OUTPUT_BYTES)
     );
+}
+
+#[test]
+fn committed_sdc2_topology_rejects_role_and_token_commitment_tampering() {
+    let context = context_fixture(ActionKindV2::Deposit);
+    let encoded = context.encode_with_carrier_count(2).unwrap();
+    let decoded = CommittedDirectV2TransactionContext::decode(&encoded).unwrap();
+    decoded.validate_role_topology(2).unwrap();
+
+    let mut wrong_role = decoded.clone();
+    wrong_role.inputs[0].role.kind = DirectV2RoleKind::Binding;
+    assert!(wrong_role.validate_role_topology(2).is_err());
+
+    let mut verifier_token = decoded.clone();
+    verifier_token.inputs[0].token_prefix_hash = [0x42; 32];
+    assert!(verifier_token.validate_role_topology(2).is_err());
+
+    let mut missing_state_token = decoded.clone();
+    missing_state_token.inputs[3].token_prefix_hash = Sha256::digest([]).into();
+    assert!(missing_state_token.validate_role_topology(2).is_err());
+
+    let mut wrong_count = decoded;
+    wrong_count.outputs.pop();
+    assert!(wrong_count.validate_role_topology(2).is_err());
 }

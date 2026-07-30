@@ -101,6 +101,8 @@ const Q07_PORTABLE_SUPPORT_TESTS = new Map([
   ['scripts/v2-q07-dataset.test.mjs', 'Q-07 deterministic dataset integrity support test'],
   ['scripts/v2-q07-evidence.test.mjs', 'Q-07 evidence-contract support test'],
   ['scripts/v2-q07-indexed-microbenchmark.test.mjs', 'Q-07 indexed-store microbenchmark boundary support test'],
+  ['scripts/v2-q07-lifecycle-corpus.test.mjs', 'Q-07 non-chain lifecycle corpus integrity support test'],
+  ['scripts/v2-q07-local-lifecycle-run.test.mjs', 'Q-07 exact local lifecycle runner integrity support test'],
   ['scripts/v2-q07-local-blocked-evidence.test.mjs', 'Q-07 honest blocked-evidence adapter support test'],
   ['scripts/v2-q07-performance-harness.test.mjs', 'Q-07 small-fixture harness boundary support test'],
   ['scripts/v2-q07-store-worker.test.mjs', 'Q-07 store-worker boundary support test'],

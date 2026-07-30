@@ -837,6 +837,18 @@ impl CommittedDirectV2TransactionContext {
         Ok(())
     }
 
+    /// Validate the fixed direct-V2 settlement topology from the committed
+    /// `SDC2` representation. Unlike [`DirectV2TransactionContext`], this
+    /// representation contains only SHA-256 commitments to token prefixes;
+    /// consequently a tokenless role is recognized by the canonical
+    /// `SHA256("")` commitment and a state role is required to differ from
+    /// that commitment. This is deliberately a distinct check from raw-context
+    /// validation: it must not pretend to recover unavailable token bytes.
+    pub fn validate_role_topology(&self, carrier_count: u8) -> Result<(), CodecError> {
+        self.validate()?;
+        validate_committed_role_topology(self, carrier_count)
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
         self.validate()?;
         let mut bytes = encode_context_header(
@@ -1036,6 +1048,99 @@ fn validate_raw_role_topology(
         assert_role(context.outputs[tail].role, DirectV2RoleKind::Change, 0)?;
         if !context.outputs[tail].token_prefix.is_empty() {
             return Err(CodecError::ContextInvariant("change token prefix"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_committed_role_topology(
+    context: &CommittedDirectV2TransactionContext,
+    carrier_count: u8,
+) -> Result<(), CodecError> {
+    if carrier_count == 0 {
+        return Err(CodecError::ContextInvariant(
+            "carrier count must be from 1 to 255",
+        ));
+    }
+    let carriers = usize::from(carrier_count);
+    let expected_inputs = carriers + 3;
+    let expected_outputs = carriers
+        + if context.kind == ActionKindV2::Withdrawal {
+            4
+        } else {
+            3
+        };
+    if context.inputs.len() != expected_inputs || context.outputs.len() != expected_outputs {
+        return Err(CodecError::ContextInvariant("role topology count"));
+    }
+    let empty_token_prefix_hash = sha256(&[]);
+    for index in 0..carriers {
+        assert_role(
+            context.inputs[index].role,
+            DirectV2RoleKind::Verifier,
+            index as u8,
+        )?;
+        assert_role(
+            context.outputs[index + 1].role,
+            DirectV2RoleKind::Verifier,
+            index as u8,
+        )?;
+        if context.inputs[index].token_prefix_hash != empty_token_prefix_hash
+            || context.outputs[index + 1].token_prefix_hash != empty_token_prefix_hash
+        {
+            return Err(CodecError::ContextInvariant(
+                "verifier carrier token prefix hash",
+            ));
+        }
+    }
+    assert_role(context.inputs[carriers].role, DirectV2RoleKind::Binding, 0)?;
+    assert_role(
+        context.inputs[carriers + 1].role,
+        DirectV2RoleKind::State,
+        0,
+    )?;
+    assert_role(
+        context.inputs[carriers + 2].role,
+        DirectV2RoleKind::Funding,
+        0,
+    )?;
+    assert_role(context.outputs[0].role, DirectV2RoleKind::State, 0)?;
+    assert_role(
+        context.outputs[carriers + 1].role,
+        DirectV2RoleKind::Binding,
+        0,
+    )?;
+    for token_hash in [
+        context.inputs[carriers].token_prefix_hash,
+        context.inputs[carriers + 2].token_prefix_hash,
+        context.outputs[carriers + 1].token_prefix_hash,
+    ] {
+        if token_hash != empty_token_prefix_hash {
+            return Err(CodecError::ContextInvariant(
+                "binding or funding token prefix hash",
+            ));
+        }
+    }
+    if context.inputs[carriers + 1].token_prefix_hash == empty_token_prefix_hash
+        || context.outputs[0].token_prefix_hash == empty_token_prefix_hash
+    {
+        return Err(CodecError::ContextInvariant("state token prefix hash"));
+    }
+    let tail = carriers + 2;
+    if context.kind == ActionKindV2::Withdrawal {
+        assert_role(context.outputs[tail].role, DirectV2RoleKind::Withdrawal, 0)?;
+        assert_role(context.outputs[tail + 1].role, DirectV2RoleKind::Change, 0)?;
+        if context.outputs[tail].token_prefix_hash != empty_token_prefix_hash
+            || context.outputs[tail + 1].token_prefix_hash != empty_token_prefix_hash
+        {
+            return Err(CodecError::ContextInvariant(
+                "withdrawal or change token prefix hash",
+            ));
+        }
+    } else {
+        assert_role(context.outputs[tail].role, DirectV2RoleKind::Change, 0)?;
+        if context.outputs[tail].token_prefix_hash != empty_token_prefix_hash {
+            return Err(CodecError::ContextInvariant("change token prefix hash"));
         }
     }
     Ok(())

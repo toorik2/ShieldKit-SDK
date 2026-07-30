@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bch;
+pub mod q07_lifecycle;
 pub mod stream;
 pub mod trees;
 
@@ -683,10 +684,7 @@ impl StreamingRawReplay {
         validate_network(header.network_id)?;
         let profile_id = identifier(&header.profile_id, "profileId")?;
         let instance_id = identifier(&header.instance_id, "instanceId")?;
-        identifier(
-            &header.runtime_materials_sha256,
-            "runtimeMaterialsSha256",
-        )?;
+        identifier(&header.runtime_materials_sha256, "runtimeMaterialsSha256")?;
         let denomination = canonical_decimal(&header.denomination_sats, "denominationSats")?;
         if denomination == 0 {
             return Err(RecoveryError::new("denominationSats must be nonzero"));
@@ -1201,10 +1199,7 @@ fn scan_internal(request: &ScanRequest) -> Result<(RecoverySnapshot, Authenticat
     validate_network(request.network_id)?;
     let profile_id = identifier(&request.profile_id, "profileId")?;
     let instance_id = identifier(&request.instance_id, "instanceId")?;
-    identifier(
-        &request.runtime_materials_sha256,
-        "runtimeMaterialsSha256",
-    )?;
+    identifier(&request.runtime_materials_sha256, "runtimeMaterialsSha256")?;
     let denomination = canonical_decimal(&request.denomination_sats, "denominationSats")?;
     if denomination == 0 {
         return Err(RecoveryError::new("denominationSats must be nonzero"));
