@@ -10,9 +10,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -23,6 +25,7 @@ import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 import { encodeTransaction } from '@bitauth/libauth';
 
+import { canonicalJson, parseStrictJson } from '../packages/profile/load.mjs';
 import { encodeDirectV2Address } from '../packages/action/v2/address.mjs';
 import { deriveDirectV2Address } from '../packages/action/v2/notes.mjs';
 import { decodeActionPacket, encodeActionPacket } from '../packages/action/v2/packet.mjs';
@@ -34,7 +37,11 @@ import { createDirectV2PoolModel } from '../packages/action/v2/transition.mjs';
 import { parseV2RawTransaction } from '../packages/kit/v2/transaction-policy.mjs';
 import { openV2DirectStore } from '../packages/pool/v2/store.mjs';
 
-const SEED = 'shieldkit-v2-reorg-concurrency-qualification-20260729';
+const SEED = 'shieldkit-v2-reorg-sequential-sibling-qualification-20260730';
+const EVIDENCE_SCHEMA = 'shieldkit-v2-direct-reorg-sequential-sibling-qualification-v2';
+const CAPTURED_CORPUS_SCHEMA = 'shieldkit-v2-direct/captured-recovery-action-corpus/v1';
+const CAPTURED_CORPUS_REPLAY_SCHEMA = 'shieldkit-v2-direct/captured-recovery-action-corpus-replay/v1';
+const HASH = /^[0-9a-f]{64}$/u;
 const REORG_DEPTHS = Object.freeze([1, 2, 10, 100]);
 const WALLET_COUNTS = Object.freeze([2, 4, 8, 16]);
 const b = (byte, length = 32) => Buffer.alloc(length, byte);
@@ -73,14 +80,54 @@ export class V2ReorgConcurrencyQualificationError extends Error {
 const fail = (message) => { throw new V2ReorgConcurrencyQualificationError(message); };
 
 export function parseV2ReorgConcurrencyQualificationArguments(argv, cwd = process.cwd()) {
-  if (!Array.isArray(argv) || argv.length !== 2 || argv[0] !== '--output') {
-    fail('usage: v2-reorg-concurrency-qualification.mjs --output <new-evidence.json>');
+  if (
+    !Array.isArray(argv) ||
+    argv.length !== 4 ||
+    argv[0] !== '--output' ||
+    argv[2] !== '--corpus-output'
+  ) {
+    fail('usage: v2-reorg-concurrency-qualification.mjs --output <new-evidence.json> --corpus-output <new-canonical-corpus.json>');
   }
-  const value = argv[1];
-  if (typeof value !== 'string' || value.length === 0 || value.startsWith('--')) {
-    fail('--output must name a new evidence file');
+  const output = argv[1];
+  const corpusOutput = argv[3];
+  if (
+    typeof output !== 'string' ||
+    output.length === 0 ||
+    output.startsWith('--') ||
+    typeof corpusOutput !== 'string' ||
+    corpusOutput.length === 0 ||
+    corpusOutput.startsWith('--')
+  ) {
+    fail('output paths must name new evidence files');
   }
-  return Object.freeze({ output: resolve(cwd, value) });
+  const resolvedOutput = resolve(cwd, output);
+  const resolvedCorpusOutput = resolve(cwd, corpusOutput);
+  if (resolvedOutput === resolvedCorpusOutput) fail('evidence and corpus outputs must differ');
+  return Object.freeze({ output: resolvedOutput, corpusOutput: resolvedCorpusOutput });
+}
+
+export function parseV2CapturedRecoveryReplayArguments(argv, cwd = process.cwd()) {
+  if (
+    !Array.isArray(argv) ||
+    argv.length !== 6 ||
+    argv[0] !== '--replay-corpus' ||
+    argv[2] !== '--expected-sha256' ||
+    argv[4] !== '--expected-actions' ||
+    typeof argv[1] !== 'string' ||
+    argv[1].length === 0 ||
+    argv[1].startsWith('--') ||
+    !HASH.test(argv[3]) ||
+    !/^[1-9][0-9]*$/u.test(argv[5])
+  ) {
+    fail('usage: v2-reorg-concurrency-qualification.mjs --replay-corpus <canonical-corpus.json> --expected-sha256 <hash> --expected-actions <count>');
+  }
+  const expectedActions = Number(argv[5]);
+  if (!Number.isSafeInteger(expectedActions)) fail('expected replay action count is invalid');
+  return Object.freeze({
+    corpusPath: resolve(cwd, argv[1]),
+    expectedSha256: argv[3],
+    expectedActions,
+  });
 }
 
 function digest(label) {
@@ -124,8 +171,112 @@ function canonical(point) {
   });
 }
 
+const CORPUS_BYTES_KEY = '$shieldkitBytesHex';
+
+function encodeCorpusJsonValue(value, label = 'captured recovery corpus') {
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+    return Object.freeze({ [CORPUS_BYTES_KEY]: Buffer.from(value).toString('hex') });
+  }
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) fail(`${label} contains a non-safe-integer number`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry, index) => encodeCorpusJsonValue(entry, `${label}[${index}]`)));
+  }
+  if (
+    typeof value !== 'object' ||
+    ![Object.prototype, null].includes(Object.getPrototypeOf(value)) ||
+    Object.hasOwn(value, CORPUS_BYTES_KEY)
+  ) {
+    fail(`${label} contains an unsupported or ambiguous value`);
+  }
+  return Object.freeze(Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, encodeCorpusJsonValue(entry, `${label}.${key}`)]),
+  ));
+}
+
+function decodeCorpusJsonValue(value, label = 'captured recovery corpus') {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) fail(`${label} contains a non-safe-integer number`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry, index) => decodeCorpusJsonValue(entry, `${label}[${index}]`));
+  }
+  if (typeof value !== 'object') fail(`${label} contains an unsupported value`);
+  const keys = Object.keys(value);
+  if (keys.length === 1 && keys[0] === CORPUS_BYTES_KEY) {
+    const hex = value[CORPUS_BYTES_KEY];
+    if (typeof hex !== 'string' || hex.length % 2 !== 0 || !/^[0-9a-f]*$/u.test(hex)) {
+      fail(`${label} contains an invalid byte encoding`);
+    }
+    return Buffer.from(hex, 'hex');
+  }
+  if (Object.hasOwn(value, CORPUS_BYTES_KEY)) fail(`${label} contains an ambiguous byte encoding`);
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, decodeCorpusJsonValue(entry, `${label}.${key}`)]),
+  );
+}
+
+function encodeCapturedRecoveryCorpus(corpus) {
+  return Buffer.from(canonicalJson(encodeCorpusJsonValue(corpus)), 'utf8');
+}
+
+function canonicalTipSha256(point) {
+  const value = {
+    actionSequence: point.actionSequence,
+    blockHash: Buffer.from(point.blockHash).toString('hex'),
+    height: point.height,
+    outpoint: {
+      txid: Buffer.from(point.outpoint.txid).toString('hex'),
+      vout: point.outpoint.vout,
+    },
+    state: Buffer.from(point.state).toString('hex'),
+  };
+  return createHash('sha256').update(Buffer.from(canonicalJson(value), 'utf8')).digest('hex');
+}
+
 function assertSameCanonical(actual, expected, label) {
   assert.deepEqual(canonical(actual), canonical(expected), label);
+}
+
+/**
+ * Small non-SQLite rollback-history checker for the canonical/reorg contract.
+ * It never invokes store transition or rollback APIs, so it can reject a
+ * durable store which is internally consistent but reaches the wrong tip.
+ */
+class IndependentRollbackHistoryChecker {
+  #initial;
+  #tip;
+  #history = [];
+
+  constructor(initial) {
+    this.#initial = canonical(initial);
+    this.#tip = canonical(initial);
+  }
+
+  confirm(id, before, next) {
+    assertSameCanonical(before, this.#tip, `rollback-history checker pre-state mismatch for ${id}`);
+    assert.equal(next.actionSequence, this.#tip.actionSequence + 1, `rollback-history checker sequence mismatch for ${id}`);
+    assert.ok(next.height > this.#tip.height, `rollback-history checker height must advance for ${id}`);
+    this.#history.push(Object.freeze({ id, before: canonical(before), next: canonical(next) }));
+    this.#tip = canonical(next);
+  }
+
+  rollbackTo({ height, blockHash }) {
+    const target = this.#history.find((entry) => entry.before.height === height && entry.before.blockHash.equals(blockHash))?.before
+      ?? (this.#initial.height === height && this.#initial.blockHash.equals(blockHash) ? this.#initial : null);
+    assert.ok(target !== null, 'rollback-history checker cannot find requested reorg ancestor');
+    this.#history = this.#history.filter((entry) => entry.next.height <= target.height);
+    this.#tip = canonical(target);
+  }
+
+  assertTip(actual, label) {
+    assertSameCanonical(actual, this.#tip, `rollback-history checker tip mismatch: ${label}`);
+  }
 }
 
 function safeNullifier(label) {
@@ -279,6 +430,7 @@ function confirmPreparedOperation(store, operationId, marker, {
   publicNullifier = null,
   insertOwnedNote = null,
   height = null,
+  predicateCounts = null,
 } = {}) {
   const before = store.canonicalState();
   let operation = store.operation(operationId);
@@ -287,10 +439,11 @@ function confirmPreparedOperation(store, operationId, marker, {
   operation = store.transitionOperation({ operationId, to: 'proving', reason: null });
   const packet = packetFixture(store, before, operation.kind, marker, publicNullifier);
   const transactions = operationTransactions(before, operation, packet);
+  const proof = b((marker + 1) & 0xff);
   store.updateOperationArtifacts({
     operationId,
     packet,
-    proof: b((marker + 1) & 0xff),
+    proof,
     unsignedTx: transactions.unsigned,
     signedTx: null,
     localVmEvidence: null,
@@ -308,6 +461,7 @@ function confirmPreparedOperation(store, operationId, marker, {
   store.transitionOperation({ operationId, to: 'signed', reason: null });
   store.transitionOperation({ operationId, to: 'broadcast', reason: null });
   assertSameCanonical(store.canonicalState(), before, 'canonical state changed before authenticated confirmation');
+  if (predicateCounts !== null) predicateCounts.canonicalTipUnchangedBeforeApplyConfirmed += 1;
   const decoded = decodeActionPacket(packet, STATE_CONTEXT);
   const parsed = parseV2RawTransaction(transactions.signed.toString('hex'));
   const next = {
@@ -318,7 +472,7 @@ function confirmPreparedOperation(store, operationId, marker, {
     blockHash: digest(`block/${height ?? before.height + 1}`),
   };
   const changeIndex = CARRIER_COUNT + 2;
-  store.applyConfirmed({
+  const confirmation = {
     operationId,
     expected: { state: before.state, outpoint: before.outpoint, actionSequence: before.actionSequence },
     next,
@@ -330,9 +484,77 @@ function confirmPreparedOperation(store, operationId, marker, {
     },
     undo: Buffer.from(`q06/${operationId}/${marker}`, 'utf8'),
     crashAt: null,
-  });
+  };
+  store.applyConfirmed(confirmation);
   assert.equal(store.operation(operationId).journalState, 'confirmed');
-  return Object.freeze({ before, next, packet, parsed, operation: store.operation(operationId) });
+  const artifacts = Object.freeze({ packet, proof, unsignedTx: transactions.unsigned, signedTx: transactions.signed, localVmEvidence: b(0x99) });
+  return Object.freeze({ before, next, packet, parsed, operation: store.operation(operationId), artifacts, confirmation });
+}
+
+function ingestCapturedAction(store, event, predicateCounts) {
+  assert.ok(event !== null && typeof event === 'object');
+  const { request, artifacts, confirmation } = event;
+  assert.equal(request.operationId, confirmation.operationId, 'captured request/confirmation operation identity differs');
+  const before = store.canonicalState();
+  assertSameCanonical(before, {
+    state: request.expectedState,
+    outpoint: request.expectedOutpoint,
+    actionSequence: request.expectedActionSequence,
+    height: request.expectedHeight,
+    blockHash: request.expectedBlockHash,
+  }, `captured event ${request.operationId} does not apply to the recovered tip`);
+  prepareOperation(store, request);
+  store.transitionOperation({ operationId: request.operationId, to: 'tip_synced', reason: null });
+  store.transitionOperation({ operationId: request.operationId, to: 'proving', reason: null });
+  store.updateOperationArtifacts({
+    operationId: request.operationId,
+    packet: artifacts.packet,
+    proof: artifacts.proof,
+    unsignedTx: artifacts.unsignedTx,
+    signedTx: null,
+    localVmEvidence: null,
+  });
+  store.transitionOperation({ operationId: request.operationId, to: 'proved', reason: null });
+  store.updateOperationArtifacts({
+    operationId: request.operationId,
+    packet: artifacts.packet,
+    proof: artifacts.proof,
+    unsignedTx: artifacts.unsignedTx,
+    signedTx: artifacts.signedTx,
+    localVmEvidence: artifacts.localVmEvidence,
+  });
+  store.transitionOperation({ operationId: request.operationId, to: 'signed', reason: null });
+  store.transitionOperation({ operationId: request.operationId, to: 'broadcast', reason: null });
+  assertSameCanonical(store.canonicalState(), before, `captured event ${request.operationId} changed canonical state before applyConfirmed`);
+  predicateCounts.canonicalTipUnchangedBeforeApplyConfirmed += 1;
+  store.applyConfirmed(confirmation);
+  assert.equal(store.operation(request.operationId).journalState, 'confirmed');
+  predicateCounts.deepWipeExactCapturedEventIngestions += 1;
+  return Object.freeze({ before, next: store.canonicalState() });
+}
+
+function decodeCapturedRecoveryCorpus(bytes, expectedSha256, expectedActions) {
+  const observedSha256 = createHash('sha256').update(bytes).digest('hex');
+  if (observedSha256 !== expectedSha256) fail('captured recovery corpus digest changed before intake');
+  let encoded;
+  try { encoded = parseStrictJson(bytes); } catch { fail('captured recovery corpus is not strict JSON'); }
+  if (Buffer.from(canonicalJson(encoded), 'utf8').compare(Buffer.from(bytes)) !== 0) {
+    fail('captured recovery corpus is not canonical JSON');
+  }
+  const corpus = decodeCorpusJsonValue(encoded);
+  if (corpus === null || typeof corpus !== 'object' || corpus.schema !== CAPTURED_CORPUS_SCHEMA || !Array.isArray(corpus.events) || corpus.events.length !== expectedActions) fail('captured recovery corpus identity or action count differs');
+  return corpus;
+}
+
+export function inspectV2CapturedRecoveryCorpus(bytes, expectedSha256, expectedActions) {
+  return decodeCapturedRecoveryCorpus(bytes, expectedSha256, expectedActions).events.length;
+}
+/** TEST-ONLY alias for focused corpus validation. */
+export const verifyV2CapturedRecoveryCorpusForTest = inspectV2CapturedRecoveryCorpus;
+
+/** TEST-ONLY: constructs canonical bytes without exposing a fixture injection seam in the CLI. */
+export function encodeV2CapturedRecoveryCorpusForTest(corpus) {
+  return encodeCapturedRecoveryCorpus(corpus);
 }
 
 function reopen(path, store) {
@@ -346,40 +568,94 @@ function makeStore(workspace, label) {
   return Object.freeze({ path: join(directory, 'pool.sqlite'), store: openV2DirectStore({ path: join(directory, 'pool.sqlite'), ...initialStore() }) });
 }
 
+export function replayV2CapturedRecoveryCorpus({
+  bytes,
+  expectedSha256,
+  expectedActions,
+} = {}) {
+  if (!Buffer.isBuffer(bytes) || !Number.isSafeInteger(expectedActions) || expectedActions < 1) {
+    fail('captured recovery replay requires canonical bytes and a positive action count');
+  }
+  const corpus = decodeCapturedRecoveryCorpus(bytes, expectedSha256, expectedActions);
+  const base = join(tmpdir(), 'shieldkit-v2-captured-recovery-replay');
+  mkdirSync(base, { recursive: true, mode: 0o700 });
+  const workspace = mkdtempSync(join(base, 'run-'));
+  let store;
+  try {
+    ({ store } = makeStore(workspace, 'replay'));
+    const predicateCounts = {
+      canonicalTipUnchangedBeforeApplyConfirmed: 0,
+      deepWipeExactCapturedEventIngestions: 0,
+    };
+    const checker = new IndependentRollbackHistoryChecker(initialStore());
+    for (const event of corpus.events) {
+      const applied = ingestCapturedAction(store, event, predicateCounts);
+      checker.confirm(event.request.operationId, applied.before, applied.next);
+    }
+    const terminal = store.canonicalState();
+    checker.assertTip(terminal, 'independent captured-corpus replay');
+    assertSameCanonical(
+      terminal,
+      corpus.events.at(-1).confirmation.next,
+      'captured-corpus replay terminal tip differs from its final captured confirmation',
+    );
+    return Object.freeze({
+      schema: CAPTURED_CORPUS_REPLAY_SCHEMA,
+      actions: corpus.events.length,
+      actionCorpusBytes: bytes.length,
+      actionCorpusSha256: expectedSha256,
+      canonicalTipUnchangedBeforeApplyConfirmed:
+        predicateCounts.canonicalTipUnchangedBeforeApplyConfirmed,
+      exactCapturedEventIngestions: predicateCounts.deepWipeExactCapturedEventIngestions,
+      terminalCanonicalSha256: canonicalTipSha256(terminal),
+    });
+  } finally {
+    store?.close();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
 function runReorgDepth(workspace, depth, invariants) {
   let { path, store } = makeStore(workspace, `reorg-${depth}`);
   const initial = store.canonicalState();
+  const model = new IndependentRollbackHistoryChecker(initial);
   const ids = [];
   try {
     for (let index = 0; index < depth; index += 1) {
       const id = `reorg-${depth}-${index}`;
       const request = operationRequest(store, id, 'deposit');
       prepareOperation(store, request);
-      confirmPreparedOperation(store, id, 1_000 + index, { height: initial.height + index + 1 });
+      const confirmed = confirmPreparedOperation(store, id, 1_000 + index, { height: initial.height + index + 1, predicateCounts: invariants });
+      model.confirm(id, confirmed.before, confirmed.next);
+      model.assertTip(store.canonicalState(), `reorg depth ${depth} confirmation ${index}`);
       ids.push({ id, funding: request.intent.funding });
-      invariants.noPrematureConfirmedCommit += 1;
       store = reopen(path, store);
     }
     assert.equal(store.canonicalState().actionSequence, depth);
     assert.equal(store.undoStatistics().count, depth);
     store.rollbackReorg({ commonAncestorHeight: initial.height, commonAncestorBlockHash: initial.blockHash });
+    model.rollbackTo({ height: initial.height, blockHash: initial.blockHash });
+    model.assertTip(store.canonicalState(), `reorg depth ${depth} rollback`);
     assertSameCanonical(store.canonicalState(), initial, `reorg depth ${depth} must restore ancestor`);
+    invariants.reorgAncestorCanonicalTipMatched += 1;
     for (const { id, funding } of ids) {
       assert.equal(store.operation(id).journalState, 'reorged');
+      invariants.reorgedOperationStateExact += 1;
       assert.equal(
         store.fundingUtxo({ txid: funding.txid, vout: 0 }).reservationOperationId,
         id,
         'reorged operation retains its exact funding reservation until explicit rebase or abandon',
       );
+      invariants.reorgedFundingReservationRetained += 1;
       store.abandonOperation({ operationId: id, reason: 'qualification reorg release', crashAt: null });
       assert.deepEqual(store.fundingUtxo({ txid: funding.txid, vout: 0 }), {
         valueSats: funding.valueSats, reservationOperationId: null, spent: false,
       });
+      invariants.reorgAbandonFundingReleased += 1;
     }
     assert.equal(store.undoStatistics().count, 0);
-    invariants.noNoteOrValueLoss += ids.length;
-    invariants.noDoubleCommitmentOrNullifier += ids.length;
-    return Object.freeze({ depth, actions: ids.length, reopenedAfterEveryConfirmation: true });
+    invariants.reorgUndoLogCleared += 1;
+    return Object.freeze({ depth, actions: ids.length, reopenedAfterEveryConfirmation: true, rollbackHistoryCheckerMatched: true });
   } finally {
     store.close();
   }
@@ -426,7 +702,7 @@ function snapshotMaterial(path, binding, canonicalState) {
   }
 }
 
-function buildDepositChain(store, count, label, { insertFirstOwned = false } = {}) {
+function buildDepositChain(store, count, label, { insertFirstOwned = false, predicateCounts = null } = {}) {
   const entries = [];
   for (let index = 0; index < count; index += 1) {
     const id = `${label}-${index}`;
@@ -435,25 +711,40 @@ function buildDepositChain(store, count, label, { insertFirstOwned = false } = {
     const owned = insertFirstOwned && index === 0
       ? { noteId: `${id}-owned`, recordId: `${id}-record`, noteIndex: 0, nullifier: safeNullifier(`${id}-owned`) }
       : null;
-    const result = confirmPreparedOperation(store, id, 2_000 + index, { insertOwnedNote: owned, height: 101 + index });
+    const result = confirmPreparedOperation(store, id, 2_000 + index, { insertOwnedNote: owned, height: 101 + index, predicateCounts });
     entries.push(Object.freeze({ id, request, result, owned }));
   }
   return Object.freeze(entries);
 }
 
-function runDeepWipeReplay(workspace, invariants, count = 16) {
+function runDeepWipeReplay(workspace, invariants, count = 101) {
   let { path, store } = makeStore(workspace, 'deep-wipe-source');
-  // The separate 100-block reorg case below already covers the retained undo
-  // boundary. Sixteen linked actions make this a genuine deep materialized
-  // replay while keeping the normal local campaign practical on CI hardware.
-  if (!Number.isSafeInteger(count) || count < 1 || count > 16) {
-    fail('deep wipe/replay action count must be an integer from 1 through 16');
+  // This crosses the historic 100-action boundary. A shallow replay cannot
+  // stand in for wiped durable recovery after a long action sequence.
+  if (!Number.isSafeInteger(count) || count < 101 || count > 256) {
+    fail('deep wipe/replay action count must be an integer from 101 through 256');
   }
   let expected;
   let material;
   try {
-    const actions = buildDepositChain(store, count, 'deep-replay');
+    const actions = buildDepositChain(store, count, 'deep-replay', { predicateCounts: invariants });
+    const model = new IndependentRollbackHistoryChecker(initialStore());
+    for (const action of actions) model.confirm(action.id, action.result.before, action.result.next);
     expected = store.canonicalState();
+    model.assertTip(expected, 'deep wipe source');
+    const corpus = Object.freeze({
+      schema: CAPTURED_CORPUS_SCHEMA,
+      events: actions.map((action) => Object.freeze({
+        request: action.request,
+        artifacts: action.result.artifacts,
+        confirmation: action.result.confirmation,
+      })),
+    });
+    const corpusBytes = encodeCapturedRecoveryCorpus(corpus);
+    const corpusPath = join(workspace, 'deep-wipe-action-corpus.json');
+    writeFileSync(corpusPath, corpusBytes, { flag: 'wx', mode: 0o600 });
+    chmodSync(corpusPath, 0o400);
+    const actionCorpusSha256 = createHash('sha256').update(corpusBytes).digest('hex');
     material = snapshotMaterial(path, store.binding(), expected);
     store.close();
     store = null;
@@ -463,26 +754,47 @@ function runDeepWipeReplay(workspace, invariants, count = 16) {
       recovered.store.installAuthenticatedSnapshot(material);
       assertSameCanonical(recovered.store.canonicalState(), expected, 'authenticated snapshot recovery must preserve the exact canonical tip');
       assert.equal(recovered.store.recoveryCheckpoint(), null, 'compact snapshot installation intentionally does not assert external chain authentication');
-      invariants.deepWipeRecoveryInstall += 1;
+      invariants.deepWipeSnapshotCanonicalTipMatched += 1;
     } finally {
       recovered.store.close();
     }
-    // This is an explicit local chain-log replay after the source database is
-    // wiped. It reconstructs every transition through applyConfirmed again.
+    // Preserve the first-run action/chain-event corpus outside SQLite, wipe the
+    // database, then feed those exact captured bytes through public store APIs.
+    // No request, packet, transaction, block, or action is rebuilt from SEED.
     for (const candidate of [path, `${path}-wal`, `${path}-shm`]) rmSync(candidate, { force: true });
     store = openV2DirectStore({ path, ...initialStore() });
-    buildDepositChain(store, count, 'deep-replay');
-    assertSameCanonical(store.canonicalState(), expected, 'deep wipe/replay canonical tip must be deterministic');
+    const preservedBytes = readFileSync(corpusPath);
+    const preserved = decodeCapturedRecoveryCorpus(preservedBytes, actionCorpusSha256, count);
+    const replayChecker = new IndependentRollbackHistoryChecker(initialStore());
+    for (const event of preserved.events) {
+      const applied = ingestCapturedAction(store, event, invariants);
+      replayChecker.confirm(event.request.operationId, applied.before, applied.next);
+    }
+    assertSameCanonical(store.canonicalState(), expected, 'exact captured corpus recovery must reproduce the first-run canonical tip');
+    replayChecker.assertTip(store.canonicalState(), 'exact captured corpus recovery');
     assert.equal(store.canonicalState().actionSequence, count);
-    invariants.deepWipeReplay += count;
-    return Object.freeze({ actions: count, sourceDatabaseBytes: sourceSize, authenticatedSnapshotInstalled: true, localLogReplayMatched: true, actionIds: actions.length });
+    return Object.freeze({
+      evidence: Object.freeze({
+        actions: count,
+        actionIds: actions.length,
+        actionCorpusBytes: corpusBytes.length,
+        actionCorpusSha256,
+        authenticatedSnapshotInstalled: true,
+        crossedHundredActionBoundary: count > 100,
+        exactCapturedCorpusIngested: true,
+        rollbackHistoryCheckerMatched: true,
+        sourceDatabaseBytes: sourceSize,
+        terminalCanonicalSha256: canonicalTipSha256(expected),
+      }),
+      corpusBytes,
+    });
   } finally {
     store?.close();
   }
 }
 
-function runContention(workspace, wallets, invariants) {
-  let { path, store } = makeStore(workspace, `contention-${wallets}`);
+function runSequentialSiblingConflictSchedule(workspace, wallets, invariants) {
+  let { path, store } = makeStore(workspace, `sequential-sibling-conflict-${wallets}`);
   const initial = store.canonicalState();
   const operations = [];
   try {
@@ -494,13 +806,14 @@ function runContention(workspace, wallets, invariants) {
     }
     for (const { id } of operations) assert.equal(store.operation(id).journalState, 'funding_selected');
     const winner = operations[wallets - 1];
-    confirmPreparedOperation(store, winner.id, 4_000 + wallets, { height: initial.height + 1 });
+    confirmPreparedOperation(store, winner.id, 4_000 + wallets, { height: initial.height + 1, predicateCounts: invariants });
     const winnerTip = store.canonicalState();
     for (const loser of operations.slice(0, -1)) {
       assert.throws(
         () => store.transitionOperation({ operationId: loser.id, to: 'tip_synced', reason: null }),
         /stale/,
       );
+      invariants.sequentialSiblingStaleParentRejected += 1;
       assertSameCanonical(store.canonicalState(), winnerTip, 'lost sibling must not commit a canonical tip');
       const retried = store.recordConflictAndMaybeRetry({ operationId: loser.id, reason: 'parent lost to deterministic sibling', crashAt: null });
       assert.equal(retried.journalState, 'needs_reproof');
@@ -512,7 +825,7 @@ function runContention(workspace, wallets, invariants) {
         null,
         'a parent conflict must release stale funding before authenticated sync',
       );
-      invariants.conflictReservationRelease += 1;
+      invariants.siblingConflictFundingReleased += 1;
       const rebased = store.rebaseOperation({
         operationId: loser.id,
         expectedState: winnerTip.state,
@@ -535,20 +848,18 @@ function runContention(workspace, wallets, invariants) {
         loser.id,
         'rebase must atomically reacquire the immutable funding intent',
       );
-      invariants.rebaseReservationReacquire += 1;
+      invariants.siblingRebaseFundingReacquired += 1;
       const abandoned = store.abandonOperation({ operationId: loser.id, reason: 'qualification deterministic sibling loss', crashAt: null });
       assert.equal(abandoned.journalState, 'abandoned');
       assert.deepEqual(store.fundingUtxo({ txid: loser.request.intent.funding.txid, vout: 0 }), {
         valueSats: loser.request.intent.funding.valueSats, reservationOperationId: null, spent: false,
       });
-      invariants.noBadReservation += 1;
+      invariants.siblingAbandonFundingReleased += 1;
     }
     store = reopen(path, store);
     assertSameCanonical(store.canonicalState(), winnerTip, 'reopen after sibling contention must retain only winner canonical commit');
-    invariants.parentLoss += wallets - 1;
-    invariants.conflictingSiblings += wallets - 1;
-    invariants.noPrematureConfirmedCommit += wallets;
-    return Object.freeze({ wallets, siblingOperations: wallets, losers: wallets - 1, winner: winner.id, reopened: true });
+    invariants.sequentialSiblingWinnerTipPreservedAfterReopen += 1;
+    return Object.freeze({ participants: wallets, siblingOperations: wallets, losers: wallets - 1, winner: winner.id, reopened: true, deterministicSequentialSchedule: true });
   } finally {
     store.close();
   }
@@ -561,14 +872,14 @@ function runMaliciousSelfTransfer(workspace, invariants) {
     const deposit = operationRequest(store, depositId, 'deposit');
     prepareOperation(store, deposit);
     const note = { noteId: 'self-note-0', recordId: `${depositId}-record`, noteIndex: 0, nullifier: safeNullifier('self-note-0') };
-    confirmPreparedOperation(store, depositId, 5_001, { insertOwnedNote: note, height: 101 });
+    confirmPreparedOperation(store, depositId, 5_001, { insertOwnedNote: note, height: 101, predicateCounts: invariants });
     assert.deepEqual(store.ownedNoteStatistics(), { total: 1, unspent: 1, spent: 0 });
     const transferId = 'self-transfer';
     const transfer = operationRequest(store, transferId, 'transfer', { selectedNoteId: note.noteId });
     prepareOperation(store, transfer);
     const replacement = { noteId: 'self-note-1', recordId: `${transferId}-record`, noteIndex: 1, nullifier: safeNullifier('self-note-1') };
     const beforeTransfer = store.canonicalState();
-    confirmPreparedOperation(store, transferId, 5_002, { publicNullifier: note.nullifier, insertOwnedNote: replacement, height: 102 });
+    confirmPreparedOperation(store, transferId, 5_002, { publicNullifier: note.nullifier, insertOwnedNote: replacement, height: 102, predicateCounts: invariants });
     const afterTransfer = store.canonicalState();
     assert.equal(afterTransfer.actionSequence, beforeTransfer.actionSequence + 1);
     assert.equal(store.ownedNote(note.noteId).spent, true);
@@ -578,6 +889,7 @@ function runMaliciousSelfTransfer(workspace, invariants) {
       () => store.derivePacketPostState({ kind: 'transfer', publicNullifier: note.nullifier, outputNoteLeaf: fr(5_003n) }),
       /already exists/,
     );
+    invariants.maliciousDuplicateNullifierRejected += 1;
     const duplicate = operationRequest(store, 'self-transfer-double-spend', 'transfer', { selectedNoteId: note.noteId });
     store.createOperation(duplicate);
     store.putFundingUtxo({ txid: duplicate.intent.funding.txid, vout: 0, valueSats: duplicate.intent.funding.valueSats });
@@ -585,14 +897,13 @@ function runMaliciousSelfTransfer(workspace, invariants) {
       () => store.reserveResources({ operationId: duplicate.operationId, noteId: note.noteId, utxoTxid: duplicate.intent.funding.txid, utxoVout: 0, crashAt: null }),
       /unavailable/,
     );
+    invariants.maliciousDuplicateNoteReservationRejected += 1;
     assert.equal(store.fundingUtxo({ txid: duplicate.intent.funding.txid, vout: 0 }).reservationOperationId, null);
     assertSameCanonical(store.canonicalState(), afterTransfer, 'malicious self transfer attempt must not mutate canonical tip');
+    invariants.maliciousAttemptCanonicalTipUnchanged += 1;
     store = reopen(path, store);
     assert.equal(store.ownedNote(note.noteId).spent, true);
     assert.equal(store.ownedNote(replacement.noteId).spent, false);
-    invariants.maliciousSelfTransfer += 1;
-    invariants.noDoubleCommitmentOrNullifier += 1;
-    invariants.noBadReservation += 1;
     return Object.freeze({ selfTarget: true, duplicateNullifierRejected: true, duplicateReservationRejected: true, reopened: true });
   } finally {
     store.close();
@@ -601,11 +912,20 @@ function runMaliciousSelfTransfer(workspace, invariants) {
 
 export function runV2ReorgConcurrencyQualification({
   output,
+  corpusOutput,
   reorgDepths = REORG_DEPTHS,
   walletCounts = WALLET_COUNTS,
-  deepReplayActions = 16,
+  deepReplayActions = 101,
 } = {}) {
-  if (typeof output !== 'string' || existsSync(output)) fail('output evidence path must not already exist');
+  if (
+    typeof output !== 'string' ||
+    typeof corpusOutput !== 'string' ||
+    output === corpusOutput ||
+    existsSync(output) ||
+    existsSync(corpusOutput)
+  ) {
+    fail('distinct output evidence and corpus paths must not already exist');
+  }
   if (!Array.isArray(reorgDepths) || reorgDepths.length === 0 || reorgDepths.some((value) => !REORG_DEPTHS.includes(value))) fail('reorg depths must be a nonempty subset of the fixed Q-06 depths');
   if (!Array.isArray(walletCounts) || walletCounts.length === 0 || walletCounts.some((value) => !WALLET_COUNTS.includes(value))) fail('wallet counts must be a nonempty subset of the fixed Q-06 wallet counts');
   const base = join(tmpdir(), 'shieldkit-v2-reorg-concurrency-qualification');
@@ -613,29 +933,35 @@ export function runV2ReorgConcurrencyQualification({
   const workspace = mkdtempSync(join(base, 'run-'));
   const started = performance.now();
   const invariants = {
-    noNoteOrValueLoss: 0,
-    noDoubleCommitmentOrNullifier: 0,
-    noBadReservation: 0,
-    conflictReservationRelease: 0,
-    rebaseReservationReacquire: 0,
-    noPrematureConfirmedCommit: 0,
-    parentLoss: 0,
-    conflictingSiblings: 0,
-    maliciousSelfTransfer: 0,
-    deepWipeRecoveryInstall: 0,
-    deepWipeReplay: 0,
+    canonicalTipUnchangedBeforeApplyConfirmed: 0,
+    reorgAncestorCanonicalTipMatched: 0,
+    reorgedOperationStateExact: 0,
+    reorgedFundingReservationRetained: 0,
+    reorgAbandonFundingReleased: 0,
+    reorgUndoLogCleared: 0,
+    sequentialSiblingStaleParentRejected: 0,
+    siblingConflictFundingReleased: 0,
+    siblingRebaseFundingReacquired: 0,
+    siblingAbandonFundingReleased: 0,
+    sequentialSiblingWinnerTipPreservedAfterReopen: 0,
+    maliciousDuplicateNullifierRejected: 0,
+    maliciousDuplicateNoteReservationRejected: 0,
+    maliciousAttemptCanonicalTipUnchanged: 0,
+    deepWipeSnapshotCanonicalTipMatched: 0,
+    deepWipeExactCapturedEventIngestions: 0,
   };
   try {
     const reorgs = reorgDepths.map((depth) => runReorgDepth(workspace, depth, invariants));
-    const contention = walletCounts.map((wallets) => runContention(workspace, wallets, invariants));
+    const sequentialSiblingConflicts = walletCounts.map((wallets) => runSequentialSiblingConflictSchedule(workspace, wallets, invariants));
     const maliciousSelfTransfer = runMaliciousSelfTransfer(workspace, invariants);
-    const deepWipeReplay = runDeepWipeReplay(workspace, invariants, deepReplayActions);
+    const deepWipe = runDeepWipeReplay(workspace, invariants, deepReplayActions);
+    const deepWipeReplay = deepWipe.evidence;
     const evidence = Object.freeze({
-      schema: 'shieldkit-v2-direct-reorg-concurrency-qualification-v1',
-      qualification: 'development-only-local-durability',
+      schema: EVIDENCE_SCHEMA,
+      qualification: 'development-only-local-sequential-durability',
       seed: SEED,
       reorgDepths: reorgs,
-      walletContention: contention,
+      sequentialSiblingConflicts,
       maliciousSelfTransfer,
       deepWipeReplay,
       invariantCounts: invariants,
@@ -645,11 +971,21 @@ export function runV2ReorgConcurrencyQualification({
       limitations: [
         'Deterministic local BCH transaction construction exercises store admission and durable state transitions; it is not chain broadcast, mined confirmation, a real Schnorr signature check, or a proof-system qualification.',
         'The authenticated snapshot installer validates exact materialized tree/state consistency but does not establish an external chain-authentication boundary; native recovery, live reorg observation, and clean-host qualification remain separate gates.',
-        'Logical wallet contention is deterministic single-process scheduling over one SQLite database; it is not a distributed multi-device or adversarial filesystem concurrency campaign.',
+        'Sibling conflicts are scheduled deterministically and sequentially in one process over one SQLite database; there is no barrier, overlapping call, worker process, or concurrency evidence, and no distributed or multi-device claim.',
+        'Same-UID malicious replacement of the corpus or database path during measurement is out of scope.',
       ],
     });
     mkdirSync(dirname(output), { recursive: true, mode: 0o700 });
-    writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    mkdirSync(dirname(corpusOutput), { recursive: true, mode: 0o700 });
+    let corpusWritten = false;
+    try {
+      writeFileSync(corpusOutput, deepWipe.corpusBytes, { flag: 'wx', mode: 0o600 });
+      corpusWritten = true;
+      writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    } catch (error) {
+      if (corpusWritten) rmSync(corpusOutput, { force: true });
+      throw error;
+    }
     return evidence;
   } finally {
     rmSync(workspace, { recursive: true, force: true });
@@ -658,9 +994,20 @@ export function runV2ReorgConcurrencyQualification({
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
-    const { output } = parseV2ReorgConcurrencyQualificationArguments(process.argv.slice(2));
-    const evidence = runV2ReorgConcurrencyQualification({ output });
-    process.stdout.write(`${JSON.stringify({ schema: 'shieldkit-v2-direct-reorg-concurrency-qualification-command-result-v1', output, elapsedMs: evidence.elapsedMs, discrepancies: evidence.discrepancies.length })}\n`);
+    const argv = process.argv.slice(2);
+    if (argv[0] === '--replay-corpus') {
+      const replay = parseV2CapturedRecoveryReplayArguments(argv);
+      const result = replayV2CapturedRecoveryCorpus({
+        bytes: readFileSync(replay.corpusPath),
+        expectedSha256: replay.expectedSha256,
+        expectedActions: replay.expectedActions,
+      });
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+    } else {
+      const { output, corpusOutput } = parseV2ReorgConcurrencyQualificationArguments(argv);
+      const evidence = runV2ReorgConcurrencyQualification({ output, corpusOutput });
+      process.stdout.write(`${JSON.stringify({ schema: 'shieldkit-v2-direct-reorg-sequential-sibling-qualification-command-result-v2', output, corpusOutput, elapsedMs: evidence.elapsedMs, discrepancies: evidence.discrepancies.length })}\n`);
+    }
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
     process.exitCode = 1;

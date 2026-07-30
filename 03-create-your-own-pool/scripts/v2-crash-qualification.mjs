@@ -134,11 +134,25 @@ function runExternalWorker(mode, path) {
   });
 }
 
+function workerTranscript(result) {
+  if (typeof result.stdout !== 'string' || typeof result.stderr !== 'string') {
+    fail('external crash worker did not produce text transcripts');
+  }
+  return Object.freeze({
+    stdout: result.stdout,
+    stderr: result.stderr,
+    stdoutSha256: createHash('sha256').update(result.stdout).digest('hex'),
+    stderrSha256: createHash('sha256').update(result.stderr).digest('hex'),
+    status: result.status,
+    signal: result.signal,
+  });
+}
+
 /**
- * Small production-representative process-crash corpus. Every writer is a
- * separate child which is actually SIGKILLed; every assertion is made by a
- * fresh verifier process. This intentionally stays separate from the exact
- * 10,000-case in-process campaign below.
+ * Narrow outer-process termination corpus. Each child is SIGKILLed immediately
+ * before or after one complete public store/journal call, and a fresh process
+ * checks the resulting durable state. It does not interrupt inside a call or
+ * model transaction-internal, power-loss, or filesystem-fault behavior.
  */
 export function runV2ExternalCrashCorpus({ directory } = {}) {
   if (
@@ -184,13 +198,19 @@ export function runV2ExternalCrashCorpus({ directory } = {}) {
     if (verified.status !== 0 || verified.signal !== null || verifyOutput.event !== 'verified') {
       fail(`external crash verifier ${verifyMode} did not complete cleanly`);
     }
-    results.push(Object.freeze({ crashMode, verifyMode, signal: crashSignal, invariants: verifyOutput.invariants }));
+    results.push(Object.freeze({
+      crashMode,
+      verifyMode,
+      crash: workerTranscript(crashed),
+      verify: workerTranscript(verified),
+      invariants: verifyOutput.invariants,
+    }));
   }
   return Object.freeze({
     schema: 'shieldkit-v2-direct-external-crash-corpus-v1',
     cases: results,
     limitations: Object.freeze([
-      'SIGKILL exercises process termination at selected post-transaction boundaries, not power-loss or filesystem-fault semantics.',
+      'SIGKILL is delivered to an outer child immediately before or after selected complete public store/journal calls; it does not exercise termination inside those calls, transaction internals, power-loss, or filesystem-fault semantics.',
       'The corpus has no network transport, live-chain confirmation, or multi-device synchronization.',
     ]),
   });
@@ -755,7 +775,11 @@ export function runV2CrashQualification({ output, cases = CASES } = {}) {
   };
   let store = null;
   let storePath = null;
+  let externalCrashCorpus = null;
   try {
+    const corpusDirectory = join(workspace, 'external-sigkill-corpus');
+    mkdirSync(corpusDirectory, { mode: 0o700 });
+    externalCrashCorpus = runV2ExternalCrashCorpus({ directory: corpusDirectory });
     for (let index = 0; index < cases; index += 1) {
       const entry = CASES_BY_STAGE[index % CASES_BY_STAGE.length];
       const id = `q-${index}`;
@@ -789,11 +813,12 @@ export function runV2CrashQualification({ output, cases = CASES } = {}) {
     cases,
     caseCountsByStage: stageCounts,
     invariantCounts: invariants,
+    externalCrashCorpus,
     discrepancies: [],
     elapsedMs,
     storage: 'node:sqlite V2 direct store and V2 delivery journal reopened after every injected interruption',
     limitations: [
-      'Deterministic in-process crash injection verifies transaction rollback and durable resume boundaries; it is not a SIGKILL, power-loss, or filesystem-fault campaign.',
+      'The 10,000-case deterministic in-process matrix verifies injected rollback/resume hooks. Its six-case companion only SIGKILLs an outer child immediately before or after selected complete public calls; neither covers termination inside those calls, transaction internals, power-loss, or filesystem faults.',
       'No network transport, chain confirmation, proving, or funding signer is invoked; signed/unsigned transaction lifecycle storage is exercised with deterministic locally constructed BCH transactions.',
     ],
   });

@@ -41,7 +41,7 @@ test('focused external crash corpus requires SIGKILL and fresh-process exact dur
   assert.equal(result.schema, 'shieldkit-v2-direct-external-crash-corpus-v1');
   assert.equal(result.cases.length, 6);
   assert.deepEqual(
-    result.cases.map((item) => item.signal),
+    result.cases.map((item) => item.crash.signal),
     Array(6).fill('SIGKILL'),
   );
   assert.deepEqual(
@@ -63,5 +63,13 @@ test('focused external crash corpus requires SIGKILL and fresh-process exact dur
     result.cases[5].invariants,
     ['delivery-state-exact', 'duplicate-send-claim-rejected'],
   );
-  assert.match(result.limitations[0], /not power-loss or filesystem-fault semantics/);
+  for (const item of result.cases) {
+    assert.equal(item.crash.status, null);
+    assert.equal(item.verify.status, 0);
+    assert.equal(item.crash.stdoutSha256.length, 64);
+    assert.equal(item.verify.stdoutSha256.length, 64);
+    assert.match(item.crash.stdout, /ready-to-kill/u);
+    assert.match(item.verify.stdout, /verified/u);
+  }
+  assert.match(result.limitations[0], /does not exercise termination inside those calls/);
 });
