@@ -1,72 +1,403 @@
-/* TEST-ONLY: fixture bundles must never cross the public verification boundary. */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { V2Q01CommitBoundEvidenceError, parseV2Q01CommitBoundArguments, probeV2Q01SanitizedChildrenForTest, runV2Q01CommitBoundEvidence, runV2Q01CommitBoundEvidenceForTest, verifyV2Q01CommitBoundBundle, verifyV2Q01CommitBoundBundleForTest } from './v2-q01-commit-bound-evidence.mjs';
+
 import { canonicalJson } from '../packages/profile/load.mjs';
 
-const hash = (value) => createHash('sha256').update(value).digest('hex');
-const root = () => mkdtempSync(join(tmpdir(), 'shieldkit-q01-'));
-const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const nodeEnvironment = Object.freeze({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC', NODE_V8_COVERAGE: '' });
-const gitEnvironment = Object.freeze({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC', PATH: '/usr/bin:/bin', NODE_V8_COVERAGE: '', GIT_CONFIG_COUNT: '0', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' });
-const environmentPolicy = Object.freeze({ schema: 'shieldkit-v2-direct/q01-sanitized-child-environment/v1', inheritAmbient: false, node: nodeEnvironment, git: gitEnvironment, excludedControls: ['GIT_* ambient variables', 'NODE_OPTIONS', 'NODE_PATH', 'ambient NODE_V8_COVERAGE (pinned empty)', 'npm_config_*', 'loaders', 'preloads'] });
-const runtime = () => Object.freeze({
-  schema: 'shieldkit-v2-direct/q01-commit-bound-evidence/v1/runtime',
-  node: { executable: process.execPath, executableSha256: hash('node'), version: process.version, platform: process.platform, arch: process.arch },
-  git: { executable: '/usr/bin/git', executableSha256: hash('git'), version: 'git version 2.0.0' },
-  environmentPolicy,
-  packageMetadata: {
-    packageJsonPath: 'package.json', packageJsonSha256: hash('package'), lockfilePath: 'package-lock.json',
-    lockfileSha256: hash('lock'), lockfileVersion: 3, name: 'shieldkit', version: '0.2.0',
-    declaredInstallCommand: ['npm', 'ci', '--include-workspace-root'],
-    dependencyProvenance: 'package-and-lock-metadata-only; installed node_modules are not attested',
-    installedNodeModulesAttested: false,
-  },
-});
-const source = () => Object.freeze({ schema: 'shieldkit-v2-direct/q01-commit-bound-evidence/v1/source-set', sourceRoot: '/test/q01-source', gitCommit: 'a'.repeat(40), gitTree: 'b'.repeat(40), runtime: runtime(), files: ['03-create-your-own-pool/packages/action/v2/packet.mjs', '03-create-your-own-pool/packages/action/v2/state.mjs', '03-create-your-own-pool/packages/action/v2/strict-codec-qualification.mjs', '03-create-your-own-pool/packages/action/v2/vectors/q01-state-packet-public-input.json', '03-create-your-own-pool/packages/profile/load.mjs', '03-create-your-own-pool/scripts/v2-q01-commit-bound-evidence.mjs'].map((path, index) => ({ path, bytes: index + 1, sha256: hash(path) })), locks: [{ path: 'package-lock.json', bytes: 7, sha256: hash('lock') }], sourceSetSha256: '' });
-function fixtureSource() { const value = structuredClone(source()); value.sourceSetSha256 = hash(Buffer.from(canonicalJson({ files: value.files, locks: value.locks }))); return value; }
-function reseal(bundle, mutate) { const sourcePath = join(bundle, 'source-set.json'); const qualificationPath = join(bundle, 'qualification.json'); const executionPath = join(bundle, 'execution.json'); const sourceValue = JSON.parse(readFileSync(sourcePath)); const qualification = JSON.parse(readFileSync(qualificationPath)); const execution = JSON.parse(readFileSync(executionPath)); mutate({ source: sourceValue, qualification, execution }); qualification.sourceSetSha256 = sourceValue.sourceSetSha256; execution.sourceSetSha256 = sourceValue.sourceSetSha256; writeFileSync(sourcePath, canonicalJson(sourceValue)); writeFileSync(qualificationPath, canonicalJson(qualification)); writeFileSync(executionPath, canonicalJson(execution)); for (const path of [sourcePath, qualificationPath, executionPath]) chmodSync(path, 0o600); const artifacts = [['source-set', sourcePath], ['qualification', qualificationPath], ['execution', executionPath]].map(([role, path]) => { const bytes = readFileSync(path); return { role, path: path.split('/').at(-1), bytes: bytes.length, sha256: hash(bytes) }; }); const manifestPath = join(bundle, 'manifest.json'); writeFileSync(manifestPath, canonicalJson({ schema: 'shieldkit-v2-direct/q01-commit-bound-bundle/v1', localOnly: true, chainAuthenticated: false, finalQualification: false, artifacts })); chmodSync(manifestPath, 0o600); }
+import {
+  assertV2Q01CleanCommittedCheckoutForTest,
+  assertV2Q01TrackedSourcesUnchangedForTest,
+  parseV2Q01CommitBoundArguments,
+  probeV2Q01RuntimeBindingForTest,
+  probeV2Q01SanitizedChildrenForTest,
+  q01TestFixtures,
+  runV2Q01CommitBoundEvidence,
+  runV2Q01CommitBoundEvidenceForTest,
+  runV2Q01FourImplementationCycleForTest,
+  snapshotV2Q01TrackedSourcesForTest,
+  V2Q01CommitBoundEvidenceError,
+  verifyV2Q01CommitBoundBundle,
+  verifyV2Q01CommitBoundBundleForTest,
+} from './v2-q01-commit-bound-evidence.mjs';
 
-test('Q-01 public generator refuses an uncommitted or dirty source before it can execute the mutation campaign', async () => { const parent = root(); try { await assert.rejects(() => runV2Q01CommitBoundEvidence({ outputDirectory: parent }), /clean committed source checkout/u); } finally { rmSync(parent, { recursive: true, force: true }); } });
-test('Q-01 fixture bundle is sealed, private, and publicly nonqualifying', async () => { const parent = root(); try { const result = await runV2Q01CommitBoundEvidenceForTest({ outputDirectory: parent, source: fixtureSource() }); assert.equal(result.status, 'verified-test-only-local'); assert.equal(lstatSync(result.bundlePath).mode & 0o777, 0o700); assert.equal(lstatSync(join(result.bundlePath, 'execution.json')).mode & 0o777, 0o600); assert.throws(() => verifyV2Q01CommitBoundBundle(result.bundlePath), /test-only/u); assert.equal(verifyV2Q01CommitBoundBundleForTest(result.bundlePath).status, 'verified-test-only-local'); writeFileSync(join(result.bundlePath, 'manifest.json'), '{}'); chmodSync(join(result.bundlePath, 'manifest.json'), 0o600); assert.throws(() => verifyV2Q01CommitBoundBundleForTest(result.bundlePath), V2Q01CommitBoundEvidenceError); } finally { rmSync(parent, { recursive: true, force: true }); } });
-test('Q-01 public verifier rejects a self-resealed source-root substitution before replay', async () => { const parent = root(); try { const result = await runV2Q01CommitBoundEvidenceForTest({ outputDirectory: parent, source: fixtureSource() }); reseal(result.bundlePath, ({ qualification, execution }) => { qualification.testOnly = false; qualification.qualification = 'local-strict-codec-mutation-evidence-not-chain-or-final-qualification'; execution.testOnly = false; execution.command = { executable: process.execPath, argv: ['--input-type=module', '--eval', 'x'], cwd: '/test/q01-source', exitStatus: 0, stdoutSha256: hash('stdout'), stderrSha256: hash('stderr') }; }); assert.throws(() => verifyV2Q01CommitBoundBundle(result.bundlePath), /exact module source root/u); } finally { rmSync(parent, { recursive: true, force: true }); } });
-test('Q-01 public verifier rejects a self-resealed runtime substitution before replay', async () => { const parent = root(); try { const result = await runV2Q01CommitBoundEvidenceForTest({ outputDirectory: parent, source: fixtureSource() }); reseal(result.bundlePath, ({ source: value, qualification, execution }) => { value.sourceRoot = moduleRoot; value.runtime.node.executableSha256 = hash('forged-node'); qualification.testOnly = false; qualification.qualification = 'local-strict-codec-mutation-evidence-not-chain-or-final-qualification'; execution.testOnly = false; execution.runtime = value.runtime; execution.command = { executable: process.execPath, argv: ['--input-type=module', '--eval', 'x'], cwd: moduleRoot, environment: nodeEnvironment, exitStatus: 0, stdoutSha256: hash('stdout'), stderrSha256: hash('stderr') }; }); assert.throws(() => verifyV2Q01CommitBoundBundle(result.bundlePath), /runtime identity differs/u); } finally { rmSync(parent, { recursive: true, force: true }); } });
-test('Q-01 Git wrapper ignores ambient fake Git and Git repository/config controls', async () => {
-  const parent = root(); const fakeGit = join(parent, 'git'); const marker = join(parent, 'fake-git-ran');
-  const keys = ['PATH', 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_EXEC_PATH', 'GIT_OBJECT_DIRECTORY', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0'];
-  const prior = new Map(keys.map((key) => [key, Object.hasOwn(process.env, key) ? process.env[key] : undefined]));
+const root = () => mkdtempSync(join(tmpdir(), 'shieldkit-q01-pre-'));
+const hash = (value) => createHash('sha256').update(value).digest('hex');
+
+function resealArtifact(bundle, name, mutate) {
+  const path = join(bundle, name);
+  const value = JSON.parse(readFileSync(path, 'utf8'));
+  mutate(value);
+  const bytes = Buffer.from(canonicalJson(value), 'utf8');
+  writeFileSync(path, bytes);
+  chmodSync(path, 0o600);
+  const manifestPath = join(bundle, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const entry = manifest.artifacts.find((item) => item.path === name);
+  assert.ok(entry);
+  entry.bytes = bytes.length;
+  entry.sha256 = hash(bytes);
+  writeFileSync(manifestPath, canonicalJson(manifest));
+  chmodSync(manifestPath, 0o600);
+}
+
+test('Q-01 production source gate refuses a dirty/uncommitted checkout before any lane', () => {
+  const repository = root();
   try {
-    writeFileSync(fakeGit, `#!/bin/sh\n: > '${marker}'\nexit 99\n`); chmodSync(fakeGit, 0o700);
-    Object.assign(process.env, { PATH: parent, GIT_DIR: join(parent, 'forged.git'), GIT_WORK_TREE: parent, GIT_EXEC_PATH: parent, GIT_OBJECT_DIRECTORY: parent, GIT_CONFIG_GLOBAL: fakeGit, GIT_CONFIG_SYSTEM: fakeGit, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'alias.status', GIT_CONFIG_VALUE_0: '!false' });
-    await assert.rejects(() => runV2Q01CommitBoundEvidence({ outputDirectory: parent }), /clean committed source checkout/u);
-    assert.equal(existsSync(marker), false);
+    writeFileSync(join(repository, 'source.mjs'), 'export const value = 1;\n');
+    for (const args of [
+      ['init', '-q'],
+      ['add', 'source.mjs'],
+    ]) {
+      const result = spawnSync('/usr/bin/git', args, {
+        cwd: repository,
+        env: {
+          LANG: 'C',
+          LC_ALL: 'C',
+          TZ: 'UTC',
+          PATH: '/usr/bin:/bin',
+          GIT_CONFIG_COUNT: '0',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+          GIT_CONFIG_NOSYSTEM: '1',
+        },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    assert.throws(
+      () => assertV2Q01CleanCommittedCheckoutForTest(repository),
+      /clean committed source checkout/u,
+    );
   } finally {
-    for (const [key, value] of prior) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    rmSync(repository, { recursive: true, force: true });
+  }
+});
+
+test('Q-01 test fixture seals exactly four lanes and remains publicly nonqualifying', async () => {
+  const parent = root();
+  try {
+    const result = await runV2Q01CommitBoundEvidenceForTest({
+      outputDirectory: parent,
+      ...q01TestFixtures(),
+    });
+    assert.equal(result.status, 'verified-test-only-local-nonqualifying');
+    assert.equal(result.reference, 'javascript-reference-orchestrator');
+    assert.deepEqual(
+      result.implementations,
+      ['typescript', 'rust', 'circuit', 'covenant'],
+    );
+    assert.equal(result.executed, false);
+    assert.equal(result.localOnly, true);
+    assert.equal(result.preCeremony, true);
+    assert.equal(result.signed, false);
+    assert.equal(result.finalArtifacts, false);
+    assert.equal(result.finalQualification, false);
+    assert.equal(lstatSync(result.bundlePath).mode & 0o777, 0o700);
+    for (const name of [
+      'manifest.json',
+      'source-set.json',
+      'qualification.json',
+      'execution.json',
+    ]) {
+      assert.equal(lstatSync(join(result.bundlePath, name)).mode & 0o777, 0o600);
+    }
+    const qualification = JSON.parse(
+      readFileSync(join(result.bundlePath, 'qualification.json'), 'utf8'),
+    );
+    assert.equal(
+      qualification.reference.role,
+      'reference-orchestrator-not-one-of-four',
+    );
+    assert.equal(qualification.implementations.length, 4);
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundle(result.bundlePath),
+      /test-only Q-01 evidence is nonqualifying/u,
+    );
+    assert.equal(
+      verifyV2Q01CommitBoundBundleForTest(result.bundlePath).status,
+      'verified-test-only-local-nonqualifying',
+    );
+    writeFileSync(join(result.bundlePath, 'manifest.json'), '{}');
+    chmodSync(join(result.bundlePath, 'manifest.json'), 0o600);
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundleForTest(result.bundlePath),
+      V2Q01CommitBoundEvidenceError,
+    );
+  } finally {
     rmSync(parent, { recursive: true, force: true });
   }
 });
-test('Q-01 Node wrapper excludes ambient options, paths, preload, coverage, and npm controls', () => {
-  const keys = ['NODE_OPTIONS', 'NODE_PATH', 'NODE_V8_COVERAGE', 'npm_config_node_options', 'npm_config_prefix'];
-  const prior = new Map(keys.map((key) => [key, Object.hasOwn(process.env, key) ? process.env[key] : undefined]));
+
+test('Q-01 verifier fails closed on implementation-lane omission', async () => {
+  const parent = root();
   try {
-    Object.assign(process.env, {
-      NODE_OPTIONS: '--require=/definitely/not/a/q01-preload.cjs',
-      NODE_PATH: '/definitely/not/a/q01-node-path',
-      NODE_V8_COVERAGE: '/definitely/not/a/q01-coverage-directory',
-      npm_config_node_options: '--experimental-loader=/definitely/not/a/q01-loader.mjs',
-      npm_config_prefix: '/definitely/not/a/q01-prefix',
+    const result = await runV2Q01CommitBoundEvidenceForTest({
+      outputDirectory: parent,
+      ...q01TestFixtures(),
     });
-    const probe = probeV2Q01SanitizedChildrenForTest();
-    assert.equal(canonicalJson(probe.node), canonicalJson({ controls: [], environment: nodeEnvironment }));
-    assert.equal(probe.git.executable, '/usr/bin/git');
-    assert.equal(probe.environmentPolicy.inheritAmbient, false);
+    resealArtifact(result.bundlePath, 'qualification.json', (value) => {
+      value.implementations.pop();
+    });
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundleForTest(result.bundlePath),
+      /exactly four implementation lanes/u,
+    );
   } finally {
-    for (const [key, value] of prior) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    rmSync(parent, { recursive: true, force: true });
   }
 });
-test('Q-01 command parsing and public seam boundary are exact', async () => { assert.throws(() => parseV2Q01CommitBoundArguments([]), V2Q01CommitBoundEvidenceError); assert.deepEqual(parseV2Q01CommitBoundArguments(['--verify', '/bundle'], '/cwd'), { mode: 'verify', bundlePath: '/bundle' }); await assert.rejects(() => runV2Q01CommitBoundEvidence({ outputDirectory: '/tmp', source: {} }), /accepts only outputDirectory/u); });
+
+test('Q-01 verifier rejects sealed lane-output transcript tampering', async () => {
+  const parent = root();
+  try {
+    const result = await runV2Q01CommitBoundEvidenceForTest({
+      outputDirectory: parent,
+      ...q01TestFixtures(),
+    });
+    resealArtifact(result.bundlePath, 'execution.json', (value) => {
+      value.implementations[0].output.qualification.sha256BeU128.digestHex =
+        '0'.repeat(64);
+    });
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundleForTest(result.bundlePath),
+      /execution\/output binding differs/u,
+    );
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('Q-01 verifier rejects tool identity and sanitized-environment drift', async () => {
+  const parent = root();
+  try {
+    const tool = await runV2Q01CommitBoundEvidenceForTest({
+      outputDirectory: parent,
+      ...q01TestFixtures(),
+    });
+    resealArtifact(tool.bundlePath, 'execution.json', (value) => {
+      value.runtime.node.executableSha256 = '0'.repeat(64);
+    });
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundleForTest(tool.bundlePath),
+      /execution evidence boundary/u,
+    );
+
+    const environment = await runV2Q01CommitBoundEvidenceForTest({
+      outputDirectory: parent,
+      ...q01TestFixtures(),
+    });
+    resealArtifact(environment.bundlePath, 'source-set.json', (value) => {
+      value.runtime.environmentPolicy.node.LANG = 'host-controlled';
+    });
+    assert.throws(
+      () => verifyV2Q01CommitBoundBundleForTest(environment.bundlePath),
+      /runtime environment policy/u,
+    );
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('Q-01 complete tracked-source snapshot detects live byte drift', () => {
+  const repository = root();
+  try {
+    writeFileSync(join(repository, 'package-lock.json'), '{}\n');
+    writeFileSync(join(repository, 'source.mjs'), 'export const value = 1;\n');
+    for (const args of [
+      ['init', '-q'],
+      ['add', 'package-lock.json', 'source.mjs'],
+    ]) {
+      const result = spawnSync('/usr/bin/git', args, {
+        cwd: repository,
+        env: {
+          LANG: 'C',
+          LC_ALL: 'C',
+          TZ: 'UTC',
+          PATH: '/usr/bin:/bin',
+          GIT_CONFIG_COUNT: '0',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+          GIT_CONFIG_NOSYSTEM: '1',
+        },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    const snapshot = snapshotV2Q01TrackedSourcesForTest(repository);
+    assert.equal(
+      assertV2Q01TrackedSourcesUnchangedForTest(repository, snapshot),
+      true,
+    );
+    writeFileSync(join(repository, 'source.mjs'), 'export const value = 2;\n');
+    assert.throws(
+      () => assertV2Q01TrackedSourcesUnchangedForTest(repository, snapshot),
+      /tracked source drifted/u,
+    );
+  } finally {
+    rmSync(repository, { recursive: true, force: true });
+  }
+});
+
+test('Q-01 child environment ignores ambient Git, Node, npm, Rust, and Cargo controls', () => {
+  const names = [
+    'GIT_DIR',
+    'GIT_CONFIG_COUNT',
+    'NODE_OPTIONS',
+    'NODE_PATH',
+    'NODE_V8_COVERAGE',
+    'npm_config_prefix',
+    'RUSTFLAGS',
+    'CARGO_TARGET_DIR',
+  ];
+  const prior = new Map(names.map((name) => [name, process.env[name]]));
+  try {
+    for (const name of names) process.env[name] = '/tmp/host-controlled';
+    const probe = probeV2Q01SanitizedChildrenForTest();
+    assert.deepEqual(probe.node.controls, []);
+    assert.deepEqual({ ...probe.node.environment }, {
+      LANG: 'C',
+      LC_ALL: 'C',
+      TZ: 'UTC',
+      NODE_V8_COVERAGE: '',
+    });
+    assert.match(probe.git.executable, /^\/(?:usr\/)?bin\/git$/u);
+    assert.equal(probe.environmentPolicy.inheritAmbient, false);
+  } finally {
+    for (const [name, value] of prior) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
+
+test('Q-01 full runtime probe binds Node dependencies, Cargo sources, and all toolchains', () => {
+  const probe = probeV2Q01RuntimeBindingForTest();
+  assert.ok(probe.nodeInventoryEntries > 100);
+  assert.match(probe.nodeInventorySha256, /^[0-9a-f]{64}$/u);
+  assert.ok(probe.cargoDependencyPackages > 10);
+  assert.match(probe.cargoDependencyInventorySha256, /^[0-9a-f]{64}$/u);
+  assert.equal(probe.toolchains.rust.channel, '1.97.1');
+  assert.ok(probe.toolchains.rust.sysrootInventory.entries > 100);
+  assert.match(
+    probe.toolchains.rust.sysrootInventory.inventorySha256,
+    /^[0-9a-f]{64}$/u,
+  );
+  assert.equal(probe.toolchains.typescript.version, '5.9.3');
+  assert.equal(probe.toolchains.circuit.circomVersion, '0.2.23');
+  assert.equal(probe.toolchains.circuit.circomlibVersion, '2.0.5');
+  assert.equal(probe.toolchains.covenant.libauthVersion, '3.1.0-next.8');
+  assert.equal(probe.environmentPolicy.inheritAmbient, false);
+});
+
+test('Q-01 real bounded cycle executes reference plus exactly four implementation lanes', {
+  timeout: 120_000,
+}, () => {
+  const started = performance.now();
+  const cycle = runV2Q01FourImplementationCycleForTest();
+  const elapsedMs = Math.round(performance.now() - started);
+  assert.equal(cycle.reference.id, 'javascript-reference-orchestrator');
+  assert.equal(
+    cycle.reference.role,
+    'reference-orchestrator-not-one-of-four',
+  );
+  assert.deepEqual(
+    cycle.implementations.map((entry) => entry.id),
+    ['typescript', 'rust', 'circuit', 'covenant'],
+  );
+  assert.equal(
+    cycle.implementations.some((entry) => entry.id === 'javascript'),
+    false,
+  );
+  for (const entry of [cycle.reference, ...cycle.implementations]) {
+    assert.equal(entry.executed, true);
+    assert.ok(entry.commands.length > 0);
+    assert.equal(
+      entry.outputSha256,
+      hash(Buffer.from(canonicalJson(entry.output), 'utf8')),
+    );
+    for (const command of entry.commands) {
+      assert.equal(command.exitStatus, 0);
+      assert.equal(command.signal, null);
+      assert.equal(command.stdoutSha256, hash(Buffer.from(command.stdout)));
+      assert.equal(command.stderrSha256, hash(Buffer.from(command.stderr)));
+      assert.equal(command.environment.LANG, 'C');
+      assert.equal(command.environment.LC_ALL, 'C');
+      assert.equal(command.environment.TZ, 'UTC');
+      for (const forbidden of [
+        'NODE_OPTIONS',
+        'NODE_PATH',
+        'npm_config_prefix',
+        'RUSTFLAGS',
+        'CARGO_ENCODED_RUSTFLAGS',
+      ]) {
+        assert.equal(Object.hasOwn(command.environment, forbidden), false);
+      }
+    }
+  }
+  const [typescript, rust, circuit, covenant] =
+    cycle.implementations.map((entry) => entry.output);
+  assert.deepEqual({ ...typescript.qualification.state }, {
+    mutations: 32_640,
+    acceptedCanonicalDistinct: 24_842,
+    rejected: 7_798,
+  });
+  assert.deepEqual({ ...typescript.qualification.packet }, {
+    mutations: 140_760,
+    acceptedCanonicalDistinct: 88_727,
+    rejected: 52_033,
+  });
+  assert.equal(
+    canonicalJson({ ...rust.qualification, surface: 'typescript' }),
+    canonicalJson(typescript.qualification),
+  );
+  assert.equal(circuit.tests, 1);
+  assert.equal(circuit.mutationRejections, 2);
+  assert.equal(covenant.tests, 6);
+  assert.equal(covenant.packetDigestReconstructed, true);
+  assert.equal(cycle.agreement.typescriptRustStrictMutationParity, true);
+  assert.equal(cycle.agreement.circuitDigestAndLimbsMatched, true);
+  assert.equal(cycle.agreement.covenantDigestReconstructionMatched, true);
+  console.log(`Q01_REAL_CYCLE=${JSON.stringify({
+    elapsedMs,
+    reference: {
+      id: cycle.reference.id,
+      outputSha256: cycle.reference.outputSha256,
+    },
+    implementations: cycle.implementations.map((entry) => ({
+      id: entry.id,
+      outputSha256: entry.outputSha256,
+    })),
+    stateMutations: cycle.agreement.stateMutations,
+    packetMutations: cycle.agreement.packetMutations,
+    publicInputVectors: cycle.agreement.publicInputVectors,
+    circuitTests: circuit.tests,
+    covenantTests: covenant.tests,
+  })}`);
+});
+
+test('Q-01 command parsing and public seam are exact', async () => {
+  assert.throws(
+    () => parseV2Q01CommitBoundArguments([]),
+    V2Q01CommitBoundEvidenceError,
+  );
+  assert.deepEqual(
+    parseV2Q01CommitBoundArguments(['--verify', '/bundle'], '/cwd'),
+    { mode: 'verify', bundlePath: '/bundle' },
+  );
+  await assert.rejects(
+    () => runV2Q01CommitBoundEvidence({
+      outputDirectory: '/tmp',
+      source: {},
+    }),
+    /accepts only outputDirectory/u,
+  );
+});
