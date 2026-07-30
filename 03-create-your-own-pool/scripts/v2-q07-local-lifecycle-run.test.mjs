@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmodSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +9,8 @@ import test from 'node:test';
 import { canonicalJson } from '../packages/profile/load.mjs';
 import {
   V2Q07LocalLifecycleError, parseQ07LocalLifecycleArguments,
-  runQ07LocalLifecycle, runQ07LocalLifecycleForTest, verifyQ07LocalLifecycleBundle,
+  runQ07LocalLifecycle, runQ07LocalLifecycleForTest, snapshotQ07BuiltBinaryForTest,
+  verifyQ07LocalLifecycleBundle,
 } from './v2-q07-local-lifecycle-run.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -115,4 +116,23 @@ test('Q07 verifier rejects self-resealed semantic forgeries', async (t) => {
 
 test('Q07 local lifecycle CLI parser does not expose a reduced action count', () => {
   assert.deepEqual(parseQ07LocalLifecycleArguments(['--output-directory', 'out'], '/tmp'), { mode: 'run', outputDirectory: '/tmp/out', sourceRoot: '/tmp' }); assert.throws(() => parseQ07LocalLifecycleArguments(['--output-directory', 'out', '--actions', '3']), /usage/);
+});
+
+test('Q07 release-binary snapshot accepts only a single file or Cargo deps hardlink pair', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'q07-binary-topology-'));
+  const release = join(root, 'target', 'release');
+  const deps = join(release, 'deps');
+  mkdirSync(deps, { recursive: true });
+  const binary = join(release, 'q07-lifecycle-verify');
+  const cargoBinary = join(deps, 'q07_lifecycle_verify-deadbeef');
+  writeFileSync(binary, 'binary');
+  chmodSync(binary, 0o755);
+  let snapshot = snapshotQ07BuiltBinaryForTest(binary);
+  assert.deepEqual(snapshot.linkTopology, { linkCount: 1, cargoDepsPath: null });
+  linkSync(binary, cargoBinary);
+  snapshot = snapshotQ07BuiltBinaryForTest(binary);
+  assert.deepEqual(snapshot.linkTopology, { linkCount: 2, cargoDepsPath: cargoBinary });
+  linkSync(binary, join(root, 'unexpected-third-link'));
+  assert.throws(() => snapshotQ07BuiltBinaryForTest(binary), /optional deps hardlink/);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
 });

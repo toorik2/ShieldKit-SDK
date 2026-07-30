@@ -96,7 +96,30 @@ async function toolVersions(sourceRoot) {
   return Object.freeze({ cargo, rustc });
 }
 async function machineManifest(sourceRoot, toolchain) { return Object.freeze({ schema: `${V2_Q07_LOCAL_LIFECYCLE_SCHEMA}/machine`, platform: { platform: process.platform, architecture: process.arch, release: os.release(), node: process.version, v8: process.versions.v8, cargo: toolchain.cargo, rustc: toolchain.rustc }, hardware: { cpuModels: [...new Set(os.cpus().map((cpu) => cpu.model))].sort(), logicalCores: os.availableParallelism(), totalMemoryBytes: os.totalmem() }, cgroupV2: cgroupV2(), chainAuthenticated: false, q07Qualified: false, qualification: 'local-non-chain-not-published-machine-qualification' }); }
-function binarySnapshot(path, label) { const s = lstatSync(path); if (s.isSymbolicLink() || !s.isFile() || s.nlink !== 1 || (typeof process.getuid === 'function' && s.uid !== process.getuid()) || realpathSync(path) !== path) fail(`${label} must be a direct user-owned single-link regular file`); return Object.freeze({ path, bytes: s.size, sha256: sha256(readFileSync(path)) }); }
+function binarySnapshot(path, label) {
+  const s = lstatSync(path);
+  if (s.isSymbolicLink() || !s.isFile() || ![1, 2].includes(s.nlink) || (typeof process.getuid === 'function' && s.uid !== process.getuid()) || realpathSync(path) !== path) fail(`${label} must be a direct user-owned regular file with only Cargo's optional deps hardlink`);
+  let cargoDepsPath = null;
+  if (s.nlink === 2) {
+    const deps = join(dirname(path), 'deps');
+    const matches = readdirSync(deps)
+      .map((name) => join(deps, name))
+      .filter((candidate) => {
+        const candidateStat = lstatSync(candidate);
+        return !candidateStat.isSymbolicLink() && candidateStat.isFile() && candidateStat.dev === s.dev && candidateStat.ino === s.ino;
+      });
+    if (matches.length !== 1 || realpathSync(matches[0]) !== matches[0]) fail(`${label} Cargo hardlink topology is ambiguous`);
+    cargoDepsPath = matches[0];
+  }
+  return Object.freeze({
+    path,
+    bytes: s.size,
+    sha256: sha256(readFileSync(path)),
+    linkTopology: Object.freeze({ linkCount: s.nlink, cargoDepsPath }),
+  });
+}
+/** Test-only inspection seam for Cargo's documented final-binary hardlink topology. */
+export function snapshotQ07BuiltBinaryForTest(path) { return binarySnapshot(resolve(path), 'test release Rust verifier binary'); }
 function assertIdentity(value, label, expectedCount, corpusSha, testOnly) {
   const keys = ['actionCount', 'bodySha256', 'chainAuthenticated', 'fileSha256', 'q07Qualified', 'qualification', 'schema', 'terminalStateHex'];
   if (testOnly) exact(value, label === 'JS verifier result' ? [...keys, 'actionTranscriptSha256'] : keys, label);
@@ -168,8 +191,14 @@ function finiteDuration(value, label) {
   return value;
 }
 function assertBinarySnapshot(value, expectedPath, label) {
-  exact(value, ['bytes', 'path', 'sha256'], label);
-  if (value.path !== expectedPath || !Number.isSafeInteger(value.bytes) || value.bytes <= 0 || !HASH.test(value.sha256)) fail(`${label} is invalid`);
+  exact(value, ['bytes', 'linkTopology', 'path', 'sha256'], label);
+  exact(value.linkTopology, ['cargoDepsPath', 'linkCount'], `${label} link topology`);
+  if (value.path !== expectedPath || !Number.isSafeInteger(value.bytes) || value.bytes <= 0 || !HASH.test(value.sha256) || ![1, 2].includes(value.linkTopology.linkCount)) fail(`${label} is invalid`);
+  if (value.linkTopology.linkCount === 1 && value.linkTopology.cargoDepsPath !== null) fail(`${label} single-link topology is invalid`);
+  if (value.linkTopology.linkCount === 2) {
+    const depsRoot = join(dirname(expectedPath), 'deps');
+    if (typeof value.linkTopology.cargoDepsPath !== 'string' || !value.linkTopology.cargoDepsPath.startsWith(`${depsRoot}/`) || dirname(value.linkTopology.cargoDepsPath) !== depsRoot) fail(`${label} Cargo deps hardlink path is invalid`);
+  }
 }
 function assertRealRunProvenance(runRecord, source, machine, root) {
   exact(runRecord.childCgroup, ['available', 'controlGroup', 'memoryAccounting', 'memoryPeakBytes', 'source', 'unit'], 'child cgroup');
