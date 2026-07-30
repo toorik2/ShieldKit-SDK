@@ -1,0 +1,88 @@
+/* TEST-ONLY: this exercises validators only; it never creates ceremony data. */
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+
+import {
+  parseV2D01Arguments,
+  runV2D01FinalCeremonyQualification,
+  validateV2D01PostCeremonyBinding,
+  V2_D01_POST_CEREMONY_BINDING_SCHEMA,
+  V2D01FinalCeremonyQualificationError,
+} from './v2-final-ceremony-qualification.mjs';
+
+const hash = (letter) => letter.repeat(64);
+const expected = () => ({
+  profileId: hash('a'), instanceId: hash('b'), topologyId: 'pf10-fused',
+  descriptorSha256: hash('c'), manifestSha256: hash('d'), releaseRootId: 'final-chipnet',
+  sourceCommit: 'e'.repeat(40), sourceTree: 'f'.repeat(40), r1csSha256: hash('1'),
+  ptauSha256: hash('2'), finalZkeySha256: hash('3'), verificationKeySha256: hash('4'),
+  snarkjsToolchainSha256: hash('5'), contributorCount: 5, transcriptSha256: hash('6'),
+  beaconSha256: hash('7'), transcriptVerificationSha256s: [hash('8'), hash('9')],
+  reproductionSha256s: [hash('0'), hash('a')],
+});
+const binding = () => ({ schema: V2_D01_POST_CEREMONY_BINDING_SCHEMA, ...expected() });
+const valid = () => [
+  '--profile-core', '/tmp/d01/profile-core.json', '--descriptor', '/tmp/d01/descriptor.json',
+  '--final-manifest', '/tmp/d01/manifest.json', '--release-root', 'final-chipnet',
+  '--ceremony-dir', '/tmp/d01/ceremony', '--expected-commit', 'a'.repeat(40),
+  '--expected-tree', 'b'.repeat(40), '--output-dir', '/tmp/d01/output',
+];
+
+test('D-01 accepts only the complete canonical public argument interface', () => {
+  assert.equal(parseV2D01Arguments(valid()).releaseRootId, 'final-chipnet');
+  assert.throws(() => parseV2D01Arguments([...valid(), '--test-only', 'true']), V2D01FinalCeremonyQualificationError);
+  assert.throws(() => parseV2D01Arguments(valid().map((value) => value === '/tmp/d01/ceremony' ? 'relative' : value)), /absolute normalized/u);
+});
+
+test('D-01 resolves the compiled release root before caller-selected paths', async () => {
+  await assert.rejects(() => runV2D01FinalCeremonyQualification({
+    ceremonyDirectory: '/this/must/not/be-opened/ceremony', descriptorPath: '/this/must/not/be-opened/descriptor.json',
+    expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), finalManifestPath: '/this/must/not/be-opened/manifest.json',
+    outputDirectory: '/this/must/not-be-created/output', profileCorePath: '/this/must/not/be-opened/profile-core.json', releaseRootId: '../injected-root',
+  }), /root id is malformed/u);
+});
+
+test('D-01 records one 0600 failure result only in a fresh caller-selected output directory', async () => {
+  const parent = mkdtempSync(resolve(tmpdir(), 'shieldkit-d01-test-'));
+  const outputDirectory = resolve(parent, 'result');
+  try {
+    await assert.rejects(() => runV2D01FinalCeremonyQualification({
+      ceremonyDirectory: '/this/must/not/be-opened/ceremony', descriptorPath: '/this/must/not/be-opened/descriptor.json',
+      expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), finalManifestPath: '/this/must/not/be-opened/manifest.json',
+      outputDirectory, profileCorePath: '/this/must/not/be-opened/profile-core.json', releaseRootId: '../injected-root',
+    }), /root id is malformed/u);
+    const failure = JSON.parse(readFileSync(resolve(outputDirectory, 'failure.json')));
+    assert.equal(failure.d01Qualified, false);
+    assert.equal(statSync(resolve(outputDirectory, 'failure.json')).mode & 0o777, 0o600);
+  } finally { rmSync(parent, { force: true, recursive: true }); }
+});
+
+test('D-01 post-ceremony binding has the final-key-only success shape', () => {
+  const result = validateV2D01PostCeremonyBinding(binding(), expected());
+  assert.equal(result.finalZkeySha256, hash('3'));
+  for (const mutate of [
+    (value) => { value.contributorCount = 4; },
+    (value) => { value.beaconSha256 = hash('f'); },
+    (value) => { value.transcriptVerificationSha256s = [hash('8')]; },
+    (value) => { value.reproductionSha256s = [hash('0'), hash('a'), hash('b')]; },
+  ]) {
+    const invalid = binding(); mutate(invalid);
+    assert.throws(() => validateV2D01PostCeremonyBinding(invalid, expected()), V2D01FinalCeremonyQualificationError);
+  }
+});
+
+test('D-01 relies on the production final-runtime evidence red-team corpus', async () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const testPath = resolve(root, 'packages/profile/v2/final-runtime-evidence.test.mjs');
+  const { NODE_TEST_CONTEXT: _testContext, ...environment } = process.env;
+  const result = await new Promise((resolveResult, reject) => execFile(process.execPath, ['--test', testPath], { encoding: 'utf8', env: environment }, (error, stdout, stderr) => error ? reject(new Error(`${stdout}\n${stderr}`)) : resolveResult(`${stdout}\n${stderr}`)));
+  assert.match(result, /insufficient\/duplicate contributors/u);
+  assert.match(result, /broken zkey chain, beacon mismatch, and shared verifier machine/u);
+  assert.match(result, /unknown or duplicate evidence references/u);
+  assert.match(result, /substituted bytes for a nested manifest-referenced artifact/u);
+});

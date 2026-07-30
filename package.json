@@ -39,6 +39,7 @@
     "qualification:v2:q08-pair": "node 03-create-your-own-pool/scripts/v2-q08-pair-qualification.mjs",
     "qualification:v2:chipnet-soak": "node 03-create-your-own-pool/scripts/v2-chipnet-soak.mjs",
     "qualification:v2:q02-final-key-corpus": "node 03-create-your-own-pool/scripts/v2-q02-final-key-corpus.mjs",
+    "qualification:v2:final-ceremony": "node 03-create-your-own-pool/scripts/v2-final-ceremony-qualification.mjs",
     "qualification:v2:pf10-libauth": "node 03-create-your-own-pool/scripts/v2-pf10-libauth-qualification.mjs",
     "qualification:v2:q07:indexed-microbenchmark": "node 03-create-your-own-pool/scripts/v2-q07-indexed-microbenchmark.mjs",
     "q07:lifecycle-corpus:generate": "node 03-create-your-own-pool/scripts/v2-q07-lifecycle-corpus.mjs --output-directory",
