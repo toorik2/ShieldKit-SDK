@@ -90,6 +90,21 @@ const LOCAL_CAMPAIGN_TESTS = new Map([
     'exhaustively checks the production Poseidon depth-4 state space, including durable SQLite replay',
   ],
 ]);
+// Q-07 support tests exercise evidence schemas, dataset integrity, worker
+// boundaries, and the explicitly non-qualifying small-fixture harness. They
+// are mandatory portable tests, but are named separately so a later 100k
+// measurement driver cannot be mistaken for (or silently folded into) them.
+// Keep this list exhaustive: an unregistered `v2-q07-*.test.mjs` fails test
+// discovery rather than inheriting the generic portable classification.
+const Q07_PORTABLE_SUPPORT_TESTS = new Map([
+  ['scripts/v2-q07-bundle-verify.test.mjs', 'Q-07 hash-bound bundle verifier support test'],
+  ['scripts/v2-q07-dataset.test.mjs', 'Q-07 deterministic dataset integrity support test'],
+  ['scripts/v2-q07-evidence.test.mjs', 'Q-07 evidence-contract support test'],
+  ['scripts/v2-q07-indexed-microbenchmark.test.mjs', 'Q-07 indexed-store microbenchmark boundary support test'],
+  ['scripts/v2-q07-local-blocked-evidence.test.mjs', 'Q-07 honest blocked-evidence adapter support test'],
+  ['scripts/v2-q07-performance-harness.test.mjs', 'Q-07 small-fixture harness boundary support test'],
+  ['scripts/v2-q07-store-worker.test.mjs', 'Q-07 store-worker boundary support test'],
+]);
 // `node:test` gives the full production depth-4 state-space check five minutes.
 // The process supervisor must permit that declared test timeout plus TAP/SQLite
 // teardown; a blanket 180-second supervisor limit would kill a healthy test
@@ -255,6 +270,7 @@ const SUITES = new Set([
   'local-verifier-lane',
   'local-strict-codec-campaign',
   'local-depth4-campaign',
+  'q07-portable-support',
 ]);
 const SKIP_OR_TODO_SOURCE = /(?:\b(?:test|it|describe|suite|t)\s*\.\s*(?:skip|todo)\s*\(|\b(?:skip|todo)\s*:)/;
 const NODE_TEST_DECLARATION = /\b(?:test|it|describe|suite)\s*\(/;
@@ -2190,6 +2206,16 @@ function classify(relativePath) {
       reason: `${campaignReason}; run via its explicit local campaign command and the mandatory matching CI campaign job`,
     });
   }
+  const q07SupportReason = Q07_PORTABLE_SUPPORT_TESTS.get(relativePath);
+  if (q07SupportReason !== undefined) {
+    return Object.freeze({
+      classification: 'q07-portable-support',
+      reason: `${q07SupportReason}; mandatory via npm test and test:v2:q07:support; it is not a 100k performance qualification run`,
+    });
+  }
+  if (relativePath.startsWith('scripts/v2-q07-') && relativePath.endsWith('.test.mjs')) {
+    fail(`${relativePath} must be explicitly registered as Q-07 portable support or an explicit non-portable campaign`);
+  }
   return Object.freeze({
     classification: 'portable',
     reason: 'mandatory clean-clone unit/integration/security test',
@@ -2731,16 +2757,17 @@ export function discoverDomainTests({ projectRoot = project } = {}) {
 
 export function selectDomainTests(discovery, suite = 'portable') {
   if (!SUITES.has(suite)) fail(`unknown test suite: ${suite}`);
-  const classification = {
-    portable: 'portable',
-    'external-fixtures': 'external-fixture',
-    'external-verifier-source': 'external-verifier-source-qualification',
-    'local-covenants': 'local-covenant-qualification',
-    'local-verifier-lane': 'local-verifier-lane-qualification',
-    'local-strict-codec-campaign': 'local-strict-codec-campaign',
-    'local-depth4-campaign': 'local-depth4-campaign',
+  const classifications = {
+    portable: new Set(['portable', 'q07-portable-support']),
+    'external-fixtures': new Set(['external-fixture']),
+    'external-verifier-source': new Set(['external-verifier-source-qualification']),
+    'local-covenants': new Set(['local-covenant-qualification']),
+    'local-verifier-lane': new Set(['local-verifier-lane-qualification']),
+    'local-strict-codec-campaign': new Set(['local-strict-codec-campaign']),
+    'local-depth4-campaign': new Set(['local-depth4-campaign']),
+    'q07-portable-support': new Set(['q07-portable-support']),
   }[suite];
-  const selected = discovery.tests.filter((record) => record.classification === classification);
+  const selected = discovery.tests.filter((record) => classifications.has(record.classification));
   if (selected.length === 0) fail(`test suite ${suite} selected no files`);
   return Object.freeze(selected);
 }
@@ -2976,7 +3003,7 @@ function parse(argv) {
   if (argv.length === 2 && argv[0] === '--suite' && SUITES.has(argv[1])) {
     return Object.freeze({ suite: argv[1], provisionOnly: false });
   }
-  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign] | --provision-local-verifier-artifacts');
+  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q07-portable-support] | --provision-local-verifier-artifacts');
 }
 
 export async function runDomainTests({ suite = 'portable', projectRoot = project, provisionOnly = false } = {}) {

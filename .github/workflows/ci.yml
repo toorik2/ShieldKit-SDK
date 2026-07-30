@@ -61,6 +61,8 @@ jobs:
       - name: Install pinned Rust toolchain required by native wrapper tests
         run: rustup toolchain install 1.97.1 --profile minimal
       - name: Run portable domain tests
+        # This includes the explicitly classified Q-07 support tests. Deliberate
+        # 100,000-action measurements remain outside portable CI.
         run: npm test
 
   typescript:

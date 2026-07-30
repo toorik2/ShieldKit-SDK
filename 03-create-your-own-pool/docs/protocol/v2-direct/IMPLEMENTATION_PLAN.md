@@ -394,9 +394,14 @@ descriptor or oracle tooling.
 The separately identified `PF10-FusedQGenesis` topology is the provisional
 local candidate. It fuses the final MSM window and identity-aware Miller
 genesis at role 8, places the terminal at role 9, binding at role 10, state at
-role 11, and funding at role 12. The previously cited local Libauth evidence
-is unavailable in this worktree, so its transaction, unlock, operation,
-hash-iteration, and signature-limit claims are unverified. This is not BCHN,
+role 11, and funding at role 12. The current local Libauth evidence is
+development-only: `.codex-build/v2-pf10-libauth-qualification/libauth.json`
+(`sha256:83588c201252930a2f6d403ed11662175d381177c5bc70909b2224f813106478`)
+records all thirteen inputs accepted for deterministic deposit, transfer, and
+withdrawal fixtures, serialized sizes 97,852/97,852/97,886 bytes, a 10,000-byte
+maximum unlock, and 96.76% peak operation use. Its own claims exclude a final
+key, BCHN, LeanBCH, maintainer benchmark, live-chain provenance, production,
+and release qualification. These facts are development telemetry, not BCHN,
 LeanBCH, ceremony, audit, clean-host, or release qualification. A circuit
 redesign requires a new VK and a fresh candidate search. See
 [`VERIFIER_FOUNDATION_DECISION.md`](./VERIFIER_FOUNDATION_DECISION.md).
@@ -633,14 +638,13 @@ After qualification, V2 Direct becomes the default. V1 mutations require `--prot
 
 ### Phase B — Circuit and verifier foundation gate
 
-Current circuit sources are development-only and not qualification. The prior
-adapter-v1 `.codex-build/v2-dev-proof-qualification-adapter-v1-20260729/`
-evidence path is unavailable in this worktree, so its previously quoted
-constraint, artifact, timing, and RSS figures are not verified current
-evidence and must not be used as measurements. No present local artifact proves
-a final relation, final key, p95 performance result, or release candidate;
-BCHN, LeanBCH, the unmodified maintainer benchmark, ceremony, and independent
-audits remain missing.
+Current circuit sources are development-only and not qualification. Current
+development-key PF10 proof evidence proves witness validity and local Groth16
+verification for deterministic deposit, transfer, and withdrawal fixtures, but
+its claims expressly exclude a final key, BCH VM, and production. No present
+local artifact proves a final relation, final key, p95 performance result, or
+release candidate; BCHN, LeanBCH, the unmodified maintainer benchmark,
+ceremony, and independent audits remain missing.
 
 - Implement the complete final `PoolActionV2Direct` relation under an explicitly development-only setup.
 - Compile and record constraints, R1CS hash, WASM/native prover artifacts, and public-input ABI.
@@ -712,6 +716,20 @@ After the circuit and packet are frozen:
 
 Required test evidence:
 
+Current Q04 result: the bounded tree/nullifier gate is verified at source commit
+`b60e91a2914e959d456e31a3ec0f6d3288d3a194`. Four independent 25,000-entry
+histories (100,000 aggregate) performed 100 close/reopen checkpoints and 500
+duplicate, ordering, successor-pointer, alias, and noncanonical-field probes,
+including scheduled `Fr=0` and `Fr-1` keys, with zero discrepancies and zero
+unexpected accepts. The independent evidence-verification result is
+`.codex-build/qualification-b60e91a/q04/q04-SuXwEl/verification.json`
+(`sha256:daa795ef146c1e0bb06045ab2c2b92797db6d1201209edc912e6dd69f89de41b`),
+which binds `evidence.json`
+(`sha256:b48541fd0971af508f23e14f0c172a1b4c88440b6b8782e7e58381775488de01`).
+This is a bounded aggregate-four-history result, not one 100,000-entry history
+or any claim beyond 100,000 historical nullifiers; Q07 lifecycle/performance
+qualification remains separate and open.
+
 - State codec vectors for every boundary and every one-byte mutation across all 128 bytes.
 - Rejection of 127- and 129-byte state commitments.
 - Token-category byte-order and explorer-display conversion tests.
@@ -734,6 +752,12 @@ Required test evidence:
 - Separately measure one-time bottom-up snapshot authentication, raw fallback,
   suffix replay, warm fixed-depth updates, and cold database I/O. None of these
   measurements may be mislabeled as another.
+- Freeze the 100,000-action recovery/performance history to one deposit,
+  99,998 transfers that repeatedly replace the one live note, and one final
+  withdrawal. This ends with 99,999 note leaves, 99,999 nullifiers, zero live
+  notes, and zero reserve; it exercises both append-only trees near the full
+  bounded-history size and prevents an easier action mix from being selected
+  after measurements are known.
 - Normal nullifiers at field zero and `Fr−1`.
 - Duplicate keys, bad ordering, corrupt successor pointers, aliases, and noncanonical field encodings.
 - Invalid/subgroup points, malformed records, reused randomness, non-decryptable outputs, Faerie-style outputs, and secret-canary scans.
