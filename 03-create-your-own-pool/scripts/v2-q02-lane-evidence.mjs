@@ -84,6 +84,7 @@ const fail = (message) => {
   throw new V2Q02LaneEvidenceError(message);
 };
 const {
+  assertExactInputCount,
   canonicalBytes,
   canonicalTimestamp,
   exact,
@@ -490,6 +491,8 @@ function verifyAuthorityLaneEnvelope({
   envelopePath,
   envelopeSchema,
   expectedRole,
+  expectedInputCount = undefined,
+  expectedSourceOutputSha256s = undefined,
   expectedSubject,
   expectedTransaction,
   machineManifestSchema,
@@ -534,6 +537,21 @@ function verifyAuthorityLaneEnvelope({
   );
   if (!['accept', 'reject'].includes(expectedTransaction.expectation)) {
     fail('expected lane transaction expectation is invalid');
+  }
+  if (expectedInputCount !== undefined) {
+    integer(expectedInputCount, 1, 258, 'expected lane input count');
+  }
+  if (expectedSourceOutputSha256s !== undefined) {
+    if (!Array.isArray(expectedSourceOutputSha256s)
+      || expectedSourceOutputSha256s.length === 0) {
+      fail('expected lane source-output hashes must be a nonempty array');
+    }
+    for (const [index, digest] of expectedSourceOutputSha256s.entries()) {
+      hash(digest, `expected lane source-output hash ${index}`);
+    }
+    if (expectedRole !== 'maintainer' && expectedRole !== 'leanbch') {
+      fail('only maintainer/LeanBCH lanes carry source-output closures');
+    }
   }
 
   const envelopeBytes = readStableDirectFile(
@@ -640,6 +658,41 @@ function verifyAuthorityLaneEnvelope({
     schema: machineManifestSchema,
   });
 
+  let actualInputCount;
+  let actualSourceOutputSha256s = null;
+  if (expectedRole === 'maintainer' || expectedRole === 'leanbch') {
+    let transaction;
+    try { transaction = parseV2RawTransaction(stdin.value.rawTransactionHex); } catch {
+      fail(`${expectedRole} stdin transaction is invalid`);
+    }
+    actualInputCount = transaction.inputs.length;
+    actualSourceOutputSha256s = stdin.value.sourceOutputs.map((entry, index) => {
+      if (typeof entry !== 'string' || !/^[0-9a-f]+$/u.test(entry)
+        || entry.length % 2 !== 0) {
+        fail(`${expectedRole} stdin source output ${index} is malformed`);
+      }
+      return sha256(Buffer.from(entry, 'hex'));
+    });
+  } else if (expectedRole === 'bchn-mempool') {
+    const raw = stdin.value?.params?.[0]?.[0];
+    let transaction;
+    try { transaction = parseV2RawTransaction(raw); } catch {
+      fail('BCHN mempool stdin transaction is invalid');
+    }
+    actualInputCount = transaction.inputs.length;
+  } else {
+    let transaction;
+    try { transaction = parseV2RawTransaction(stdin.value.rawTransactionHex); } catch {
+      fail('BCHN mined stdin transaction is invalid');
+    }
+    actualInputCount = transaction.inputs.length;
+  }
+  assertExactInputCount(actualInputCount, expectedInputCount, 'lane evidence input count');
+  if (expectedSourceOutputSha256s !== undefined
+    && !equalJcs(actualSourceOutputSha256s, expectedSourceOutputSha256s)) {
+    fail('lane evidence source-output closure differs from exact expected hashes');
+  }
+
   let accepted;
   if (expectedRole === 'maintainer' || expectedRole === 'leanbch') {
     accepted = validateExternalPerInputLane({
@@ -676,6 +729,18 @@ function verifyAuthorityLaneEnvelope({
     envelopeSha256: sha256(envelopeBytes),
     lane: expectedRole,
     runId: envelope.runId,
+    execution: Object.freeze({
+      command: envelope.command,
+      completedAt: envelope.completedAt,
+      machineManifest: machine.value,
+      machineManifestSha256: machine.sha256,
+      startedAt: envelope.startedAt,
+      stdin: stdin.value,
+      stdinSha256: stdin.sha256,
+      stdout: stdout.value,
+      stdoutSha256: stdout.sha256,
+      tool: envelope.tool,
+    }),
   });
 }
 
@@ -685,7 +750,8 @@ function verifyAuthorityLaneEnvelope({
  * it never returns a qualification claim.
  */
 export function verifyV2Q02AuthorityLaneEvidence(value) {
-  exact(value, [
+  plain(value, 'manifest-pinned authority lane evidence request');
+  const required = [
     'attestationDomain',
     'attestationVersion',
     'authorityContext',
@@ -700,7 +766,12 @@ export function verifyV2Q02AuthorityLaneEvidence(value) {
     'subjectField',
     'vmInputSchema',
     'vmOutputSchema',
-  ], 'manifest-pinned authority lane evidence request');
+  ];
+  const optional = new Set(['expectedInputCount', 'expectedSourceOutputSha256s']);
+  if (Object.keys(value).some((key) => !required.includes(key) && !optional.has(key))
+    || required.some((key) => !Object.hasOwn(value, key))) {
+    fail('manifest-pinned authority lane evidence request has missing or unknown properties');
+  }
   return verifyAuthorityLaneEnvelope(value);
 }
 
@@ -757,6 +828,7 @@ export function verifyV2Q02LaneEvidence({
     caseId: expected.caseId,
     derivedOutcome: derived.derivedOutcome,
     envelopeSha256: derived.envelopeSha256,
+    execution: derived.execution,
     lane: derived.lane,
     qualification: false,
     runId: derived.runId,

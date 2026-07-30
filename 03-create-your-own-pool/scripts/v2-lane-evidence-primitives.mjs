@@ -89,6 +89,15 @@ export function createV2LaneEvidencePrimitives({
     }
     return value;
   };
+  /** Optional caller-supplied closure count; undefined preserves legacy APIs. */
+  const assertExactInputCount = (actual, expected, label) => {
+    integer(actual, 1, 258, `${label} actual input count`);
+    if (expected !== undefined) {
+      integer(expected, 1, 258, `${label} expected input count`);
+      if (actual !== expected) fail(`${label} differs from the exact expected closure`);
+    }
+    return actual;
+  };
   const text = (value, label, maximum = 4096) => {
     if (typeof value !== 'string' || value.length === 0 || value.length > maximum) {
       fail(`${label} must be a bounded nonempty string`);
@@ -359,7 +368,7 @@ export function createV2LaneEvidencePrimitives({
     if (capturedAt < startedAt - maximumClockSkewMs || capturedAt > completedAt + maximumClockSkewMs) fail(`${label} timestamp is outside its signed run`);
   };
 
-  return Object.freeze({ canonicalBytes, canonicalTimestamp, exact, hash, integer, jcsReference,
+  return Object.freeze({ assertExactInputCount, canonicalBytes, canonicalTimestamp, exact, hash, integer, jcsReference,
     loadStableCanonicalJsonReference: jcsReference, plain, readStableDirectFile, relativeReference, sha256, text, validateBchnMempoolLane,
     validateBchnMinedLane, validateExternalPerInputLane, validateMachineManifest,
     verifyEd25519AuthorityEnvelope, verifySignedLaneEnvelope });

@@ -15,6 +15,7 @@ import {
   V2_Q02_LANE_AUTHORITIES_SCHEMA,
   V2_Q02_LANE_ENVELOPE_SCHEMA,
   createV2Q02PinnedLaneAuthorityContext,
+  verifyV2Q02AuthorityLaneEvidence,
   verifyV2Q02LaneEvidence,
 } from './v2-q02-lane-evidence.mjs';
 
@@ -367,6 +368,34 @@ function verify(activeFixture, path, expectedCase) {
   });
 }
 
+function verifyWithClosure(activeFixture, path, expectedCase, role, {
+  expectedInputCount,
+  expectedSourceOutputSha256s,
+} = {}) {
+  return verifyV2Q02AuthorityLaneEvidence({
+    attestationDomain: V2_Q02_LANE_ATTESTATION_DOMAIN,
+    attestationVersion: V2_Q02_LANE_ATTESTATION_VERSION,
+    authorityContext: activeFixture.context,
+    bchnMinedInputSchema: 'shieldkit-v2-direct-q02-bchn-mined-input-v2',
+    bchnMinedOutputSchema: 'shieldkit-v2-direct-q02-bchn-mined-result-v2',
+    envelopePath: path,
+    envelopeSchema: V2_Q02_LANE_ENVELOPE_SCHEMA,
+    expectedInputCount,
+    ...(expectedSourceOutputSha256s === undefined ? {} : { expectedSourceOutputSha256s }),
+    expectedRole: role,
+    expectedSubject: expectedCase,
+    expectedTransaction: {
+      expectation: expectedCase.expectation,
+      rawTransactionSha256: expectedCase.rawTransactionSha256,
+      transactionId: expectedCase.transactionId,
+    },
+    machineManifestSchema: 'shieldkit-v2-direct-q02-machine-manifest-v2',
+    subjectField: 'case',
+    vmInputSchema: 'shieldkit-v2-direct-q02-vm-run-input-v2',
+    vmOutputSchema: 'shieldkit-v2-direct-q02-per-input-run-v2',
+  });
+}
+
 test('TEST-ONLY nonqualifying maintainer and LeanBCH envelopes derive accepted outcomes', () => {
   for (const role of ['maintainer', 'leanbch']) {
     const evidence = signedEnvelope({
@@ -380,6 +409,41 @@ test('TEST-ONLY nonqualifying maintainer and LeanBCH envelopes derive accepted o
     assert.equal(result.qualification, false);
     assert.equal(result.lane, role);
   }
+});
+
+test('TEST-ONLY authority lane optionally binds all inputs, source closures, and execution metadata', () => {
+  const evidence = signedEnvelope({
+    role: 'leanbch', expectedCase: acceptCase,
+    stdin: vmStdin(fixture.transaction), stdout: vmStdout(fixture.transaction),
+  });
+  const sourceHashes = Array.from({ length: fixture.transaction.inputs.length },
+    () => sha256(Buffer.from(SOURCE_OUTPUT, 'hex')));
+  const result = verifyWithClosure(fixture, evidence.path, acceptCase, 'leanbch', {
+    expectedInputCount: fixture.transaction.inputs.length,
+    expectedSourceOutputSha256s: sourceHashes,
+  });
+  assert.equal(result.execution.stdin.rawTransactionHex, fixture.transaction.rawTransactionHex);
+  assert.equal(result.execution.stdout.transactionId, fixture.transaction.txid);
+  assert.equal(result.execution.machineManifest.schema, 'shieldkit-v2-direct-q02-machine-manifest-v2');
+  assert.deepEqual(result.execution.tool, evidence.envelope.tool);
+});
+
+test('TEST-ONLY authority lane rejects optional input/source closure drift', () => {
+  const evidence = signedEnvelope({
+    role: 'maintainer', expectedCase: acceptCase,
+    stdin: vmStdin(fixture.transaction), stdout: vmStdout(fixture.transaction),
+  });
+  const sources = Array.from({ length: fixture.transaction.inputs.length },
+    () => sha256(Buffer.from(SOURCE_OUTPUT, 'hex')));
+  assertRejected(() => verifyWithClosure(fixture, evidence.path, acceptCase, 'maintainer', {
+    expectedInputCount: fixture.transaction.inputs.length - 1,
+    expectedSourceOutputSha256s: sources,
+  }));
+  sources[0] = hashLabel('wrong-source-closure');
+  assertRejected(() => verifyWithClosure(fixture, evidence.path, acceptCase, 'maintainer', {
+    expectedInputCount: fixture.transaction.inputs.length,
+    expectedSourceOutputSha256s: sources,
+  }));
 });
 
 test('TEST-ONLY nonqualifying real-shape BCHN testmempoolaccept accepts and rejects', () => {
