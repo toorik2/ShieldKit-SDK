@@ -16,7 +16,7 @@ export const BCH_HARD_POLICY_CEILINGS = Object.freeze({
 
 export const EXTERNAL_RELEASE_GATES = Object.freeze({
   bchn: Object.freeze({
-    planGates: Object.freeze(['B-02']),
+    planGates: Object.freeze(['B-02-final']),
     requirements: Object.freeze([
       'latest unmodified verifier benchmark, Libauth, BCHN testmempoolaccept, mined BCHN, and LeanBCH must accept the same final deposit, transfer, and withdrawal transactions',
       'every transaction byte, unlocking byte, VM resource, and hash iteration must be measured',

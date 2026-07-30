@@ -44,6 +44,7 @@ function statement(identity, hostIdentity, fundingCheckpointSha256) {
     descriptorSha256: identity.descriptorSha256,
     manifestSha256: identity.manifestSha256, runtimeMaterialSha256: identity.runtimeMaterialSha256,
     releaseRootId: identity.releaseRootId, releaseBootstrapSha256: identity.releaseBootstrapSha256,
+    d02ClosureSha256: identity.d02ClosureSha256,
     git: { commit: 'a'.repeat(40), tree: 'b'.repeat(40) }, hostIdentity,
     commandPlanSha256: h('7'), sourcePinSha256: h('8'), fundingCheckpointSha256, steps: [],
   };
@@ -78,16 +79,20 @@ test('TEST-ONLY structural seam never writes a qualifying pair record', async (t
   const root = mkdtempSync('/dev/shm/shieldkit-q08-pair-test-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
+  const d02Closure = { testOnly: true };
+  const d02ClosureSha256 = digest(d02Closure);
+  const statementIdentity = { ...identity, d02ClosureSha256 };
   const pairA = generateKeyPairSync('ed25519'); const pairB = generateKeyPairSync('ed25519');
   const authority = (role, pair) => ({ role, signerId: `test-${role}`, organizationId: `test-org-${role}`, independenceDomain: `test-domain-${role}`, publicKey: pair.publicKey.export({ format: 'pem', type: 'spki' }).toString() });
   const a = authority('clean-host-a', pairA); const b = authority('clean-host-b', pairB);
-  const envelopeA = createV2Q08HostSignatureEnvelope({ authority: a, privateKey: pairA.privateKey, statement: statement(identity, h('c'), h('f')) });
-  const envelopeB = createV2Q08HostSignatureEnvelope({ authority: b, privateKey: pairB.privateKey, statement: statement(identity, h('d'), h('e')) });
-  const pathA = join(root, 'a.json'); const pathB = join(root, 'b.json');
-  writeFileSync(pathA, envelopeA.bytes); writeFileSync(pathB, envelopeB.bytes); chmodSync(pathA, 0o600); chmodSync(pathB, 0o600);
-  const options = { profileCorePath: join(root, 'profile.json'), descriptorPath: join(root, 'descriptor.json'), hostAEnvelopePath: pathA, hostBEnvelopePath: pathB, outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
+  const envelopeA = createV2Q08HostSignatureEnvelope({ authority: a, privateKey: pairA.privateKey, statement: statement(statementIdentity, h('c'), h('f')) });
+  const envelopeB = createV2Q08HostSignatureEnvelope({ authority: b, privateKey: pairB.privateKey, statement: statement(statementIdentity, h('d'), h('e')) });
+  const pathA = join(root, 'a.json'); const pathB = join(root, 'b.json'); const d02ClosurePath = join(root, 'd02.json');
+  writeFileSync(pathA, envelopeA.bytes); writeFileSync(pathB, envelopeB.bytes); writeFileSync(d02ClosurePath, c(d02Closure)); chmodSync(pathA, 0o600); chmodSync(pathB, 0o600);
+  const options = { profileCorePath: join(root, 'profile.json'), descriptorPath: join(root, 'descriptor.json'), d02ClosurePath, hostAEnvelopePath: pathA, hostBEnvelopePath: pathB, outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
   const result = await runV2Q08PairQualification(options, {
     testOnly: true,
+    verifyD02Closure: async (material) => material,
     verifyFinalInputs: async () => identity,
     verifyEnvelope: (bytes) => inspectV2Q08HostSignatureEnvelope({ authority: bytes.equals(envelopeA.bytes) ? a : b, envelopeBytes: bytes }),
   });
@@ -98,20 +103,24 @@ test('rejects two signatures over one copied host journey', async (t) => {
   const root = mkdtempSync('/dev/shm/shieldkit-q08-pair-copy-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
+  const d02Closure = { testOnly: true };
+  const d02ClosureSha256 = digest(d02Closure);
+  const statementIdentity = { ...identity, d02ClosureSha256 };
   const pairA = generateKeyPairSync('ed25519'); const pairB = generateKeyPairSync('ed25519');
   const authority = (role, pair) => ({ role, signerId: `test-${role}`, organizationId: `test-org-${role}`, independenceDomain: `test-domain-${role}`, publicKey: pair.publicKey.export({ format: 'pem', type: 'spki' }).toString() });
   const a = authority('clean-host-a', pairA); const b = authority('clean-host-b', pairB);
-  const statementA = statement(identity, h('c'), h('f'));
+  const statementA = statement(statementIdentity, h('c'), h('f'));
   const statementB = structuredClone(statementA);
   statementB.hostIdentity = h('d');
   const envelopeA = createV2Q08HostSignatureEnvelope({ authority: a, privateKey: pairA.privateKey, statement: statementA });
   const envelopeB = createV2Q08HostSignatureEnvelope({ authority: b, privateKey: pairB.privateKey, statement: statementB });
-  const pathA = join(root, 'a.json'); const pathB = join(root, 'b.json');
-  writeFileSync(pathA, envelopeA.bytes); writeFileSync(pathB, envelopeB.bytes);
-  const options = { profileCorePath: join(root, 'profile.json'), descriptorPath: join(root, 'descriptor.json'), hostAEnvelopePath: pathA, hostBEnvelopePath: pathB, outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
+  const pathA = join(root, 'a.json'); const pathB = join(root, 'b.json'); const d02ClosurePath = join(root, 'd02.json');
+  writeFileSync(pathA, envelopeA.bytes); writeFileSync(pathB, envelopeB.bytes); writeFileSync(d02ClosurePath, c(d02Closure));
+  const options = { profileCorePath: join(root, 'profile.json'), descriptorPath: join(root, 'descriptor.json'), d02ClosurePath, hostAEnvelopePath: pathA, hostBEnvelopePath: pathB, outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
   await assert.rejects(
     runV2Q08PairQualification(options, {
       testOnly: true,
+      verifyD02Closure: async (material) => material,
       verifyFinalInputs: async () => identity,
       verifyEnvelope: (bytes) => inspectV2Q08HostSignatureEnvelope({ authority: bytes.equals(envelopeA.bytes) ? a : b, envelopeBytes: bytes }),
     }),
@@ -123,7 +132,7 @@ test('rejects two signatures over one copied host journey', async (t) => {
 test('rejects dependency injection outside explicit TEST-ONLY mode and exact CLI path violations', async (t) => {
   const root = mkdtempSync('/dev/shm/shieldkit-q08-pair-test-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const options = { profileCorePath: join(root, 'p'), descriptorPath: join(root, 'd'), hostAEnvelopePath: join(root, 'a'), hostBEnvelopePath: join(root, 'b'), outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
+  const options = { profileCorePath: join(root, 'p'), descriptorPath: join(root, 'd'), d02ClosurePath: join(root, 'd02'), hostAEnvelopePath: join(root, 'a'), hostBEnvelopePath: join(root, 'b'), outputDirectory: join(root, 'out'), expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), releaseRootId: 'test-root' };
   await assert.rejects(runV2Q08PairQualification(options, { verifyFinalInputs: async () => ({}) }), /TEST-ONLY/u);
   assert.throws(() => parseV2Q08PairArguments(['--profile-core', 'relative']), /usage|malformed/u);
 });

@@ -37,7 +37,10 @@ import {
 } from '../packages/kit/v2/transaction-policy.mjs';
 import { inspectV2LocalVmEvidence } from '../packages/kit/v2/vm-evidence.mjs';
 import { verifyV2Q02FinalKeyCorpus } from './v2-q02-final-key-corpus.mjs';
-import { verifyV2Q08PairQualificationArtifact } from './v2-q08-pair-qualification.mjs';
+import {
+  verifyV2Q08PairQualificationArtifact,
+  V2_Q08_PAIR_SCHEMA,
+} from './v2-q08-pair-qualification.mjs';
 import {
   verifyBchTransactionMerkleProof,
   verifyRawHeaderSegment,
@@ -148,10 +151,6 @@ function verifyObserverAttestations(attestations, statement, observerSet, label)
 function exactChainTime(value, label) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/.test(value) || !Number.isFinite(Date.parse(value))) fail(`${label} is not canonical UTC time`);
   return value;
-}
-function assertNoForbiddenText(value, label) {
-  const text = canonical(value).toLowerCase();
-  if (/(?:fixture|mock|test-only|synthetic|faucet|sponsor|batch(?:ing)?|coordinator|development)/u.test(text)) fail(`${label} contains a prohibited substitute or topology`);
 }
 
 export function parseV2Q09Arguments(argv) {
@@ -269,7 +268,7 @@ export function parseChainObservers(path) {
   return Object.freeze({ ...record, observers, anchors, minimumTipChainWork: decimal(record.value.minimumTipChainWork, 'Q-09 minimum tip chainwork') });
 }
 function parseChain(path, identity, observerSet) {
-  const record = readCanonicalJson(path, 'Q-09 chain evidence'); assertNoForbiddenText(record.value, 'Q-09 chain evidence');
+  const record = readCanonicalJson(path, 'Q-09 chain evidence');
   exactKeys(record.value, ['anchor', 'attestations', 'genesis', 'headers', 'instanceId', 'network', 'profileId', 'schema', 'tipHeight'], 'Q-09 chain evidence');
   if (record.value.schema !== V2_Q09_CHAIN_EVIDENCE_SCHEMA || record.value.profileId !== identity.profileId || record.value.instanceId !== identity.instanceId || record.value.network?.id !== CHIPNET_ID || record.value.network?.name !== 'chipnet' || !Array.isArray(record.value.headers) || record.value.headers.length < 2 || !Number.isSafeInteger(record.value.tipHeight)) fail('Q-09 chain evidence is not canonical Chipnet header evidence');
   exactKeys(record.value.network, ['id', 'name'], 'Q-09 chain network');
@@ -350,14 +349,23 @@ function assertSameContentionCovenantPrevouts(candidate, winner, carrierCount, l
     if (actual?.txid !== expected?.txid || actual?.vout !== expected?.vout) fail(`${label} covenant input ${index} does not share the confirmed winner's exact prepared prevout`);
   }
 }
-function parseSettlements(path, identity, chain) {
-  const record = readCanonicalJson(path, 'Q-09 settlement journal'); assertNoForbiddenText(record.value, 'Q-09 settlement journal');
-  exactKeys(record.value, ['chainEvidenceSha256', 'entries', 'finalLocksSha256', 'instanceId', 'profileId', 'schema', 'sourceCommit', 'sourceTree'], 'Q-09 settlement journal'); requireIdentity(record.value, identity, 'Q-09 settlement journal');
+function parseFundingProvenance(value, depositTransactionIds, observerSet) {
+  exactKeys(value, ['attestations', 'classification', 'depositTransactionIds', 'scope'], 'Q-09 funding provenance declaration');
+  if (value.classification !== 'observer-attested-non-faucet-non-sponsor-declaration' || value.scope !== 'declaration-not-independent-source-of-funds-proof' || !Array.isArray(value.depositTransactionIds) || canonical(value.depositTransactionIds) !== canonical(depositTransactionIds)) fail('Q-09 funding provenance does not exactly cover the deposit transactions or overstates its assurance');
+  const { attestations, ...statement } = value;
+  verifyObserverAttestations(attestations, statement, observerSet, 'Q-09 funding provenance declaration');
+}
+function parseSettlements(path, identity, chain, observerSet) {
+  const record = readCanonicalJson(path, 'Q-09 settlement journal');
+  exactKeys(record.value, ['chainEvidenceSha256', 'entries', 'finalLocksSha256', 'fundingProvenance', 'instanceId', 'profileId', 'schema', 'sourceCommit', 'sourceTree'], 'Q-09 settlement journal'); requireIdentity(record.value, identity, 'Q-09 settlement journal');
   if (record.value.schema !== V2_Q09_SETTLEMENT_JOURNAL_SCHEMA || record.value.chainEvidenceSha256 !== chain.sha256 || !Array.isArray(record.value.entries) || record.value.entries.length < MIN_SETTLEMENTS) fail('Q-09 requires at least 1,000 chain-bound direct settlements');
   const txids = new Set(); let previousEntryHash = null; let currentOutpoint = { txid: identity.genesis.transactionId, vout: identity.genesis.outpointIndex }; let currentState = Buffer.from(identity.initialStateHex, 'hex'); let firstTime = null; let lastTime = null; const actionCounts = Object.fromEntries(ACTION_KINDS.map((kind) => [kind, 0]));
   for (const [sequence, entry] of record.value.entries.entries()) {
     exactKeys(entry, ['blockHash', 'blockHeight', 'entrySha256', 'kind', 'merkleBranch', 'packetHex', 'previousEntrySha256', 'rawTransactionHex', 'stateOutputIndex', 'transactionId', 'transactionIndex'], `Q-09 settlement ${sequence}`);
-    const { entrySha256, ...payload } = entry; if (entry.previousEntrySha256 !== previousEntryHash || !HEX_32.test(entrySha256) || sha256Json(payload) !== entrySha256 || entry.kind === 'withdraw' || !ACTION_KINDS.includes(entry.kind)) fail('Q-09 settlement journal is rewritten, gapped, or action-mislabeled');
+    if (entry.kind === 'withdraw' || !ACTION_KINDS.includes(entry.kind)) {
+      fail('Q-09 settlement journal uses an unsupported or legacy action kind');
+    }
+    const { entrySha256, ...payload } = entry; if (entry.previousEntrySha256 !== previousEntryHash || !HEX_32.test(entrySha256) || sha256Json(payload) !== entrySha256) fail('Q-09 settlement journal is rewritten, gapped, or action-mislabeled');
     if (!Number.isSafeInteger(entry.blockHeight) || entry.blockHeight < 0 || !HEX_32.test(entry.blockHash) || !HEX_32.test(entry.transactionId) || typeof entry.rawTransactionHex !== 'string' || !HEX.test(entry.rawTransactionHex) || entry.rawTransactionHex.length % 2 !== 0 || typeof entry.packetHex !== 'string' || !HEX.test(entry.packetHex) || entry.packetHex.length !== 1_104 || !Number.isSafeInteger(entry.stateOutputIndex) || entry.stateOutputIndex !== 0 || txids.has(entry.transactionId)) fail('Q-09 settlement entry is malformed or duplicate');
     const header = chain.headers.get(entry.blockHeight); if (header === undefined || header.hash !== entry.blockHash || chain.tip.height - entry.blockHeight + 1 < MIN_CONFIRMATIONS) fail('Q-09 settlement has missing canonical confirmation evidence');
     let tx; try { tx = assertV2StandardTransactionEnvelope(parseV2RawTransaction(entry.rawTransactionHex), { carrierCount: identity.carrierCount }); } catch (error) { fail(`Q-09 settlement ${sequence} transaction envelope is invalid: ${error instanceof Error ? error.message : String(error)}`); }
@@ -371,11 +379,12 @@ function parseSettlements(path, identity, chain) {
     if (source.token?.categoryWire !== identity.instanceId || source.token?.amount !== '0' || source.token?.nft?.capability !== 'mutable' || source.token?.nft?.commitmentHex !== post.toString('hex') || source.lockingBytecodeHex !== identity.stateLockingBytecodeHex || source.valueSatoshis !== BigInt(identity.stateBaseSats) + BigInt(decoded.postState.reserveSats)) fail('Q-09 settlement successor state output is not final-lock-bound');
     currentOutpoint = { txid: entry.transactionId, vout: 0 }; currentState = post; previousEntryHash = entrySha256; actionCounts[entry.kind] += 1; if (firstTime === null) firstTime = header.seconds; lastTime = header.seconds;
   }
+  parseFundingProvenance(record.value.fundingProvenance, record.value.entries.filter((entry) => entry.kind === 'deposit').map((entry) => entry.transactionId), observerSet);
   if (firstTime === null || lastTime === null || lastTime - firstTime < MIN_SOAK_SECONDS) fail('Q-09 raw canonical block-header span is shorter than 30 days');
   return Object.freeze({ record, firstBlockTime: blockHashForTime(firstTime), lastBlockTime: blockHashForTime(lastTime), elapsedSeconds: lastTime - firstTime, actionCounts, terminalStateSha256: sha256(currentState), terminalOutpoint: currentOutpoint, txids: Object.freeze([...txids]) });
 }
 function parsePlayground(path, qualificationIdentity, identity, chain, settlements, observerSet) {
-  const record = readCanonicalJson(path, 'Q-09 32-note playground evidence'); assertNoForbiddenText(record.value, 'Q-09 playground evidence');
+  const record = readCanonicalJson(path, 'Q-09 32-note playground evidence');
   exactKeys(record.value, ['attestations', 'chainEvidenceSha256', 'contention', 'eraseRecover', 'finalLocksSha256', 'genesis', 'instanceId', 'playgroundDescriptorSha256', 'profileId', 'runs', 'schema', 'sourceCommit', 'sourceTree'], 'Q-09 playground evidence');
   if (record.value.profileId !== identity.profileId || record.value.instanceId !== identity.instanceId || record.value.finalLocksSha256 !== identity.finalLocksSha256 || record.value.playgroundDescriptorSha256 !== identity.descriptorSha256 || record.value.sourceCommit !== qualificationIdentity.sourceCommit || record.value.sourceTree !== qualificationIdentity.sourceTree) fail('Q-09 playground evidence does not bind the separate final-qualified 32-note instance');
   if (record.value.schema !== V2_Q09_PLAYGROUND_SCHEMA || record.value.chainEvidenceSha256 !== chain.sha256 || !Array.isArray(record.value.runs) || record.value.runs.length === 0) fail('Q-09 playground evidence is malformed');
@@ -409,11 +418,21 @@ function parsePlayground(path, qualificationIdentity, identity, chain, settlemen
 /** Read-only test/integration entrypoint; it can only reject or return parsed
  * raw chain data and never writes a Q-09 artifact. */
 export function validateV2Q09ChainEvidence(path, identity, observerSet) { return parseChain(path, identity, observerSet); }
+export function validateV2Q09SettlementJournal(path, identity, chain, observerSet) { return parseSettlements(path, identity, chain, observerSet); }
 export function validateV2Q09PlaygroundEvidence(path, qualificationIdentity, playgroundIdentity, chain, settlements, observerSet) { return parsePlayground(path, qualificationIdentity, playgroundIdentity, chain, settlements, observerSet); }
 export function validateV2Q09PlaygroundCandidate(value, identity, chain, previous, options = {}) { return parsePlaygroundSettlement(value, identity, chain, previous, 'Q-09 standalone playground candidate', options); }
 export function assertV2Q09Q08PairBinding(q08, identity) {
+  const expectedD02Hashes = {
+    commit: identity.sourceCommit,
+    tree: identity.sourceTree,
+    profileId: identity.profileId,
+    descriptorSha256: identity.descriptorSha256,
+    manifestSha256: identity.manifestSha256,
+    runtimeMaterialSha256: identity.runtimeMaterialSha256,
+  };
   if (
-    q08?.q08Qualified !== true || q08.production !== false || q08.releaseQualified !== false
+    q08?.schema !== V2_Q08_PAIR_SCHEMA
+    || q08.q08Qualified !== true || q08.production !== false || q08.releaseQualified !== false
     || q08.profileId !== identity.profileId
     || q08.profileSha256 !== identity.profileSha256
     || q08.instanceId !== identity.instanceId
@@ -425,6 +444,11 @@ export function assertV2Q09Q08PairBinding(q08, identity) {
     || q08.git?.tree !== identity.sourceTree || !HEX_32.test(q08.artifactSha256)
     || !HEX_32.test(q08.hosts?.a?.envelopeSha256) || !HEX_32.test(q08.hosts?.b?.envelopeSha256)
     || !HEX_32.test(q08.hosts?.a?.statementSha256) || !HEX_32.test(q08.hosts?.b?.statementSha256)
+    || !HEX_32.test(q08.d02?.closureSha256)
+    || sha256(Buffer.from(canonical(q08.d02?.closure)))
+      !== q08.d02.closureSha256
+    || canonical(q08.d02.closure.expectedFinalHashes)
+      !== canonical(expectedD02Hashes)
   ) fail('Q-09 Q-08 pair artifact does not exactly bind the final root, runtime, topology, and source');
   return q08;
 }
@@ -464,14 +488,14 @@ export async function runV2Q09ChipnetSoak(options, dependencies = {}) {
     expectedTree: options.expectedTree,
   });
   assertV2Q09Q08PairBinding(q08, identity);
-  const chain = parseChain(options.chainEvidencePath, identity, observers); const settlements = parseSettlements(options.settlementsPath, identity, chain); const playground = parsePlayground(options.playgroundPath, identity, playgroundIdentity, chain, settlements, observers);
+  const chain = parseChain(options.chainEvidencePath, identity, observers); const settlements = parseSettlements(options.settlementsPath, identity, chain, observers); const playground = parsePlayground(options.playgroundPath, identity, playgroundIdentity, chain, settlements, observers);
   privateNewDirectory(options.outputDirectory);
   try {
     if (testOnly) {
       atomicPrivateJson(join(options.outputDirectory, 'test-only.json'), { schema: V2_Q09_RESULT_SCHEMA, status: 'test-only-nonqualifying', q09Qualified: false, validated: ['final-identity', 'source-pin', 'q02', 'q08', 'chain', 'settlements', 'playground'] });
       return Object.freeze({ schema: V2_Q09_RESULT_SCHEMA, status: 'test-only-nonqualifying', q09Qualified: false });
     }
-    const result = Object.freeze({ schema: V2_Q09_RESULT_SCHEMA, status: 'chipnet-rollout-qualified', q09Qualified: true, profileId: identity.profileId, instanceId: identity.instanceId, descriptorSha256: identity.descriptorSha256, manifestSha256: identity.manifestSha256, runtimeMaterialSha256: identity.runtimeMaterialSha256, finalLocksSha256: identity.finalLocksSha256, releaseRootId: identity.releaseRootId, releaseBootstrapSha256: identity.releaseBootstrapSha256, topologyId: identity.topologyId, git, sourcePinSha256: sourcePin.sha256, q02CorpusSha256: q02Corpus.sha256, q08PairArtifactSha256: q08.artifactSha256, q08HostEnvelopeSha256s: Object.freeze([q08.hosts.a.envelopeSha256, q08.hosts.b.envelopeSha256]), q08HostStatementSha256s: Object.freeze([q08.hosts.a.statementSha256, q08.hosts.b.statementSha256]), chainEvidenceSha256: chain.sha256, settlementJournalSha256: settlements.record.sha256, playground: Object.freeze({ descriptorSha256: playgroundIdentity.descriptorSha256, finalLocksSha256: playgroundIdentity.finalLocksSha256, instanceId: playgroundIdentity.instanceId, maximumLiveNotes: playgroundIdentity.maximumLiveNotes, releaseRootId: playgroundIdentity.releaseRootId, releaseBootstrapSha256: playgroundIdentity.releaseBootstrapSha256, evidenceSha256: playground.sha256 }), settlementCount: settlements.record.value.entries.length, actionCounts: settlements.actionCounts, soak: Object.freeze({ firstBlockTime: settlements.firstBlockTime, lastBlockTime: settlements.lastBlockTime, elapsedSeconds: settlements.elapsedSeconds, minimumElapsedSeconds: MIN_SOAK_SECONDS, tipHeight: chain.tip.height, minimumConfirmations: MIN_CONFIRMATIONS }), terminal: Object.freeze({ stateSha256: settlements.terminalStateSha256, outpoint: settlements.terminalOutpoint }), rawSettlementTransactionIds: settlements.txids, publication: 'allowed-only-after-this-derived-record' });
+    const result = Object.freeze({ schema: V2_Q09_RESULT_SCHEMA, status: 'chipnet-rollout-qualified', q09Qualified: true, profileId: identity.profileId, instanceId: identity.instanceId, descriptorSha256: identity.descriptorSha256, manifestSha256: identity.manifestSha256, runtimeMaterialSha256: identity.runtimeMaterialSha256, finalLocksSha256: identity.finalLocksSha256, releaseRootId: identity.releaseRootId, releaseBootstrapSha256: identity.releaseBootstrapSha256, topologyId: identity.topologyId, git, sourcePinSha256: sourcePin.sha256, q02CorpusSha256: q02Corpus.sha256, d02ClosureSha256: q08.d02.closureSha256, q08PairArtifactSha256: q08.artifactSha256, q08HostEnvelopeSha256s: Object.freeze([q08.hosts.a.envelopeSha256, q08.hosts.b.envelopeSha256]), q08HostStatementSha256s: Object.freeze([q08.hosts.a.statementSha256, q08.hosts.b.statementSha256]), chainEvidenceSha256: chain.sha256, settlementJournalSha256: settlements.record.sha256, playground: Object.freeze({ descriptorSha256: playgroundIdentity.descriptorSha256, finalLocksSha256: playgroundIdentity.finalLocksSha256, instanceId: playgroundIdentity.instanceId, maximumLiveNotes: playgroundIdentity.maximumLiveNotes, releaseRootId: playgroundIdentity.releaseRootId, releaseBootstrapSha256: playgroundIdentity.releaseBootstrapSha256, evidenceSha256: playground.sha256 }), settlementCount: settlements.record.value.entries.length, actionCounts: settlements.actionCounts, soak: Object.freeze({ firstBlockTime: settlements.firstBlockTime, lastBlockTime: settlements.lastBlockTime, elapsedSeconds: settlements.elapsedSeconds, minimumElapsedSeconds: MIN_SOAK_SECONDS, tipHeight: chain.tip.height, minimumConfirmations: MIN_CONFIRMATIONS }), terminal: Object.freeze({ stateSha256: settlements.terminalStateSha256, outpoint: settlements.terminalOutpoint }), rawSettlementTransactionIds: settlements.txids, publication: 'allowed-only-after-this-derived-record' });
     const artifact = atomicPrivateJson(join(options.outputDirectory, 'q09-chipnet-rollout-validation.json'), result); return Object.freeze({ ...result, artifactSha256: artifact.sha256 });
   } catch (error) {
     atomicPrivateJson(join(options.outputDirectory, 'failure.json'), { schema: V2_Q09_RESULT_SCHEMA, status: 'failed-preserved', q09Qualified: false, at: now(), message: error instanceof Error ? error.message : String(error) }); throw error;

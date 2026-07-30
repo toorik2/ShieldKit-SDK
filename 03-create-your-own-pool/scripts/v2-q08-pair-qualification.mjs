@@ -28,12 +28,19 @@ import {
 } from '../packages/profile/v2/q08-host-evidence.mjs';
 import { parseV2RawTransaction } from '../packages/kit/v2/transaction-policy.mjs';
 import {
+  normalizeV2Q08HostStateEvidenceReference,
+  validateV2Q08FundingCheckpoint,
+  V2_Q08_FUNDING_CHECKPOINT_FILE,
+  verifyV2Q08HostStateEvidence,
+} from './v2-clean-machine-qualification.mjs';
+import {
   deriveV2Q02LaneAuthorityContextFromValidatedDescriptor,
 } from './v2-q02-lane-evidence.mjs';
 import {
   normalizeV2Q08LaneEvidenceReferences,
   verifyV2Q08ActionLaneEvidence,
 } from './v2-q08-lane-evidence.mjs';
+import { revalidateV2D02AuditClosure } from './v2-d02-audit-closure.mjs';
 
 const HASH = /^[0-9a-f]{64}$/;
 const SHA1 = /^[0-9a-f]{40}$/;
@@ -48,7 +55,7 @@ const STABLE_FIELDS = Object.freeze([
 ]);
 
 export const V2_Q08_PAIR_SCHEMA =
-  'shieldkit-v2-direct-q08-pair-qualification-v1';
+  'shieldkit-v2-direct-q08-pair-qualification-v2';
 
 export class V2Q08PairQualificationError extends Error {
   constructor(message) {
@@ -276,12 +283,24 @@ function validateStep(
     exact(entry.result, ['fundingAddress', 'status'], 'Q-08 pair funding-address result');
     if (entry.result.status !== 'funding-address-displayed' || typeof entry.result.fundingAddress !== 'string' || entry.result.fundingAddress.length < 8) fail('Q-08 pair funding address result is invalid');
   } else if (step === 'recover') {
-    exact(entry.result, ['recoveredNoteId', 'status'], 'Q-08 pair recovery result');
+    exact(entry.result, testOnly ? ['recoveredNoteId', 'status'] : ['recoveredNoteId', 'stateEvidence', 'status'], 'Q-08 pair recovery result');
     if (entry.result.status !== 'recovered-from-chain-history' || !HASH.test(entry.result.recoveredNoteId)) fail('Q-08 pair recovery result is invalid');
   } else {
     const status = { wallet: 'wallet-ready', sync: 'synced-from-genesis', deleteLocalState: 'local-state-deleted' }[step];
-    exact(entry.result, ['status'], `Q-08 pair ${step} result`);
+    exact(entry.result, testOnly ? ['status'] : ['stateEvidence', 'status'], `Q-08 pair ${step} result`);
     if (entry.result.status !== status) fail(`Q-08 pair ${step} result is invalid`);
+  }
+  if (!testOnly && ['wallet', 'sync', 'deleteLocalState', 'recover'].includes(step)) {
+    verifyV2Q08HostStateEvidence({
+      evidenceRoot,
+      reference: normalizeV2Q08HostStateEvidenceReference(entry.result.stateEvidence),
+      step,
+      status: entry.result.status,
+      identity,
+      stdoutSha256: entry.stdoutSha256,
+      stderrSha256: entry.stderrSha256,
+      recoveredNoteId: step === 'recover' ? entry.result.recoveredNoteId : null,
+    });
   }
   return entry.entrySha256;
 }
@@ -296,7 +315,7 @@ function validateStatement(
 ) {
   exact(statement, [
     'carrierCount', 'commandPlanSha256', 'descriptorSha256',
-    'fundingCheckpointSha256', 'git',
+    'd02ClosureSha256', 'fundingCheckpointSha256', 'git',
     'hostIdentity', 'instanceId', 'manifestSha256', 'profileId',
     'profileSha256', 'releaseBootstrapSha256', 'releaseRootId',
     'runtimeMaterialSha256', 'schema', 'sourcePinSha256', 'status', 'steps',
@@ -308,10 +327,11 @@ function validateStatement(
     || statement.runtimeMaterialSha256 !== identity.runtimeMaterialSha256 || statement.releaseRootId !== identity.releaseRootId
     || statement.releaseBootstrapSha256 !== identity.releaseBootstrapSha256
     || statement.profileSha256 !== identity.profileSha256
-    || statement.carrierCount !== identity.carrierCount) {
+    || statement.carrierCount !== identity.carrierCount
+    || statement.d02ClosureSha256 !== identity.d02ClosureSha256) {
     fail('Q-08 pair host statement does not bind the approved final release inputs');
   }
-  for (const key of ['commandPlanSha256', 'sourcePinSha256', 'fundingCheckpointSha256', 'hostIdentity', 'profileSha256']) hash(statement[key], `Q-08 pair ${key}`);
+  for (const key of ['commandPlanSha256', 'd02ClosureSha256', 'sourcePinSha256', 'fundingCheckpointSha256', 'hostIdentity', 'profileSha256']) hash(statement[key], `Q-08 pair ${key}`);
   if (!Number.isSafeInteger(statement.carrierCount)
     || statement.carrierCount < 1
     || statement.carrierCount > 255) {
@@ -340,6 +360,18 @@ function validateStatement(
     if (step === 'recoveredSpend' && entry.result.spentNoteId !== recoveredNoteId) fail('Q-08 pair recovered spend does not bind recovered chain-history note');
   }
   if (fundingAddress === undefined) fail('Q-08 pair statement lacks funding address evidence');
+  if (!testOnly) {
+    const funding = validateV2Q08FundingCheckpoint(
+      join(evidenceRoot, V2_Q08_FUNDING_CHECKPOINT_FILE),
+      { expectedCheckpoint: identity.laneAuthorityContext.checkpoint },
+    );
+    if (
+      funding.sha256 !== statement.fundingCheckpointSha256
+      || funding.value.fundingAddress !== fundingAddress
+    ) {
+      fail('Q-08 pair funding evidence differs from the signed host journey');
+    }
+  }
   if (new Set(actionTransactionIds).size !== actionTransactionIds.length) {
     fail('Q-08 host journey reuses an action transaction');
   }
@@ -356,7 +388,7 @@ function assertPair(left, right) {
     'schema', 'status', 'profileId', 'profileSha256', 'carrierCount',
     'instanceId', 'descriptorSha256', 'manifestSha256',
     'runtimeMaterialSha256', 'releaseRootId', 'releaseBootstrapSha256', 'commandPlanSha256',
-    'sourcePinSha256',
+    'd02ClosureSha256', 'sourcePinSha256',
   ];
   for (const key of shared) if (left[key] !== right[key]) fail(`Q-08 pair hosts disagree on shared ${key} binding`);
   if (canonicalizeJcs(left.git) !== canonicalizeJcs(right.git)) fail('Q-08 pair hosts disagree on their source git binding');
@@ -418,8 +450,8 @@ function writeCanonicalPrivatePair(outputDirectory, record) {
 }
 
 export function parseV2Q08PairArguments(argv) {
-  const names = new Set(['--profile-core', '--descriptor', '--host-a-envelope', '--host-b-envelope', '--output-dir', '--expected-commit', '--expected-tree', '--release-root']);
-  if (!Array.isArray(argv) || argv.length !== names.size * 2) fail('usage: v2-q08-pair-qualification.mjs --profile-core <absolute> --descriptor <absolute> --host-a-envelope <absolute> --host-b-envelope <absolute> --output-dir <absolute-new-dir> --expected-commit <sha1> --expected-tree <sha1> --release-root <compiled-root-id>');
+  const names = new Set(['--profile-core', '--descriptor', '--d02-closure', '--host-a-envelope', '--host-b-envelope', '--output-dir', '--expected-commit', '--expected-tree', '--release-root']);
+  if (!Array.isArray(argv) || argv.length !== names.size * 2) fail('usage: v2-q08-pair-qualification.mjs --profile-core <absolute> --descriptor <absolute> --d02-closure <absolute> --host-a-envelope <absolute> --host-b-envelope <absolute> --output-dir <absolute-new-dir> --expected-commit <sha1> --expected-tree <sha1> --release-root <compiled-root-id>');
   const fields = new Map();
   for (let index = 0; index < argv.length; index += 2) {
     const name = argv[index]; const value = argv[index + 1];
@@ -431,6 +463,7 @@ export function parseV2Q08PairArguments(argv) {
   return Object.freeze({
     profileCorePath: absolute(fields.get('--profile-core'), 'Q-08 pair profile core'),
     descriptorPath: absolute(fields.get('--descriptor'), 'Q-08 pair descriptor'),
+    d02ClosurePath: absolute(fields.get('--d02-closure'), 'Q-08 pair D-02 closure'),
     hostAEnvelopePath: absolute(fields.get('--host-a-envelope'), 'Q-08 pair host A envelope'),
     hostBEnvelopePath: absolute(fields.get('--host-b-envelope'), 'Q-08 pair host B envelope'),
     outputDirectory: absolute(fields.get('--output-dir'), 'Q-08 pair output directory'),
@@ -448,9 +481,36 @@ const PAIR_INPUT_KEYS = Object.freeze([
   'releaseRootId',
 ]);
 
-async function derivePairRecord(options, seam = undefined) {
+function validateD02Material(material, inputs, expectedCommit, expectedTree) {
+  exact(material, ['closure', 'closureSha256'], 'Q-08 pair D-02 material');
+  hash(material.closureSha256, 'Q-08 pair D-02 closure hash');
+  if (sha256(canonicalBytes(material.closure)) !== material.closureSha256) {
+    fail('Q-08 pair D-02 closure bytes do not match their hash');
+  }
+  const closure = revalidateV2D02AuditClosure(material.closure);
+  const expected = {
+    commit: expectedCommit,
+    tree: expectedTree,
+    profileId: inputs.profileId,
+    descriptorSha256: inputs.descriptorSha256,
+    manifestSha256: inputs.manifestSha256,
+    runtimeMaterialSha256: inputs.runtimeMaterialSha256,
+  };
+  if (
+    canonicalizeJcs(closure.expectedFinalHashes)
+      !== canonicalizeJcs(expected)
+  ) {
+    fail('Q-08 pair D-02 closure does not bind the exact final release');
+  }
+  return Object.freeze({
+    closure: material.closure,
+    closureSha256: material.closureSha256,
+  });
+}
+
+async function derivePairRecord(options, seam = undefined, d02Material) {
   const testOnly = seam?.testOnly === true;
-  if (seam !== undefined && (!testOnly || Object.keys(seam).some((key) => !['testOnly', 'verifyFinalInputs', 'verifyEnvelope'].includes(key)))) {
+  if (seam !== undefined && (!testOnly || Object.keys(seam).some((key) => !['testOnly', 'verifyD02Closure', 'verifyFinalInputs', 'verifyEnvelope'].includes(key)))) {
     fail('Q-08 pair dependency injection is restricted to explicit TEST-ONLY mode');
   }
   exact(options, PAIR_INPUT_KEYS, 'Q-08 pair inputs');
@@ -483,6 +543,20 @@ async function derivePairRecord(options, seam = undefined) {
   ) {
     fail('Q-08 pair final input verification result is malformed');
   }
+  const d02 = testOnly
+    ? await seam.verifyD02Closure(d02Material, inputs)
+    : validateD02Material(
+      d02Material,
+      inputs,
+      options.expectedCommit,
+      options.expectedTree,
+    );
+  exact(d02, ['closure', 'closureSha256'], 'Q-08 pair D-02 validation result');
+  hash(d02.closureSha256, 'Q-08 pair D-02 closure hash');
+  const boundInputs = Object.freeze({
+    ...inputs,
+    d02ClosureSha256: d02.closureSha256,
+  });
   const aBytes = stableBytes(options.hostAEnvelopePath, 'Q-08 pair host A envelope');
   const bBytes = stableBytes(options.hostBEnvelopePath, 'Q-08 pair host B envelope');
   const inspect = testOnly ? seam.verifyEnvelope : (bytes) => verifyV2Q08HostTranscriptForRelease({ envelopeBytes: bytes, releaseRoot });
@@ -498,11 +572,11 @@ async function derivePairRecord(options, seam = undefined) {
   ) {
     fail('Q-08 pair requires two distinct release-authorized host authorities and journeys');
   }
-  const a = validateStatement(hostA.statement, inputs, {
+  const a = validateStatement(hostA.statement, boundInputs, {
     evidenceRoot: dirname(options.hostAEnvelopePath),
     testOnly,
   });
-  const b = validateStatement(hostB.statement, inputs, {
+  const b = validateStatement(hostB.statement, boundInputs, {
     evidenceRoot: dirname(options.hostBEnvelopePath),
     testOnly,
   });
@@ -525,6 +599,10 @@ async function derivePairRecord(options, seam = undefined) {
     descriptorSha256: inputs.descriptorSha256, manifestSha256: inputs.manifestSha256,
     runtimeMaterialSha256: inputs.runtimeMaterialSha256, releaseRootId: inputs.releaseRootId,
     releaseBootstrapSha256: inputs.releaseBootstrapSha256,
+    d02: Object.freeze({
+      closure: d02.closure,
+      closureSha256: d02.closureSha256,
+    }),
     topology: Object.freeze({ id: inputs.topologyId, verifierRoles: Object.freeze([...inputs.verifierRoles]) }),
     git: Object.freeze({ commit: a.git.commit, tree: a.git.tree }), sourcePinSha256: a.sourcePinSha256,
     hosts: Object.freeze({
@@ -539,9 +617,30 @@ async function derivePairRecord(options, seam = undefined) {
  * returns false and writes nothing; the CLI cannot select this mode.
  */
 export async function runV2Q08PairQualification(options, seam = undefined) {
-  exact(options, [...PAIR_INPUT_KEYS, 'outputDirectory'], 'Q-08 pair options');
-  const { outputDirectory, ...inputs } = options;
-  const record = await derivePairRecord(inputs, seam);
+  exact(
+    options,
+    [...PAIR_INPUT_KEYS, 'd02ClosurePath', 'outputDirectory'],
+    'Q-08 pair options',
+  );
+  if (seam !== undefined && seam.testOnly !== true) {
+    fail('Q-08 pair dependency injection is restricted to explicit TEST-ONLY mode');
+  }
+  const { d02ClosurePath, outputDirectory, ...inputs } = options;
+  const testOnly = seam?.testOnly === true;
+  // Resolve compiled trust before opening caller-selected D-02 bytes.
+  if (!testOnly) resolveV2FinalReleaseRoot(inputs.releaseRootId);
+  const d02File = canonicalJsonFile(
+    absolute(d02ClosurePath, 'Q-08 pair D-02 closure'),
+    'Q-08 pair D-02 closure',
+  );
+  const record = await derivePairRecord(
+    inputs,
+    seam,
+    Object.freeze({
+      closure: d02File.value,
+      closureSha256: d02File.sha256,
+    }),
+  );
   if (record.q08Qualified !== true) return record;
   const artifact = writeCanonicalPrivatePair(options.outputDirectory, record);
   return Object.freeze({ ...record, artifactSha256: artifact.sha256, artifactPath: artifact.path });
@@ -559,14 +658,26 @@ export async function verifyV2Q08PairQualificationArtifact(options) {
     'Q-08 pair artifact verification options',
   );
   const { pairArtifactPath, ...inputs } = options;
-  const expected = await derivePairRecord(inputs);
-  if (expected.q08Qualified !== true) {
-    fail('Q-08 pair artifact verification did not derive qualifying evidence');
-  }
+  // Resolve compiled trust before opening the caller-selected pair artifact.
+  resolveV2FinalReleaseRoot(inputs.releaseRootId);
   const artifact = canonicalJsonFile(
     absolute(pairArtifactPath, 'Q-08 pair qualification artifact'),
     'Q-08 pair qualification artifact',
   );
+  plain(artifact.value.d02, 'Q-08 pair embedded D-02 closure');
+  exact(
+    artifact.value.d02,
+    ['closure', 'closureSha256'],
+    'Q-08 pair embedded D-02 closure',
+  );
+  const expected = await derivePairRecord(
+    inputs,
+    undefined,
+    artifact.value.d02,
+  );
+  if (expected.q08Qualified !== true) {
+    fail('Q-08 pair artifact verification did not derive qualifying evidence');
+  }
   const expectedBytes = canonicalBytes(expected);
   if (!artifact.bytes.equals(expectedBytes)) {
     fail('Q-08 pair qualification artifact differs from the independently re-derived record');

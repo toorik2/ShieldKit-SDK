@@ -33,6 +33,7 @@ import {
   parseV2Q09Arguments,
   runV2Q09ChipnetSoak,
   validateV2Q09ChainEvidence,
+  validateV2Q09SettlementJournal,
   validateV2Q09PlaygroundEvidence,
   validateV2Q09PlaygroundCandidate,
   V2Q09ChipnetSoakError,
@@ -334,7 +335,18 @@ test('Q-09 rejects observer identity aliasing by canonical Ed25519 SPKI DER key'
 });
 
 test('Q-09 independently rejects Q-08 pair identity and runtime drift', () => {
+  const d02Closure = {
+    expectedFinalHashes: {
+      commit: identity.sourceCommit,
+      tree: identity.sourceTree,
+      profileId: identity.profileId,
+      descriptorSha256: identity.descriptorSha256,
+      manifestSha256: identity.manifestSha256,
+      runtimeMaterialSha256: identity.runtimeMaterialSha256,
+    },
+  };
   const pair = {
+    schema: 'shieldkit-v2-direct-q08-pair-qualification-v2',
     q08Qualified: true,
     production: false,
     releaseQualified: false,
@@ -350,6 +362,10 @@ test('Q-09 independently rejects Q-08 pair identity and runtime drift', () => {
     topology: { id: identity.topologyId },
     git: { commit: identity.sourceCommit, tree: identity.sourceTree },
     artifactSha256: '90'.repeat(32),
+    d02: {
+      closure: d02Closure,
+      closureSha256: sha256Json(d02Closure),
+    },
     hosts: {
       a: { envelopeSha256: '91'.repeat(32), statementSha256: '92'.repeat(32) },
       b: { envelopeSha256: '93'.repeat(32), statementSha256: '94'.repeat(32) },
@@ -381,6 +397,37 @@ test('Q-09 rejects mainnet and cannot treat a caller timestamp as chain time', (
     anchor: { height: 0, hash: '00'.repeat(32), chainWork: '1' }, attestations: [], headers: [], genesis: { blockHash: '00'.repeat(32), blockHeight: 0, transactionId: identity.genesis.transactionId, rawTransactionHex: '00' },
   }));
   assert.throws(() => validateV2Q09ChainEvidence(path, identity), /final Chipnet|canonical Chipnet/u);
+});
+
+test('Q-09 rejects legacy withdraw spelling but permits the canonical withdrawal action kind', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'shieldkit-q09-withdrawal-')); t.after(() => rmSync(root, { recursive: true, force: true }));
+  const entries = Array.from({ length: 1_000 }, (_, sequence) => ({
+    blockHash: '00'.repeat(32), blockHeight: 0, entrySha256: '00'.repeat(32),
+    kind: sequence === 0 ? 'withdraw' : 'deposit', merkleBranch: [], packetHex: '00'.repeat(552),
+    previousEntrySha256: null, rawTransactionHex: '00', stateOutputIndex: 0,
+    transactionId: '00'.repeat(32), transactionIndex: 0,
+  }));
+  const path = join(root, 'settlements.json');
+  writeFileSync(path, canonicalizeJcs({
+    schema: 'shieldkit-v2-direct-q09-settlement-journal/v1', profileId: identity.profileId,
+    instanceId: identity.instanceId, finalLocksSha256: identity.finalLocksSha256,
+    sourceCommit: commit, sourceTree: tree, chainEvidenceSha256: 'cc'.repeat(32),
+    fundingProvenance: { classification: 'observer-attested-non-faucet-non-sponsor-declaration', scope: 'declaration-not-independent-source-of-funds-proof', depositTransactionIds: [], attestations: [] },
+    entries,
+  }));
+  assert.throws(() => validateV2Q09SettlementJournal(path, identity, { sha256: 'cc'.repeat(32), headers: new Map(), tip: { height: 0 } }, { observers: new Map() }), /unsupported or legacy action kind/u);
+  entries[0].kind = 'withdrawal';
+  writeFileSync(path, canonicalizeJcs({
+    schema: 'shieldkit-v2-direct-q09-settlement-journal/v1', profileId: identity.profileId,
+    instanceId: identity.instanceId, finalLocksSha256: identity.finalLocksSha256,
+    sourceCommit: commit, sourceTree: tree, chainEvidenceSha256: 'cc'.repeat(32),
+    fundingProvenance: { classification: 'observer-attested-non-faucet-non-sponsor-declaration', scope: 'declaration-not-independent-source-of-funds-proof', depositTransactionIds: [], attestations: [] },
+    entries,
+  }));
+  assert.throws(
+    () => validateV2Q09SettlementJournal(path, identity, { sha256: 'cc'.repeat(32), headers: new Map(), tip: { height: 0 } }, { observers: new Map() }),
+    (error) => !/unsupported or legacy action kind/u.test(error.message),
+  );
 });
 
 test('Q-09 rejects a wrong playground instance and a non-32 aggregate fill before accepting any tx labels', (t) => {

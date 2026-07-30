@@ -8,11 +8,12 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  chmodSync, closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync,
-  openSync, readFileSync, realpathSync, renameSync, writeSync,
+  chmodSync, closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync,
+  mkdirSync, openSync, readFileSync, realpathSync, renameSync, writeSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cashAddressToLockingBytecode } from '@bitauth/libauth';
 
 import {
   deriveV2SettlementPinsFromValidatedDescriptor,
@@ -30,12 +31,17 @@ import {
 } from '../packages/profile/v2/q08-host-evidence.mjs';
 import { parseV2RawTransaction } from '../packages/kit/v2/transaction-policy.mjs';
 import {
+  verifyBchTransactionMerkleProof,
+  verifyRawHeaderSegment,
+} from '../packages/recover/raw-chain-recovery.mjs';
+import {
   deriveV2Q02LaneAuthorityContextFromValidatedDescriptor,
 } from './v2-q02-lane-evidence.mjs';
 import {
   normalizeV2Q08LaneEvidenceReferences,
   verifyV2Q08ActionLaneEvidence,
 } from './v2-q08-lane-evidence.mjs';
+import { revalidateV2D02AuditClosure } from './v2-d02-audit-closure.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(here, '../..');
@@ -43,6 +49,7 @@ const HEX_40 = /^[0-9a-f]{40}$/;
 const HEX_32 = /^[0-9a-f]{64}$/;
 const MAX_OUTPUT = 8 * 1024 * 1024;
 const ACTIONS = Object.freeze(['deposit', 'transfer', 'withdraw', 'recoveredSpend']);
+const HOST_STATE_STEPS = Object.freeze(['wallet', 'sync', 'deleteLocalState', 'recover']);
 const HOST_ROLES = Object.freeze(['clean-host-a', 'clean-host-b']);
 const STEPS = Object.freeze([
   'npmCi', 'wallet', 'fundingAddress', 'sync', 'deposit', 'transfer', 'withdraw',
@@ -51,7 +58,9 @@ const STEPS = Object.freeze([
 
 export const V2_Q08_ATTEMPT_RECORD_SCHEMA = 'shieldkit-v2-direct-q08-attempt-record-v1';
 export const V2_Q08_COMMAND_PLAN_SCHEMA = 'shieldkit-v2-direct-q08-command-plan-v1';
-export const V2_Q08_FUNDING_CHECKPOINT_SCHEMA = 'shieldkit-v2-direct-q08-out-of-band-funding-v1';
+export const V2_Q08_FUNDING_CHECKPOINT_SCHEMA = 'shieldkit-v2-direct-q08-out-of-band-funding-v2';
+export const V2_Q08_FUNDING_CHECKPOINT_FILE = 'q08-funding-checkpoint.json';
+export const V2_Q08_HOST_STATE_EVIDENCE_SCHEMA = 'shieldkit-v2-direct-q08-host-state-evidence-v1';
 export const V2_Q08_SOURCE_PIN_SCHEMA = 'shieldkit-v2-direct-q08-source-pin-v1';
 export const V2_Q08_COMMAND_PLAN_ARTIFACT_ID = 'q08-command-plan';
 export const V2_Q08_SOURCE_PIN_ARTIFACT_ID = 'q08-source-pin';
@@ -151,7 +160,41 @@ function writePrivateJson(path, value) {
 
 function readJson(path, label) {
   absolute(path, label); directRegularFile(path, label);
-  const bytes = readFileSync(path);
+  const pathname = lstatSync(path, { bigint: true });
+  let descriptor;
+  let bytes;
+  try {
+    descriptor = openSync(
+      path,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const before = fstatSync(descriptor, { bigint: true });
+    bytes = readFileSync(descriptor);
+    const after = fstatSync(descriptor, { bigint: true });
+    const finalPath = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+    const fields = [
+      'dev', 'ino', 'size', 'mode', 'nlink', 'uid', 'mtimeNs', 'ctimeNs',
+    ];
+    if (
+      !before.isFile()
+      || before.nlink !== 1n
+      || !after.isFile()
+      || after.nlink !== 1n
+      || finalPath === undefined
+      || !finalPath.isFile()
+      || finalPath.isSymbolicLink()
+      || finalPath.nlink !== 1n
+      || fields.some(
+        (field) => pathname[field] !== before[field]
+          || before[field] !== after[field]
+          || after[field] !== finalPath[field],
+      )
+    ) {
+      fail(`${label} changed while it was read`);
+    }
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
   let value;
   try { value = JSON.parse(bytes.toString('utf8')); } catch { fail(`${label} is not JSON`); }
   return Object.freeze({ path, bytes, sha256: sha256(bytes), value });
@@ -167,8 +210,8 @@ function readCanonicalJson(path, label) {
 
 export function parseV2Q08Arguments(argv) {
   const fields = new Map();
-  const names = new Set(['--output-dir', '--descriptor', '--final-manifest', '--profile-core', '--release-root', '--command-plan', '--funding-checkpoint', '--host-identity', '--host-role', '--host-signing-key', '--expected-commit', '--expected-tree']);
-  if (!Array.isArray(argv) || argv.length !== names.size * 2) fail('usage: v2-clean-machine-qualification.mjs --output-dir <absolute-new-dir> --descriptor <absolute> --final-manifest <absolute> --profile-core <absolute> --release-root <compiled-root-id> --command-plan <absolute> --funding-checkpoint <absolute> --host-identity <absolute> --host-role <clean-host-a|clean-host-b> --host-signing-key <absolute-0600-ed25519-pkcs8> --expected-commit <sha1> --expected-tree <sha1>');
+  const names = new Set(['--output-dir', '--descriptor', '--final-manifest', '--profile-core', '--release-root', '--command-plan', '--d02-closure', '--funding-checkpoint', '--host-identity', '--host-role', '--host-signing-key', '--expected-commit', '--expected-tree']);
+  if (!Array.isArray(argv) || argv.length !== names.size * 2) fail('usage: v2-clean-machine-qualification.mjs --output-dir <absolute-new-dir> --descriptor <absolute> --final-manifest <absolute> --profile-core <absolute> --release-root <compiled-root-id> --command-plan <absolute> --d02-closure <absolute> --funding-checkpoint <absolute> --host-identity <absolute> --host-role <clean-host-a|clean-host-b> --host-signing-key <absolute-0600-ed25519-pkcs8> --expected-commit <sha1> --expected-tree <sha1>');
   for (let index = 0; index < argv.length; index += 2) {
     const name = argv[index]; const value = argv[index + 1];
     if (!names.has(name) || fields.has(name) || typeof value !== 'string' || value.length === 0) fail('Q-08 arguments are malformed or duplicated');
@@ -186,6 +229,7 @@ export function parseV2Q08Arguments(argv) {
     profileCorePath: absolute(fields.get('--profile-core'), 'Q-08 profile core'),
     releaseRootId: fields.get('--release-root'),
     commandPlanPath: absolute(fields.get('--command-plan'), 'Q-08 command plan'),
+    d02ClosurePath: absolute(fields.get('--d02-closure'), 'Q-08 D-02 closure'),
     fundingCheckpointPath: absolute(fields.get('--funding-checkpoint'), 'Q-08 funding checkpoint'),
     hostIdentityPath: absolute(fields.get('--host-identity'), 'Q-08 host identity'),
     hostRole,
@@ -241,12 +285,76 @@ function parsePlan(path) {
   return plan;
 }
 
-function parseFundingCheckpoint(path) {
-  const checkpoint = readJson(path, 'Q-08 out-of-band funding checkpoint');
-  exactKeys(checkpoint.value, ['fundedAt', 'fundingAddress', 'fundingTransactionHex', 'schema', 'status'], 'Q-08 out-of-band funding checkpoint');
-  if (checkpoint.value.schema !== V2_Q08_FUNDING_CHECKPOINT_SCHEMA || checkpoint.value.status !== 'funded-out-of-band' || typeof checkpoint.value.fundedAt !== 'string' || typeof checkpoint.value.fundingAddress !== 'string' || checkpoint.value.fundingAddress.length < 8 || !/^[0-9a-f]+$/.test(checkpoint.value.fundingTransactionHex)) fail('Q-08 funding checkpoint is not an explicit funded out-of-band record');
-  try { parseV2RawTransaction(checkpoint.value.fundingTransactionHex); } catch { fail('Q-08 funding checkpoint does not contain an exact raw transaction'); }
+function parseFundingCheckpoint(path, {
+  expectedCheckpoint = undefined,
+  testOnly = false,
+} = {}) {
+  const checkpoint = testOnly
+    ? readJson(path, 'Q-08 test-only funding checkpoint')
+    : readCanonicalJson(path, 'Q-08 out-of-band funding checkpoint');
+  // Deliberately retain the legacy shape only for API-only test seams. A
+  // production host must provide independently checkable transaction/output
+  // and header/Merkle facts; an address string or signer assertion is never
+  // evidence of funding by itself.
+  if (testOnly) {
+    exactKeys(checkpoint.value, ['fundedAt', 'fundingAddress', 'fundingTransactionHex', 'schema', 'status'], 'Q-08 test-only funding checkpoint');
+    if (checkpoint.value.schema !== 'shieldkit-v2-direct-q08-out-of-band-funding-v1' || checkpoint.value.status !== 'funded-out-of-band') fail('Q-08 test-only funding checkpoint is malformed');
+    try { parseV2RawTransaction(checkpoint.value.fundingTransactionHex); } catch { fail('Q-08 test-only funding transaction is invalid'); }
+    return checkpoint;
+  }
+  exactKeys(checkpoint.value, ['chainEvidence', 'fundedAt', 'fundingAddress', 'fundingLockingBytecodeHex', 'fundingOutputIndex', 'fundingTransactionHex', 'fundingValueSatoshis', 'provenanceDeclaration', 'schema', 'status'], 'Q-08 out-of-band funding checkpoint');
+  const value = checkpoint.value;
+  const fundedAt = Date.parse(value.fundedAt);
+  if (value.schema !== V2_Q08_FUNDING_CHECKPOINT_SCHEMA || value.status !== 'funded-out-of-band' || !Number.isSafeInteger(fundedAt) || new Date(fundedAt).toISOString() !== value.fundedAt || typeof value.fundingAddress !== 'string' || !/^[0-9a-f]+$/.test(value.fundingTransactionHex) || !Number.isSafeInteger(value.fundingOutputIndex) || value.fundingOutputIndex < 0 || typeof value.fundingValueSatoshis !== 'string' || !/^[1-9][0-9]*$/.test(value.fundingValueSatoshis) || typeof value.fundingLockingBytecodeHex !== 'string' || !/^[0-9a-f]+$/.test(value.fundingLockingBytecodeHex)) fail('Q-08 funding checkpoint fields are malformed');
+  let transaction; try { transaction = parseV2RawTransaction(value.fundingTransactionHex); } catch { fail('Q-08 funding checkpoint does not contain an exact raw transaction'); }
+  const output = transaction.outputs[value.fundingOutputIndex];
+  if (output === undefined || output.valueSatoshis !== BigInt(value.fundingValueSatoshis) || output.lockingBytecode.toString('hex') !== value.fundingLockingBytecodeHex) fail('Q-08 funding checkpoint does not bind the declared funded output/value');
+  const decodedAddress = cashAddressToLockingBytecode(value.fundingAddress);
+  if (typeof decodedAddress === 'string' || Buffer.from(decodedAddress.bytecode).toString('hex') !== value.fundingLockingBytecodeHex) fail('Q-08 funding address does not cryptographically bind the funded output locking bytecode');
+  exactKeys(value.provenanceDeclaration, ['classification', 'scope'], 'Q-08 funding provenance declaration');
+  if (value.provenanceDeclaration.classification !== 'declared-non-faucet-non-sponsor' || value.provenanceDeclaration.scope !== 'signer-assertion-not-independently-verified') fail('Q-08 funding provenance must be explicitly labelled as a non-independent signer assertion');
+  exactKeys(value.chainEvidence, ['blockHeight', 'checkpoint', 'merkleBranch', 'rawHeaders', 'tip', 'transactionCount', 'transactionIndex'], 'Q-08 funding chain evidence');
+  const chain = value.chainEvidence;
+  if (!Number.isSafeInteger(chain.blockHeight) || chain.blockHeight < 0 || !Array.isArray(chain.rawHeaders) || chain.rawHeaders.some((entry) => typeof entry !== 'string' || !/^[0-9a-f]{160}$/.test(entry)) || !Array.isArray(chain.merkleBranch) || chain.merkleBranch.some((entry) => !HEX_32.test(entry))) fail('Q-08 funding chain evidence is malformed');
+  if (
+    expectedCheckpoint !== undefined
+    && canonical(chain.checkpoint) !== canonical(expectedCheckpoint)
+  ) {
+    fail('Q-08 funding chain evidence does not start at the signed-manifest Chipnet checkpoint');
+  }
+  let segment; try { segment = verifyRawHeaderSegment({ checkpoint: chain.checkpoint, rawHeaders: chain.rawHeaders.map((entry) => Buffer.from(entry, 'hex')), tip: chain.tip }); } catch (error) { fail(`Q-08 funding chain evidence is structurally invalid: ${error instanceof Error ? error.message : String(error)}`); }
+  const header = segment.headers.find((entry) => entry.height === chain.blockHeight);
+  if (header === undefined || segment.tip.height - chain.blockHeight + 1 < 6) fail('Q-08 funding transaction lacks six structurally linked confirmations');
+  try { verifyBchTransactionMerkleProof({ rawTransaction: transaction.bytes, transactionIndex: chain.transactionIndex, transactionCount: chain.transactionCount, branch: chain.merkleBranch, headerMerkleRoot: header.merkleRoot }); } catch (error) { fail(`Q-08 funding transaction lacks a valid raw-header Merkle proof: ${error instanceof Error ? error.message : String(error)}`); }
   return checkpoint;
+}
+
+export function validateV2Q08FundingCheckpoint(path, options = {}) {
+  return parseFundingCheckpoint(path, options);
+}
+
+export function normalizeV2Q08HostStateEvidenceReference(value) {
+  exactKeys(value, ['path', 'sha256'], 'Q-08 host-state evidence reference');
+  if (typeof value.path !== 'string' || value.path.length === 0 || isAbsolute(value.path) || value.path.split(/[\\/]/u).includes('..') || !HEX_32.test(value.sha256)) fail('Q-08 host-state evidence reference is unsafe or malformed');
+  return Object.freeze({ path: value.path, sha256: value.sha256 });
+}
+
+export function verifyV2Q08HostStateEvidence({ evidenceRoot, reference, step, status, identity, stdoutSha256, stderrSha256, recoveredNoteId = null }) {
+  if (!HOST_STATE_STEPS.includes(step)) fail('Q-08 host-state evidence step is unsupported');
+  const normalized = normalizeV2Q08HostStateEvidenceReference(reference);
+  const path = resolve(evidenceRoot, normalized.path);
+  if (!path.startsWith(`${evidenceRoot}/`)) fail('Q-08 host-state evidence escapes its output directory');
+  const evidence = readCanonicalJson(path, `Q-08 ${step} host-state evidence`);
+  if (evidence.sha256 !== normalized.sha256) fail('Q-08 host-state evidence hash differs from its command result');
+  exactKeys(evidence.value, ['commandStderrSha256', 'commandStdoutSha256', 'facts', 'instanceId', 'profileId', 'schema', 'status', 'step'], `Q-08 ${step} host-state evidence`);
+  const value = evidence.value;
+  if (value.schema !== V2_Q08_HOST_STATE_EVIDENCE_SCHEMA || value.step !== step || value.status !== status || value.profileId !== identity.profileId || value.instanceId !== identity.instanceId || value.commandStdoutSha256 !== stdoutSha256 || value.commandStderrSha256 !== stderrSha256) fail(`Q-08 ${step} host-state evidence does not bind the exact command result`);
+  const facts = value.facts;
+  if (step === 'wallet') { exactKeys(facts, ['walletPublicId'], 'Q-08 wallet host-state facts'); if (!HEX_32.test(facts.walletPublicId)) fail('Q-08 wallet host-state evidence lacks a public wallet identifier'); }
+  if (step === 'sync') { exactKeys(facts, ['genesisBlockHash', 'tipBlockHash', 'tipHeight'], 'Q-08 sync host-state facts'); if (!HEX_32.test(facts.genesisBlockHash) || !HEX_32.test(facts.tipBlockHash) || !Number.isSafeInteger(facts.tipHeight) || facts.tipHeight < 0) fail('Q-08 sync host-state evidence is malformed'); }
+  if (step === 'deleteLocalState') { exactKeys(facts, ['deletedStateSha256'], 'Q-08 deletion host-state facts'); if (!HEX_32.test(facts.deletedStateSha256)) fail('Q-08 deletion host-state evidence is malformed'); }
+  if (step === 'recover') { exactKeys(facts, ['recoveredNoteId', 'recoveryJournalSha256'], 'Q-08 recovery host-state facts'); if (!HEX_32.test(facts.recoveredNoteId) || !HEX_32.test(facts.recoveryJournalSha256) || facts.recoveredNoteId !== recoveredNoteId) fail('Q-08 recovery host-state evidence does not bind the recovered note'); }
+  return Object.freeze({ path: normalized.path, sha256: normalized.sha256 });
 }
 
 function parseHostIdentity(path) {
@@ -287,21 +395,25 @@ function parseStepResult(
   const statusByStep = Object.freeze({ wallet: 'wallet-ready', fundingAddress: 'funding-address-displayed', sync: 'synced-from-genesis', deleteLocalState: 'local-state-deleted', recover: 'recovered-from-chain-history' });
   const action = ACTIONS.includes(step);
   const keys = ['instanceId', 'profileId', 'schema', 'status'];
+  if (!testOnly && HOST_STATE_STEPS.includes(step)) keys.push('stateEvidence');
   if (action) keys.push('action', 'laneEvidence', 'rawTransactionHex', 'transactionId');
   if (step === 'fundingAddress') keys.push('fundingAddress');
   if (step === 'recover') keys.push('recoveredNoteId');
   if (step === 'recoveredSpend') keys.push('spentNoteId');
   exactKeys(value, keys, `Q-08 ${step} result`);
   if (value.schema !== 'shieldkit-v2-direct-q08-step-result-v1' || value.profileId !== identity.profileId || value.instanceId !== identity.instanceId || (action ? value.status !== 'confirmed' : value.status !== statusByStep[step])) fail(`Q-08 ${step} result identity or status is invalid`);
+  const stateEvidence = !testOnly && HOST_STATE_STEPS.includes(step)
+    ? normalizeV2Q08HostStateEvidenceReference(value.stateEvidence)
+    : null;
   if (step === 'fundingAddress') {
     if (typeof value.fundingAddress !== 'string' || value.fundingAddress.length < 8) fail('Q-08 funding-address result is invalid');
     return Object.freeze({ status: value.status, fundingAddress: value.fundingAddress });
   }
   if (step === 'recover') {
     if (!HEX_32.test(value.recoveredNoteId)) fail('Q-08 recovery did not identify one recovered note');
-    return Object.freeze({ status: value.status, recoveredNoteId: value.recoveredNoteId });
+    return Object.freeze({ status: value.status, recoveredNoteId: value.recoveredNoteId, ...(stateEvidence === null ? {} : { stateEvidence }) });
   }
-  if (!action) return Object.freeze({ status: value.status });
+  if (!action) return Object.freeze({ status: value.status, ...(stateEvidence === null ? {} : { stateEvidence }) });
   const expectedAction = step === 'recoveredSpend' ? 'withdraw' : step;
   if (value.action !== expectedAction) fail(`Q-08 ${step} action evidence is mislabeled`);
   if (step === 'recoveredSpend' && !HEX_32.test(value.spentNoteId)) fail('Q-08 recovered spend does not identify its note');
@@ -362,7 +474,8 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     );
   }
   exactKeys(options, [
-    'commandPlanPath', 'descriptorPath', 'expectedCommit', 'expectedTree',
+    'commandPlanPath', 'd02ClosurePath', 'descriptorPath',
+    'expectedCommit', 'expectedTree',
     'finalManifestPath', 'fundingCheckpointPath', 'hostIdentityPath',
     'hostRole', 'outputDirectory', 'profileCorePath', 'releaseRootId',
     ...(!testOnly ? ['hostSigningKeyPath'] : []),
@@ -451,6 +564,25 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     ) {
       fail('Q-08 signed source pin is invalid');
     }
+    const d02ClosureFile = readCanonicalJson(
+      input.d02ClosurePath,
+      'Q-08 D-02 audit closure',
+    );
+    const d02Closure = revalidateV2D02AuditClosure(d02ClosureFile.value);
+    const expectedD02Hashes = {
+      commit: sourcePin.value.commit,
+      tree: sourcePin.value.tree,
+      profileId: descriptor.profileId,
+      descriptorSha256: descriptor.descriptor.sha256,
+      manifestSha256: descriptor.manifest.sha256,
+      runtimeMaterialSha256: runtime.runtimeMaterial.materialSha256,
+    };
+    if (
+      canonical(d02Closure.expectedFinalHashes)
+        !== canonical(expectedD02Hashes)
+    ) {
+      fail('Q-08 D-02 closure does not bind the exact final release inputs');
+    }
     return Object.freeze({
       profileId: descriptor.profileId,
       profileSha256: release.profileCoreSha256,
@@ -460,6 +592,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       manifestSha256: descriptor.manifest.sha256,
       runtimeMaterialSha256: runtime.runtimeMaterial.materialSha256,
       commandPlanSha256: commandPlanArtifact.sha256,
+      d02ClosureSha256: d02ClosureFile.sha256,
       sourcePinSha256: sourcePinArtifact.sha256,
       sourceCommit: sourcePin.value.commit,
       sourceTree: sourcePin.value.tree,
@@ -476,6 +609,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     finalManifestPath: 'Q-08 final manifest',
     profileCorePath: 'Q-08 profile core',
     commandPlanPath: 'Q-08 command plan',
+    d02ClosurePath: 'Q-08 D-02 closure',
     fundingCheckpointPath: 'Q-08 funding checkpoint',
     hostIdentityPath: 'Q-08 host identity',
     ...(!testOnly
@@ -487,7 +621,8 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
   }
   const identity = await verifyFinalInputs(options);
   exactKeys(identity, [
-    'carrierCount', 'commandPlanSha256', 'descriptorSha256', 'instanceId',
+    'carrierCount', 'commandPlanSha256', 'd02ClosureSha256',
+    'descriptorSha256', 'instanceId',
     'manifestSha256', 'networkId', 'profileId', 'releaseBootstrapSha256',
     'profileSha256', 'releaseRootId', 'runtimeMaterialSha256', 'sourceCommit',
     'sourcePinSha256', 'sourceTree',
@@ -501,6 +636,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     || !HEX_32.test(identity.manifestSha256)
     || !HEX_32.test(identity.runtimeMaterialSha256)
     || !HEX_32.test(identity.commandPlanSha256)
+    || !HEX_32.test(identity.d02ClosureSha256)
     || !HEX_32.test(identity.sourcePinSha256)
     || !HEX_32.test(identity.releaseBootstrapSha256)
     || typeof identity.releaseRootId !== 'string'
@@ -516,10 +652,26 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     || (!testOnly && identity.releaseRootId !== releaseRoot.rootId)
   ) fail('Q-08 final input verifier returned invalid or mismatched signed pins');
   if (sha256(readFileSync(options.finalManifestPath)) !== identity.manifestSha256) fail('Q-08 final manifest hash is not descriptor-pinned');
-  const plan = parsePlan(options.commandPlanPath); const funding = parseFundingCheckpoint(options.fundingCheckpointPath); const host = parseHostIdentity(options.hostIdentityPath);
+  if (
+    readCanonicalJson(options.d02ClosurePath, 'Q-08 D-02 audit closure').sha256
+      !== identity.d02ClosureSha256
+  ) {
+    fail('Q-08 D-02 closure hash changed after final input validation');
+  }
+  const plan = parsePlan(options.commandPlanPath); const funding = parseFundingCheckpoint(options.fundingCheckpointPath, { expectedCheckpoint: identity.laneAuthorityContext?.checkpoint, testOnly }); const host = parseHostIdentity(options.hostIdentityPath);
   if (identity.commandPlanSha256 !== plan.sha256) fail('Q-08 command plan hash is not descriptor-pinned');
   privateNewDirectory(options.outputDirectory);
   try {
+    const bundledFundingPath = join(
+      options.outputDirectory,
+      V2_Q08_FUNDING_CHECKPOINT_FILE,
+    );
+    if (!testOnly) {
+      const bundled = writePrivateBytes(bundledFundingPath, funding.bytes);
+      if (bundled.sha256 !== funding.sha256) {
+        fail('Q-08 bundled funding checkpoint changed during publication');
+      }
+    }
     const chain = []; let previousSha256 = null;
     let displayedFundingAddress = null;
     let recoveredNoteId = null;
@@ -551,11 +703,20 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       if (step === 'recover') recoveredNoteId = parsed.recoveredNoteId;
       if (step === 'recoveredSpend' && (recoveredNoteId === null || parsed.spentNoteId !== recoveredNoteId)) fail('Q-08 recovered-note spend does not bind the note returned by chain-history recovery');
       const entry = Object.freeze({ sequence: chain.length, step, previousSha256, command: { executable: command.executable, arguments: command.arguments }, result: parsed, stdoutSha256: sha256(Buffer.from(result.stdout)), stderrSha256: sha256(Buffer.from(result.stderr)) });
+      if (!testOnly && HOST_STATE_STEPS.includes(step)) {
+        verifyV2Q08HostStateEvidence({ evidenceRoot: options.outputDirectory, reference: parsed.stateEvidence, step, status: parsed.status, identity, stdoutSha256: entry.stdoutSha256, stderrSha256: entry.stderrSha256, recoveredNoteId: step === 'recover' ? parsed.recoveredNoteId : null });
+      }
       const entrySha256 = sha256(Buffer.from(canonical(entry)));
       chain.push(Object.freeze({ ...entry, entrySha256 })); previousSha256 = entrySha256;
     }
     if (displayedFundingAddress !== funding.value.fundingAddress) fail('Q-08 out-of-band funding checkpoint does not bind the displayed funding address');
     if (!testOnly) {
+      const replayedFunding = parseFundingCheckpoint(bundledFundingPath, {
+        expectedCheckpoint: identity.laneAuthorityContext.checkpoint,
+      });
+      if (replayedFunding.sha256 !== funding.sha256) {
+        fail('Q-08 bundled funding checkpoint changed during the host journey');
+      }
       for (const entry of chain) {
         if (!ACTIONS.includes(entry.step)) continue;
         verifyV2Q08ActionLaneEvidence({
@@ -606,6 +767,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       git,
       hostIdentity: host.hostIdentity,
       commandPlanSha256: plan.sha256,
+      d02ClosureSha256: identity.d02ClosureSha256,
       sourcePinSha256: identity.sourcePinSha256,
       fundingCheckpointSha256: funding.sha256,
       steps: chain,
