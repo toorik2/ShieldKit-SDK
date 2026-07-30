@@ -156,10 +156,10 @@ test('Q-08 bounded command doubles are test-only and cannot emit a host transcri
       if (executable === 'npm') return { exitCode: 0, signal: null, stdout: 'installed\n', stderr: '' };
       const step = arguments_[0];
       const status = { wallet: 'wallet-ready', fundingAddress: 'funding-address-displayed', sync: 'synced-from-genesis', deleteLocalState: 'local-state-deleted', recover: 'recovered-from-chain-history' }[step] ?? 'confirmed';
-      const value = { schema: 'shieldkit-v2-direct-q08-step-result-v1', status, profileId: '33'.repeat(32), instanceId: '44'.repeat(32) };
+      const value = { schema: 'shieldkit-v2-direct-q08-step-result-v2', status, profileId: '33'.repeat(32), instanceId: '44'.repeat(32) };
       if (step === 'fundingAddress') value.fundingAddress = address;
       if (step === 'recover') value.recoveredNoteId = '77'.repeat(32);
-      if (['deposit', 'transfer', 'withdraw', 'recoveredSpend'].includes(step)) Object.assign(value, { action: step === 'recoveredSpend' ? 'withdraw' : step, rawTransactionHex: raw, transactionId: txid, laneEvidence });
+      if (['deposit', 'transfer', 'withdraw', 'recoveredSpend'].includes(step)) Object.assign(value, { action: step === 'withdraw' || step === 'recoveredSpend' ? 'withdrawal' : step, rawTransactionHex: raw, transactionId: txid, laneEvidence });
       if (step === 'recoveredSpend') value.spentNoteId = '77'.repeat(32);
       return { exitCode: 0, signal: null, stdout: JSON.stringify(value), stderr: '' };
     },
@@ -172,6 +172,7 @@ test('Q-08 bounded command doubles are test-only and cannot emit a host transcri
       manifestSha256,
       runtimeMaterialSha256: '66'.repeat(32),
       commandPlanSha256,
+      d02AuditPolicySha256: '67'.repeat(32),
       d02ClosureSha256,
       sourcePinSha256: '88'.repeat(32),
       sourceCommit: 'aa'.repeat(20),

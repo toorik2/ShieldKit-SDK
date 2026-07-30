@@ -336,7 +336,7 @@ function makeSuite({
     action: expected.action,
     journeyStep: expected.journeyStep,
     rawTransactionSha256: sha256(transaction.bytes),
-    schema: 'shieldkit-v2-direct-q08-action-subject-v1',
+    schema: 'shieldkit-v2-direct-q08-action-subject-v2',
     spentNoteId: null,
     transactionId: transaction.txid,
   };
@@ -444,7 +444,7 @@ test('TEST-ONLY Q-08 rejects one-at-a-time signed external subject, hash, and si
         action: 'deposit',
         journeyStep: 'deposit',
         rawTransactionSha256: hashLabel('other-transaction'),
-        schema: 'shieldkit-v2-direct-q08-action-subject-v1',
+        schema: 'shieldkit-v2-direct-q08-action-subject-v2',
         spentNoteId: null,
         transactionId: hashLabel('other-transaction-id'),
       },

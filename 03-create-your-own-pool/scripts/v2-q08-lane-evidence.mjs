@@ -40,13 +40,13 @@ const HASH = /^[0-9a-f]{64}$/u;
 const HEX = /^[0-9a-f]+$/u;
 const ACTION_BY_STEP = Object.freeze({
   deposit: 'deposit',
-  recoveredSpend: 'withdraw',
+  recoveredSpend: 'withdrawal',
   transfer: 'transfer',
-  withdraw: 'withdraw',
+  withdraw: 'withdrawal',
 });
 
 export const V2_Q08_ACTION_SUBJECT_SCHEMA =
-  'shieldkit-v2-direct-q08-action-subject-v1';
+  'shieldkit-v2-direct-q08-action-subject-v2';
 export const V2_Q08_LANE_ENVELOPE_SCHEMA =
   'shieldkit-v2-direct-q08-lane-envelope-v1';
 export const V2_Q08_LANE_ATTESTATION_DOMAIN =

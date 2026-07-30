@@ -44,6 +44,7 @@ function statement(identity, hostIdentity, fundingCheckpointSha256) {
     descriptorSha256: identity.descriptorSha256,
     manifestSha256: identity.manifestSha256, runtimeMaterialSha256: identity.runtimeMaterialSha256,
     releaseRootId: identity.releaseRootId, releaseBootstrapSha256: identity.releaseBootstrapSha256,
+    d02AuditPolicySha256: identity.d02AuditPolicySha256,
     d02ClosureSha256: identity.d02ClosureSha256,
     git: { commit: 'a'.repeat(40), tree: 'b'.repeat(40) }, hostIdentity,
     commandPlanSha256: h('7'), sourcePinSha256: h('8'), fundingCheckpointSha256, steps: [],
@@ -60,7 +61,7 @@ function statement(identity, hostIdentity, fundingCheckpointSha256) {
     else {
       const rawTransactionHex = rawFor(`${hostIdentity}:${step}`);
       result = {
-        status: 'confirmed', action: step === 'recoveredSpend' ? 'withdraw' : step,
+        status: 'confirmed', action: step === 'withdraw' || step === 'recoveredSpend' ? 'withdrawal' : step,
         rawTransactionHex, transactionId: parseV2RawTransaction(rawTransactionHex).txid,
         laneEvidence: laneEvidenceFor(step),
         ...(step === 'recoveredSpend' ? { spentNoteId: recoveredNoteId } : {}),
@@ -78,7 +79,7 @@ function statement(identity, hostIdentity, fundingCheckpointSha256) {
 test('TEST-ONLY structural seam never writes a qualifying pair record', async (t) => {
   const root = mkdtempSync('/dev/shm/shieldkit-q08-pair-test-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
+  const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, d02AuditPolicySha256: h('0'), descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
   const d02Closure = { testOnly: true };
   const d02ClosureSha256 = digest(d02Closure);
   const statementIdentity = { ...identity, d02ClosureSha256 };
@@ -102,7 +103,7 @@ test('TEST-ONLY structural seam never writes a qualifying pair record', async (t
 test('rejects two signatures over one copied host journey', async (t) => {
   const root = mkdtempSync('/dev/shm/shieldkit-q08-pair-copy-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
+  const identity = { profileId: h('1'), profileSha256: h('2'), instanceId: h('3'), carrierCount: 7, d02AuditPolicySha256: h('0'), descriptorSha256: h('4'), manifestSha256: h('5'), runtimeMaterialSha256: h('6'), releaseBootstrapSha256: h('7'), releaseRootId: 'test-root', topologyId: 'pf10-test', verifierRoles: [] };
   const d02Closure = { testOnly: true };
   const d02ClosureSha256 = digest(d02Closure);
   const statementIdentity = { ...identity, d02ClosureSha256 };

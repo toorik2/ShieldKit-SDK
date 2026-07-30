@@ -13,6 +13,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
+  deriveV2ManifestArtifactFromValidatedDescriptor,
   deriveV2Pf10RuntimeFromValidatedDescriptor,
   deriveV2SettlementPinsFromValidatedDescriptor,
   loadV2InstanceDescriptor,
@@ -179,12 +180,18 @@ async function verifyFinalInputs(input, releaseRoot) {
     deriveV2SettlementPinsFromValidatedDescriptor(descriptor);
   const laneAuthorityContext =
     deriveV2Q02LaneAuthorityContextFromValidatedDescriptor(descriptor);
+  const d02AuditPolicy =
+    deriveV2ManifestArtifactFromValidatedDescriptor(
+      descriptor,
+      'd02-audit-policy',
+    );
   return Object.freeze({
     profileId: descriptor.profileId,
     profileSha256: release.profileCoreSha256,
     instanceId: descriptor.instanceId,
     carrierCount: settlementPins.verifierCarriers.length,
     descriptorSha256: descriptor.descriptor.sha256,
+    d02AuditPolicySha256: d02AuditPolicy.sha256,
     manifestSha256: descriptor.manifest.sha256,
     runtimeMaterialSha256: runtime.runtimeMaterial.materialSha256,
     releaseRootId: release.releaseRootId,
@@ -208,7 +215,10 @@ function parseActionResult(
     'action', 'laneEvidence', 'rawTransactionHex', 'status', 'transactionId',
     ...(step === 'recoveredSpend' ? ['spentNoteId'] : []),
   ], `Q-08 pair ${step} result`);
-  const action = step === 'recoveredSpend' ? 'withdraw' : step;
+  const action =
+    step === 'withdraw' || step === 'recoveredSpend'
+      ? 'withdrawal'
+      : step;
   if (result.status !== 'confirmed' || result.action !== action
     || typeof result.rawTransactionHex !== 'string' || !/^[0-9a-f]+$/.test(result.rawTransactionHex)
     || !HASH.test(result.transactionId)) {
@@ -315,7 +325,8 @@ function validateStatement(
 ) {
   exact(statement, [
     'carrierCount', 'commandPlanSha256', 'descriptorSha256',
-    'd02ClosureSha256', 'fundingCheckpointSha256', 'git',
+    'd02AuditPolicySha256', 'd02ClosureSha256',
+    'fundingCheckpointSha256', 'git',
     'hostIdentity', 'instanceId', 'manifestSha256', 'profileId',
     'profileSha256', 'releaseBootstrapSha256', 'releaseRootId',
     'runtimeMaterialSha256', 'schema', 'sourcePinSha256', 'status', 'steps',
@@ -328,10 +339,11 @@ function validateStatement(
     || statement.releaseBootstrapSha256 !== identity.releaseBootstrapSha256
     || statement.profileSha256 !== identity.profileSha256
     || statement.carrierCount !== identity.carrierCount
+    || statement.d02AuditPolicySha256 !== identity.d02AuditPolicySha256
     || statement.d02ClosureSha256 !== identity.d02ClosureSha256) {
     fail('Q-08 pair host statement does not bind the approved final release inputs');
   }
-  for (const key of ['commandPlanSha256', 'd02ClosureSha256', 'sourcePinSha256', 'fundingCheckpointSha256', 'hostIdentity', 'profileSha256']) hash(statement[key], `Q-08 pair ${key}`);
+  for (const key of ['commandPlanSha256', 'd02AuditPolicySha256', 'd02ClosureSha256', 'sourcePinSha256', 'fundingCheckpointSha256', 'hostIdentity', 'profileSha256']) hash(statement[key], `Q-08 pair ${key}`);
   if (!Number.isSafeInteger(statement.carrierCount)
     || statement.carrierCount < 1
     || statement.carrierCount > 255) {
@@ -388,7 +400,7 @@ function assertPair(left, right) {
     'schema', 'status', 'profileId', 'profileSha256', 'carrierCount',
     'instanceId', 'descriptorSha256', 'manifestSha256',
     'runtimeMaterialSha256', 'releaseRootId', 'releaseBootstrapSha256', 'commandPlanSha256',
-    'd02ClosureSha256', 'sourcePinSha256',
+    'd02AuditPolicySha256', 'd02ClosureSha256', 'sourcePinSha256',
   ];
   for (const key of shared) if (left[key] !== right[key]) fail(`Q-08 pair hosts disagree on shared ${key} binding`);
   if (canonicalizeJcs(left.git) !== canonicalizeJcs(right.git)) fail('Q-08 pair hosts disagree on their source git binding');
@@ -499,8 +511,9 @@ function validateD02Material(material, inputs, expectedCommit, expectedTree) {
   if (
     canonicalizeJcs(closure.expectedFinalHashes)
       !== canonicalizeJcs(expected)
+    || material.closure.policySha256 !== inputs.d02AuditPolicySha256
   ) {
-    fail('Q-08 pair D-02 closure does not bind the exact final release');
+    fail('Q-08 pair D-02 closure does not bind the exact final release and audit policy');
   }
   return Object.freeze({
     closure: material.closure,
@@ -522,14 +535,15 @@ async function derivePairRecord(options, seam = undefined, d02Material) {
     ? await seam.verifyFinalInputs(options)
     : await verifyFinalInputs(options, releaseRoot);
   exact(inputs, [
-    'carrierCount', 'descriptorSha256', 'instanceId',
+    'carrierCount', 'd02AuditPolicySha256', 'descriptorSha256', 'instanceId',
     ...(!testOnly ? ['laneAuthorityContext'] : []),
     'manifestSha256', 'profileId', 'profileSha256',
     'releaseBootstrapSha256', 'releaseRootId', 'runtimeMaterialSha256',
     'topologyId', 'verifierRoles',
   ], 'Q-08 pair final input verification result');
   for (const key of [
-    'descriptorSha256', 'instanceId', 'manifestSha256', 'profileId',
+    'd02AuditPolicySha256', 'descriptorSha256', 'instanceId',
+    'manifestSha256', 'profileId',
     'profileSha256', 'releaseBootstrapSha256', 'runtimeMaterialSha256',
   ]) hash(inputs[key], `Q-08 pair ${key}`);
   if (
@@ -602,6 +616,7 @@ async function derivePairRecord(options, seam = undefined, d02Material) {
     d02: Object.freeze({
       closure: d02.closure,
       closureSha256: d02.closureSha256,
+      policySha256: inputs.d02AuditPolicySha256,
     }),
     topology: Object.freeze({ id: inputs.topologyId, verifierRoles: Object.freeze([...inputs.verifierRoles]) }),
     git: Object.freeze({ commit: a.git.commit, tree: a.git.tree }), sourcePinSha256: a.sourcePinSha256,
@@ -667,13 +682,22 @@ export async function verifyV2Q08PairQualificationArtifact(options) {
   plain(artifact.value.d02, 'Q-08 pair embedded D-02 closure');
   exact(
     artifact.value.d02,
-    ['closure', 'closureSha256'],
+    ['closure', 'closureSha256', 'policySha256'],
     'Q-08 pair embedded D-02 closure',
   );
+  if (
+    artifact.value.d02.policySha256
+      !== artifact.value.d02.closure.policySha256
+  ) {
+    fail('Q-08 pair embedded D-02 policy hash differs from its closure');
+  }
   const expected = await derivePairRecord(
     inputs,
     undefined,
-    artifact.value.d02,
+    Object.freeze({
+      closure: artifact.value.d02.closure,
+      closureSha256: artifact.value.d02.closureSha256,
+    }),
   );
   if (expected.q08Qualified !== true) {
     fail('Q-08 pair artifact verification did not derive qualifying evidence');

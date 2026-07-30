@@ -336,6 +336,7 @@ test('Q-09 rejects observer identity aliasing by canonical Ed25519 SPKI DER key'
 
 test('Q-09 independently rejects Q-08 pair identity and runtime drift', () => {
   const d02Closure = {
+    policySha256: '8f'.repeat(32),
     expectedFinalHashes: {
       commit: identity.sourceCommit,
       tree: identity.sourceTree,
@@ -365,6 +366,7 @@ test('Q-09 independently rejects Q-08 pair identity and runtime drift', () => {
     d02: {
       closure: d02Closure,
       closureSha256: sha256Json(d02Closure),
+      policySha256: d02Closure.policySha256,
     },
     hosts: {
       a: { envelopeSha256: '91'.repeat(32), statementSha256: '92'.repeat(32) },
@@ -382,6 +384,19 @@ test('Q-09 independently rejects Q-08 pair identity and runtime drift', () => {
   assert.throws(
     () => assertV2Q09Q08PairBinding(
       { ...pair, q08Qualified: false },
+      identity,
+    ),
+    /final root, runtime, topology, and source/u,
+  );
+  assert.throws(
+    () => assertV2Q09Q08PairBinding(
+      {
+        ...pair,
+        d02: {
+          ...pair.d02,
+          policySha256: 'ff'.repeat(32),
+        },
+      },
       identity,
     ),
     /final root, runtime, topology, and source/u,

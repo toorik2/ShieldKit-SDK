@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cashAddressToLockingBytecode } from '@bitauth/libauth';
 
 import {
+  deriveV2ManifestArtifactFromValidatedDescriptor,
   deriveV2SettlementPinsFromValidatedDescriptor,
   deriveV2Pf10RuntimeFromValidatedDescriptor,
   loadV2InstanceDescriptor,
@@ -401,7 +402,7 @@ function parseStepResult(
   if (step === 'recover') keys.push('recoveredNoteId');
   if (step === 'recoveredSpend') keys.push('spentNoteId');
   exactKeys(value, keys, `Q-08 ${step} result`);
-  if (value.schema !== 'shieldkit-v2-direct-q08-step-result-v1' || value.profileId !== identity.profileId || value.instanceId !== identity.instanceId || (action ? value.status !== 'confirmed' : value.status !== statusByStep[step])) fail(`Q-08 ${step} result identity or status is invalid`);
+  if (value.schema !== 'shieldkit-v2-direct-q08-step-result-v2' || value.profileId !== identity.profileId || value.instanceId !== identity.instanceId || (action ? value.status !== 'confirmed' : value.status !== statusByStep[step])) fail(`Q-08 ${step} result identity or status is invalid`);
   const stateEvidence = !testOnly && HOST_STATE_STEPS.includes(step)
     ? normalizeV2Q08HostStateEvidenceReference(value.stateEvidence)
     : null;
@@ -414,7 +415,10 @@ function parseStepResult(
     return Object.freeze({ status: value.status, recoveredNoteId: value.recoveredNoteId, ...(stateEvidence === null ? {} : { stateEvidence }) });
   }
   if (!action) return Object.freeze({ status: value.status, ...(stateEvidence === null ? {} : { stateEvidence }) });
-  const expectedAction = step === 'recoveredSpend' ? 'withdraw' : step;
+  const expectedAction =
+    step === 'withdraw' || step === 'recoveredSpend'
+      ? 'withdrawal'
+      : step;
   if (value.action !== expectedAction) fail(`Q-08 ${step} action evidence is mislabeled`);
   if (step === 'recoveredSpend' && !HEX_32.test(value.spentNoteId)) fail('Q-08 recovered spend does not identify its note');
   if (!HEX_32.test(value.transactionId) || typeof value.rawTransactionHex !== 'string' || !/^[0-9a-f]+$/.test(value.rawTransactionHex)) fail(`Q-08 ${step} raw transaction evidence is invalid`);
@@ -569,6 +573,11 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       'Q-08 D-02 audit closure',
     );
     const d02Closure = revalidateV2D02AuditClosure(d02ClosureFile.value);
+    const d02AuditPolicy =
+      deriveV2ManifestArtifactFromValidatedDescriptor(
+        descriptor,
+        'd02-audit-policy',
+      );
     const expectedD02Hashes = {
       commit: sourcePin.value.commit,
       tree: sourcePin.value.tree,
@@ -580,8 +589,9 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     if (
       canonical(d02Closure.expectedFinalHashes)
         !== canonical(expectedD02Hashes)
+      || d02ClosureFile.value.policySha256 !== d02AuditPolicy.sha256
     ) {
-      fail('Q-08 D-02 closure does not bind the exact final release inputs');
+      fail('Q-08 D-02 closure does not bind the exact final release and audit policy');
     }
     return Object.freeze({
       profileId: descriptor.profileId,
@@ -592,6 +602,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       manifestSha256: descriptor.manifest.sha256,
       runtimeMaterialSha256: runtime.runtimeMaterial.materialSha256,
       commandPlanSha256: commandPlanArtifact.sha256,
+      d02AuditPolicySha256: d02AuditPolicy.sha256,
       d02ClosureSha256: d02ClosureFile.sha256,
       sourcePinSha256: sourcePinArtifact.sha256,
       sourceCommit: sourcePin.value.commit,
@@ -621,7 +632,8 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
   }
   const identity = await verifyFinalInputs(options);
   exactKeys(identity, [
-    'carrierCount', 'commandPlanSha256', 'd02ClosureSha256',
+    'carrierCount', 'commandPlanSha256', 'd02AuditPolicySha256',
+    'd02ClosureSha256',
     'descriptorSha256', 'instanceId',
     'manifestSha256', 'networkId', 'profileId', 'releaseBootstrapSha256',
     'profileSha256', 'releaseRootId', 'runtimeMaterialSha256', 'sourceCommit',
@@ -636,6 +648,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
     || !HEX_32.test(identity.manifestSha256)
     || !HEX_32.test(identity.runtimeMaterialSha256)
     || !HEX_32.test(identity.commandPlanSha256)
+    || !HEX_32.test(identity.d02AuditPolicySha256)
     || !HEX_32.test(identity.d02ClosureSha256)
     || !HEX_32.test(identity.sourcePinSha256)
     || !HEX_32.test(identity.releaseBootstrapSha256)
@@ -767,6 +780,7 @@ export async function runV2Q08CleanMachineQualification(options, dependencies = 
       git,
       hostIdentity: host.hostIdentity,
       commandPlanSha256: plan.sha256,
+      d02AuditPolicySha256: identity.d02AuditPolicySha256,
       d02ClosureSha256: identity.d02ClosureSha256,
       sourcePinSha256: identity.sourcePinSha256,
       fundingCheckpointSha256: funding.sha256,
