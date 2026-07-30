@@ -19,6 +19,9 @@ import {
   q04CheckpointProbeResultDigest,
 } from '../packages/pool/v2/qualification/q04-checkpoint-probes.mjs';
 import {
+  openQ04PersistentNullifierStore,
+} from '../packages/pool/v2/qualification/persistent-nullifier-store.mjs';
+import {
   Q04_CAMPAIGN_DEFINITION,
   Q04_CAMPAIGN_PROCESSES_SCHEMA,
   Q04_DEPTH4_SCHEMA,
@@ -47,6 +50,7 @@ import {
   deriveQ04HistoryTransitionSetSha256,
   deriveQ04SourceSetSha256,
   parseQ04EvidenceArguments,
+  q04ReplayFieldHex,
   validateQ04Evidence,
   verifyQ04EvidenceFile,
 } from './v2-q04-evidence-verify.mjs';
@@ -74,6 +78,119 @@ const STORE_INITIAL_DOMAIN =
 const symbolicCertificateFixture = buildDepth4SymbolicCertificate();
 const symbolicVerificationFixture =
   verifyDepth4SymbolicCertificate(symbolicCertificateFixture);
+
+test('[test-only] production replay canonically encodes field bigints and bytes', () => {
+  const root =
+    12664281133148472406707814807810618891373839109772983981495615721629359924972n;
+  const rootHex =
+    '1bffbaa6bb28b38e9d7fe374d9b7ba4df4bb661c8b16aecb4ffe68a22301e6ec';
+  assert.equal(q04ReplayFieldHex(root), rootHex);
+  assert.equal(q04ReplayFieldHex(Buffer.from(rootHex, 'hex')), rootHex);
+  assert.throws(
+    () => q04ReplayFieldHex(-1n),
+    /field bigint must be canonical/u,
+  );
+  assert.throws(
+    () => q04ReplayFieldHex(FR_MODULUS),
+    /field bigint must be canonical/u,
+  );
+  assert.throws(
+    () => q04ReplayFieldHex(Buffer.alloc(31)),
+    /field bytes must be exactly 32 bytes/u,
+  );
+});
+
+test('[test-only] production replay crosses the real persistent-store ABI and survives aliasing plus reopen', async (t) => {
+  const directory = await temporaryDirectory(t);
+  const databasePath = path.join(directory, 'production-replay.sqlite');
+  const historyIndex = 0;
+  const seed = Buffer.from(Q04_FIXED_SEEDS[historyIndex], 'hex');
+  const keyHex = deriveQ04HistoryKeyHexes(historyIndex, 1)[0];
+  const inputKey = Buffer.from(keyHex, 'hex');
+  let store = openQ04PersistentNullifierStore({
+    path: databasePath,
+    create: true,
+    historyIndex,
+    seed,
+  });
+  try {
+    const before = store.state();
+    const expectedRootInput = Buffer.from(before.root);
+    const transition = store.insert({
+      expectedCount: before.normalCount,
+      expectedRoot: expectedRootInput,
+      key: inputKey,
+    });
+    for (const field of ['preRoot', 'intermediateRoot', 'postRoot']) {
+      assert.equal(typeof transition.mutation.witness[field], 'bigint');
+      assert.match(
+        q04ReplayFieldHex(transition.mutation.witness[field]),
+        /^[0-9a-f]{64}$/u,
+      );
+    }
+    const appendedIndex = transition.mutation.witness.append.index;
+    const membership = store.membershipPath(appendedIndex);
+    const returnedLeaf = store.leaf(appendedIndex);
+    const after = store.state();
+    const bufferSurfaces = [
+      before.root,
+      before.transcriptChainSha256,
+      transition.writes.root,
+      transition.mutation.nullifierLeaves.at(-1).key,
+      membership.root,
+      returnedLeaf.key,
+      after.root,
+      after.transcriptChainSha256,
+    ];
+    for (const value of bufferSurfaces) {
+      assert.ok(Buffer.isBuffer(value));
+      assert.equal(value.byteLength, 32);
+      assert.match(q04ReplayFieldHex(value), /^[0-9a-f]{64}$/u);
+    }
+    assert.equal(
+      q04ReplayFieldHex(transition.mutation.witness.preRoot),
+      q04ReplayFieldHex(before.root),
+    );
+    assert.equal(
+      q04ReplayFieldHex(transition.mutation.witness.postRoot),
+      q04ReplayFieldHex(after.root),
+    );
+    const durableRootHex = q04ReplayFieldHex(after.root);
+    const durableTranscriptHex =
+      q04ReplayFieldHex(after.transcriptChainSha256);
+    const aliasEvidence = {
+      inputKey,
+      expectedRootInput,
+      stateRootResult: before.root,
+      writeRootResult: transition.writes.root,
+      mutationLeafKeyResult:
+        transition.mutation.nullifierLeaves.at(-1).key,
+      membershipRootResult: membership.root,
+    };
+    Object.values(aliasEvidence).forEach((value) => value.fill(0xff));
+    assert.equal(q04ReplayFieldHex(store.audit().root), durableRootHex);
+    assert.equal(
+      q04ReplayFieldHex(store.state().root),
+      durableRootHex,
+    );
+    assert.equal(q04ReplayFieldHex(store.leaf(appendedIndex).key), keyHex);
+    store.close();
+    store = null;
+    store = openQ04PersistentNullifierStore({
+      path: databasePath,
+      create: false,
+      historyIndex,
+      seed,
+    });
+    assert.equal(q04ReplayFieldHex(store.state().root), durableRootHex);
+    assert.equal(
+      q04ReplayFieldHex(store.state().transcriptChainSha256),
+      durableTranscriptHex,
+    );
+  } finally {
+    store?.close();
+  }
+});
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');

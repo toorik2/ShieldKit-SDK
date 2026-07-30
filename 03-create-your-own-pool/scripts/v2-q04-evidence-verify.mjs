@@ -414,6 +414,19 @@ export class V2Q04EvidenceVerificationError extends Error {
 
 const fail = (message) => { throw new V2Q04EvidenceVerificationError(message); };
 
+export function q04ReplayFieldHex(value) {
+  if (typeof value === 'bigint') {
+    if (value < 0n || value >= FR_MODULUS) {
+      fail('Q-04 replay field bigint must be canonical');
+    }
+    return encodeFr(value);
+  }
+  if (!(value instanceof Uint8Array) || value.byteLength !== 32) {
+    fail('Q-04 replay field bytes must be exactly 32 bytes');
+  }
+  return Buffer.from(value).toString('hex');
+}
+
 function object(value, label) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) fail(`${label} must be an object`);
   return value;
@@ -2467,7 +2480,6 @@ function u64be(value) {
 
 const encodedFrBytes = (value) =>
   Buffer.from(value.toString(16).padStart(64, '0'), 'hex');
-const bufferHex = (value) => Buffer.from(value).toString('hex');
 
 function independentPathDigest(values) {
   const digest = createHash('sha256')
@@ -2860,17 +2872,17 @@ async function verifyHistoryNdjson(
       const productionLabel =
         `history ${reference.historyIndex} transition ${records} production replay`;
       exact(
-        bufferHex(production.mutation.witness.preRoot),
+        q04ReplayFieldHex(production.mutation.witness.preRoot),
         record.preRoot,
         `${productionLabel}.preRoot`,
       );
       exact(
-        bufferHex(production.mutation.witness.intermediateRoot),
+        q04ReplayFieldHex(production.mutation.witness.intermediateRoot),
         record.intermediateRoot,
         `${productionLabel}.intermediateRoot`,
       );
       exact(
-        bufferHex(production.mutation.witness.postRoot),
+        q04ReplayFieldHex(production.mutation.witness.postRoot),
         record.postRoot,
         `${productionLabel}.postRoot`,
       );
@@ -2944,12 +2956,12 @@ async function verifyHistoryNdjson(
         Object.values(aliasEvidence).forEach((buffer) => buffer.fill(0xff));
         const afterAlias = productionStore.audit();
         exact(
-          bufferHex(productionStore.leaf(appendedIndex).key),
+          q04ReplayFieldHex(productionStore.leaf(appendedIndex).key),
           expectedKey,
           `history ${reference.historyIndex} checkpoint ${records} alias leaf`,
         );
         exact(
-          bufferHex(afterAlias.root),
+          q04ReplayFieldHex(afterAlias.root),
           record.postRoot,
           `history ${reference.historyIndex} checkpoint ${records} alias root`,
         );
@@ -2968,12 +2980,12 @@ async function verifyHistoryNdjson(
         const beforeReopenState = productionStore.state();
         const beforeReopenAudit = productionStore.audit();
         exact(
-          bufferHex(beforeReopenState.root),
+          q04ReplayFieldHex(beforeReopenState.root),
           checkpoint.actualRoot,
           `history ${reference.historyIndex} checkpoint ${records} replay root`,
         );
         exact(
-          bufferHex(beforeReopenState.transcriptChainSha256),
+          q04ReplayFieldHex(beforeReopenState.transcriptChainSha256),
           checkpoint.actualTranscriptSha256,
           `history ${reference.historyIndex} checkpoint ${records} replay transcript`,
         );
@@ -2992,13 +3004,13 @@ async function verifyHistoryNdjson(
         const afterReopenState = productionStore.state();
         const afterReopenAudit = productionStore.audit();
         exact(
-          bufferHex(afterReopenState.root),
-          bufferHex(beforeReopenState.root),
+          q04ReplayFieldHex(afterReopenState.root),
+          q04ReplayFieldHex(beforeReopenState.root),
           `history ${reference.historyIndex} checkpoint ${records} reopened root`,
         );
         exact(
-          bufferHex(afterReopenState.transcriptChainSha256),
-          bufferHex(beforeReopenState.transcriptChainSha256),
+          q04ReplayFieldHex(afterReopenState.transcriptChainSha256),
+          q04ReplayFieldHex(beforeReopenState.transcriptChainSha256),
           `history ${reference.historyIndex} checkpoint ${records} reopened transcript`,
         );
         exact(
