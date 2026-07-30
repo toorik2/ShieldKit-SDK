@@ -33,15 +33,15 @@ const qualifiedInstanceId =
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const profilePackagePath = path.join(
   repositoryRoot,
-  '.codex-build/v2-development-profile-adapter-v1-20260729/profile-package.json',
+  '.codex-build/v2-development-profile/profile-package.json',
 );
 const profileCorePath = path.join(
   repositoryRoot,
-  '.codex-build/v2-development-profile-adapter-v1-20260729/profile-core.json',
+  '.codex-build/v2-development-profile/profile-core.json',
 );
 const libauthEvidencePath = path.join(
   repositoryRoot,
-  '.codex-build/v2-pf10-libauth-operational-v2-20260729/libauth.json',
+  '.codex-build/v2-pf10-libauth-qualification/libauth.json',
 );
 
 const hex = (value) => Buffer.from(value).toString('hex');
@@ -285,7 +285,7 @@ test('PF10 runtime pins 1200-sat verifier/binding carriers and a distinct 2500-s
   assert.deepEqual(runtime.libauthEvidence.data, inputs.libauthEvidence);
   assert.equal(
     runtime.libauthEvidence.path,
-    '.codex-build/v2-pf10-libauth-operational-v2-20260729/libauth.json',
+    '.codex-build/v2-pf10-libauth-qualification/libauth.json',
   );
   assert.equal(runtime.libauthEvidence.schema, DIRECT_V2_PF10_LIBAUTH_EVIDENCE_SCHEMA);
   assert.equal(runtime.libauthEvidence.sha256, sha256(inputs.libauthEvidence));

@@ -101,9 +101,9 @@ const DENOMINATION_SATS = 10_000_000n;
 const MINIMUM_CHANGE_SATS = 546n;
 const EXPECTED_INPUT_COUNT = 13;
 const EXPECTED_ACTIONS = Object.freeze([
-  Object.freeze({ kind: 'deposit', outputCount: 13, transactionBytes: 97_844 }),
-  Object.freeze({ kind: 'transfer', outputCount: 13, transactionBytes: 97_844 }),
-  Object.freeze({ kind: 'withdrawal', outputCount: 14, transactionBytes: 97_878 }),
+  Object.freeze({ kind: 'deposit', outputCount: 13, transactionBytes: 97_852 }),
+  Object.freeze({ kind: 'transfer', outputCount: 13, transactionBytes: 97_852 }),
+  Object.freeze({ kind: 'withdrawal', outputCount: 14, transactionBytes: 97_886 }),
 ]);
 const EXPECTED_ROW_NAMES = Object.freeze([
   'exec0',
@@ -136,10 +136,10 @@ const EXPECTED_FIXED_PROGRAM_BYTES = Object.freeze({
   executorBodyBytes: 5_573,
   executorDensityPadBytes: 384,
   fixedLineCarrierBytes: 20_864,
-  fusedRedeemBytes: 6_396,
+  fusedRedeemBytes: 6_404,
   loaderBytes: 108,
-  millerRawBytes: 5_422,
-  millerRedeemBytes: 4_612,
+  millerRawBytes: 5_430,
+  millerRedeemBytes: 4_620,
   rawExecutorBytes: 10_937,
   rawTerminalBytes: 9_359,
   stateHelperBytes: 2_674,
@@ -1234,6 +1234,254 @@ async function optimize({
     );
   }
   return Buffer.from(hexToBin(encoded));
+}
+
+const exactReproducibilityBytes = (value, label) => {
+  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
+    fail(
+      'PF10_REPRODUCIBILITY_INVALID',
+      `${label} must be nonempty bytes`,
+    );
+  }
+  return Buffer.from(value);
+};
+
+const exactReproducibilityProgram = (value, label) => {
+  if (
+    value === null
+    || Array.isArray(value)
+    || typeof value !== 'object'
+    || Object.keys(value).sort().join(',') !== 'raw,source'
+  ) {
+    fail(
+      'PF10_REPRODUCIBILITY_INVALID',
+      `${label} must contain exact source and raw bytes`,
+    );
+  }
+  const sourceBytes = exactReproducibilityBytes(
+    value.source,
+    `${label}.source`,
+  );
+  const source = sourceBytes.toString('utf8');
+  if (!Buffer.from(source, 'utf8').equals(sourceBytes)) {
+    fail(
+      'PF10_REPRODUCIBILITY_INVALID',
+      `${label}.source is not exact UTF-8`,
+    );
+  }
+  return Object.freeze({
+    source,
+    sourceBytes,
+    raw: exactReproducibilityBytes(value.raw, `${label}.raw`),
+  });
+};
+
+/**
+ * Reproduce every emitted PF10 verifier program from the retained CashScript
+ * sources, then run the pinned optimizer/canonicalizer and bind those outputs
+ * to the exact runtime bytecode. A manifest can count source files; this check
+ * proves those sources actually rebuild the executable runtime.
+ */
+export async function validateDirectV2Pf10Reproducibility({
+  repositoryRoot,
+  temporaryRoot,
+  programs,
+  runtimeArtifacts,
+} = {}) {
+  const root = await canonicalRepository(repositoryRoot);
+  if (
+    programs === null
+    || Array.isArray(programs)
+    || typeof programs !== 'object'
+    || Object.keys(programs).sort().join(',')
+      !== 'exactFinal,exactMsm,executor,miller,terminal'
+    || !Array.isArray(programs.exactMsm)
+    || programs.exactMsm.length !== 3
+  ) {
+    fail(
+      'PF10_REPRODUCIBILITY_INVALID',
+      'programs must contain the exact PF10 reproducibility topology',
+    );
+  }
+  if (
+    runtimeArtifacts === null
+    || Array.isArray(runtimeArtifacts)
+    || typeof runtimeArtifacts !== 'object'
+    || Object.keys(runtimeArtifacts).sort().join(',')
+      !== 'exactMsmRedeems,executorBody,fusedRedeem,terminalRedeem'
+    || !Array.isArray(runtimeArtifacts.exactMsmRedeems)
+    || runtimeArtifacts.exactMsmRedeems.length !== 3
+  ) {
+    fail(
+      'PF10_REPRODUCIBILITY_INVALID',
+      'runtimeArtifacts must contain the exact PF10 executable topology',
+    );
+  }
+  const parsedPrograms = Object.freeze({
+    executor: exactReproducibilityProgram(
+      programs.executor,
+      'programs.executor',
+    ),
+    exactFinal: exactReproducibilityProgram(
+      programs.exactFinal,
+      'programs.exactFinal',
+    ),
+    miller: exactReproducibilityProgram(
+      programs.miller,
+      'programs.miller',
+    ),
+    terminal: exactReproducibilityProgram(
+      programs.terminal,
+      'programs.terminal',
+    ),
+    exactMsm: Object.freeze(programs.exactMsm.map((program, index) =>
+      exactReproducibilityProgram(
+        program,
+        `programs.exactMsm[${index}]`,
+      ))),
+  });
+  const expectedRuntime = Object.freeze({
+    executorBody: exactReproducibilityBytes(
+      runtimeArtifacts.executorBody,
+      'runtimeArtifacts.executorBody',
+    ),
+    exactMsmRedeems: Object.freeze(
+      runtimeArtifacts.exactMsmRedeems.map((value, index) =>
+        exactReproducibilityBytes(
+          value,
+          `runtimeArtifacts.exactMsmRedeems[${index}]`,
+        )),
+    ),
+    fusedRedeem: exactReproducibilityBytes(
+      runtimeArtifacts.fusedRedeem,
+      'runtimeArtifacts.fusedRedeem',
+    ),
+    terminalRedeem: exactReproducibilityBytes(
+      runtimeArtifacts.terminalRedeem,
+      'runtimeArtifacts.terminalRedeem',
+    ),
+  });
+  const workDirectory = await privateTemporaryDirectory(root, temporaryRoot);
+  try {
+    const optimizerRoot = path.join(
+      root,
+      '03-create-your-own-pool/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
+    );
+    const lazyAffineLibrary = await readFile(path.join(
+      root,
+      '03-create-your-own-pool/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
+    ), 'utf8');
+    const reproduce = async (
+      name,
+      program,
+      expectedRedeem,
+      { lazyLibrary = false } = {},
+    ) => {
+      const compiled = compile(
+        program.source,
+        lazyLibrary
+          ? { 'Bn254LazyAff.cash': lazyAffineLibrary }
+          : {},
+      );
+      if (!compiled.equals(program.raw)) {
+        fail(
+          'PF10_REPRODUCIBILITY_MISMATCH',
+          `${name} retained raw bytecode is not compiled from its source`,
+        );
+      }
+      const optimized = await optimize({
+        bytecode: compiled,
+        label: `reproduce-${name}`,
+        optimizerRoot,
+        workDirectory,
+      });
+      if (
+        expectedRedeem !== undefined
+        && !optimized.equals(expectedRedeem)
+      ) {
+        fail(
+          'PF10_REPRODUCIBILITY_MISMATCH',
+          `${name} optimized bytecode differs from the runtime`,
+        );
+      }
+      return optimized;
+    };
+    const terminalRedeem = await reproduce(
+      'terminal',
+      parsedPrograms.terminal,
+      expectedRuntime.terminalRedeem,
+      { lazyLibrary: true },
+    );
+    const executorBody = await reproduce(
+      'executor',
+      parsedPrograms.executor,
+      expectedRuntime.executorBody,
+      { lazyLibrary: true },
+    );
+    const exactFinalRedeem = await reproduce(
+      'exact-final',
+      parsedPrograms.exactFinal,
+    );
+    const millerRedeem = await reproduce(
+      'miller',
+      parsedPrograms.miller,
+      undefined,
+      { lazyLibrary: true },
+    );
+    const exactMsmRedeems = [];
+    for (let index = 0; index < parsedPrograms.exactMsm.length; index += 1) {
+      exactMsmRedeems.push(await reproduce(
+        `exact-msm-${index}`,
+        parsedPrograms.exactMsm[index],
+        expectedRuntime.exactMsmRedeems[index],
+      ));
+    }
+    const fusedRedeem = Buffer.from(
+      buildDirectV2Pf10FusedQGenesisRedeem({
+        millerRedeem,
+        exactMsmRedeem: exactFinalRedeem,
+      }),
+    );
+    if (!fusedRedeem.equals(expectedRuntime.fusedRedeem)) {
+      fail(
+        'PF10_REPRODUCIBILITY_MISMATCH',
+        'fused verifier runtime is not reproduced from exact-final and Miller sources',
+      );
+    }
+    const programHashes = (program, redeem) => Object.freeze({
+      source: sha256(program.sourceBytes),
+      raw: sha256(program.raw),
+      redeem: sha256(redeem),
+      lock: sha256(p2sh32(redeem)),
+    });
+    return Object.freeze({
+      executorBodySha256: sha256(executorBody),
+      exactMsmRedeemSha256: Object.freeze(exactMsmRedeems.map(sha256)),
+      fusedRedeemSha256: sha256(fusedRedeem),
+      terminalRedeemSha256: sha256(terminalRedeem),
+      programs: Object.freeze({
+        executor: programHashes(parsedPrograms.executor, executorBody),
+        exactFinal: programHashes(
+          parsedPrograms.exactFinal,
+          exactFinalRedeem,
+        ),
+        exactMsm: Object.freeze(parsedPrograms.exactMsm.map(
+          (program, index) => programHashes(
+            program,
+            exactMsmRedeems[index],
+          ),
+        )),
+        fused: Object.freeze({
+          redeem: sha256(fusedRedeem),
+          lock: sha256(p2sh32(fusedRedeem)),
+        }),
+        miller: programHashes(parsedPrograms.miller, millerRedeem),
+        terminal: programHashes(parsedPrograms.terminal, terminalRedeem),
+      }),
+    });
+  } finally {
+    await rm(workDirectory, { recursive: true, force: true });
+  }
 }
 
 function fixedTableCarrierLayout({

@@ -20,6 +20,7 @@ import {
 } from '../packages/pool/v2/qualification/q04-checkpoint-probes.mjs';
 import {
   Q04_CAMPAIGN_DEFINITION,
+  Q04_CAMPAIGN_PROCESSES_SCHEMA,
   Q04_DEPTH4_SCHEMA,
   Q04_DEPTH4_CHECKER_RESULT_SCHEMA,
   Q04_DEPTH4_SCOPE,
@@ -663,18 +664,50 @@ function testOnlyBundle(rawMetadata = Q04_FIXED_SEEDS.map((_, index) =>
     'provenance/input-manifest.json',
     '{"TEST-ONLY":"input manifest"}\n',
   );
+  const histories = rawMetadata.map((raw, index) =>
+    historyFixture(index, raw)
+  );
   const rawOutput = addArtifact(
     artifacts,
-    'provenance/raw-output.ndjson',
-    '{"TEST-ONLY":"raw output index"}\n',
+    'raw/campaign-processes.json',
+    `${JSON.stringify({
+      schema: Q04_CAMPAIGN_PROCESSES_SCHEMA,
+      rustKat: {
+        pid: 7001,
+        exitCode: 0,
+        signal: null,
+        stdoutSha256: digest('rust-kat-stdout'),
+        stderrSha256: digest('rust-kat-stderr'),
+        binarySha256: binaryReference.sha256,
+        buildElapsedMs: 100,
+        runElapsedMs: 100,
+      },
+      depth4Checker: {
+        pid: 7002,
+        exitCode: 0,
+        signal: null,
+        stdoutSha256: digest('depth4-checker-stdout'),
+        stderrSha256: digest('depth4-checker-stderr'),
+        binarySha256: checkerBinaryReference.sha256,
+        buildElapsedMs: 100,
+        runElapsedMs: 100,
+      },
+      histories: histories.map((history, historyIndex) => ({
+        historyIndex,
+        pid: 7100 + historyIndex,
+        exitCode: 0,
+        signal: null,
+        configSha256: history.configSha256,
+        transitionArtifact: history.transitionArtifact,
+        stdoutSha256: digest(`history-${historyIndex}-stdout`),
+        stderrSha256: digest(`history-${historyIndex}-stderr`),
+      })),
+    })}\n`,
   );
   const resultTranscript = addArtifact(
     artifacts,
     'provenance/result-transcript.ndjson',
     '{"TEST-ONLY":"result transcript"}\n',
-  );
-  const histories = rawMetadata.map((raw, index) =>
-    historyFixture(index, raw)
   );
   const evidence = {
     schema: Q04_EVIDENCE_SCHEMA,
@@ -954,9 +987,8 @@ async function temporaryDirectory(t) {
   return directory;
 }
 
-async function writeBundle(directory, bundle, { writeRaw = true } = {}) {
+async function writeBundle(directory, bundle) {
   for (const [pathname, contents] of bundle.artifacts) {
-    if (!writeRaw && pathname.startsWith('raw/')) continue;
     const filename = path.join(directory, ...pathname.split('/'));
     await mkdir(path.dirname(filename), { recursive: true });
     await writeFile(filename, contents);
@@ -1121,6 +1153,24 @@ test('[test-only] schema v3 binds exact lanes, checker, telemetry, source set, a
   assert.equal(evidence.operationCounts.productionLeafHashCalls, 300_000);
 });
 
+test('[test-only] runtime lower bound accounts for four concurrent history lanes', () => {
+  const { evidence } = testOnlyBundle();
+  const longestHistoryElapsedMs = Math.max(
+    ...evidence.histories.map((history) => history.measurements.elapsedMs),
+  );
+  const minimumWallElapsedMs =
+    longestHistoryElapsedMs
+    + evidence.runtime.rustKatElapsedMs
+    + evidence.runtime.depth4CheckerElapsedMs;
+  evidence.runtime.elapsedMs = minimumWallElapsedMs - 4;
+  assert.doesNotThrow(() => validateQ04Evidence(evidence));
+  evidence.runtime.elapsedMs = minimumWallElapsedMs - 5;
+  assert.throws(
+    () => validateQ04Evidence(evidence),
+    /must cover the longest concurrent history/u,
+  );
+});
+
 test('[test-only] structure validation rejects lane, telemetry, provenance, and overclaim drift', () => {
   const mutations = [
     ['unknown top-level field', (value) => { value.unknown = true; }],
@@ -1216,9 +1266,7 @@ test('[test-only] file verifier rejects four exact-length self-consistent counte
     rawMetadata.push(await generateRawHistory(directory, historyIndex));
   }
   const bundle = testOnlyBundle(rawMetadata);
-  const evidencePath = await writeBundle(directory, bundle, {
-    writeRaw: false,
-  });
+  const evidencePath = await writeBundle(directory, bundle);
   await assert.rejects(
     verifyQ04EvidenceFile(evidencePath),
     /independent replay/u,
@@ -1261,6 +1309,60 @@ test('[test-only] exact certificate scope, record count, strict JSON, and canoni
   await assert.rejects(
     verifyQ04EvidenceFile(certificateEvidencePath),
     /enumeratesAllDepth4IndexedHistories/,
+  );
+
+  const processBindingDirectory = await temporaryDirectory(t);
+  const processBindingBundle = testOnlyBundle();
+  const processBindingPath =
+    processBindingBundle.evidence.provenance.rawOutput.path;
+  const processBinding = JSON.parse(
+    processBindingBundle.artifacts.get(processBindingPath).toString(),
+  );
+  processBinding.rustKat.runElapsedMs += 1;
+  const processBindingReplacement = bytesReference(
+    processBindingPath,
+    `${JSON.stringify(processBinding)}\n`,
+  );
+  processBindingBundle.artifacts.set(
+    processBindingPath,
+    processBindingReplacement.contents,
+  );
+  processBindingBundle.evidence.provenance.rawOutput =
+    processBindingReplacement.reference;
+  processBindingBundle.evidence.hashes.rawOutputSha256 =
+    processBindingReplacement.reference.sha256;
+  const processBindingEvidencePath = await writeBundle(
+    processBindingDirectory,
+    processBindingBundle,
+  );
+  await assert.rejects(
+    verifyQ04EvidenceFile(processBindingEvidencePath),
+    /campaign processes\.rustKat\.runElapsedMs/u,
+  );
+
+  const timingDirectory = await temporaryDirectory(t);
+  const timingBundle = testOnlyBundle();
+  const timingPath = timingBundle.evidence.provenance.rawOutput.path;
+  const timingProcesses = JSON.parse(
+    timingBundle.artifacts.get(timingPath).toString(),
+  );
+  timingProcesses.rustKat.buildElapsedMs =
+    timingBundle.evidence.runtime.elapsedMs;
+  const timingReplacement = bytesReference(
+    timingPath,
+    `${JSON.stringify(timingProcesses)}\n`,
+  );
+  timingBundle.artifacts.set(timingPath, timingReplacement.contents);
+  timingBundle.evidence.provenance.rawOutput = timingReplacement.reference;
+  timingBundle.evidence.hashes.rawOutputSha256 =
+    timingReplacement.reference.sha256;
+  const timingEvidencePath = await writeBundle(
+    timingDirectory,
+    timingBundle,
+  );
+  await assert.rejects(
+    verifyQ04EvidenceFile(timingEvidencePath),
+    /does not cover all serial build\/check phases/u,
   );
 
   const countDirectory = await temporaryDirectory(t);

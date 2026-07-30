@@ -70,7 +70,7 @@ export const DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES = Object.freeze([
   9_024,
   9_009,
   9_017,
-  9_170,
+  9_178,
   10_000,
 ]);
 export const DIRECT_V2_PF10_STATE_UNLOCK_BYTES = 2_677;

@@ -2,7 +2,6 @@
 import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import {
-  createReadStream,
   chmodSync,
   existsSync,
   lstatSync,
@@ -12,11 +11,48 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  rmdirSync,
 } from 'node:fs';
 import path from 'node:path';
 import { chmod, mkdtemp, open, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import {
+  validateDirectV2Pf10LibauthEvidence,
+  validateDirectV2Pf10Reproducibility,
+} from '../packages/unlock-builder/v2/pf10-development-runtime-builder.mjs';
+import {
+  DIRECT_V2_PF10_RUNTIME_SCHEMA,
+  validateDirectV2Pf10RuntimeMaterial,
+} from '../packages/unlock-builder/v2/pf10-action-witness.mjs';
+import {
+  buildDirectV2BindingLock,
+  buildDirectV2BindingRedeem,
+  buildDirectV2StateHelper,
+  buildDirectV2StateTrampolineLock,
+  buildDirectV2StateTrampolineUnlock,
+} from '../packages/unlock-builder/v2/structural-covenants.mjs';
+import {
+  PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT,
+  validateV2DevelopmentPf10QualificationArtifacts,
+  validateV2UnsignedPf10RuntimeArtifactReferences,
+} from '../packages/profile/v2/instance-descriptor.mjs';
+import {
+  canonicalizeJcs,
+  deriveProfileId,
+  validateProfileCore,
+} from '../packages/profile/v2/profile-core.mjs';
+import {
+  verifyV2DevelopmentProfilePackage,
+} from '../packages/profile/v2/development-profile.mjs';
+import {
+  deriveV2RollingBaseSats,
+} from '../packages/action/v2/dust-policy.mjs';
+import {
+  DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+  DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+} from '../packages/action/v2/topology.mjs';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,6 +98,12 @@ const LOCAL_CAMPAIGN_TESTS = new Map([
 const FILE_TIMEOUT_MS_BY_CLASSIFICATION = Object.freeze({
   'local-depth4-campaign': 360_000,
 });
+const FILE_TIMEOUT_MS_BY_PATH = new Map([
+  [
+    'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs',
+    900_000,
+  ],
+]);
 const VENDORED_VERIFIER_LANE_TEST_ROOT = 'packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/test';
 const VENDORED_VERIFIER_EXTERNAL_TESTS = new Set([
   `${VENDORED_VERIFIER_LANE_TEST_ROOT}/legacy-c7-config.test.mjs`,
@@ -78,7 +120,22 @@ const DEVELOPMENT_ARTIFACT_ROOTS = Object.freeze([
   '../.codex-build/v2-dev-proof-qualification',
   '../.codex-build/v2-dev-ptau',
   '../.codex-build/v2-development-profile',
+  '../.codex-build/v2-pf10-libauth-qualification',
+  '../.codex-build/v2-pf10-libauth-tmp',
   '../.codex-build/v2-pf10-development-runtime',
+  '../.codex-build/v2-pf10-runtime-tmp',
+]);
+const DEVELOPMENT_TRANSIENT_ROOTS = Object.freeze([
+  '../.codex-build/v2-pf10-libauth-tmp',
+  '../.codex-build/v2-pf10-runtime-tmp',
+]);
+const LOCAL_VERIFIER_COMPLETION_ARTIFACTS = Object.freeze([
+  '../.codex-build/v2-pf10-libauth-qualification/libauth.json',
+  '../.codex-build/v2-pf10-libauth-qualification/publication-complete.json',
+  '../.codex-build/v2-pf10-libauth-qualification/qualification-summary.json',
+  '../.codex-build/v2-pf10-development-runtime/runtime-build-manifest.json',
+  '../.codex-build/v2-pf10-development-runtime/runtime/pf10-runtime-material.json',
+  '../.codex-build/v2-pf10-development-runtime/qualification/pf10-libauth-evidence.json',
 ]);
 const ARTIFACT_QUALIFICATION_TESTS = new Map([
   ['packages/unlock-builder/v2/pf10-withdrawal.test.mjs', Object.freeze([
@@ -105,14 +162,91 @@ const ARTIFACT_QUALIFICATION_TESTS = new Map([
     '../.codex-build/v2-dev-proof-qualification/deposit/proof.json',
     '../.codex-build/v2-dev-proof-qualification/deposit/public.json',
   ])],
+  ['packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs', Object.freeze([
+    '../.codex-build/v2-dev-proof-qualification/qualification-evidence.json',
+    '../.codex-build/v2-development-profile/profile-core.json',
+    '../.codex-build/v2-development-profile/profile-package.json',
+    '../.codex-build/v2-pf10-libauth-qualification/libauth.json',
+    '../.codex-build/v2-pf10-libauth-qualification/publication-complete.json',
+    '../.codex-build/v2-pf10-libauth-qualification/qualification-summary.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime-build-manifest.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime/pf10-runtime-material.json',
+    '../.codex-build/v2-pf10-development-runtime/qualification/pf10-libauth-evidence.json',
+  ])],
+  ['scripts/v2-pf10-development-runtime.test.mjs', Object.freeze([
+    '../.codex-build/v2-circuit-model/main-chipnet.r1cs',
+    '../.codex-build/v2-circuit-model/main-chipnet_js/main-chipnet.wasm',
+    '../.codex-build/v2-dev-groth16/final.zkey',
+    '../.codex-build/v2-dev-groth16/verification_key.json',
+    '../.codex-build/v2-development-profile/profile-core.json',
+    '../.codex-build/v2-development-profile/profile-package.json',
+    '../.codex-build/v2-pf10-libauth-qualification/libauth.json',
+  ])],
 ]);
 const DEVELOPMENT_SETUP_SCHEMA = 'shield.cash/local-development-setup/v1';
 const DEVELOPMENT_PROOF_EVIDENCE_SCHEMA =
   'shieldkit-v2-direct-development-groth16-qualification-v4';
 const DEVELOPMENT_PROOF_EVIDENCE_CLASS =
   'deterministic-development-key-proof-test-evidence';
+const V2_MINIMUM_CHANGE_SATS = '546';
+const PF10_LIBAUTH_QUALIFICATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-local-libauth-qualification-v2';
+const PF10_LIBAUTH_PUBLICATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-libauth-publication-v1';
+const PF10_LIBAUTH_PUBLICATION_FILE = 'publication-complete.json';
+const PF10_LIBAUTH_PUBLICATION_FILES = Object.freeze([
+  'libauth.json',
+  'qualification-summary.json',
+  'stderr.txt',
+  'stdout.txt',
+]);
+const PF10_DEVELOPMENT_RUNTIME_BUNDLE_SCHEMA =
+  'shieldkit-v2-direct-pf10-development-runtime-bundle-v2';
+const V2_ARTIFACT_MANIFEST_SCHEMA =
+  'shieldkit-artifact-manifest-v2-direct';
+const PF10_DEVELOPMENT_RUNTIME_ARTIFACT_COUNT = 57;
+const PF10_REPRODUCIBILITY_ARTIFACT_IDS = Object.freeze([
+  'repro-executor-raw',
+  'repro-executor-source',
+  'repro-exactfinal-raw',
+  'repro-exactfinal-source',
+  'repro-miller-raw',
+  'repro-miller-source',
+  'repro-terminal-raw',
+  'repro-terminal-source',
+  ...Array.from({ length: 3 }, (_, index) => [
+    `repro-exact-msm-${index}-raw`,
+    `repro-exact-msm-${index}-source`,
+  ]).flat(),
+]);
+const PF10_RUNTIME_CONSUMED_ARTIFACT_IDS = new Set([
+  'binding-lock',
+  'binding-redeem',
+  'development-profile-package',
+  'pf10-executor-body',
+  'pf10-fused-redeem',
+  'pf10-libauth-evidence',
+  'pf10-qualification-evidence',
+  'pf10-qualification-raw-evidence',
+  'pf10-runtime-material',
+  'pf10-terminal-redeem',
+  'profile-core',
+  'proof-verification-key',
+  'state-helper',
+  'state-helper-unlock',
+  'state-lock',
+  ...Array.from({ length: 3 }, (_, index) =>
+    `pf10-exact-msm-redeem-${index}`),
+  ...Array.from({ length: 3 }, (_, index) =>
+    `pf10-fixed-carrier-pad-${index}`),
+  ...Array.from({ length: 10 }, (_, index) =>
+    `verifier-lock-${index}`),
+  ...PF10_REPRODUCIBILITY_ARTIFACT_IDS,
+]);
 const DEVELOPMENT_ACTIONS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 const SHA256 = /^[0-9a-f]{64}$/;
+const compareAscii = (left, right) =>
+  left < right ? -1 : left > right ? 1 : 0;
 const SUITES = new Set([
   'portable',
   'external-fixtures',
@@ -244,24 +378,109 @@ function artifactPathSet(projectRoot, overrides) {
   });
 }
 
-async function sha256RegularFile(filename, label) {
-  let metadata;
+async function sha256RegularFile(
+  filename,
+  label,
+  { allowEmpty = false, includeData = false } = {},
+) {
+  let pathBefore;
+  let canonicalBefore;
   try {
-    metadata = lstatSync(filename);
+    pathBefore = lstatSync(filename, { bigint: true });
+    canonicalBefore = realpathSync(filename);
   } catch {
     fail(`${label} is missing`);
   }
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size === 0) {
+  if (
+    !pathBefore.isFile()
+    || pathBefore.isSymbolicLink()
+    || (!allowEmpty && pathBefore.size === 0n)
+    || canonicalBefore !== filename
+  ) {
     fail(`${label} must be a nonempty regular non-symlink file`);
   }
-  const digest = await new Promise((resolve, reject) => {
+  let handle;
+  try {
+    handle = await open(filename, 'r');
+    const before = await handle.stat({ bigint: true });
+    if (
+      before.dev !== pathBefore.dev
+      || before.ino !== pathBefore.ino
+      || before.size !== pathBefore.size
+      || before.mtimeNs !== pathBefore.mtimeNs
+      || before.ctimeNs !== pathBefore.ctimeNs
+    ) {
+      fail(`${label} changed before it could be opened safely`);
+    }
     const hash = createHash('sha256');
-    const stream = createReadStream(filename, { highWaterMark: 64 * 1024 });
-    stream.on('data', (chunk) => hash.update(chunk));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(hash.digest('hex')));
-  }).catch(() => fail(`${label} cannot be hashed`));
-  return Object.freeze({ bytes: metadata.size, sha256: digest });
+    const chunks = [];
+    let bytes = 0n;
+    for await (const chunk of handle.createReadStream({
+      autoClose: false,
+      highWaterMark: 64 * 1024,
+    })) {
+      hash.update(chunk);
+      bytes += BigInt(chunk.length);
+      if (includeData) chunks.push(Buffer.from(chunk));
+    }
+    const after = await handle.stat({ bigint: true });
+    const pathAfter = lstatSync(filename, { bigint: true });
+    const canonicalAfter = realpathSync(filename);
+    if (
+      before.dev !== after.dev
+      || before.ino !== after.ino
+      || before.size !== after.size
+      || before.mtimeNs !== after.mtimeNs
+      || before.ctimeNs !== after.ctimeNs
+      || before.dev !== pathAfter.dev
+      || before.ino !== pathAfter.ino
+      || before.size !== pathAfter.size
+      || before.mtimeNs !== pathAfter.mtimeNs
+      || before.ctimeNs !== pathAfter.ctimeNs
+      || bytes !== before.size
+      || canonicalAfter !== filename
+    ) {
+      fail(`${label} changed while it was hashed`);
+    }
+    if (before.size > BigInt(Number.MAX_SAFE_INTEGER)) {
+      fail(`${label} exceeds the safe evidence byte range`);
+    }
+    return Object.freeze({
+      bytes: Number(before.size),
+      sha256: hash.digest('hex'),
+      ...(includeData ? { data: Buffer.concat(chunks) } : {}),
+    });
+  } catch (error) {
+    if (error instanceof DomainTestRunnerError) throw error;
+    fail(`${label} cannot be hashed`);
+  } finally {
+    await handle?.close();
+  }
+}
+
+async function readCanonicalJsonRegularFile(filename, label) {
+  const source = await sha256RegularFile(filename, label, {
+    includeData: true,
+  });
+  let value;
+  try {
+    value = JSON.parse(source.data.toString('utf8'));
+  } catch (error) {
+    fail(
+      `${label} is not valid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    value === null
+    || Array.isArray(value)
+    || typeof value !== 'object'
+    || !source.data.equals(Buffer.from(canonicalizeJcs(value), 'utf8'))
+  ) {
+    fail(`${label} must be an exact canonical JCS object`);
+  }
+  return Object.freeze({ ...source, value });
 }
 
 async function assertEvidenceFile(filename, evidence, label) {
@@ -320,7 +539,17 @@ async function inspectLocalVerifierArtifactCoherence({
     fail('local verifier setup phase2 record does not bind the current zkey');
   }
 
-  const evidence = readJson(files.evidence, 'local verifier qualification evidence');
+  const evidenceFile = await sha256RegularFile(
+    files.evidence,
+    'local verifier qualification evidence',
+    { includeData: true },
+  );
+  let evidence;
+  try {
+    evidence = JSON.parse(evidenceFile.data.toString('utf8'));
+  } catch {
+    fail('local verifier qualification evidence is not valid JSON');
+  }
   if (
     evidence.schema !== DEVELOPMENT_PROOF_EVIDENCE_SCHEMA
     || evidence.evidenceClass !== DEVELOPMENT_PROOF_EVIDENCE_CLASS
@@ -328,6 +557,16 @@ async function inspectLocalVerifierArtifactCoherence({
     fail('local verifier qualification evidence schema is unsupported; clean regeneration is required');
   }
   const source = requiredObject(evidence.sourceArtifacts, 'local verifier qualification evidence.sourceArtifacts');
+  const identity = requiredObject(
+    evidence.identity,
+    'local verifier qualification evidence.identity',
+  );
+  if (
+    !SHA256.test(identity.profileId)
+    || !SHA256.test(identity.instanceId)
+  ) {
+    fail('local verifier qualification evidence identity is invalid');
+  }
   const expectedSources = Object.freeze({
     r1cs,
     wasm,
@@ -401,7 +640,16 @@ async function inspectLocalVerifierArtifactCoherence({
       fail(`local verifier qualification action ${name} verifier inputs differ from the evidence`);
     }
   }
-  return Object.freeze({ r1cs: r1cs.sha256, wasm: wasm.sha256, zkey: zkey.sha256, verificationKey: verificationKey.sha256 });
+  return Object.freeze({
+    profileId: identity.profileId,
+    instanceId: identity.instanceId,
+    evidenceBytes: evidenceFile.bytes,
+    evidenceSha256: evidenceFile.sha256,
+    r1cs: r1cs.sha256,
+    wasm: wasm.sha256,
+    zkey: zkey.sha256,
+    verificationKey: verificationKey.sha256,
+  });
 }
 
 export async function assertLocalVerifierArtifactCoherence(options = {}) {
@@ -412,6 +660,1488 @@ export async function assertLocalVerifierArtifactCoherence(options = {}) {
       fail(
         `local verifier artifact coherence is BLOCKED: ${error.message}. `
         + 'Cleanly regenerate the complete circuit/setup/proof evidence set; do not mix artifacts.',
+      );
+    }
+    throw error;
+  }
+}
+
+function canonicalNonSymlinkDirectory(filename, label) {
+  const resolved = path.resolve(filename);
+  let metadata;
+  try {
+    metadata = lstatSync(resolved);
+  } catch {
+    fail(`${label} is missing`);
+  }
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+    fail(`${label} must be a non-symlink directory`);
+  }
+  let canonical;
+  try {
+    canonical = realpathSync(resolved);
+  } catch {
+    fail(`${label} cannot be resolved`);
+  }
+  if (canonical !== resolved) {
+    fail(`${label} must be canonical`);
+  }
+  return canonical;
+}
+
+function safeRuntimeArtifactPath(runtimeRoot, value, label) {
+  if (
+    typeof value !== 'string'
+    || value.length === 0
+    || value.includes('\\')
+    || path.posix.normalize(value) !== value
+    || path.posix.isAbsolute(value)
+    || value === '..'
+    || value.startsWith('../')
+  ) {
+    fail(`${label} must be a normalized repository-relative POSIX path`);
+  }
+  const filename = path.resolve(runtimeRoot, ...value.split('/'));
+  const relative = path.relative(runtimeRoot, filename);
+  if (
+    relative.length === 0
+    || relative === '..'
+    || relative.startsWith(`..${path.sep}`)
+    || path.isAbsolute(relative)
+  ) {
+    fail(`${label} escapes the runtime bundle`);
+  }
+  let canonical;
+  try {
+    canonical = realpathSync(filename);
+  } catch {
+    fail(`${label} is missing`);
+  }
+  if (canonical !== filename) {
+    fail(`${label} traverses a symlink or non-canonical parent`);
+  }
+  return filename;
+}
+
+function assertExactRuntimeBundleEntries(runtimeRoot, artifactPaths) {
+  const expectedFiles = new Set([
+    'runtime-build-manifest.json',
+    ...artifactPaths,
+  ]);
+  const expectedDirectories = new Set();
+  for (const filename of expectedFiles) {
+    const components = filename.split('/');
+    for (let index = 1; index < components.length; index += 1) {
+      expectedDirectories.add(components.slice(0, index).join('/'));
+    }
+  }
+  const seenFiles = new Set();
+  const seenDirectories = new Set();
+  const walk = (directory, relativeDirectory = '') => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true })
+        .sort((left, right) => compareAscii(left.name, right.name));
+    } catch {
+      fail('local verifier PF10 runtime bundle cannot be enumerated');
+    }
+    for (const entry of entries) {
+      const relative = relativeDirectory.length === 0
+        ? entry.name
+        : `${relativeDirectory}/${entry.name}`;
+      const filename = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        fail(`local verifier PF10 runtime bundle contains a symlink: ${relative}`);
+      }
+      if (entry.isDirectory()) {
+        if (!expectedDirectories.has(relative)) {
+          fail(
+            `local verifier PF10 runtime bundle contains an unmanifested directory: ${relative}`,
+          );
+        }
+        seenDirectories.add(relative);
+        walk(filename, relative);
+      } else if (entry.isFile()) {
+        if (!expectedFiles.has(relative)) {
+          fail(
+            `local verifier PF10 runtime bundle contains an unmanifested file: ${relative}`,
+          );
+        }
+        seenFiles.add(relative);
+      } else {
+        fail(
+          `local verifier PF10 runtime bundle contains an unsupported entry: ${relative}`,
+        );
+      }
+    }
+  };
+  walk(runtimeRoot);
+  if (
+    seenFiles.size !== expectedFiles.size
+    || [...expectedFiles].some((entry) => !seenFiles.has(entry))
+    || seenDirectories.size !== expectedDirectories.size
+    || [...expectedDirectories].some((entry) => !seenDirectories.has(entry))
+  ) {
+    fail('local verifier PF10 runtime bundle is missing a manifest-bound entry');
+  }
+}
+
+function exactKeySet(value, expected, label) {
+  const record = requiredObject(value, label);
+  const actual = Object.keys(record).sort();
+  const sortedExpected = [...expected].sort();
+  if (
+    actual.length !== sortedExpected.length
+    || actual.some((key, index) => key !== sortedExpected[index])
+  ) {
+    fail(`${label} has missing or unknown properties`);
+  }
+  return record;
+}
+
+function readPinnedRuntimeArtifactBytes(record, label) {
+  if (record === undefined) {
+    fail(`${label} is missing`);
+  }
+  const bytes = record.data;
+  if (
+    !Buffer.isBuffer(bytes)
+    || bytes.length !== record.bytes
+    || createHash('sha256').update(bytes).digest('hex') !== record.sha256
+  ) {
+    fail(`${label} was not retained from its authenticated file handle`);
+  }
+  return Buffer.from(bytes);
+}
+
+function parseCanonicalRuntimeJsonArtifact(record, label) {
+  const bytes = readPinnedRuntimeArtifactBytes(record, label);
+  let value;
+  try {
+    value = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    fail(`${label} is not JSON`);
+  }
+  if (!bytes.equals(Buffer.from(canonicalizeJcs(value), 'utf8'))) {
+    fail(`${label} is not canonical JCS`);
+  }
+  return Object.freeze({ bytes, value });
+}
+
+function requiredRuntimeBytes(value, label) {
+  if (!(value instanceof Uint8Array) || value.byteLength === 0) {
+    fail(`${label} must be nonempty bytes`);
+  }
+  return Buffer.from(value);
+}
+
+/**
+ * Reconstruct the identity-bound binding covenant and all three structural
+ * state artifacts. A manifest hash proves only that a file was counted; this
+ * check proves that the counted bytes are exactly the covenant the profile and
+ * instance require.
+ */
+export function validateExactDirectV2Pf10StructuralArtifacts(value) {
+  const input = exactKeySet(value, [
+    'binding',
+    'instanceId',
+    'profileCore',
+    'profileId',
+    'state',
+    'topologyId',
+    'verifierRoles',
+    'verifiers',
+  ], 'local verifier PF10 structural artifact input');
+  if (
+    !SHA256.test(input.profileId)
+    || !SHA256.test(input.instanceId)
+    || input.topologyId !== DIRECT_V2_PF10_FUSED_TOPOLOGY_ID
+    || !Array.isArray(input.verifierRoles)
+    || input.verifierRoles.length
+      !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.length
+    || input.verifierRoles.some(
+      (role, index) =>
+        role !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES[index],
+    )
+  ) {
+    fail('local verifier PF10 structural identity is invalid');
+  }
+  try {
+    validateProfileCore(input.profileCore);
+  } catch (error) {
+    fail(
+      `local verifier PF10 structural profile core is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (deriveProfileId(input.profileCore) !== input.profileId) {
+    fail('local verifier PF10 structural profile ID is invalid');
+  }
+  const binding = exactKeySet(input.binding, [
+    'baseSats',
+    'lockingBytecode',
+    'redeemBytecode',
+  ], 'local verifier PF10 structural binding');
+  const state = exactKeySet(input.state, [
+    'baseSats',
+    'helperBytecode',
+    'helperUnlockingBytecode',
+    'lockingBytecode',
+  ], 'local verifier PF10 structural state');
+  if (
+    !Array.isArray(input.verifiers)
+    || input.verifiers.length !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.length
+  ) {
+    fail('local verifier PF10 structural verifier set is invalid');
+  }
+  const verifierRecords = input.verifiers.map((entry, index) => {
+    const record = exactKeySet(entry, [
+      'baseSats',
+      'lockingBytecode',
+      'role',
+    ], `local verifier PF10 structural verifier ${index}`);
+    if (
+      record.role !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES[index]
+      || typeof record.baseSats !== 'string'
+      || !/^(0|[1-9][0-9]*)$/.test(record.baseSats)
+    ) {
+      fail(`local verifier PF10 structural verifier ${index} is invalid`);
+    }
+    return Object.freeze({
+      ...record,
+      lockingBytecode: requiredRuntimeBytes(
+        record.lockingBytecode,
+        `local verifier PF10 structural verifier ${index} lock`,
+      ),
+    });
+  });
+  if (
+    typeof binding.baseSats !== 'string'
+    || !/^(0|[1-9][0-9]*)$/.test(binding.baseSats)
+    || typeof state.baseSats !== 'string'
+    || !/^(0|[1-9][0-9]*)$/.test(state.baseSats)
+  ) {
+    fail('local verifier PF10 structural base values are invalid');
+  }
+  const actualBindingRedeem = requiredRuntimeBytes(
+    binding.redeemBytecode,
+    'local verifier PF10 structural binding redeem',
+  );
+  const actualBindingLock = requiredRuntimeBytes(
+    binding.lockingBytecode,
+    'local verifier PF10 structural binding lock',
+  );
+  const actualHelper = requiredRuntimeBytes(
+    state.helperBytecode,
+    'local verifier PF10 structural state helper',
+  );
+  const actualHelperUnlock = requiredRuntimeBytes(
+    state.helperUnlockingBytecode,
+    'local verifier PF10 structural state helper unlock',
+  );
+  const actualStateLock = requiredRuntimeBytes(
+    state.lockingBytecode,
+    'local verifier PF10 structural state lock',
+  );
+  let expectedBindingRedeem;
+  let expectedBindingLock;
+  let expectedHelper;
+  let expectedHelperUnlock;
+  let expectedStateLock;
+  try {
+    const bindingOptions = Object.freeze({
+      networkId: input.profileCore.network.id,
+      profileId: input.profileId,
+      stateCategory: input.instanceId,
+      denominationSats: input.profileCore.denominationSats,
+      topologyId: input.topologyId,
+      verifierRoles: input.verifierRoles,
+    });
+    expectedBindingRedeem = Buffer.from(
+      buildDirectV2BindingRedeem(bindingOptions),
+    );
+    expectedBindingLock = Buffer.from(
+      buildDirectV2BindingLock(bindingOptions),
+    );
+    expectedHelper = Buffer.from(buildDirectV2StateHelper({
+      bindingLock: expectedBindingLock,
+      verifierLocks: verifierRecords.map((record) =>
+        record.lockingBytecode),
+      verifierBaseValues: verifierRecords.map((record) => record.baseSats),
+      bindingBaseValueSats: binding.baseSats,
+      stateBaseValueSats: state.baseSats,
+      denominationSats: input.profileCore.denominationSats,
+      stateCategory: input.instanceId,
+      minimumChangeSats: V2_MINIMUM_CHANGE_SATS,
+      topologyId: input.topologyId,
+      verifierRoles: input.verifierRoles,
+    }));
+    expectedHelperUnlock = Buffer.from(
+      buildDirectV2StateTrampolineUnlock(expectedHelper),
+    );
+    expectedStateLock = Buffer.from(buildDirectV2StateTrampolineLock({
+      helper: expectedHelper,
+      bindingLock: expectedBindingLock,
+      topologyId: input.topologyId,
+      verifierRoles: input.verifierRoles,
+    }));
+  } catch (error) {
+    fail(
+      `local verifier PF10 structural artifacts cannot be reconstructed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    !actualBindingRedeem.equals(expectedBindingRedeem)
+    || !actualBindingLock.equals(expectedBindingLock)
+  ) {
+    fail('local verifier PF10 binding artifacts are not exact for the profile and instance');
+  }
+  if (!actualHelper.equals(expectedHelper)) {
+    fail('local verifier PF10 state helper is not the exact structural helper');
+  }
+  if (!actualHelperUnlock.equals(expectedHelperUnlock)) {
+    fail('local verifier PF10 state helper unlock is not canonical');
+  }
+  if (!actualStateLock.equals(expectedStateLock)) {
+    fail('local verifier PF10 state lock is not the exact structural trampoline');
+  }
+  const derivedVerifierBases = verifierRecords.map((record) =>
+    deriveV2RollingBaseSats({
+      lockingBytecode: record.lockingBytecode,
+    }).toString());
+  if (
+    derivedVerifierBases.some(
+      (baseSats, index) => baseSats !== verifierRecords[index].baseSats,
+    )
+    || deriveV2RollingBaseSats({
+      lockingBytecode: actualBindingLock,
+    }).toString() !== binding.baseSats
+    || deriveV2RollingBaseSats({
+      lockingBytecode: actualStateLock,
+      token: {
+        category: Buffer.from(input.instanceId, 'hex'),
+        amount: 0n,
+        nft: {
+          capability: 'mutable',
+          commitment: Buffer.alloc(128),
+        },
+      },
+    }).toString() !== state.baseSats
+  ) {
+    fail('local verifier PF10 structural base values are not exact dust values');
+  }
+  return Object.freeze({
+    bindingLockSha256:
+      createHash('sha256').update(actualBindingLock).digest('hex'),
+    stateHelperSha256:
+      createHash('sha256').update(actualHelper).digest('hex'),
+    stateLockSha256:
+      createHash('sha256').update(actualStateLock).digest('hex'),
+  });
+}
+
+async function validateBundledDevelopmentProfile({
+  artifacts,
+  expectedProofIds,
+  manifest,
+  profileRoot,
+  projectRoot,
+  runtimeReferences,
+}) {
+  const canonicalProfileRoot = canonicalNonSymlinkDirectory(
+    profileRoot,
+    'local verifier V2 development profile root',
+  );
+  const profileCoreId =
+    runtimeReferences.references.profileArtifacts.profileCore;
+  const profilePackageId =
+    runtimeReferences.references.profileArtifacts.profilePackage;
+  const parsedCore = parseCanonicalRuntimeJsonArtifact(
+    artifacts.get(profileCoreId),
+    'local verifier PF10 bundled profile core',
+  );
+  const parsedPackage = parseCanonicalRuntimeJsonArtifact(
+    artifacts.get(profilePackageId),
+    'local verifier PF10 bundled development profile package',
+  );
+  let verifiedPackage;
+  try {
+    validateProfileCore(parsedCore.value);
+    if (deriveProfileId(parsedCore.value) !== manifest.profileId) {
+      fail('local verifier PF10 bundled profile identity is invalid');
+    }
+    verifiedPackage = await verifyV2DevelopmentProfilePackage(
+      parsedPackage.value,
+      {
+        directory: canonicalProfileRoot,
+        repositoryRoot: path.resolve(projectRoot, '..'),
+      },
+    );
+  } catch (error) {
+    fail(
+      `local verifier PF10 bundled development profile is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    verifiedPackage.profileId !== manifest.profileId
+    || verifiedPackage.profileCoreSha256
+      !== artifacts.get(profileCoreId).sha256
+  ) {
+    fail('local verifier PF10 bundled profile identity is invalid');
+  }
+  const generatedIds = Object.freeze({
+    baseVerifierManifest:
+      runtimeReferences.references.profileArtifacts.baseVerifierManifest,
+    circuitBuildAttestation:
+      runtimeReferences.references.attestationArtifacts
+        .circuitBuildAttestation,
+    developmentSetupAttestation:
+      runtimeReferences.references.attestationArtifacts
+        .developmentSetupAttestation,
+    profileCore: profileCoreId,
+    relationManifest:
+      runtimeReferences.references.attestationArtifacts.relationManifest,
+    toolchainManifest:
+      runtimeReferences.references.profileArtifacts.toolchainManifest,
+    topologySpec:
+      runtimeReferences.references.profileArtifacts.topologySpec,
+  });
+  for (const [name, artifactId] of Object.entries(generatedIds)) {
+    const record = verifiedPackage.generatedArtifacts[name];
+    const artifact = artifacts.get(artifactId);
+    if (
+      record === undefined
+      || artifact === undefined
+      || record.bytes !== artifact.bytes
+      || record.sha256 !== artifact.sha256
+    ) {
+      fail(
+        `local verifier PF10 bundled profile generated artifact ${name} is not source-bound`,
+      );
+    }
+  }
+  for (const [name, artifactId] of Object.entries(expectedProofIds)) {
+    const record = verifiedPackage.proofArtifacts[name];
+    const artifact = artifacts.get(artifactId);
+    if (
+      record === undefined
+      || artifact === undefined
+      || record.bytes !== artifact.bytes
+      || record.sha256 !== artifact.sha256
+    ) {
+      fail(
+        `local verifier PF10 bundled profile proof artifact ${name} is not source-bound`,
+      );
+    }
+  }
+  if (
+    parsedCore.value.proof.r1csSha256
+      !== artifacts.get(expectedProofIds.r1cs).sha256
+    || parsedCore.value.proof.verificationKeySha256
+      !== artifacts.get(expectedProofIds.verificationKey).sha256
+    || parsedCore.value.proof.witnessWasmSha256
+      !== artifacts.get(expectedProofIds.witnessWasm).sha256
+  ) {
+    fail('local verifier PF10 bundled profile proof hashes are incoherent');
+  }
+  return Object.freeze({
+    profileCore: parsedCore.value,
+    profilePackage: verifiedPackage,
+  });
+}
+
+function candidateRuntimeReferenceIds(value) {
+  try {
+    return [
+      ...Object.values(requiredObject(
+        value.profileArtifacts,
+        'PF10 runtime artifact.profileArtifacts',
+      )),
+      ...Object.values(requiredObject(
+        value.attestationArtifacts,
+        'PF10 runtime artifact.attestationArtifacts',
+      )),
+      ...Object.values(requiredObject(
+        value.setupArtifacts,
+        'PF10 runtime artifact.setupArtifacts',
+      )),
+      ...Object.values(requiredObject(
+        value.proofArtifacts,
+        'PF10 runtime artifact.proofArtifacts',
+      )),
+      value.unlockArtifacts.executorBodyArtifactId,
+      ...value.unlockArtifacts.exactMsmRedeemArtifactIds,
+      ...value.unlockArtifacts.fixedCarrierPadArtifactIds,
+      value.unlockArtifacts.fusedRedeemArtifactId,
+      value.unlockArtifacts.terminalRedeemArtifactId,
+      value.qualificationEvidenceArtifactId,
+      value.rawQualificationEvidenceArtifactId,
+      value.libauthEvidenceArtifactId,
+    ];
+  } catch (error) {
+    if (error instanceof DomainTestRunnerError) throw error;
+    fail(
+      `PF10 runtime artifact reference structure is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function validatePf10FinalLockReferences(value, artifacts) {
+  const finalLocks = exactKeySet(
+    value,
+    ['binding', 'state', 'topologyId', 'verifiers'],
+    'local verifier PF10 runtime finalLocks',
+  );
+  if (
+    finalLocks.topologyId !== DIRECT_V2_PF10_FUSED_TOPOLOGY_ID
+    || !Array.isArray(finalLocks.verifiers)
+    || finalLocks.verifiers.length
+      !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.length
+  ) {
+    fail('local verifier PF10 runtime finalLocks topology is invalid');
+  }
+  const ids = [];
+  for (
+    let index = 0;
+    index < DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.length;
+    index += 1
+  ) {
+    const record = exactKeySet(
+      finalLocks.verifiers[index],
+      ['baseSats', 'lockingArtifactId', 'role'],
+      `local verifier PF10 runtime finalLocks.verifiers[${index}]`,
+    );
+    if (
+      record.baseSats !== '1200'
+      || record.role !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES[index]
+      || record.lockingArtifactId !== `verifier-lock-${index}`
+      || !artifacts.has(record.lockingArtifactId)
+    ) {
+      fail('local verifier PF10 runtime verifier final lock is invalid');
+    }
+    ids.push(record.lockingArtifactId);
+  }
+  const binding = exactKeySet(
+    finalLocks.binding,
+    ['baseSats', 'lockingArtifactId', 'redeemArtifactId'],
+    'local verifier PF10 runtime finalLocks.binding',
+  );
+  if (
+    binding.baseSats !== '1200'
+    || binding.lockingArtifactId !== 'binding-lock'
+    || binding.redeemArtifactId !== 'binding-redeem'
+    || !artifacts.has(binding.lockingArtifactId)
+    || !artifacts.has(binding.redeemArtifactId)
+  ) {
+    fail('local verifier PF10 runtime binding final lock is invalid');
+  }
+  ids.push(binding.lockingArtifactId, binding.redeemArtifactId);
+  const state = exactKeySet(
+    finalLocks.state,
+    [
+      'baseSats',
+      'helperArtifactId',
+      'helperUnlockArtifactId',
+      'lockingArtifactId',
+    ],
+    'local verifier PF10 runtime finalLocks.state',
+  );
+  if (
+    state.baseSats !== '2500'
+    || state.helperArtifactId !== 'state-helper'
+    || state.helperUnlockArtifactId !== 'state-helper-unlock'
+    || state.lockingArtifactId !== 'state-lock'
+    || !artifacts.has(state.helperArtifactId)
+    || !artifacts.has(state.helperUnlockArtifactId)
+    || !artifacts.has(state.lockingArtifactId)
+  ) {
+    fail('local verifier PF10 runtime state final lock is invalid');
+  }
+  ids.push(
+    state.helperArtifactId,
+    state.helperUnlockArtifactId,
+    state.lockingArtifactId,
+  );
+  if (new Set(ids).size !== ids.length) {
+    fail('local verifier PF10 runtime final lock artifacts are duplicated');
+  }
+  return Object.freeze({
+    ids: Object.freeze(ids),
+    binding,
+    state,
+    verifiers: Object.freeze(finalLocks.verifiers),
+  });
+}
+
+function exactManifestArtifactReference(value, artifacts, expectedId, label) {
+  const reference = exactKeySet(
+    value,
+    ['bytes', 'id', 'path', 'sha256'],
+    label,
+  );
+  const artifact = artifacts.get(expectedId);
+  if (
+    artifact === undefined
+    || reference.id !== expectedId
+    || reference.path !== artifact.path
+    || reference.sha256 !== artifact.sha256
+    || reference.bytes !== artifact.bytes
+  ) {
+    fail(`${label} does not bind the emitted runtime artifact`);
+  }
+  return artifact;
+}
+
+async function validatePf10LibauthPublication(libauthRoot) {
+  const completion = await readCanonicalJsonRegularFile(
+    path.join(libauthRoot, PF10_LIBAUTH_PUBLICATION_FILE),
+    'local verifier PF10 Libauth publication completion record',
+  );
+  const value = exactKeySet(
+    completion.value,
+    ['files', 'schema'],
+    'local verifier PF10 Libauth publication completion record',
+  );
+  if (
+    value.schema !== PF10_LIBAUTH_PUBLICATION_SCHEMA
+    || !Array.isArray(value.files)
+    || value.files.length !== PF10_LIBAUTH_PUBLICATION_FILES.length
+  ) {
+    fail('local verifier PF10 Libauth publication completion record is invalid');
+  }
+  const records = new Map();
+  for (let index = 0; index < value.files.length; index += 1) {
+    const expectedPath = PF10_LIBAUTH_PUBLICATION_FILES[index];
+    const record = exactKeySet(
+      value.files[index],
+      ['bytes', 'path', 'sha256'],
+      `local verifier PF10 Libauth publication file ${index}`,
+    );
+    if (
+      record.path !== expectedPath
+      || !Number.isSafeInteger(record.bytes)
+      || record.bytes < 0
+      || records.has(record.path)
+    ) {
+      fail('local verifier PF10 Libauth publication file set is invalid');
+    }
+    const filename = safeRuntimeArtifactPath(
+      libauthRoot,
+      record.path,
+      `local verifier PF10 Libauth publication file ${record.path}`,
+    );
+    const actual = await sha256RegularFile(
+      filename,
+      `local verifier PF10 Libauth publication file ${record.path}`,
+      {
+        allowEmpty: record.path === 'stderr.txt'
+          || record.path === 'stdout.txt',
+        includeData: true,
+      },
+    );
+    if (
+      actual.bytes !== record.bytes
+      || actual.sha256 !== requiredHash(
+        record.sha256,
+        `local verifier PF10 Libauth publication file ${record.path}.sha256`,
+      )
+    ) {
+      fail(
+        `local verifier PF10 Libauth publication file ${record.path} differs from its completion record`,
+      );
+    }
+    records.set(record.path, Object.freeze({ ...actual, filename }));
+  }
+  return Object.freeze({ completion, records });
+}
+
+/**
+ * Authenticate the completed PF10 runtime bundle, including every artifact
+ * named by its manifest and the independently generated Libauth source
+ * evidence. Existence alone is insufficient: a stale or tampered runtime must
+ * never unlock the local verifier lane.
+ */
+async function inspectLocalVerifierRuntimeCoherence({
+  projectRoot = project,
+  runtimeRoot: runtimeRootOverride,
+  libauthRoot: libauthRootOverride,
+  profileRoot: profileRootOverride,
+  qualificationEvidenceSha256: expectedQualificationEvidenceSha256,
+} = {}) {
+  const artifactRoot = path.resolve(projectRoot, '..', '.codex-build');
+  const runtimeRoot = canonicalNonSymlinkDirectory(
+    runtimeRootOverride
+      ?? path.join(artifactRoot, 'v2-pf10-development-runtime'),
+    'local verifier PF10 runtime root',
+  );
+  const libauthRoot = canonicalNonSymlinkDirectory(
+    libauthRootOverride
+      ?? path.join(artifactRoot, 'v2-pf10-libauth-qualification'),
+    'local verifier PF10 Libauth qualification root',
+  );
+  const profileRoot = profileRootOverride
+    ?? path.join(artifactRoot, 'v2-development-profile');
+  const manifestSource = await readCanonicalJsonRegularFile(
+    path.join(runtimeRoot, 'runtime-build-manifest.json'),
+    'local verifier PF10 runtime build manifest',
+  );
+  const manifest = exactKeySet(manifestSource.value, [
+    'artifactManifestTemplate',
+    'build',
+    'determinism',
+    'eligibility',
+    'finalLocks',
+    'instanceId',
+    'libauthEvidence',
+    'prerequisites',
+    'profileCore',
+    'profileId',
+    'profilePackage',
+    'proofArtifacts',
+    'qualification',
+    'runtimeMaterialSha256',
+    'schema',
+    'topologyId',
+    'verifierRoles',
+  ], 'local verifier PF10 runtime build manifest');
+  if (
+    manifest.schema !== PF10_DEVELOPMENT_RUNTIME_BUNDLE_SCHEMA
+    || manifest.eligibility !== 'development-only'
+    || !SHA256.test(manifest.profileId)
+    || !SHA256.test(manifest.instanceId)
+    || manifest.topologyId !== DIRECT_V2_PF10_FUSED_TOPOLOGY_ID
+    || !Array.isArray(manifest.verifierRoles)
+    || manifest.verifierRoles.length
+      !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.length
+    || manifest.verifierRoles.some(
+      (role, index) =>
+        role !== DIRECT_V2_PF10_FUSED_VERIFIER_ROLES[index],
+    )
+  ) {
+    fail('local verifier PF10 runtime build manifest identity is unsupported');
+  }
+  const template = exactKeySet(
+    manifest.artifactManifestTemplate,
+    ['artifacts', 'instanceId', 'profileId', 'schema'],
+    'local verifier PF10 runtime artifact manifest',
+  );
+  if (
+    template.schema !== V2_ARTIFACT_MANIFEST_SCHEMA
+    || template.profileId !== manifest.profileId
+    || template.instanceId !== manifest.instanceId
+    || !Array.isArray(template.artifacts)
+    || template.artifacts.length === 0
+  ) {
+    fail('local verifier PF10 runtime artifact manifest is invalid');
+  }
+  const artifacts = new Map();
+  const artifactPaths = new Set();
+  let previousArtifactId;
+  for (let index = 0; index < template.artifacts.length; index += 1) {
+    const label = `local verifier PF10 runtime artifact[${index}]`;
+    const record = exactKeySet(
+      template.artifacts[index],
+      ['id', 'path', 'sha256'],
+      label,
+    );
+    if (
+      typeof record.id !== 'string'
+      || !/^[a-z0-9][a-z0-9-]*$/.test(record.id)
+      || artifacts.has(record.id)
+      || (
+        previousArtifactId !== undefined
+        && compareAscii(previousArtifactId, record.id) >= 0
+      )
+    ) {
+      fail(`${label}.id is invalid, duplicated, or out of order`);
+    }
+    previousArtifactId = record.id;
+    const expectedSha256 = requiredHash(record.sha256, `${label}.sha256`);
+    const filename = safeRuntimeArtifactPath(
+      runtimeRoot,
+      record.path,
+      `${label}.path`,
+    );
+    if (artifactPaths.has(record.path)) {
+      fail(`${label}.path aliases another runtime artifact`);
+    }
+    artifactPaths.add(record.path);
+    const actual = await sha256RegularFile(filename, label, {
+      includeData: PF10_RUNTIME_CONSUMED_ARTIFACT_IDS.has(record.id),
+    });
+    if (actual.sha256 !== expectedSha256) {
+      fail(`${label} differs from the runtime artifact manifest`);
+    }
+    artifacts.set(record.id, Object.freeze({
+      ...record,
+      bytes: actual.bytes,
+      ...(actual.data === undefined ? {} : { data: actual.data }),
+      filename,
+    }));
+  }
+  assertExactRuntimeBundleEntries(runtimeRoot, artifactPaths);
+
+  const runtimeArtifactRecord = artifacts.get('pf10-runtime-material');
+  if (runtimeArtifactRecord === undefined) {
+    fail('local verifier PF10 runtime omits pf10-runtime-material');
+  }
+  const parsedRuntimeArtifact = parseCanonicalRuntimeJsonArtifact(
+    runtimeArtifactRecord,
+    'local verifier PF10 runtime material artifact',
+  );
+  const runtimeArtifact = parsedRuntimeArtifact.value;
+  const candidateReferenceIds = candidateRuntimeReferenceIds(runtimeArtifact);
+  const candidateEntries = {};
+  for (const id of candidateReferenceIds) {
+    const artifact = artifacts.get(id);
+    if (artifact !== undefined) {
+      candidateEntries[id] = Object.freeze({
+        id,
+        sha256: artifact.sha256,
+      });
+    }
+  }
+  let runtimeReferences;
+  try {
+    runtimeReferences = validateV2UnsignedPf10RuntimeArtifactReferences({
+      artifactEntries: candidateEntries,
+      instanceId: manifest.instanceId,
+      profileId: manifest.profileId,
+      runtimeArtifact,
+    });
+  } catch (error) {
+    fail(
+      `local verifier PF10 runtime reference topology is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    runtimeReferences.referencedArtifactCount
+      !== PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT
+  ) {
+    fail('local verifier PF10 runtime reference count is invalid');
+  }
+  const finalLocks = validatePf10FinalLockReferences(
+    manifest.finalLocks,
+    artifacts,
+  );
+  const expectedArtifactIds = new Set([
+    ...runtimeReferences.referencedArtifactIds,
+    ...finalLocks.ids,
+    ...PF10_REPRODUCIBILITY_ARTIFACT_IDS,
+    'pf10-runtime-material',
+  ]);
+  const actualArtifactIds = [...artifacts.keys()].sort(compareAscii);
+  const expectedSortedIds = [...expectedArtifactIds].sort(compareAscii);
+  if (
+    expectedArtifactIds.size !== PF10_DEVELOPMENT_RUNTIME_ARTIFACT_COUNT
+    || actualArtifactIds.length !== PF10_DEVELOPMENT_RUNTIME_ARTIFACT_COUNT
+    || actualArtifactIds.some(
+      (id, index) => id !== expectedSortedIds[index],
+    )
+  ) {
+    fail(
+      `local verifier PF10 runtime must contain the exact ${
+        PF10_DEVELOPMENT_RUNTIME_ARTIFACT_COUNT
+      }-artifact bundle`,
+    );
+  }
+  const proofArtifacts = exactKeySet(
+    manifest.proofArtifacts,
+    [
+      'circuitSymbols',
+      'initialProvingKey',
+      'powersOfTau',
+      'provingKey',
+      'r1cs',
+      'verificationKey',
+      'witnessWasm',
+    ],
+    'local verifier PF10 runtime build manifest.proofArtifacts',
+  );
+  const expectedProofIds = Object.freeze({
+    circuitSymbols: runtimeReferences.references.setupArtifacts.circuitSymbols,
+    initialProvingKey:
+      runtimeReferences.references.setupArtifacts.initialProvingKey,
+    powersOfTau: runtimeReferences.references.setupArtifacts.powersOfTau,
+    provingKey: runtimeReferences.references.proofArtifacts.provingKey,
+    r1cs: runtimeReferences.references.proofArtifacts.r1cs,
+    verificationKey:
+      runtimeReferences.references.proofArtifacts.verificationKey,
+    witnessWasm: runtimeReferences.references.proofArtifacts.wasm,
+  });
+  const proofArtifactHashes = {};
+  for (const [name, expectedId] of Object.entries(expectedProofIds)) {
+    const label =
+      `local verifier PF10 runtime build manifest.proofArtifacts.${name}`;
+    const artifact = exactManifestArtifactReference(
+      proofArtifacts[name],
+      artifacts,
+      expectedId,
+      label,
+    );
+    proofArtifactHashes[name] = artifact.sha256;
+  }
+  exactManifestArtifactReference(
+    manifest.profileCore,
+    artifacts,
+    runtimeReferences.references.profileArtifacts.profileCore,
+    'local verifier PF10 runtime build manifest.profileCore',
+  );
+  exactManifestArtifactReference(
+    manifest.profilePackage,
+    artifacts,
+    runtimeReferences.references.profileArtifacts.profilePackage,
+    'local verifier PF10 runtime build manifest.profilePackage',
+  );
+  const prerequisites = exactKeySet(
+    manifest.prerequisites,
+    [
+      'baseVerifierSourceManifest',
+      'circuitBuildAttestation',
+      'developmentSetupAttestation',
+      'relationSourceManifest',
+      'semantics',
+      'toolchainManifest',
+      'topologySpec',
+    ],
+    'local verifier PF10 runtime build manifest.prerequisites',
+  );
+  for (const [name, expectedId] of Object.entries({
+    baseVerifierSourceManifest:
+      runtimeReferences.references.profileArtifacts.baseVerifierManifest,
+    circuitBuildAttestation:
+      runtimeReferences.references.attestationArtifacts
+        .circuitBuildAttestation,
+    developmentSetupAttestation:
+      runtimeReferences.references.attestationArtifacts
+        .developmentSetupAttestation,
+    relationSourceManifest:
+      runtimeReferences.references.attestationArtifacts.relationManifest,
+    toolchainManifest:
+      runtimeReferences.references.profileArtifacts.toolchainManifest,
+    topologySpec:
+      runtimeReferences.references.profileArtifacts.topologySpec,
+  })) {
+    exactManifestArtifactReference(
+      prerequisites[name],
+      artifacts,
+      expectedId,
+      `local verifier PF10 runtime build manifest.prerequisites.${name}`,
+    );
+  }
+  const parsedBundledProfileCore = parseCanonicalRuntimeJsonArtifact(
+    artifacts.get(
+      runtimeReferences.references.profileArtifacts.profileCore,
+    ),
+    'local verifier PF10 bundled profile core',
+  );
+  let bundledProfileCore;
+  try {
+    bundledProfileCore = validateProfileCore(
+      parsedBundledProfileCore.value,
+    );
+    if (deriveProfileId(bundledProfileCore) !== manifest.profileId) {
+      fail('local verifier PF10 bundled profile identity is invalid');
+    }
+  } catch (error) {
+    fail(
+      `local verifier PF10 bundled development profile is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    typeof prerequisites.semantics !== 'string'
+    || prerequisites.semantics.length === 0
+  ) {
+    fail('local verifier PF10 runtime prerequisite semantics are missing');
+  }
+  const qualification = exactKeySet(
+    manifest.qualification,
+    [
+      'canonicalRecord',
+      'canonicalRecordSchema',
+      'rawEvidence',
+      'rawTelemetryIncluded',
+    ],
+    'local verifier PF10 runtime build manifest.qualification',
+  );
+  const canonicalQualificationArtifact = exactManifestArtifactReference(
+    qualification.canonicalRecord,
+    artifacts,
+    runtimeReferences.references.qualificationEvidenceArtifactId,
+    'local verifier PF10 runtime qualification canonical record',
+  );
+  const rawQualificationArtifact = exactManifestArtifactReference(
+    qualification.rawEvidence,
+    artifacts,
+    runtimeReferences.references.rawQualificationEvidenceArtifactId,
+    'local verifier PF10 runtime qualification raw evidence',
+  );
+  if (
+    qualification.canonicalRecordSchema
+      !== 'shieldkit-v2-direct-pf10-canonical-qualification-record-v1'
+    || qualification.rawTelemetryIncluded !== true
+  ) {
+    fail('local verifier PF10 runtime qualification metadata is invalid');
+  }
+  let validatedQualification;
+  try {
+    validatedQualification =
+      validateV2DevelopmentPf10QualificationArtifacts({
+        canonicalRecordBytes: readPinnedRuntimeArtifactBytes(
+          canonicalQualificationArtifact,
+          'local verifier PF10 canonical qualification record',
+        ),
+        rawEvidenceBytes: readPinnedRuntimeArtifactBytes(
+          rawQualificationArtifact,
+          'local verifier PF10 raw qualification evidence',
+        ),
+        profileId: manifest.profileId,
+        instanceId: manifest.instanceId,
+        maximumLiveNotes: '32',
+        denominationSats: bundledProfileCore.denominationSats,
+        profileCoreSha256: artifacts.get(
+          runtimeReferences.references.profileArtifacts.profileCore,
+        ).sha256,
+        proofArtifactHashes: Object.freeze({
+          provingKey: proofArtifactHashes.provingKey,
+          r1cs: proofArtifactHashes.r1cs,
+          verificationKey: proofArtifactHashes.verificationKey,
+          wasm: proofArtifactHashes.witnessWasm,
+        }),
+      });
+  } catch (error) {
+    fail(
+      `local verifier PF10 qualification artifacts are semantically invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    expectedQualificationEvidenceSha256 !== undefined
+    && (
+      !SHA256.test(expectedQualificationEvidenceSha256)
+      || validatedQualification.rawEvidenceSha256
+        !== expectedQualificationEvidenceSha256
+    )
+  ) {
+    fail(
+      'local verifier PF10 runtime does not byte-bind the current qualification evidence',
+    );
+  }
+  exactKeySet(
+    manifest.determinism,
+    ['qualificationTelemetry', 'runtimeMaterial'],
+    'local verifier PF10 runtime build manifest.determinism',
+  );
+  const build = exactKeySet(
+    manifest.build,
+    ['fixedTables', 'layout', 'programs', 'toolchain'],
+    'local verifier PF10 runtime build manifest.build',
+  );
+  requiredObject(
+    build.fixedTables,
+    'local verifier PF10 runtime build fixedTables',
+  );
+  requiredObject(build.layout, 'local verifier PF10 runtime build layout');
+  requiredObject(build.toolchain, 'local verifier PF10 runtime build toolchain');
+  const programs = exactKeySet(
+    build.programs,
+    ['exactFinal', 'exactMsm', 'executor', 'fused', 'miller', 'terminal'],
+    'local verifier PF10 runtime build programs',
+  );
+  const reproducibilityPrograms = [
+    ['executor', programs.executor, 'repro-executor'],
+    ['exactFinal', programs.exactFinal, 'repro-exactfinal'],
+    ['miller', programs.miller, 'repro-miller'],
+    ['terminal', programs.terminal, 'repro-terminal'],
+  ];
+  if (!Array.isArray(programs.exactMsm) || programs.exactMsm.length !== 3) {
+    fail('local verifier PF10 runtime exact-MSM reproducibility metadata is invalid');
+  }
+  programs.exactMsm.forEach((program, index) => {
+    reproducibilityPrograms.push([
+      `exactMsm[${index}]`,
+      program,
+      `repro-exact-msm-${index}`,
+    ]);
+  });
+  const reproducibilityInputs = new Map();
+  for (const [name, programValue, artifactPrefix] of reproducibilityPrograms) {
+    const program = exactKeySet(
+      programValue,
+      ['lock', 'raw', 'redeem', 'source'],
+      `local verifier PF10 runtime build programs.${name}`,
+    );
+    const retained = {};
+    for (const kind of ['raw', 'source']) {
+      const artifact = artifacts.get(`${artifactPrefix}-${kind}`);
+      if (
+        artifact === undefined
+        || program[kind] !== artifact.sha256
+      ) {
+        fail(
+          `local verifier PF10 runtime build programs.${name}.${kind} `
+          + 'does not bind its reproducibility artifact',
+        );
+      }
+      retained[kind] = readPinnedRuntimeArtifactBytes(
+        artifact,
+        `local verifier PF10 runtime reproducibility ${name}.${kind}`,
+      );
+    }
+    reproducibilityInputs.set(name, Object.freeze(retained));
+  }
+  const fusedProgram = exactKeySet(
+    programs.fused,
+    ['lock', 'redeem'],
+    'local verifier PF10 runtime build programs.fused',
+  );
+  const validateRuntimeReproducibility = async () => {
+    const reproducibilityTemporaryRoot = mkdtempSync(path.join(
+      artifactRoot,
+      'v2-pf10-repro-check-',
+    ));
+    chmodSync(reproducibilityTemporaryRoot, 0o700);
+    let reproduced;
+    try {
+      reproduced = await validateDirectV2Pf10Reproducibility({
+        repositoryRoot: path.resolve(projectRoot, '..'),
+        temporaryRoot: reproducibilityTemporaryRoot,
+        programs: Object.freeze({
+          executor: reproducibilityInputs.get('executor'),
+          exactFinal: reproducibilityInputs.get('exactFinal'),
+          exactMsm: Object.freeze(Array.from(
+            { length: 3 },
+            (_, index) => reproducibilityInputs.get(`exactMsm[${index}]`),
+          )),
+          miller: reproducibilityInputs.get('miller'),
+          terminal: reproducibilityInputs.get('terminal'),
+        }),
+        runtimeArtifacts: Object.freeze({
+          executorBody: readPinnedRuntimeArtifactBytes(
+            artifacts.get('pf10-executor-body'),
+            'local verifier PF10 executor body',
+          ),
+          exactMsmRedeems: Object.freeze(Array.from(
+            { length: 3 },
+            (_, index) => readPinnedRuntimeArtifactBytes(
+              artifacts.get(`pf10-exact-msm-redeem-${index}`),
+              `local verifier PF10 exact-MSM redeem ${index}`,
+            ),
+          )),
+          fusedRedeem: readPinnedRuntimeArtifactBytes(
+            artifacts.get('pf10-fused-redeem'),
+            'local verifier PF10 fused redeem',
+          ),
+          terminalRedeem: readPinnedRuntimeArtifactBytes(
+            artifacts.get('pf10-terminal-redeem'),
+            'local verifier PF10 terminal redeem',
+          ),
+        }),
+      });
+    } catch (error) {
+      fail(
+        `local verifier PF10 reproducibility validation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      rmSync(reproducibilityTemporaryRoot, {
+        recursive: true,
+        force: false,
+      });
+    }
+    for (const name of ['executor', 'exactFinal', 'miller', 'terminal']) {
+      if (
+        canonicalizeJcs(programs[name])
+          !== canonicalizeJcs(reproduced.programs[name])
+      ) {
+        fail(
+          `local verifier PF10 runtime build program ${name} is not exactly reproducible`,
+        );
+      }
+    }
+    for (let index = 0; index < 3; index += 1) {
+      if (
+        canonicalizeJcs(programs.exactMsm[index])
+          !== canonicalizeJcs(reproduced.programs.exactMsm[index])
+      ) {
+        fail(
+          `local verifier PF10 runtime build exact-MSM program ${index} is not exactly reproducible`,
+        );
+      }
+    }
+    if (
+      canonicalizeJcs(fusedProgram)
+        !== canonicalizeJcs(reproduced.programs.fused)
+    ) {
+      fail(
+        'local verifier PF10 runtime build fused program is not exactly reproducible',
+      );
+    }
+    return reproduced;
+  };
+
+  const bindingRedeemBytecode = readPinnedRuntimeArtifactBytes(
+    artifacts.get(finalLocks.binding.redeemArtifactId),
+    'local verifier PF10 binding redeem',
+  );
+  const bindingLockingBytecode = readPinnedRuntimeArtifactBytes(
+    artifacts.get(finalLocks.binding.lockingArtifactId),
+    'local verifier PF10 binding lock',
+  );
+  const verifierLockingBytecodes = finalLocks.verifiers.map(
+    (record, index) => readPinnedRuntimeArtifactBytes(
+      artifacts.get(record.lockingArtifactId),
+      `local verifier PF10 verifier lock ${index}`,
+    ),
+  );
+  const stateHelperBytecode = readPinnedRuntimeArtifactBytes(
+    artifacts.get(finalLocks.state.helperArtifactId),
+    'local verifier PF10 state helper',
+  );
+  const stateHelperUnlockingBytecode = readPinnedRuntimeArtifactBytes(
+    artifacts.get(finalLocks.state.helperUnlockArtifactId),
+    'local verifier PF10 state helper unlock',
+  );
+  const stateLockingBytecode = readPinnedRuntimeArtifactBytes(
+    artifacts.get(finalLocks.state.lockingArtifactId),
+    'local verifier PF10 state lock',
+  );
+  validateExactDirectV2Pf10StructuralArtifacts({
+    profileCore: bundledProfileCore,
+    profileId: manifest.profileId,
+    instanceId: manifest.instanceId,
+    topologyId: manifest.topologyId,
+    verifierRoles: manifest.verifierRoles,
+    binding: {
+      baseSats: finalLocks.binding.baseSats,
+      lockingBytecode: bindingLockingBytecode,
+      redeemBytecode: bindingRedeemBytecode,
+    },
+    state: {
+      baseSats: finalLocks.state.baseSats,
+      helperBytecode: stateHelperBytecode,
+      helperUnlockingBytecode: stateHelperUnlockingBytecode,
+      lockingBytecode: stateLockingBytecode,
+    },
+    verifiers: finalLocks.verifiers.map((record, index) => ({
+      baseSats: record.baseSats,
+      lockingBytecode: verifierLockingBytecodes[index],
+      role: record.role,
+    })),
+  });
+
+  let validatedRuntimeMaterial;
+  try {
+    validatedRuntimeMaterial = validateDirectV2Pf10RuntimeMaterial({
+      schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
+      eligibility: manifest.eligibility,
+      profileId: manifest.profileId,
+      instanceId: manifest.instanceId,
+      topologyId: manifest.topologyId,
+      verifierRoles: manifest.verifierRoles,
+      proofArtifactHashes: Object.freeze({
+        provingKey: proofArtifactHashes.provingKey,
+        r1cs: proofArtifactHashes.r1cs,
+        verificationKey: proofArtifactHashes.verificationKey,
+        wasm: proofArtifactHashes.witnessWasm,
+      }),
+      verificationKeyBytes: readPinnedRuntimeArtifactBytes(
+        artifacts.get(expectedProofIds.verificationKey),
+        'local verifier PF10 verification key',
+      ),
+      executorBody: readPinnedRuntimeArtifactBytes(
+        artifacts.get(
+          runtimeReferences.references.unlockArtifacts.executorBody,
+        ),
+        'local verifier PF10 executor body',
+      ),
+      exactMsmRedeems:
+        runtimeReferences.references.unlockArtifacts.exactMsmRedeems.map(
+          (id, index) => readPinnedRuntimeArtifactBytes(
+            artifacts.get(id),
+            `local verifier PF10 exact-MSM redeem ${index}`,
+          ),
+        ),
+      fixedCarrierPads:
+        runtimeReferences.references.unlockArtifacts.fixedCarrierPads.map(
+          (id, index) => readPinnedRuntimeArtifactBytes(
+            artifacts.get(id),
+            `local verifier PF10 fixed carrier pad ${index}`,
+          ),
+        ),
+      fusedRedeem: readPinnedRuntimeArtifactBytes(
+        artifacts.get(
+          runtimeReferences.references.unlockArtifacts.fusedRedeem,
+        ),
+        'local verifier PF10 fused redeem',
+      ),
+      terminalRedeem: readPinnedRuntimeArtifactBytes(
+        artifacts.get(
+          runtimeReferences.references.unlockArtifacts.terminalRedeem,
+        ),
+        'local verifier PF10 terminal redeem',
+      ),
+      stateUnlockingBytecode: stateHelperUnlockingBytecode,
+      bindingRedeemBytecode,
+      bindingLockingBytecode,
+      verifierLockingBytecodes,
+    });
+  } catch (error) {
+    fail(
+      `local verifier PF10 runtime material is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const runtimeMaterialSha256 = requiredHash(
+    manifest.runtimeMaterialSha256,
+    'local verifier PF10 runtime build manifest.runtimeMaterialSha256',
+  );
+  if (validatedRuntimeMaterial.materialSha256 !== runtimeMaterialSha256) {
+    fail('local verifier PF10 runtime material commitment is invalid');
+  }
+
+  const libauthPublication = await validatePf10LibauthPublication(libauthRoot);
+  const summarySource =
+    libauthPublication.records.get('qualification-summary.json');
+  let summary;
+  try {
+    summary = JSON.parse(summarySource.data.toString('utf8'));
+  } catch (error) {
+    fail(
+      `local verifier PF10 Libauth qualification summary is not JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    !summarySource.data.equals(
+      Buffer.from(canonicalizeJcs(summary), 'utf8'),
+    )
+  ) {
+    fail('local verifier PF10 Libauth qualification summary is not canonical JCS');
+  }
+  requiredObject(summary, 'local verifier PF10 Libauth qualification summary');
+  const summaryEvidence = requiredObject(
+    summary.evidence,
+    'local verifier PF10 Libauth qualification summary.evidence',
+  );
+  if (
+    summary.schema !== PF10_LIBAUTH_QUALIFICATION_SCHEMA
+    || summary.eligibility !== 'development-only'
+    || summaryEvidence.path !== 'libauth.json'
+    || !Number.isSafeInteger(summaryEvidence.bytes)
+    || summaryEvidence.bytes <= 0
+  ) {
+    fail('local verifier PF10 Libauth qualification summary is invalid');
+  }
+  const sourceEvidenceFile = libauthPublication.records.get('libauth.json');
+  if (
+    sourceEvidenceFile.bytes !== summaryEvidence.bytes
+    || sourceEvidenceFile.sha256 !== requiredHash(
+      summaryEvidence.sha256,
+      'local verifier PF10 Libauth qualification summary.evidence.sha256',
+    )
+  ) {
+    fail('local verifier PF10 Libauth source evidence differs from its summary');
+  }
+  const bundledLibauth = artifacts.get('pf10-libauth-evidence');
+  if (
+    bundledLibauth.sha256 !== sourceEvidenceFile.sha256
+    || bundledLibauth.bytes !== sourceEvidenceFile.bytes
+  ) {
+    fail('local verifier PF10 runtime does not byte-bind its Libauth source evidence');
+  }
+  const bundledLibauthBytes = readPinnedRuntimeArtifactBytes(
+    bundledLibauth,
+    'local verifier PF10 bundled Libauth evidence',
+  );
+  let validatedLibauth;
+  try {
+    validatedLibauth = validateDirectV2Pf10LibauthEvidence({
+      bytes: bundledLibauthBytes,
+      profileId: manifest.profileId,
+      instanceId: manifest.instanceId,
+      proofArtifactHashes: Object.freeze({
+        provingKey: proofArtifactHashes.provingKey,
+        r1cs: proofArtifactHashes.r1cs,
+        verificationKey: proofArtifactHashes.verificationKey,
+        wasm: proofArtifactHashes.witnessWasm,
+      }),
+      runtimeMaterialSha256,
+    });
+  } catch (error) {
+    fail(
+      `local verifier PF10 Libauth evidence is semantically invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const manifestLibauth = exactKeySet(
+    manifest.libauthEvidence,
+    ['artifact', 'schema', 'semantics'],
+    'local verifier PF10 runtime build manifest.libauthEvidence',
+  );
+  const manifestLibauthArtifact = exactKeySet(
+    manifestLibauth.artifact,
+    ['bytes', 'id', 'path', 'sha256'],
+    'local verifier PF10 runtime build manifest.libauthEvidence.artifact',
+  );
+  if (
+    manifestLibauth.schema !== validatedLibauth.schema
+    || typeof manifestLibauth.semantics !== 'string'
+    || manifestLibauth.semantics.length === 0
+    || manifestLibauthArtifact.id !== bundledLibauth.id
+    || manifestLibauthArtifact.path !== bundledLibauth.path
+    || manifestLibauthArtifact.sha256 !== bundledLibauth.sha256
+    || manifestLibauthArtifact.bytes !== bundledLibauth.bytes
+  ) {
+    fail('local verifier PF10 runtime Libauth manifest binding is invalid');
+  }
+  await validateRuntimeReproducibility();
+  await validateBundledDevelopmentProfile({
+    artifacts,
+    expectedProofIds,
+    manifest,
+    profileRoot,
+    projectRoot,
+    runtimeReferences,
+  });
+  return Object.freeze({
+    profileId: manifest.profileId,
+    instanceId: manifest.instanceId,
+    runtimeArtifactCount: artifacts.size,
+    libauthEvidenceSha256: validatedLibauth.sha256,
+    qualificationEvidenceSha256:
+      validatedQualification.canonicalRecordSha256,
+    rawQualificationEvidenceSha256:
+      validatedQualification.rawEvidenceSha256,
+    runtimeMaterialSha256: validatedLibauth.runtimeMaterialSha256,
+    proofArtifacts: Object.freeze(proofArtifactHashes),
+  });
+}
+
+export async function assertLocalVerifierRuntimeCoherence(options = {}) {
+  try {
+    return await inspectLocalVerifierRuntimeCoherence(options);
+  } catch (error) {
+    if (error instanceof DomainTestRunnerError) {
+      fail(
+        `local verifier runtime coherence is BLOCKED: ${error.message}. `
+        + 'Cleanly regenerate the complete Libauth/runtime bundle; do not reuse partial state.',
       );
     }
     throw error;
@@ -477,6 +2207,11 @@ export async function assertQualificationPrerequisites(
       required.add(artifact);
     }
   }
+  if (suite === 'local-verifier-lane') {
+    for (const artifact of LOCAL_VERIFIER_COMPLETION_ARTIFACTS) {
+      required.add(artifact);
+    }
+  }
   const missing = [...required].filter((relativePath) => !existsSync(
     path.join(projectRoot, relativePath),
   ));
@@ -486,11 +2221,30 @@ export async function assertQualificationPrerequisites(
       + 'Do not treat this as portable coverage or a skipped qualification gate.',
     );
   }
-  if (
-    suite === 'local-verifier-lane'
-    && selected.some((record) => ARTIFACT_QUALIFICATION_TESTS.has(record.relativePath))
-  ) {
-    await assertLocalVerifierArtifactCoherence({ projectRoot });
+  if (suite === 'local-verifier-lane') {
+    const qualified = await assertLocalVerifierArtifactCoherence({
+      projectRoot,
+    });
+    const runtime = await assertLocalVerifierRuntimeCoherence({
+      projectRoot,
+      qualificationEvidenceSha256: qualified.evidenceSha256,
+    });
+    if (
+      runtime.profileId !== qualified.profileId
+      || runtime.instanceId !== qualified.instanceId
+      || runtime.rawQualificationEvidenceSha256
+        !== qualified.evidenceSha256
+      || runtime.proofArtifacts.r1cs !== qualified.r1cs
+      || runtime.proofArtifacts.witnessWasm !== qualified.wasm
+      || runtime.proofArtifacts.provingKey !== qualified.zkey
+      || runtime.proofArtifacts.verificationKey !== qualified.verificationKey
+    ) {
+      fail(
+        'local verifier runtime coherence is BLOCKED: the completed PF10 '
+        + 'runtime does not bind the current qualification identity and proof '
+        + 'artifacts. Cleanly regenerate the complete artifact set.',
+      );
+    }
   }
 }
 
@@ -500,6 +2254,9 @@ function missingQualificationPrerequisites(selected, projectRoot) {
     for (const artifact of ARTIFACT_QUALIFICATION_TESTS.get(record.relativePath) ?? []) {
       required.add(artifact);
     }
+  }
+  for (const artifact of LOCAL_VERIFIER_COMPLETION_ARTIFACTS) {
+    required.add(artifact);
   }
   return [...required].filter((relativePath) => !existsSync(
     path.join(projectRoot, relativePath),
@@ -533,6 +2290,89 @@ function assertNoPartialDevelopmentArtifacts(projectRoot) {
       `local verifier artifact provisioning is BLOCKED by incomplete generated state: ${JSON.stringify(present)}. `
       + 'Refuse to mix a partial development circuit/proof set with a new qualification run.',
     );
+  }
+}
+
+function assertNoResidualDevelopmentTransientRoots(projectRoot) {
+  const present = DEVELOPMENT_TRANSIENT_ROOTS.filter((relativePath) =>
+    existsSync(path.join(projectRoot, relativePath)));
+  if (present.length > 0) {
+    fail(
+      `local verifier artifact provisioning is BLOCKED by residual private `
+      + `temporary state: ${JSON.stringify(present)}. Inspect the prior failed `
+      + 'run; do not silently reuse its completed outputs.',
+    );
+  }
+}
+
+/**
+ * Serialize the expensive local verifier provisioner with a private,
+ * repository-local mkdir lock. A crashed process intentionally leaves a
+ * fail-closed lock that must be inspected before manual removal.
+ */
+export async function withLocalVerifierProvisionLock(
+  consume,
+  { repositoryRoot = path.resolve(project, '..') } = {},
+) {
+  if (typeof consume !== 'function') {
+    fail('local verifier provision lock consumer must be a function');
+  }
+  const repository = canonicalNonSymlinkDirectory(
+    repositoryRoot,
+    'local verifier provision repository root',
+  );
+  const artifactRoot = path.join(repository, '.codex-build');
+  try {
+    mkdirSync(artifactRoot, { recursive: false, mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  const canonicalArtifactRoot = canonicalNonSymlinkDirectory(
+    artifactRoot,
+    'local verifier provision artifact root',
+  );
+  const artifactRootMetadata = lstatSync(canonicalArtifactRoot);
+  if ((artifactRootMetadata.mode & 0o777) !== 0o700) {
+    fail('local verifier provision artifact root must have mode 0700');
+  }
+  const lockDirectory = path.join(
+    canonicalArtifactRoot,
+    'v2-local-verifier-provision.lock',
+  );
+  try {
+    mkdirSync(lockDirectory, { recursive: false, mode: 0o700 });
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      fail(
+        'local verifier artifact provisioning is BLOCKED: another provisioner '
+        + 'is active or left a stale lock; inspect '
+        + posix(path.relative(repository, lockDirectory)),
+      );
+    }
+    throw error;
+  }
+  let operationError;
+  try {
+    return await consume(Object.freeze({ lockDirectory }));
+  } catch (error) {
+    operationError = error;
+    throw error;
+  } finally {
+    try {
+      rmdirSync(lockDirectory);
+    } catch (cleanupError) {
+      const message =
+        'local verifier provision lock cleanup failed; the stale lock remains '
+        + `at ${posix(path.relative(repository, lockDirectory))}`;
+      if (operationError !== undefined) {
+        throw new AggregateError(
+          [operationError, cleanupError],
+          message,
+          { cause: operationError },
+        );
+      }
+      fail(message);
+    }
   }
 }
 
@@ -600,16 +2440,75 @@ export function developmentProofQualificationArguments(
   ]);
 }
 
+export function pf10LibauthQualificationArguments(
+  projectRoot,
+  {
+    output,
+    profileCore,
+    qualificationRoot,
+    r1cs,
+    setupMetadata,
+    temporaryRoot,
+    verificationKey,
+    wasm,
+    zkey,
+  },
+) {
+  return Object.freeze([
+    path.join(projectRoot, 'scripts/v2-pf10-libauth-qualification.mjs'),
+    '--output', output,
+    '--profile-core', profileCore,
+    '--qualification-root', qualificationRoot,
+    '--r1cs', r1cs,
+    '--setup-metadata', setupMetadata,
+    '--temporary-root', temporaryRoot,
+    '--verification-key', verificationKey,
+    '--wasm', wasm,
+    '--zkey', zkey,
+  ]);
+}
+
+export function pf10DevelopmentRuntimeArguments(
+  projectRoot,
+  {
+    instanceId,
+    output,
+    profileCore,
+    profilePackage,
+    qualificationEvidence,
+    libauthEvidence,
+    temporaryRoot,
+  },
+) {
+  return Object.freeze([
+    path.join(projectRoot, 'scripts/v2-pf10-development-runtime.mjs'),
+    '--instance-id', instanceId,
+    '--output', output,
+    '--profile-core', profileCore,
+    '--profile-package', profilePackage,
+    '--qualification-evidence', qualificationEvidence,
+    '--libauth-evidence', libauthEvidence,
+    '--temporary-root', temporaryRoot,
+  ]);
+}
+
 async function provisionMissingLocalVerifierArtifacts({ projectRoot, selected }) {
-  const initialMissing = missingQualificationPrerequisites(selected, projectRoot);
-  if (initialMissing.length === 0) return Object.freeze({ provisioned: false, missing: [] });
-  assertNoPartialDevelopmentArtifacts(projectRoot);
+  const repositoryRoot = path.resolve(projectRoot, '..');
+  return withLocalVerifierProvisionLock(async () => {
+    const initialMissing = missingQualificationPrerequisites(
+      selected,
+      projectRoot,
+    );
+    if (initialMissing.length === 0) {
+      assertNoResidualDevelopmentTransientRoots(projectRoot);
+      return Object.freeze({ provisioned: false, missing: [] });
+    }
+    assertNoPartialDevelopmentArtifacts(projectRoot);
   runProvisionCommand('npm', ['run', 'unlock-builder:setup'], { cwd: path.resolve(projectRoot, '..') });
   runProvisionCommand(process.execPath, [
     path.join(projectRoot, 'scripts/v2-circuit-model.mjs'),
   ], { cwd: projectRoot });
 
-  const repositoryRoot = path.resolve(projectRoot, '..');
   const artifactRoot = path.resolve(projectRoot, '..', '.codex-build');
   const ptauDirectory = path.join(artifactRoot, 'v2-dev-ptau');
   const pot0 = path.join(ptauDirectory, 'pot19_0000.ptau');
@@ -692,6 +2591,18 @@ async function provisionMissingLocalVerifierArtifacts({ projectRoot, selected })
     .digest('hex');
   const maximumLiveNotes = '32';
   const profileCore = path.join(profileDirectory, 'profile-core.json');
+  const libauthQualificationDirectory = path.join(
+    artifactRoot,
+    'v2-pf10-libauth-qualification',
+  );
+  const libauthTemporaryRoot = path.join(
+    artifactRoot,
+    'v2-pf10-libauth-tmp',
+  );
+  const runtimeTemporaryRoot = path.join(
+    artifactRoot,
+    'v2-pf10-runtime-tmp',
+  );
   runProvisionCommand(
     process.execPath,
     developmentProofQualificationArguments(projectRoot, {
@@ -701,19 +2612,44 @@ async function provisionMissingLocalVerifierArtifacts({ projectRoot, selected })
     }),
     { cwd: projectRoot },
   );
-  runProvisionCommand(process.execPath, [
-    path.join(projectRoot, 'scripts/v2-pf10-development-runtime.mjs'),
-    '--instance-id', instanceId,
-    '--output', path.join(artifactRoot, 'v2-pf10-development-runtime'),
-    '--profile-core', profileCore,
-    '--profile-package', path.join(profileDirectory, 'profile-package.json'),
-    '--qualification-evidence', path.join(
-      qualificationDirectory,
-      'qualification-evidence.json',
-    ),
-    '--temporary-root', path.join(artifactRoot, 'v2-pf10-runtime-tmp'),
-  ], { cwd: projectRoot });
+  runProvisionCommand(
+    process.execPath,
+    pf10LibauthQualificationArguments(projectRoot, {
+      output: libauthQualificationDirectory,
+      profileCore,
+      qualificationRoot: qualificationDirectory,
+      r1cs,
+      setupMetadata: path.join(setupDirectory, 'setup-metadata.json'),
+      temporaryRoot: libauthTemporaryRoot,
+      verificationKey: path.join(setupDirectory, 'verification_key.json'),
+      wasm,
+      zkey: path.join(setupDirectory, 'final.zkey'),
+    }),
+    { cwd: projectRoot },
+  );
+  rmSync(libauthTemporaryRoot, { recursive: true, force: false });
+  runProvisionCommand(
+    process.execPath,
+    pf10DevelopmentRuntimeArguments(projectRoot, {
+      instanceId,
+      output: path.join(artifactRoot, 'v2-pf10-development-runtime'),
+      profileCore,
+      profilePackage: path.join(profileDirectory, 'profile-package.json'),
+      qualificationEvidence: path.join(
+        qualificationDirectory,
+        'qualification-evidence.json',
+      ),
+      libauthEvidence: path.join(
+        libauthQualificationDirectory,
+        'libauth.json',
+      ),
+      temporaryRoot: runtimeTemporaryRoot,
+    }),
+    { cwd: projectRoot },
+  );
+  rmSync(runtimeTemporaryRoot, { recursive: true, force: false });
   return Object.freeze({ provisioned: true, missing: initialMissing });
+  }, { repositoryRoot });
 }
 
 export async function ensureLocalVerifierQualificationArtifacts(
@@ -932,8 +2868,8 @@ export function removeDomainTestTemporaryDirectory(temporary) {
  * Return the process-supervisor deadline for one classified test file.
  *
  * The portable default deliberately remains short. Slow qualification tests
- * must be registered by exact path in LOCAL_CAMPAIGN_TESTS and selected by a
- * mandatory, named campaign suite before they can receive a longer deadline.
+ * must be registered by exact path or explicit classification and selected by
+ * a mandatory qualification suite before they receive a longer deadline.
  */
 export function fileTimeoutForDomainTest(record, { defaultTimeoutMs = 180_000 } = {}) {
   if (!Number.isSafeInteger(defaultTimeoutMs) || defaultTimeoutMs <= 0) {
@@ -942,7 +2878,9 @@ export function fileTimeoutForDomainTest(record, { defaultTimeoutMs = 180_000 } 
   if (record === null || typeof record !== 'object' || typeof record.classification !== 'string') {
     fail('test record must have a classification');
   }
-  return FILE_TIMEOUT_MS_BY_CLASSIFICATION[record.classification] ?? defaultTimeoutMs;
+  return FILE_TIMEOUT_MS_BY_PATH.get(record.relativePath)
+    ?? FILE_TIMEOUT_MS_BY_CLASSIFICATION[record.classification]
+    ?? defaultTimeoutMs;
 }
 
 export function runSelectedDomainTests(

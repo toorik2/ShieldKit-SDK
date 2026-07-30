@@ -291,6 +291,17 @@ const unlockForTrace = (candidateTrace) => {
   });
 };
 
+test('PF10 Miller genesis canonicalizes a negative modular representative before serializing its successor head', () => {
+  assert.match(
+    millerSource,
+    /aL = \(mulFp\(mulFp\(fC, fC\), pf0\) \+ P\) % P;/u,
+  );
+  assert.doesNotMatch(
+    millerSource,
+    /aL = mulFp\(mulFp\(fC, fC\), pf0\);/u,
+  );
+});
+
 test('PF10-FusedQGenesis role 8 composes final exact MSM and total Miller genesis under BCH-2026', () => {
   const outcome = evaluate();
   console.log(JSON.stringify({

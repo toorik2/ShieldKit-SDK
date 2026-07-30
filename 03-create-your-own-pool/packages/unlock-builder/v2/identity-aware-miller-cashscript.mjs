@@ -396,7 +396,12 @@ export function renderDirectV2IdentityAwareMillerGenesis({
   source.push(`        if (qInf == 0) { pf0 = mulFp(pf0, ${lineEvaluation(fixed.gamma.coefficients, 'Qx', 'Qy')}); }`);
   source.push(`        pf0 = mulFp(pf0, ${lineEvaluation(fixed.delta.coefficients, 'Cx', 'Cy')});`);
   source.push(`        int fn0 = ${dot(endpointNames)};`);
-  source.push('        aL = mulFp(mulFp(fC, fC), pf0);');
+  // Script's remainder keeps the dividend sign. A congruent negative pf0
+  // therefore makes mulFp return a negative representative; canonicalize the
+  // serialized boundary value so it matches the JS field encoding.
+  source.push(
+    '        aL = (mulFp(mulFp(fC, fC), pf0) + P) % P;',
+  );
   source.push('        aF = fn0;');
   source.push('        gP = gammaW;');
   source.push(`        h = hash256(h + 0x00000002 + 0x00000180 + ${balanced(endpointNames.map(be))});`);

@@ -10,12 +10,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      run_local_verifier_qualification:
-        description: Run development-only local verifier artifact provisioning and lane tests
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -164,12 +158,13 @@ jobs:
         run: npm run test:qualification:local-covenants
 
   local-verifier-lane:
-    name: Development-only pinned verifier-lane qualification
-    # This consumes development-only ignored proof artifacts. It is deliberately
-    # opt-in and is not evidence for an external or release gate.
-    if: github.event_name == 'workflow_dispatch' && inputs.run_local_verifier_qualification
+    name: Mandatory development-only pinned verifier-lane qualification
+    # This mandatory internal gate rebuilds ignored development-only proof
+    # artifacts from the tracked source and lockfiles. It is not evidence for an
+    # external or release gate. The full power-19 phase-2 transform must also
+    # complete on lower-core hosted runners, so retain the platform maximum.
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 360
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

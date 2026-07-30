@@ -86,6 +86,9 @@ export const PF10_RUNTIME_MANIFEST_ARTIFACT_ID =
   'pf10-runtime-material';
 export const PF10_CANONICAL_QUALIFICATION_RECORD_SCHEMA =
   'shieldkit-v2-direct-pf10-canonical-qualification-record-v1';
+export const PF10_UNSIGNED_RUNTIME_REFERENCE_VALIDATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-unsigned-runtime-reference-validation-v1';
+export const PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT = 27;
 export const PROFILE_CORE_MANIFEST_ARTIFACT_ID = 'profile-core';
 export {
   RECOVERY_SCANNER_ARTIFACT_SCHEMA,
@@ -1378,6 +1381,133 @@ function parsePf10RuntimeArtifact(value, pins) {
   });
 }
 
+function unsignedRuntimeArtifactEntries(value) {
+  if (
+    value === null
+    || Array.isArray(value)
+    || typeof value !== 'object'
+    || Object.getPrototypeOf(value) !== Object.prototype
+  ) {
+    fail('unsigned PF10 runtime artifactEntries must be a plain object');
+  }
+  const entries = {};
+  for (const artifactId of Object.keys(value)) {
+    if (!ARTIFACT_ID.test(artifactId)) {
+      fail('unsigned PF10 runtime artifactEntries has a noncanonical artifact ID');
+    }
+    const entry = value[artifactId];
+    exactKeys(
+      entry,
+      `unsigned PF10 runtime artifactEntries.${artifactId}`,
+      ['id', 'sha256'],
+    );
+    if (entry.id !== artifactId || !ARTIFACT_ID.test(entry.id)) {
+      fail(
+        `unsigned PF10 runtime artifactEntries.${artifactId}.id must equal its canonical map key`,
+      );
+    }
+    entries[artifactId] = Object.freeze({
+      id: artifactId,
+      sha256: hex32(
+        entry.sha256,
+        `unsigned PF10 runtime artifactEntries.${artifactId}.sha256`,
+      ),
+    });
+  }
+  return Object.freeze(entries);
+}
+
+function pf10RuntimeReferencedArtifactIds(runtime) {
+  return Object.freeze([
+    runtime.profileArtifacts.profileCore,
+    runtime.profileArtifacts.profilePackage,
+    runtime.profileArtifacts.baseVerifierManifest,
+    runtime.profileArtifacts.topologySpec,
+    runtime.profileArtifacts.toolchainManifest,
+    runtime.attestationArtifacts.circuitBuildAttestation,
+    runtime.attestationArtifacts.developmentSetupAttestation,
+    runtime.attestationArtifacts.relationManifest,
+    runtime.setupArtifacts.circuitSymbols,
+    runtime.setupArtifacts.initialProvingKey,
+    runtime.setupArtifacts.powersOfTau,
+    runtime.proofArtifacts.provingKey,
+    runtime.proofArtifacts.r1cs,
+    runtime.proofArtifacts.verificationKey,
+    runtime.proofArtifacts.wasm,
+    runtime.unlockArtifacts.executorBody,
+    ...runtime.unlockArtifacts.exactMsmRedeems,
+    ...runtime.unlockArtifacts.fixedCarrierPads,
+    runtime.unlockArtifacts.fusedRedeem,
+    runtime.unlockArtifacts.terminalRedeem,
+    runtime.qualificationEvidenceArtifactId,
+    runtime.rawQualificationEvidenceArtifactId,
+    runtime.libauthEvidenceArtifactId,
+  ]);
+}
+
+/**
+ * Validate the complete development-runtime reference topology before an
+ * unsigned package is signed or passed to a broader descriptor resolver.
+ *
+ * `artifactEntries` is deliberately the exact 27-entry reference map, not an
+ * artifact manifest: every record is `{ id, sha256 }`, every map key must be
+ * its record's canonical ID, and no unreferenced entry is accepted. The
+ * runtime artifact's own `pf10-runtime-material` record, final-lock records,
+ * and reproducibility records are outside this runtime-reference boundary.
+ * The result returns only normalized IDs, never paths, bytes, or an execution
+ * capability.
+ */
+export function validateV2UnsignedPf10RuntimeArtifactReferences(value) {
+  exactKeys(value, 'unsigned PF10 runtime reference validation options', [
+    'artifactEntries',
+    'instanceId',
+    'profileId',
+    'runtimeArtifact',
+  ]);
+  const profileId = hex32(value.profileId, 'unsigned PF10 runtime profileId');
+  const instanceId = hex32(value.instanceId, 'unsigned PF10 runtime instanceId');
+  const artifactEntries = unsignedRuntimeArtifactEntries(value.artifactEntries);
+  const runtime = parsePf10RuntimeArtifact(value.runtimeArtifact, {
+    artifactEntries,
+    instanceId,
+    profileId,
+  });
+  const referencedArtifactIds = pf10RuntimeReferencedArtifactIds(runtime);
+  if (
+    referencedArtifactIds.length !== PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT
+    || new Set(referencedArtifactIds).size !== referencedArtifactIds.length
+  ) {
+    fail('PF10 runtime artifact normalized reference count is invalid');
+  }
+  const suppliedIds = Object.keys(artifactEntries).sort();
+  const expectedIds = [...referencedArtifactIds].sort();
+  if (
+    suppliedIds.length !== expectedIds.length
+    || suppliedIds.some((artifactId, index) => artifactId !== expectedIds[index])
+  ) {
+    fail(
+      `unsigned PF10 runtime artifactEntries must contain exactly the ${PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT} referenced artifact IDs`,
+    );
+  }
+  return Object.freeze({
+    schema: PF10_UNSIGNED_RUNTIME_REFERENCE_VALIDATION_SCHEMA,
+    eligibility: runtime.eligibility,
+    references: Object.freeze({
+      profileArtifacts: runtime.profileArtifacts,
+      attestationArtifacts: runtime.attestationArtifacts,
+      setupArtifacts: runtime.setupArtifacts,
+      proofArtifacts: runtime.proofArtifacts,
+      unlockArtifacts: runtime.unlockArtifacts,
+      qualificationEvidenceArtifactId: runtime.qualificationEvidenceArtifactId,
+      rawQualificationEvidenceArtifactId:
+        runtime.rawQualificationEvidenceArtifactId,
+      libauthEvidenceArtifactId: runtime.libauthEvidenceArtifactId,
+    }),
+    referencedArtifactIds,
+    referencedArtifactCount: referencedArtifactIds.length,
+  });
+}
+
 function parsePf10FinalRuntimeArtifact(value, pins) {
   exactKeys(value, 'PF10 final runtime artifact', [
     'buildArtifacts',
@@ -2213,6 +2343,49 @@ function canonicalDevelopmentQualificationRecord(
     );
   }
   return Object.freeze(value);
+}
+
+/**
+ * Validate the two development-only PF10 qualification artifacts before they
+ * are signed into an instance descriptor. This is the unsigned bundle
+ * counterpart of the exact validation performed while resolving a signed
+ * descriptor: the raw v4 evidence is checked against the current identity and
+ * proof pins, then the canonical record is byte- and field-bound to that exact
+ * raw evidence.
+ */
+export function validateV2DevelopmentPf10QualificationArtifacts({
+  canonicalRecordBytes,
+  rawEvidenceBytes,
+  instanceId,
+  maximumLiveNotes,
+  profileCoreSha256,
+  profileId,
+  proofArtifactHashes,
+  denominationSats,
+}) {
+  const rawBytes = Buffer.from(rawEvidenceBytes);
+  const canonicalBytes = Buffer.from(canonicalRecordBytes);
+  const rawEvidence = developmentQualificationEvidence(rawBytes, {
+    instanceId,
+    maximumLiveNotes,
+    profileCoreSha256,
+    profileId,
+    proofArtifactHashes,
+    denominationSats,
+  });
+  const canonicalRecord = canonicalDevelopmentQualificationRecord(
+    canonicalBytes,
+    {
+      rawEvidence,
+      rawEvidenceSha256: sha256(rawBytes),
+    },
+  );
+  return Object.freeze({
+    canonicalRecord,
+    canonicalRecordSha256: sha256(canonicalBytes),
+    rawEvidence,
+    rawEvidenceSha256: sha256(rawBytes),
+  });
 }
 
 /**

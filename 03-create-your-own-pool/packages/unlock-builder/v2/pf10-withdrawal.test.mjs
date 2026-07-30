@@ -724,6 +724,167 @@ const decodeExactLibauthTransaction = (raw, label) => {
   return decoded;
 };
 
+const diagnosticByteSummary = (bytes) => ({
+  bytes: bytes.length,
+  sha256: sha256(bytes).toString('hex'),
+});
+
+const diagnosticScalar = (value) => (
+  typeof value === 'bigint' ? value.toString() : value
+);
+
+const isInput8VmRejection = (error) => (
+  error instanceof Error
+  && /rejected input 8:/u.test(error.message)
+);
+
+test('PF10 failure tracing cannot replace a transaction or non-input-8 VM rejection', () => {
+  assert.equal(
+    isInput8VmRejection(new Error(
+      'installed BCH_2026_STANDARD Libauth rejected input 8: failed',
+    )),
+    true,
+  );
+  assert.equal(
+    isInput8VmRejection(new Error(
+      'installed BCH_2026_STANDARD Libauth rejected input 7: failed',
+    )),
+    false,
+  );
+  assert.equal(
+    isInput8VmRejection(new Error(
+      'installed BCH_2026_STANDARD Libauth rejected the exact resolved transaction',
+    )),
+    false,
+  );
+});
+
+const diagnosticVmState = (state, traceIndex) => ({
+  traceIndex,
+  ip: diagnosticScalar(state.ip),
+  error: state.error ?? null,
+  instruction: state.instruction === undefined
+    ? null
+    : {
+      opcode: state.instruction.opcode,
+      ...(state.instruction.data === undefined
+        ? {}
+        : { data: diagnosticByteSummary(state.instruction.data) }),
+    },
+  stack: {
+    depth: state.stack.length,
+    top: state.stack
+      .slice(-3)
+      .reverse()
+      .map(diagnosticByteSummary),
+  },
+  alternateStackDepth: state.alternateStack?.length ?? null,
+  controlStackDepth: state.controlStack?.length ?? null,
+  metrics: Object.fromEntries(
+    Object.entries(state.metrics ?? {}).map(
+      ([name, value]) => [name, diagnosticScalar(value)],
+    ),
+  ),
+});
+
+const writeInput8FailureTrace = ({
+  actionKind,
+  diagnosticRoot,
+  request,
+}) => {
+  const transaction = decodeExactLibauthTransaction(
+    hexToBin(request.rawTransactionHex),
+    `${actionKind} diagnostic transaction`,
+  );
+  const sourceOutputs = request.inputs.map((input, index) => {
+    const source = decodeExactLibauthTransaction(
+      hexToBin(input.sourceTransactionHex),
+      `${actionKind} diagnostic source transaction ${index}`,
+    );
+    const output = source.outputs[
+      transaction.inputs[index].outpointIndex
+    ];
+    assert.notEqual(
+      output,
+      undefined,
+      `${actionKind} diagnostic source output ${index} is missing`,
+    );
+    return output;
+  });
+  const program = {
+    inputIndex: 8,
+    sourceOutputs,
+    transaction,
+  };
+  const vm = createVirtualMachineBch2026(true);
+  const trace = vm.debug(program, { maskProgramState: true });
+  const failedAt = trace.findIndex(
+    (state) => state.error !== undefined,
+  );
+  assert.notEqual(
+    failedAt,
+    -1,
+    `${actionKind} diagnostic replay did not preserve the VM failure`,
+  );
+  const phaseStarts = trace.flatMap((state, index) => {
+    if (index === 0) return [index];
+    const before =
+      trace[index - 1].metrics?.evaluatedInstructionCount ?? 0;
+    const after = state.metrics?.evaluatedInstructionCount ?? 0;
+    return after < before ? [index] : [];
+  });
+  const phaseIndex = phaseStarts.findLastIndex(
+    (start) => start <= failedAt,
+  );
+  const nearbyStart = Math.max(0, failedAt - 8);
+  const unlockingBytecode =
+    transaction.inputs[8].unlockingBytecode;
+  const result = {
+    schema: 'shieldkit-v2-direct/pf10-input8-debug/v1',
+    actionKind,
+    inputIndex: 8,
+    phase:
+      ['unlocking', 'locking', 'p2sh-redeem'][phaseIndex]
+      ?? `phase-${phaseIndex}`,
+    phaseStarts,
+    traceLength: trace.length,
+    failedAt,
+    precedingState: diagnosticVmState(
+      trace[Math.max(0, failedAt - 1)],
+      Math.max(0, failedAt - 1),
+    ),
+    failureState: diagnosticVmState(trace[failedAt], failedAt),
+    nearbyStates: trace
+      .slice(nearbyStart, failedAt + 1)
+      .map((state, offset) =>
+        diagnosticVmState(state, nearbyStart + offset)),
+    transaction: diagnosticByteSummary(
+      hexToBin(request.rawTransactionHex),
+    ),
+    input8: {
+      unlockingBytecode: diagnosticByteSummary(unlockingBytecode),
+      sourceOutput: {
+        valueSatoshis: sourceOutputs[8].valueSatoshis.toString(),
+        lockingBytecode: diagnosticByteSummary(
+          sourceOutputs[8].lockingBytecode,
+        ),
+      },
+    },
+  };
+  writeFileSync(
+    path.join(
+      diagnosticRoot,
+      `${actionKind}-input8-vm-debug.json`,
+    ),
+    `${JSON.stringify(result, null, 2)}\n`,
+    {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600,
+    },
+  );
+};
+
 const buildConstructedSourceTransaction = ({
   label,
   outputs,
@@ -1593,6 +1754,11 @@ test(
         packet,
         redeem: bindingRedeem,
       });
+      assert.deepEqual(
+        referenceVerifierUnlocks.map((value) => value.length),
+        [...DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES],
+        'reference PF10 verifier unlocks differ from the frozen topology lengths',
+      );
       const productionWitness = buildDirectV2Pf10ActionWitness({
         actionPacket: packet,
         denominationSats: denominationSats.toString(),
@@ -1785,17 +1951,111 @@ test(
           assert.notEqual(typeof signature, 'string');
           return signature;
         },
-        createLocalVmEvidence: (request) =>
-          createV2LocalVmEvidence({
-            ...request,
-            tool: {
-              name: '@bitauth/libauth',
-              version: libauthVersion,
-              vm: 'BCH_2026_STANDARD',
-              profileId,
-              profileSha256: profileCoreSha256,
-            },
-          }),
+        createLocalVmEvidence: (request) => {
+          const diagnosticRoot =
+            process.env.SHIELDKIT_PF10_DIAGNOSTIC_REQUEST_ROOT;
+          if (diagnosticRoot !== undefined) {
+            assert.equal(
+              path.isAbsolute(diagnosticRoot),
+              true,
+              'SHIELDKIT_PF10_DIAGNOSTIC_REQUEST_ROOT must be absolute',
+            );
+            writeFileSync(
+              path.join(
+                diagnosticRoot,
+                `${actionKind}-proof-case.json`,
+              ),
+              `${JSON.stringify({
+                schema:
+                  'shieldkit-v2-direct/pf10-proof-case-debug/v1',
+                actionKind,
+                identity: {
+                  profileId,
+                  instanceId: stateCategoryProtocolHex,
+                  runtimeMaterialSha256:
+                    runtimeMaterial.materialSha256,
+                  proofArtifactHashes,
+                },
+                packet: diagnosticByteSummary(packet),
+                proof: generated.proof,
+                proofSha256: sha256(Buffer.from(
+                  JSON.stringify(generated.proof),
+                )).toString('hex'),
+                publicInputs: generated.publicSignals,
+                input8: {
+                  projectionSignal:
+                    diagnosticByteSummary(projection),
+                  msmState: diagnosticByteSummary(
+                    encodeDirectV2MsmState(msm.states[3]),
+                  ),
+                  zInverseLe32: diagnosticByteSummary(
+                    fieldLe32(msm.output.zInverse),
+                  ),
+                  slope: diagnosticByteSummary(
+                    millerWitness.slope,
+                  ),
+                  endpoint: diagnosticByteSummary(
+                    millerWitness.endpoint,
+                  ),
+                  residue: diagnosticByteSummary(
+                    millerWitness.residue,
+                  ),
+                  unlockingBytecode: diagnosticByteSummary(
+                    productionWitness
+                      .verifierUnlockingBytecodes[8],
+                  ),
+                  redeemBytecode:
+                    diagnosticByteSummary(fusedRedeem),
+                },
+              }, null, 2)}\n`,
+              {
+                encoding: 'utf8',
+                flag: 'wx',
+                mode: 0o600,
+              },
+            );
+            writeFileSync(
+              path.join(diagnosticRoot, `${actionKind}.json`),
+              `${JSON.stringify(request, null, 2)}\n`,
+              {
+                encoding: 'utf8',
+                flag: 'wx',
+                mode: 0o600,
+              },
+            );
+          }
+          try {
+            return createV2LocalVmEvidence({
+              ...request,
+              tool: {
+                name: '@bitauth/libauth',
+                version: libauthVersion,
+                vm: 'BCH_2026_STANDARD',
+                profileId,
+                profileSha256: profileCoreSha256,
+              },
+            });
+          } catch (error) {
+            if (
+              diagnosticRoot !== undefined
+              && isInput8VmRejection(error)
+            ) {
+              try {
+                writeInput8FailureTrace({
+                  actionKind,
+                  diagnosticRoot,
+                  request,
+                });
+              } catch (diagnosticError) {
+                throw new AggregateError(
+                  [error, diagnosticError],
+                  `${actionKind} VM rejection and diagnostic capture both failed`,
+                );
+              }
+            }
+            throw error;
+          }
+        },
       });
       const rawTransaction = hexToBin(signed.rawTransactionHex);
       const parsed = parseV2RawTransaction(signed.rawTransactionHex);
@@ -2304,6 +2564,10 @@ test(
         },
       );
     }
-    console.log(JSON.stringify({ qualificationEvidence }));
+    if (
+      process.env.SHIELDKIT_PF10_DIAGNOSTIC_REQUEST_ROOT === undefined
+    ) {
+      console.log(JSON.stringify({ qualificationEvidence }));
+    }
   },
 );

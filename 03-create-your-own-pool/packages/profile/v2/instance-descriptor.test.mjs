@@ -72,7 +72,11 @@ import {
   loadV2InstanceDescriptor,
   PF10_CANONICAL_QUALIFICATION_RECORD_SCHEMA,
   PF10_RUNTIME_ARTIFACT_SCHEMA,
+  PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT,
+  PF10_UNSIGNED_RUNTIME_REFERENCE_VALIDATION_SCHEMA,
   V2_INSTANCE_VERIFIER_ROLES,
+  validateV2DevelopmentPf10QualificationArtifacts,
+  validateV2UnsignedPf10RuntimeArtifactReferences,
 } from './instance-descriptor.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -711,9 +715,9 @@ const pf10LibauthEvidenceForFixture = ({
       topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
       actionCount: 3,
       actions: [
-        action('deposit', 97_844, 13),
-        action('transfer', 97_844, 13),
-        action('withdrawal', 97_878, 14),
+        action('deposit', 97_852, 13),
+        action('transfer', 97_852, 13),
+        action('withdrawal', 97_886, 14),
       ],
       fixedLineDerivation: {
         digestMutationChecks: [
@@ -749,10 +753,10 @@ const pf10LibauthEvidenceForFixture = ({
         executorBodyBytes: 5_573,
         executorDensityPadBytes: 384,
         fixedLineCarrierBytes: 20_864,
-        fusedRedeemBytes: 6_396,
+        fusedRedeemBytes: 6_404,
         loaderBytes: 108,
-        millerRawBytes: 5_422,
-        millerRedeemBytes: 4_612,
+        millerRawBytes: 5_430,
+        millerRedeemBytes: 4_620,
         rawExecutorBytes: 10_937,
         rawTerminalBytes: 9_359,
         stateHelperBytes: 2_674,
@@ -1282,6 +1286,35 @@ const mutatePf10LibauthEvidence = async (subject, mutate) => {
     Buffer.from(canonicalizeJcs(replacement === undefined ? evidence : replacement)),
   );
 };
+const unsignedPf10RuntimeReferenceInput = async (subject) => {
+  const runtimeArtifact = JSON.parse((await artifactBytes(
+    subject,
+    'pf10-runtime-material',
+  )).toString('utf8'));
+  const referencedArtifactIds = [
+    ...Object.values(runtimeArtifact.profileArtifacts),
+    ...Object.values(runtimeArtifact.attestationArtifacts),
+    ...Object.values(runtimeArtifact.setupArtifacts),
+    ...Object.values(runtimeArtifact.proofArtifacts),
+    runtimeArtifact.unlockArtifacts.executorBodyArtifactId,
+    ...runtimeArtifact.unlockArtifacts.exactMsmRedeemArtifactIds,
+    ...runtimeArtifact.unlockArtifacts.fixedCarrierPadArtifactIds,
+    runtimeArtifact.unlockArtifacts.fusedRedeemArtifactId,
+    runtimeArtifact.unlockArtifacts.terminalRedeemArtifactId,
+    runtimeArtifact.qualificationEvidenceArtifactId,
+    runtimeArtifact.rawQualificationEvidenceArtifactId,
+    runtimeArtifact.libauthEvidenceArtifactId,
+  ];
+  return {
+    profileId: subject.descriptor.profileId,
+    instanceId: subject.descriptor.instanceId,
+    runtimeArtifact,
+    artifactEntries: Object.fromEntries(referencedArtifactIds.map((id) => [
+      id,
+      { id, sha256: artifactHash(subject, id) },
+    ])),
+  };
+};
 const rejects = async (operation, pattern) => await assert.rejects(operation, pattern);
 const load = async (subject, options = {}) => loadV2InstanceDescriptor({
   descriptorPath: subject.descriptorPath,
@@ -1358,6 +1391,55 @@ test('emits distinct raw and canonical PF10 qualification artifacts with exact b
     developmentZkeySha256:
       envelope.evidence.sourceArtifacts.developmentZkey.sha256,
   });
+  const validatedQualification =
+    validateV2DevelopmentPf10QualificationArtifacts({
+      canonicalRecordBytes: Buffer.from(canonicalizeJcs(canonicalRecord)),
+      rawEvidenceBytes: rawBytes,
+      profileId: envelope.evidence.identity.profileId,
+      instanceId: envelope.evidence.identity.instanceId,
+      maximumLiveNotes: envelope.evidence.identity.maximumLiveNotes,
+      denominationSats: envelope.evidence.identity.denominationSats,
+      profileCoreSha256: artifact('profile-core').sha256,
+      proofArtifactHashes: {
+        provingKey:
+          envelope.evidence.sourceArtifacts.developmentZkey.sha256,
+        r1cs: envelope.evidence.sourceArtifacts.r1cs.sha256,
+        verificationKey:
+          envelope.evidence.sourceArtifacts.verificationKey.sha256,
+        wasm: envelope.evidence.sourceArtifacts.wasm.sha256,
+      },
+    });
+  assert.equal(
+    validatedQualification.rawEvidenceSha256,
+    hash(rawBytes),
+  );
+  assert.equal(
+    validatedQualification.canonicalRecordSha256,
+    canonical.sha256,
+  );
+  assert.throws(
+    () => validateV2DevelopmentPf10QualificationArtifacts({
+      canonicalRecordBytes: Buffer.from(canonicalizeJcs({
+        ...canonicalRecord,
+        rawEvidenceSha256: '00'.repeat(32),
+      })),
+      rawEvidenceBytes: rawBytes,
+      profileId: envelope.evidence.identity.profileId,
+      instanceId: envelope.evidence.identity.instanceId,
+      maximumLiveNotes: envelope.evidence.identity.maximumLiveNotes,
+      denominationSats: envelope.evidence.identity.denominationSats,
+      profileCoreSha256: artifact('profile-core').sha256,
+      proofArtifactHashes: {
+        provingKey:
+          envelope.evidence.sourceArtifacts.developmentZkey.sha256,
+        r1cs: envelope.evidence.sourceArtifacts.r1cs.sha256,
+        verificationKey:
+          envelope.evidence.sourceArtifacts.verificationKey.sha256,
+        wasm: envelope.evidence.sourceArtifacts.wasm.sha256,
+      },
+    }),
+    /differs from its signed raw v4 evidence/u,
+  );
   const runtime = JSON.parse(await readFile(path.join(
     subject.directory,
     artifact('pf10-runtime-material').path,
@@ -1486,6 +1568,103 @@ test('unsigned staged PF10 runtime validation returns only semantic digest and e
     () => deriveV2Pf10StoreRuntimeMaterialsSha256(staged),
     /runtime resolution returned by deriveV2Pf10RuntimeFromValidatedDescriptor/,
   );
+});
+
+test('unsigned PF10 runtime reference validation is exact and complete', async (t) => {
+  const subject = await fixture({
+    signed: false,
+    topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+  });
+  await addPf10QualificationEnvelope(subject);
+  const input = await unsignedPf10RuntimeReferenceInput(subject);
+
+  await t.test('returns the full normalized 27-ID development topology', () => {
+    const result = validateV2UnsignedPf10RuntimeArtifactReferences(input);
+    assert.deepEqual(Object.keys(result).sort(), [
+      'eligibility',
+      'referencedArtifactCount',
+      'referencedArtifactIds',
+      'references',
+      'schema',
+    ]);
+    assert.equal(result.schema, PF10_UNSIGNED_RUNTIME_REFERENCE_VALIDATION_SCHEMA);
+    assert.equal(result.eligibility, 'development-only');
+    assert.equal(result.referencedArtifactCount, PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT);
+    assert.equal(result.referencedArtifactIds.length, PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT);
+    assert.equal(
+      new Set(result.referencedArtifactIds).size,
+      PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT,
+    );
+    assert.equal(
+      result.referencedArtifactIds.includes('pf10-runtime-material'),
+      false,
+    );
+    assert.deepEqual(result.references.proofArtifacts, {
+      provingKey: input.runtimeArtifact.proofArtifacts.provingKeyArtifactId,
+      r1cs: input.runtimeArtifact.proofArtifacts.r1csArtifactId,
+      verificationKey:
+        input.runtimeArtifact.proofArtifacts.verificationKeyArtifactId,
+      wasm: input.runtimeArtifact.proofArtifacts.witnessWasmArtifactId,
+    });
+  });
+
+  await t.test('rejects a missing referenced artifact entry', () => {
+    const malformed = structuredClone(input);
+    delete malformed.artifactEntries[
+      malformed.runtimeArtifact.proofArtifacts.r1csArtifactId
+    ];
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences(malformed),
+      /PF10 R1CS is not a signed manifest artifact/,
+    );
+  });
+
+  await t.test('rejects a reused runtime artifact ID', () => {
+    const malformed = structuredClone(input);
+    malformed.runtimeArtifact.proofArtifacts.r1csArtifactId =
+      malformed.runtimeArtifact.proofArtifacts.witnessWasmArtifactId;
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences(malformed),
+      /PF10 runtime artifact references must be unique/,
+    );
+  });
+
+  await t.test('rejects wrong identity and topology', () => {
+    const wrongIdentity = structuredClone(input);
+    wrongIdentity.runtimeArtifact.instanceId = '00'.repeat(32);
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences(wrongIdentity),
+      /identity, topology, or eligibility is invalid/,
+    );
+    const wrongTopology = structuredClone(input);
+    wrongTopology.runtimeArtifact.topologyId = DIRECT_V2_PF11_ORACLE_TOPOLOGY_ID;
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences(wrongTopology),
+      /identity, topology, or eligibility is invalid/,
+    );
+  });
+
+  await t.test('rejects unreferenced supplied entries', () => {
+    const malformed = structuredClone(input);
+    malformed.artifactEntries['unreferenced-artifact'] = {
+      id: 'unreferenced-artifact',
+      sha256: '00'.repeat(32),
+    };
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences(malformed),
+      /must contain exactly the 27 referenced artifact IDs/,
+    );
+  });
+
+  await t.test('rejects unknown wrapper properties', () => {
+    assert.throws(
+      () => validateV2UnsignedPf10RuntimeArtifactReferences({
+        ...input,
+        unexpected: true,
+      }),
+      /unsigned PF10 runtime reference validation options has missing or unknown properties/,
+    );
+  });
 });
 
 test('rejects v2 runtime profile, attestation, and setup tampering before qualification', async (t) => {

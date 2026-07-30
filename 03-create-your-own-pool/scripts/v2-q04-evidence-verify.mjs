@@ -46,6 +46,8 @@ export const Q04_DEPTH4_STATUS =
   'shared-sqlite-bounded-differential-and-symbolic-template-evidence';
 export const Q04_DEPTH4_CHECKER_RESULT_SCHEMA =
   'shieldkit-v2-direct/q04-depth4-rust-certificate-check/v2';
+export const Q04_CAMPAIGN_PROCESSES_SCHEMA =
+  'shieldkit-v2-direct/q04-campaign-processes/v3';
 export const Q04_FR_MODULUS_HEX = '30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001';
 export const Q04_POSEIDON_PROFILE = 'shieldkit-pool-action-v2-direct-poseidon-v1';
 export const Q04_NULLIFIER_DOMAINS = Object.freeze({
@@ -84,6 +86,10 @@ const TOTAL_PROBES = TOTAL_CHECKPOINTS * Q04_REQUIRED_PROBES.length;
 const MAX_EVIDENCE_BYTES = 16 * 1024 * 1024;
 const MAX_REFERENCE_BYTES = 512 * 1024 * 1024;
 const MAX_NDJSON_LINE_BYTES = 2 * 1024 * 1024;
+// Four serial phase measurements are independently rounded upward to integer
+// milliseconds by the campaign. Their combined rounding excess over the
+// outer monotonic clock is strictly below four milliseconds.
+const Q04_RUNTIME_ROUNDING_SLACK_MS = 4;
 const HEX_64 = /^[0-9a-f]{64}$/;
 const HEX_40 = /^[0-9a-f]{40}$/;
 const ERROR_CODE = /^[A-Z][A-Z0-9_]{1,63}$/;
@@ -953,6 +959,144 @@ function validateRuntime(runtime, implementations) {
   );
 }
 
+function validateCampaignProcess(
+  processRecord,
+  label,
+  expectedBinarySha256,
+) {
+  exactKeys(processRecord, label, [
+    'pid',
+    'exitCode',
+    'signal',
+    'stdoutSha256',
+    'stderrSha256',
+    'binarySha256',
+    'buildElapsedMs',
+    'runElapsedMs',
+  ]);
+  positiveInteger(processRecord.pid, `${label}.pid`);
+  exact(processRecord.exitCode, 0, `${label}.exitCode`);
+  exact(processRecord.signal, null, `${label}.signal`);
+  sha256(processRecord.stdoutSha256, `${label}.stdoutSha256`);
+  sha256(processRecord.stderrSha256, `${label}.stderrSha256`);
+  sha256(processRecord.binarySha256, `${label}.binarySha256`);
+  exact(
+    processRecord.binarySha256,
+    expectedBinarySha256,
+    `${label}.binarySha256`,
+  );
+  positiveInteger(processRecord.buildElapsedMs, `${label}.buildElapsedMs`);
+  positiveInteger(processRecord.runElapsedMs, `${label}.runElapsedMs`);
+}
+
+function validateCampaignProcesses(
+  processes,
+  evidence,
+  depth4Certificate,
+) {
+  exactKeys(processes, 'campaign processes', [
+    'schema',
+    'rustKat',
+    'depth4Checker',
+    'histories',
+  ]);
+  exact(
+    processes.schema,
+    Q04_CAMPAIGN_PROCESSES_SCHEMA,
+    'campaign processes.schema',
+  );
+  validateCampaignProcess(
+    processes.rustKat,
+    'campaign processes.rustKat',
+    evidence.implementations.rustKat.binary.sha256,
+  );
+  validateCampaignProcess(
+    processes.depth4Checker,
+    'campaign processes.depth4Checker',
+    evidence.implementations.depth4Checker.binary.sha256,
+  );
+  exact(
+    processes.rustKat.runElapsedMs,
+    evidence.runtime.rustKatElapsedMs,
+    'campaign processes.rustKat.runElapsedMs',
+  );
+  exact(
+    processes.depth4Checker.runElapsedMs,
+    evidence.runtime.depth4CheckerElapsedMs,
+    'campaign processes.depth4Checker.runElapsedMs',
+  );
+  array(processes.histories, 'campaign processes.histories', HISTORY_COUNT);
+  const runnerPids = new Set();
+  processes.histories.forEach((execution, historyIndex) => {
+    const label = `campaign processes.histories[${historyIndex}]`;
+    exactKeys(execution, label, [
+      'historyIndex',
+      'pid',
+      'exitCode',
+      'signal',
+      'configSha256',
+      'transitionArtifact',
+      'stdoutSha256',
+      'stderrSha256',
+    ]);
+    exact(execution.historyIndex, historyIndex, `${label}.historyIndex`);
+    positiveInteger(execution.pid, `${label}.pid`);
+    if (runnerPids.has(execution.pid)) {
+      fail('campaign processes histories must use four distinct runner PIDs');
+    }
+    runnerPids.add(execution.pid);
+    exact(execution.exitCode, 0, `${label}.exitCode`);
+    exact(execution.signal, null, `${label}.signal`);
+    sha256(execution.configSha256, `${label}.configSha256`);
+    exact(
+      execution.configSha256,
+      evidence.histories[historyIndex].configSha256,
+      `${label}.configSha256`,
+    );
+    exactKeys(execution.transitionArtifact, `${label}.transitionArtifact`, [
+      'path',
+      'bytes',
+      'sha256',
+    ]);
+    for (const field of ['path', 'bytes', 'sha256']) {
+      exact(
+        execution.transitionArtifact[field],
+        evidence.histories[historyIndex].transitionArtifact[field],
+        `${label}.transitionArtifact.${field}`,
+      );
+    }
+    sha256(execution.stdoutSha256, `${label}.stdoutSha256`);
+    sha256(execution.stderrSha256, `${label}.stderrSha256`);
+  });
+  nonnegativeNumber(
+    depth4Certificate.elapsedMs,
+    'depth-4 certificate.elapsedMs',
+  );
+  const longestHistoryElapsedMs = Math.max(
+    ...evidence.histories.map((history) => history.measurements.elapsedMs),
+  );
+  const measuredLowerBoundMs =
+    processes.rustKat.buildElapsedMs
+    + processes.rustKat.runElapsedMs
+    + processes.depth4Checker.buildElapsedMs
+    + depth4Certificate.elapsedMs
+    + processes.depth4Checker.runElapsedMs
+    + longestHistoryElapsedMs;
+  if (
+    evidence.runtime.elapsedMs + Q04_RUNTIME_ROUNDING_SLACK_MS
+      < measuredLowerBoundMs
+  ) {
+    fail(
+      'runtime.elapsedMs does not cover all serial build/check phases and the longest concurrent history',
+    );
+  }
+  return Object.freeze({
+    measuredLowerBoundMs,
+    roundingSlackMs: Q04_RUNTIME_ROUNDING_SLACK_MS,
+    historyRunnerPids: Object.freeze([...runnerPids]),
+  });
+}
+
 function validateCommand(command, label, {
   executable,
   executableKind = 'bare',
@@ -1044,9 +1188,19 @@ function validateProvenance(provenance, references, sourceMaterials) {
   );
   sourceList(provenance.campaignSources, 'provenance.campaignSources', Q04_SOURCE_DEFINITIONS.campaign, 'campaign', references, sourceMaterials);
   sourceReference(provenance.nodePackageLock, 'provenance.nodePackageLock', NODE_LOCK_DEFINITION, 'campaign', references, sourceMaterials);
+  const rawOutput = fileReference(
+    provenance.rawOutput,
+    'provenance.rawOutput',
+    references,
+  );
+  exact(
+    rawOutput.path,
+    'raw/campaign-processes.json',
+    'provenance.rawOutput.path',
+  );
   return Object.freeze({
     inputManifest: fileReference(provenance.inputManifest, 'provenance.inputManifest', references),
-    rawOutput: fileReference(provenance.rawOutput, 'provenance.rawOutput', references),
+    rawOutput,
     resultTranscript: fileReference(provenance.resultTranscript, 'provenance.resultTranscript', references),
   });
 }
@@ -1606,15 +1760,21 @@ function validateDocument(evidence) {
       fail(`histories must contain four distinct ${field} values`);
     }
   }
-  const measuredElapsedMs = evidence.histories.reduce((total, history) => total + history.measurements.elapsedMs, 0);
+  // Structure-only sanity bound. The file verifier additionally parses the
+  // hash-bound process transcript and includes both Rust build phases plus the
+  // depth-4 production certificate time. The four histories overlap, so only
+  // their longest lane contributes to wall-clock time.
+  const longestHistoryElapsedMs = Math.max(
+    ...evidence.histories.map((history) => history.measurements.elapsedMs),
+  );
   if (
-    evidence.runtime.elapsedMs <
-      measuredElapsedMs +
+    evidence.runtime.elapsedMs + Q04_RUNTIME_ROUNDING_SLACK_MS <
+      longestHistoryElapsedMs +
       evidence.runtime.rustKatElapsedMs +
       evidence.runtime.depth4CheckerElapsedMs
   ) {
     fail(
-      'runtime.elapsedMs must cover all histories, Rust KAT, and depth-4 checker runtime',
+      'runtime.elapsedMs must cover the longest concurrent history, Rust KAT, and depth-4 checker runtime',
     );
   }
   validateAggregate(evidence.aggregate);
@@ -1642,6 +1802,7 @@ function validateDocument(evidence) {
     parameterSourceReference,
     rustResultReference,
     depth4CheckerResultReference,
+    rawOutputReference: provenanceReferences.rawOutput,
     sourceMaterials: Object.freeze(sourceMaterials),
     depth4References,
     summary: Object.freeze({
@@ -2984,6 +3145,12 @@ export async function verifyQ04EvidenceFile(filename) {
     );
   }
   validateRustKatResult(await strictReferencedJson(bundleRoot, filename, validated.rustResultReference, 'Rust KAT result'));
+  const campaignProcesses = await strictReferencedJson(
+    bundleRoot,
+    filename,
+    validated.rawOutputReference,
+    'campaign process transcript',
+  );
   const depth4Certificate = await strictReferencedJson(
     bundleRoot,
     filename,
@@ -3019,6 +3186,11 @@ export async function verifyQ04EvidenceFile(filename) {
     evidence.depth4,
     evidence.implementations,
   );
+  const campaignProcessEvidence = validateCampaignProcesses(
+    campaignProcesses,
+    evidence,
+    depth4Certificate,
+  );
   const executionSourceBindings = await verifyExecutionSourceBindings(
     validated.sourceMaterials,
   );
@@ -3043,6 +3215,7 @@ export async function verifyQ04EvidenceFile(filename) {
     evidenceBytes: metadata.size,
     depth4BoundedEvidenceVerified: true,
     depth4BoundedEvidence,
+    campaignProcessEvidence,
     executionSourceBindings,
     derivedOperationCounts,
   });

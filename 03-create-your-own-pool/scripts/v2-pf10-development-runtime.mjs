@@ -62,6 +62,8 @@ const OPTIONS = Object.freeze({
   '--temporary-root': Object.freeze({ name: 'temporaryRoot', path: true }),
 });
 const HASH = /^[0-9a-f]{64}$/;
+const compareAscii = (left, right) =>
+  left < right ? -1 : left > right ? 1 : 0;
 
 const sha256 = (value) =>
   createHash('sha256').update(value).digest('hex');
@@ -1068,7 +1070,7 @@ export async function runV2Pf10DevelopmentRuntime(
     canonicalBytes(runtimeArtifact),
   );
 
-  artifacts.sort((left, right) => left.id.localeCompare(right.id));
+  artifacts.sort((left, right) => compareAscii(left.id, right.id));
   const artifactById = new Map(artifacts.map((entry) => [entry.id, entry]));
   const bundleArtifactRecord = (id) => {
     const entry = artifactById.get(id);

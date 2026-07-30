@@ -19,6 +19,7 @@ import test from 'node:test';
 import {
   assertCompleteSelection,
   assertLocalVerifierArtifactCoherence,
+  assertLocalVerifierRuntimeCoherence,
   assertQualificationPrerequisites,
   createDomainTestTemporaryDirectory,
   developmentProofQualificationArguments,
@@ -26,12 +27,34 @@ import {
   DomainTestRunnerError,
   ensureLocalVerifierQualificationArtifacts,
   fileTimeoutForDomainTest,
+  pf10DevelopmentRuntimeArguments,
+  pf10LibauthQualificationArguments,
   preflightTestSources,
   runSelectedDomainTests,
   removeDomainTestTemporaryDirectory,
   selectDomainTests,
+  validateExactDirectV2Pf10StructuralArtifacts,
+  withLocalVerifierProvisionLock,
   withPrivateSetupEntropyFd,
 } from './run-domain-tests.mjs';
+import {
+  buildDirectV2BindingLock,
+  buildDirectV2BindingRedeem,
+  buildDirectV2StateHelper,
+  buildDirectV2StateTrampolineLock,
+  buildDirectV2StateTrampolineUnlock,
+} from '../packages/unlock-builder/v2/structural-covenants.mjs';
+import {
+  deriveV2RollingBaseSats,
+} from '../packages/action/v2/dust-policy.mjs';
+import {
+  DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+  DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+} from '../packages/action/v2/topology.mjs';
+import {
+  deriveProfileId,
+  V2_PROFILE_DOMAINS,
+} from '../packages/profile/v2/profile-core.mjs';
 
 async function fixture(files) {
   const parent = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-test-runner-'));
@@ -48,6 +71,161 @@ async function fixture(files) {
 const passingTest = "import test from 'node:test';\ntest('passes', () => {});\n";
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const evidence = (value) => ({ bytes: Buffer.byteLength(value), sha256: sha256(value) });
+const repeatedHash = (nibble) => nibble.repeat(64);
+
+function structuralProfileCore() {
+  return {
+    schema: 'shieldkit-profile-core-v2-direct',
+    network: { id: 2, name: 'chipnet' },
+    denominationSats: '10000000',
+    proof: {
+      system: 'groth16',
+      curve: 'bn254',
+      relationId: 'shieldkit-pool-action-v2-direct',
+      relationSha256: repeatedHash('1'),
+      r1csSha256: repeatedHash('2'),
+      verificationKeySha256: repeatedHash('3'),
+      witnessWasmSha256: repeatedHash('4'),
+    },
+    trees: {
+      note: {
+        id: 'shieldkit-note-tree-v2-depth32',
+        depth: 32,
+        leafSchemaId: 'shieldkit-note-leaf-v2',
+      },
+      nullifier: {
+        id: 'shieldkit-indexed-nullifier-tree-v2-depth32',
+        depth: 32,
+        leafSchemaId: 'shieldkit-indexed-nullifier-leaf-v2',
+      },
+    },
+    crypto: {
+      babyJubCurveId: 'circomlib-babyjub-base8',
+      poseidonId: 'circomlib-poseidon-bn254',
+      domains: { ...V2_PROFILE_DOMAINS },
+    },
+    encodings: {
+      state: 'shieldkit-pool-state-sks2-native128',
+      packet: 'shieldkit-direct-action-sda2-552',
+      address: 'shieldkit-address-v2-direct',
+      record: 'shieldkit-note-record-v2-direct-128',
+      unlock: 'shieldkit-rolling-bundle-unlock-v2-direct',
+    },
+    publicInputAbi: {
+      id: 'shieldkit-sda2-sha256-be-u128x2',
+      count: 2,
+      limbBits: 128,
+      digest: 'sha256',
+    },
+    baseVerifierArtifacts: [
+      { id: 'pf10-base-verifier-sources', sha256: repeatedHash('5') },
+      { id: 'pf10-topology-spec', sha256: repeatedHash('6') },
+    ],
+    toolchain: [
+      { name: 'circom2', version: '0.2.23', sha256: repeatedHash('7') },
+      { name: 'snarkjs', version: '0.7.6', sha256: repeatedHash('8') },
+    ],
+  };
+}
+
+function p2sh32FixtureLock(byte) {
+  return Buffer.concat([
+    Buffer.from([0xaa, 0x20]),
+    Buffer.alloc(32, byte),
+    Buffer.from([0x87]),
+  ]);
+}
+
+function exactStructuralFixture() {
+  const profileCore = structuralProfileCore();
+  const profileId = deriveProfileId(profileCore);
+  const instanceId = 'ab'.repeat(32);
+  const bindingOptions = {
+    networkId: profileCore.network.id,
+    profileId,
+    stateCategory: instanceId,
+    denominationSats: profileCore.denominationSats,
+    topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+    verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+  };
+  const bindingRedeem = Buffer.from(
+    buildDirectV2BindingRedeem(bindingOptions),
+  );
+  const bindingLock = Buffer.from(buildDirectV2BindingLock(bindingOptions));
+  const verifierLocks = DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.map(
+    (_, index) => p2sh32FixtureLock(index + 1),
+  );
+  const verifierBaseValues = verifierLocks.map((lockingBytecode) =>
+    deriveV2RollingBaseSats({ lockingBytecode }).toString());
+  const bindingBaseValueSats = deriveV2RollingBaseSats({
+    lockingBytecode: bindingLock,
+  }).toString();
+  let stateBaseValueSats = '1000';
+  let helper;
+  let stateLock;
+  let converged = false;
+  for (let iteration = 0; iteration < 8; iteration += 1) {
+    helper = Buffer.from(buildDirectV2StateHelper({
+      bindingLock,
+      verifierLocks,
+      verifierBaseValues,
+      bindingBaseValueSats,
+      stateBaseValueSats,
+      denominationSats: profileCore.denominationSats,
+      stateCategory: instanceId,
+      minimumChangeSats: '546',
+      topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+      verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+    }));
+    stateLock = Buffer.from(buildDirectV2StateTrampolineLock({
+      helper,
+      bindingLock,
+      topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+      verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+    }));
+    const derived = deriveV2RollingBaseSats({
+      lockingBytecode: stateLock,
+      token: {
+        category: Buffer.from(instanceId, 'hex'),
+        amount: 0n,
+        nft: {
+          capability: 'mutable',
+          commitment: Buffer.alloc(128),
+        },
+      },
+    }).toString();
+    if (derived === stateBaseValueSats) {
+      converged = true;
+      break;
+    }
+    stateBaseValueSats = derived;
+  }
+  assert.equal(converged, true);
+  return {
+    profileCore,
+    profileId,
+    instanceId,
+    topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+    verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+    binding: {
+      baseSats: bindingBaseValueSats,
+      lockingBytecode: bindingLock,
+      redeemBytecode: bindingRedeem,
+    },
+    state: {
+      baseSats: stateBaseValueSats,
+      helperBytecode: helper,
+      helperUnlockingBytecode:
+        Buffer.from(buildDirectV2StateTrampolineUnlock(helper)),
+      lockingBytecode: stateLock,
+    },
+    verifiers: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.map((role, index) => ({
+      baseSats: verifierBaseValues[index],
+      lockingBytecode: verifierLocks[index],
+      role,
+    })),
+  };
+}
 
 function observedPrivateFilesystem(observed) {
   return {
@@ -66,6 +244,99 @@ function observedPrivateFilesystem(observed) {
     rm: fsRm,
   };
 }
+
+test('runtime coherence reconstructs every identity-bound structural covenant byte', () => {
+  const subject = exactStructuralFixture();
+  assert.doesNotThrow(() =>
+    validateExactDirectV2Pf10StructuralArtifacts(subject));
+  const mutate = (value) => {
+    const bytes = Buffer.from(value);
+    bytes[Math.floor(bytes.length / 2)] ^= 0x01;
+    return bytes;
+  };
+  for (const [label, candidate, pattern] of [
+    [
+      'binding redeem',
+      {
+        ...subject,
+        binding: {
+          ...subject.binding,
+          redeemBytecode: mutate(subject.binding.redeemBytecode),
+        },
+      },
+      /binding artifacts are not exact/u,
+    ],
+    [
+      'binding lock',
+      {
+        ...subject,
+        binding: {
+          ...subject.binding,
+          lockingBytecode: mutate(subject.binding.lockingBytecode),
+        },
+      },
+      /binding artifacts are not exact/u,
+    ],
+    [
+      'state helper',
+      {
+        ...subject,
+        state: {
+          ...subject.state,
+          helperBytecode: mutate(subject.state.helperBytecode),
+        },
+      },
+      /state helper is not the exact/u,
+    ],
+    [
+      'state helper unlock',
+      {
+        ...subject,
+        state: {
+          ...subject.state,
+          helperUnlockingBytecode:
+            mutate(subject.state.helperUnlockingBytecode),
+        },
+      },
+      /state helper unlock is not canonical/u,
+    ],
+    [
+      'state lock',
+      {
+        ...subject,
+        state: {
+          ...subject.state,
+          lockingBytecode: mutate(subject.state.lockingBytecode),
+        },
+      },
+      /state lock is not the exact/u,
+    ],
+    [
+      'verifier lock',
+      {
+        ...subject,
+        verifiers: subject.verifiers.map((entry, index) =>
+          index === 0
+            ? { ...entry, lockingBytecode: mutate(entry.lockingBytecode) }
+            : entry),
+      },
+      /state helper is not the exact/u,
+    ],
+  ]) {
+    assert.throws(
+      () => validateExactDirectV2Pf10StructuralArtifacts(candidate),
+      pattern,
+      label,
+    );
+  }
+  assert.throws(
+    () => validateExactDirectV2Pf10StructuralArtifacts({
+      ...subject,
+      profileId: repeatedHash('0'),
+    }),
+    /structural profile ID is invalid/u,
+  );
+});
 
 test('private setup entropy uses one private fd and removes it on success and failure', async () => {
   const parent = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-entropy-parent-'));
@@ -99,6 +370,99 @@ test('private setup entropy uses one private fd and removes it on success and fa
   await fsRm(parent, { recursive: true, force: true });
 });
 
+test('local verifier provisioning uses one exclusive fail-closed lock', async () => {
+  const repositoryRoot = await mkdtemp(path.join(
+    os.tmpdir(),
+    'shieldkit-provision-lock-',
+  ));
+  let releaseFirst;
+  let enteredFirst;
+  const firstEntered = new Promise((resolve) => {
+    enteredFirst = resolve;
+  });
+  const release = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const first = withLocalVerifierProvisionLock(async ({ lockDirectory }) => {
+    assert.equal(
+      path.dirname(lockDirectory),
+      path.join(repositoryRoot, '.codex-build'),
+    );
+    enteredFirst();
+    await release;
+    return 'first-complete';
+  }, { repositoryRoot });
+  await firstEntered;
+  await assert.rejects(
+    () => withLocalVerifierProvisionLock(
+      async () => 'must-not-enter',
+      { repositoryRoot },
+    ),
+    /another provisioner is active or left a stale lock/,
+  );
+  releaseFirst();
+  assert.equal(await first, 'first-complete');
+  await assert.rejects(
+    () => withLocalVerifierProvisionLock(
+      async () => {
+        throw new Error('injected provision failure');
+      },
+      { repositoryRoot },
+    ),
+    /injected provision failure/,
+  );
+  assert.deepEqual(
+    await readdir(path.join(repositoryRoot, '.codex-build')),
+    [],
+  );
+  const staleLock = path.join(
+    repositoryRoot,
+    '.codex-build/v2-local-verifier-provision.lock',
+  );
+  await mkdir(staleLock, { mode: 0o700 });
+  await assert.rejects(
+    () => withLocalVerifierProvisionLock(
+      async () => 'must-not-enter-stale',
+      { repositoryRoot },
+    ),
+    /another provisioner is active or left a stale lock/,
+  );
+  await fsRm(staleLock, { recursive: true, force: false });
+  await assert.rejects(
+    () => withLocalVerifierProvisionLock(
+      async ({ lockDirectory }) => {
+        await writeFile(path.join(lockDirectory, 'unexpected-entry'), 'owned');
+        throw new Error('injected provision and cleanup failure');
+      },
+      { repositoryRoot },
+    ),
+    (error) =>
+      error instanceof AggregateError
+      && /stale lock remains/.test(error.message)
+      && error.errors.some((entry) =>
+        /injected provision and cleanup failure/.test(entry.message)),
+  );
+  await fsRm(staleLock, { recursive: true, force: false });
+  await assert.doesNotReject(() => withLocalVerifierProvisionLock(
+    async () => 'second-complete',
+    { repositoryRoot },
+  ));
+  assert.deepEqual(
+    await readdir(path.join(repositoryRoot, '.codex-build')),
+    [],
+  );
+  await fsChmod(path.join(repositoryRoot, '.codex-build'), 0o500);
+  await assert.rejects(
+    () => withLocalVerifierProvisionLock(
+      async () => 'must-not-enter-noncanonical-mode',
+      { repositoryRoot },
+    ),
+    /artifact root must have mode 0700/u,
+  );
+  await fsChmod(path.join(repositoryRoot, '.codex-build'), 0o700);
+  await fsRm(repositoryRoot, { recursive: true, force: true });
+});
+
 test('development qualification invocation binds the completed profile and exact qualified instance', () => {
   const profileCore = '../.codex-build/v2-development-profile/profile-core.json';
   const instanceId = 'ab'.repeat(32);
@@ -121,6 +485,54 @@ test('development qualification invocation binds the completed profile and exact
     '--output', '../.codex-build/v2-dev-proof-qualification',
   ]);
   assert.equal(args.filter((value) => value === '--single-thread').length, 1);
+});
+
+test('PF10 Libauth evidence is generated before and explicitly bound into the runtime', () => {
+  const paths = Object.freeze({
+    output: '/repository/.codex-build/v2-pf10-libauth-qualification',
+    profileCore: '/repository/.codex-build/v2-development-profile/profile-core.json',
+    qualificationRoot: '/repository/.codex-build/v2-dev-proof-qualification',
+    r1cs: '/repository/.codex-build/v2-circuit-model/main-chipnet.r1cs',
+    setupMetadata: '/repository/.codex-build/v2-dev-groth16/setup-metadata.json',
+    temporaryRoot: '/repository/.codex-build/v2-pf10-libauth-tmp',
+    verificationKey: '/repository/.codex-build/v2-dev-groth16/verification_key.json',
+    wasm: '/repository/.codex-build/v2-circuit-model/main-chipnet_js/main-chipnet.wasm',
+    zkey: '/repository/.codex-build/v2-dev-groth16/final.zkey',
+  });
+  const libauth = pf10LibauthQualificationArguments(
+    '/repository/03-create-your-own-pool',
+    paths,
+  );
+  assert.deepEqual(libauth, [
+    '/repository/03-create-your-own-pool/scripts/v2-pf10-libauth-qualification.mjs',
+    '--output', paths.output,
+    '--profile-core', paths.profileCore,
+    '--qualification-root', paths.qualificationRoot,
+    '--r1cs', paths.r1cs,
+    '--setup-metadata', paths.setupMetadata,
+    '--temporary-root', paths.temporaryRoot,
+    '--verification-key', paths.verificationKey,
+    '--wasm', paths.wasm,
+    '--zkey', paths.zkey,
+  ]);
+
+  const libauthEvidence = path.join(paths.output, 'libauth.json');
+  const runtime = pf10DevelopmentRuntimeArguments(
+    '/repository/03-create-your-own-pool',
+    {
+      instanceId: 'ab'.repeat(32),
+      output: '/repository/.codex-build/v2-pf10-development-runtime',
+      profileCore: paths.profileCore,
+      profilePackage:
+        '/repository/.codex-build/v2-development-profile/profile-package.json',
+      qualificationEvidence:
+        '/repository/.codex-build/v2-dev-proof-qualification/qualification-evidence.json',
+      libauthEvidence,
+      temporaryRoot: '/repository/.codex-build/v2-pf10-runtime-tmp',
+    },
+  );
+  assert.equal(runtime[runtime.indexOf('--libauth-evidence') + 1], libauthEvidence);
+  assert.equal(runtime.filter((value) => value === '--libauth-evidence').length, 1);
 });
 
 test('local verifier provisioning is an attested PF10-only pipeline in dependency order', async () => {
@@ -159,12 +571,11 @@ test('local verifier provisioning is an attested PF10-only pipeline in dependenc
     "'--setup-attestation'",
     "'--verification-key'",
     "'--wasm'",
-    "path.join(projectRoot, 'scripts/v2-pf10-development-runtime.mjs')",
-    "'--instance-id'",
-    "'--profile-core'",
-    "'--profile-package'",
-    "'--qualification-evidence'",
-    "'--temporary-root'",
+    'pf10LibauthQualificationArguments(projectRoot,',
+    'libauthEvidence: path.join(',
+    'pf10DevelopmentRuntimeArguments(projectRoot,',
+    'rmSync(libauthTemporaryRoot,',
+    'rmSync(runtimeTemporaryRoot,',
   ];
   for (const fragment of requiredFragments) {
     assert.ok(provisioner.includes(fragment), `provisioning omits required fragment: ${fragment}`);
@@ -184,7 +595,8 @@ test('local verifier provisioning is an attested PF10-only pipeline in dependenc
     'initializeDevelopmentGroth16({',
     "path.join(projectRoot, 'scripts/v2-development-profile.mjs')",
     'developmentProofQualificationArguments(projectRoot,',
-    "path.join(projectRoot, 'scripts/v2-pf10-development-runtime.mjs')",
+    'pf10LibauthQualificationArguments(projectRoot,',
+    'pf10DevelopmentRuntimeArguments(projectRoot,',
   ];
   let previous = -1;
   for (const stage of orderedStages) {
@@ -275,11 +687,165 @@ async function materializeCoherentDirectV2Artifacts(root) {
     schema: 'shieldkit-v2-direct-development-groth16-qualification-v4',
     evidenceClass: 'deterministic-development-key-proof-test-evidence',
     claims: { developmentKey: true, finalKey: false, bchVm: false, production: false },
+    identity: {
+      profileId: '12'.repeat(32),
+      instanceId: '34'.repeat(32),
+    },
     sourceArtifacts,
     actions,
   };
   await writeFile(files.qualification, JSON.stringify(qualification));
-  return files;
+  return Object.freeze({
+    ...files,
+    ...await materializeCoherentRuntimeArtifacts(root, source),
+  });
+}
+
+async function materializeCoherentRuntimeArtifacts(root, source) {
+  const artifactRoot = path.resolve(root, '../.codex-build');
+  const libauthRoot = path.join(
+    artifactRoot,
+    'v2-pf10-libauth-qualification',
+  );
+  const runtimeRoot = path.join(
+    artifactRoot,
+    'v2-pf10-development-runtime',
+  );
+  const profileId = '12'.repeat(32);
+  const instanceId = '34'.repeat(32);
+  const sourceEvidence = {
+    schema: 'shieldkit-v2-direct-pf10-local-libauth-evidence-v2',
+    eligibility: 'development-only',
+    claims: {
+      libauthBch2026: true,
+      finalKey: false,
+      production: false,
+      releaseQualified: false,
+    },
+    identity: { profileId, instanceId },
+  };
+  const sourceBytes = Buffer.from(JSON.stringify(sourceEvidence));
+  const sourceSha256 = sha256(sourceBytes);
+  await mkdir(libauthRoot, { recursive: true });
+  const sourceEvidencePath = path.join(libauthRoot, 'libauth.json');
+  await writeFile(sourceEvidencePath, sourceBytes);
+  await writeFile(
+    path.join(libauthRoot, 'qualification-summary.json'),
+    JSON.stringify({
+      schema: 'shieldkit-v2-direct-pf10-local-libauth-qualification-v2',
+      eligibility: 'development-only',
+      evidence: {
+        path: 'libauth.json',
+        bytes: sourceBytes.length,
+        sha256: sourceSha256,
+      },
+    }),
+  );
+  await writeFile(
+    path.join(libauthRoot, 'publication-complete.json'),
+    '{}',
+  );
+
+  const runtimeMaterialPath = path.join(
+    runtimeRoot,
+    'runtime/pf10-runtime-material.json',
+  );
+  const bundledLibauthPath = path.join(
+    runtimeRoot,
+    'qualification/pf10-libauth-evidence.json',
+  );
+  const runtimeMaterial = Buffer.from('{"runtime":"fixture"}');
+  await mkdir(path.dirname(runtimeMaterialPath), { recursive: true });
+  await mkdir(path.dirname(bundledLibauthPath), { recursive: true });
+  await writeFile(runtimeMaterialPath, runtimeMaterial);
+  await writeFile(bundledLibauthPath, sourceBytes);
+  const proofFixture = Object.freeze({
+    provingKey: Object.freeze({
+      id: 'proof-proving-key',
+      path: 'proof/proving-key.bin',
+      bytes: Buffer.from(source.developmentZkey),
+    }),
+    r1cs: Object.freeze({
+      id: 'proof-r1cs',
+      path: 'proof/r1cs.bin',
+      bytes: Buffer.from(source.r1cs),
+    }),
+    verificationKey: Object.freeze({
+      id: 'proof-verification-key',
+      path: 'proof/verification-key.json',
+      bytes: Buffer.from(source.verificationKey),
+    }),
+    witnessWasm: Object.freeze({
+      id: 'proof-witness-wasm',
+      path: 'proof/witness.wasm',
+      bytes: Buffer.from(source.wasm),
+    }),
+  });
+  await Promise.all(Object.values(proofFixture).map(async (record) => {
+    const filename = path.join(runtimeRoot, record.path);
+    await mkdir(path.dirname(filename), { recursive: true });
+    await writeFile(filename, record.bytes);
+  }));
+  const artifacts = [
+    {
+      id: 'pf10-libauth-evidence',
+      path: 'qualification/pf10-libauth-evidence.json',
+      sha256: sourceSha256,
+    },
+    {
+      id: 'pf10-runtime-material',
+      path: 'runtime/pf10-runtime-material.json',
+      sha256: sha256(runtimeMaterial),
+    },
+    ...Object.values(proofFixture).map((record) => ({
+      id: record.id,
+      path: record.path,
+      sha256: sha256(record.bytes),
+    })),
+  ];
+  const libauthArtifact = {
+    ...artifacts[0],
+    bytes: sourceBytes.length,
+  };
+  const runtimeManifestPath = path.join(
+    runtimeRoot,
+    'runtime-build-manifest.json',
+  );
+  await writeFile(runtimeManifestPath, JSON.stringify({
+    schema: 'shieldkit-v2-direct-pf10-development-runtime-bundle-v2',
+    eligibility: 'development-only',
+    profileId,
+    instanceId,
+    artifactManifestTemplate: {
+      schema: 'shieldkit-artifact-manifest-v2-direct',
+      profileId,
+      instanceId,
+      artifacts,
+    },
+    proofArtifacts: Object.fromEntries(
+      Object.entries(proofFixture).map(([name, record]) => [
+        name,
+        {
+          id: record.id,
+          path: record.path,
+          bytes: record.bytes.length,
+          sha256: sha256(record.bytes),
+        },
+      ]),
+    ),
+    libauthEvidence: {
+      artifact: libauthArtifact,
+      schema: sourceEvidence.schema,
+    },
+  }));
+  return Object.freeze({
+    libauthRoot,
+    runtimeRoot,
+    sourceEvidencePath,
+    bundledLibauthPath,
+    runtimeManifestPath,
+    runtimeMaterialPath,
+  });
 }
 
 test('new nested V2 tests are mandatory and selection omissions fail closed', async () => {
@@ -349,6 +915,11 @@ test('the exhaustive production depth-4 state-space campaign is mandatory and ha
   for (const record of depth4) {
     assert.equal(fileTimeoutForDomainTest(record), 360_000);
   }
+  assert.equal(fileTimeoutForDomainTest({
+    classification: 'local-verifier-lane-qualification',
+    relativePath:
+      'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs',
+  }), 900_000);
   assert.throws(
     () => assertCompleteSelection(discovery, depth4.slice(0, 1), 'local-depth4-campaign'),
     /omitted=.*depth4-production-state-space/,
@@ -381,16 +952,24 @@ test('tracked pinned verifier-lane tests bypass the bulk vendor exclusion', asyn
 });
 
 test('artifact-gated V2 verifier reality tests remain local qualifications', async () => {
+  const coherence =
+    'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs';
   const pf10 = 'packages/unlock-builder/v2/pf10-withdrawal.test.mjs';
   const pairfold = 'packages/unlock-builder/v2/total-pairfold.test.mjs';
+  const runtime = 'scripts/v2-pf10-development-runtime.test.mjs';
   const root = await fixture({
     'packages/action/base.test.mjs': passingTest,
+    [coherence]: passingTest,
     [pf10]: passingTest,
     [pairfold]: passingTest,
+    [runtime]: passingTest,
   });
   const discovery = discoverDomainTests({ projectRoot: root });
   const selected = selectDomainTests(discovery, 'local-verifier-lane');
-  assert.deepEqual(selected.map((entry) => entry.relativePath), [pf10, pairfold]);
+  assert.deepEqual(
+    selected.map((entry) => entry.relativePath),
+    [coherence, pf10, pairfold, runtime],
+  );
   assert.match(selected[0].reason, /artifact-dependent/);
   await assert.rejects(
     () => assertQualificationPrerequisites(selected, {
@@ -420,6 +999,12 @@ test('local qualification preflight requires its materialized toolchain and proo
     '../.codex-build/v2-dev-proof-qualification/withdrawal/input.json',
     '../.codex-build/v2-dev-proof-qualification/withdrawal/proof.json',
     '../.codex-build/v2-dev-proof-qualification/withdrawal/public.json',
+    '../.codex-build/v2-pf10-libauth-qualification/libauth.json',
+    '../.codex-build/v2-pf10-libauth-qualification/publication-complete.json',
+    '../.codex-build/v2-pf10-libauth-qualification/qualification-summary.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime-build-manifest.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime/pf10-runtime-material.json',
+    '../.codex-build/v2-pf10-development-runtime/qualification/pf10-libauth-evidence.json',
   ];
   await Promise.all(prerequisites.map(async (relativePath) => {
     const filename = path.join(root, relativePath);
@@ -474,6 +1059,10 @@ test('artifact-gated local verifier tests require one coherent current artifact 
     'local-verifier-lane',
   );
   await assert.doesNotReject(() => assertLocalVerifierArtifactCoherence({ projectRoot: root }));
+  await assert.rejects(
+    () => assertLocalVerifierRuntimeCoherence({ projectRoot: root }),
+    /runtime build manifest must be an exact canonical JCS object/,
+  );
   const artifactPaths = Object.freeze({
     evidence: path.resolve(files.qualification),
     evidenceRoot: path.resolve(path.dirname(files.qualification)),
@@ -491,10 +1080,13 @@ test('artifact-gated local verifier tests require one coherent current artifact 
     }),
     /missing or unknown properties/,
   );
-  await assert.doesNotReject(() => ensureLocalVerifierQualificationArtifacts(selected, {
-    projectRoot: root,
-    provision: async () => ({ provisioned: false, missing: [] }),
-  }));
+  await assert.rejects(
+    () => ensureLocalVerifierQualificationArtifacts(selected, {
+      projectRoot: root,
+      provision: async () => ({ provisioned: false, missing: [] }),
+    }),
+    /runtime coherence is BLOCKED/,
+  );
   await writeFile(files.r1cs, 'drifted-r1cs');
   await assert.rejects(
     () => ensureLocalVerifierQualificationArtifacts(selected, {
@@ -525,11 +1117,15 @@ test('CI provisions local verifier artifacts before executing the lane', async (
     packageJson.scripts['qualification:local-verifier-artifacts'],
     'node 03-create-your-own-pool/scripts/run-domain-tests.mjs --provision-local-verifier-artifacts',
   );
-  assert.match(workflow, /run_local_verifier_qualification/);
-  assert.match(
-    workflow,
-    /if: github\.event_name == 'workflow_dispatch' && inputs\.run_local_verifier_qualification/,
-  );
+  const jobMarker = '  local-verifier-lane:\n';
+  const jobStart = workflow.indexOf(jobMarker);
+  assert.notEqual(jobStart, -1);
+  const jobRemainder = workflow.slice(jobStart + jobMarker.length);
+  const nextJob = /^  [a-z0-9-]+:\n/m.exec(jobRemainder);
+  const job = jobRemainder.slice(0, nextJob?.index ?? jobRemainder.length);
+  assert.doesNotMatch(workflow, /run_local_verifier_qualification/);
+  assert.doesNotMatch(job, /^\s+if:/m);
+  assert.match(job, /timeout-minutes: 360/);
   assert.equal(
     packageJson.scripts['test:v2:campaign:strict-codec'],
     'node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign',

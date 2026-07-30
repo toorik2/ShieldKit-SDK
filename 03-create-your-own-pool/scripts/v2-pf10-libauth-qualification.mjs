@@ -5,11 +5,17 @@ import { createHash } from 'node:crypto';
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
+  open,
   readFile,
+  readdir,
+  realpath,
   rename,
   rm,
+  rmdir,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,6 +35,16 @@ const SCRIPT_SCHEMA =
   'shieldkit-v2-direct-pf10-local-libauth-qualification-v2';
 const EVIDENCE_SCHEMA =
   'shieldkit-v2-direct-pf10-local-libauth-evidence-v2';
+export const PF10_LIBAUTH_PUBLICATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-libauth-publication-v1';
+export const PF10_LIBAUTH_PUBLICATION_FILE =
+  'publication-complete.json';
+const PF10_LIBAUTH_PUBLICATION_FILES = Object.freeze([
+  'libauth.json',
+  'qualification-summary.json',
+  'stderr.txt',
+  'stdout.txt',
+]);
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const repositoryRoot = path.resolve(projectRoot, '..');
 const testPath = path.join(
@@ -36,10 +52,20 @@ const testPath = path.join(
   'packages/unlock-builder/v2/pf10-withdrawal.test.mjs',
 );
 
-class QualificationError extends Error {
+export class QualificationError extends Error {
   constructor(message) {
     super(message);
     this.name = 'QualificationError';
+  }
+}
+
+export class QualificationPublicationCommittedError
+  extends QualificationError {
+  constructor(message, options = undefined) {
+    super(message);
+    this.name = 'QualificationPublicationCommittedError';
+    this.committed = true;
+    if (options?.cause !== undefined) this.cause = options.cause;
   }
 }
 
@@ -91,7 +117,7 @@ const exactInteger = (value, label) => {
   return value;
 };
 
-const parseOptions = (argv) => {
+export const parseOptions = (argv) => {
   const optionNames = Object.freeze({
     '--output': 'output',
     '--profile-core': 'profileCore',
@@ -138,7 +164,10 @@ const parseOptions = (argv) => {
     setupMetadata: path.resolve(options.setupMetadata),
     temporaryRoot: path.resolve(
       options.temporaryRoot
-      ?? path.join(repositoryRoot, '.tmp/pf10-libauth-qualification'),
+      ?? path.join(
+        repositoryRoot,
+        '.codex-build/v2-pf10-libauth-tmp',
+      ),
     ),
     verificationKey: path.resolve(options.verificationKey),
     wasm: path.resolve(options.wasm),
@@ -154,6 +183,349 @@ const assertAbsent = async (target) => {
     throw error;
   }
   fail(`refusing to overwrite existing output: ${target}`);
+};
+
+const isStrictDescendant = (root, target) =>
+  target !== root && target.startsWith(`${root}${path.sep}`);
+
+const fsyncPath = async (filename, label) => {
+  let handle;
+  try {
+    handle = await open(filename, 'r');
+    await handle.sync();
+  } catch (error) {
+    fail(`${label} cannot be synced: ${error.message}`);
+  } finally {
+    await handle?.close();
+  }
+};
+
+const canonicalDirectory = async (
+  directory,
+  label,
+  { create = false, privateMode = false } = {},
+) => {
+  if (!path.isAbsolute(directory)) fail(`${label} must be absolute`);
+  if (create) await mkdir(directory, { recursive: true, mode: 0o700 });
+  let metadata;
+  try {
+    metadata = await lstat(directory);
+  } catch (error) {
+    fail(`${label} is unavailable: ${error.message}`);
+  }
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+    fail(`${label} must be a direct directory`);
+  }
+  const canonical = await realpath(directory);
+  if (canonical !== directory) {
+    fail(`${label} must be canonical and not resolve through a symlink`);
+  }
+  if (privateMode) await chmod(directory, 0o700);
+  return canonical;
+};
+
+const privateBuildRoot = async (canonicalRepositoryRoot) => {
+  const buildRoot = path.join(canonicalRepositoryRoot, '.codex-build');
+  let created = false;
+  try {
+    await mkdir(buildRoot, { mode: 0o700 });
+    created = true;
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  const canonical = await canonicalDirectory(
+    buildRoot,
+    'private build root',
+  );
+  const metadata = await lstat(canonical);
+  if ((metadata.mode & 0o777) !== 0o700) {
+    fail('private build root must have mode 0700');
+  }
+  if (created) await fsyncPath(canonicalRepositoryRoot, 'repository root');
+  return canonical;
+};
+
+const privateDescendantDirectory = async (
+  buildRoot,
+  target,
+  label,
+) => {
+  if (
+    target !== buildRoot
+    && !isStrictDescendant(buildRoot, target)
+  ) {
+    fail(`${label} must be contained by the private build root`);
+  }
+  let current = buildRoot;
+  const relative = path.relative(buildRoot, target);
+  if (relative.length === 0) return buildRoot;
+  for (const component of relative.split(path.sep)) {
+    current = path.join(current, component);
+    let created = false;
+    try {
+      await mkdir(current, { mode: 0o700 });
+      created = true;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+    }
+    await canonicalDirectory(current, label);
+    const metadata = await lstat(current);
+    if ((metadata.mode & 0o777) !== 0o700) {
+      fail(`${label} must contain only mode-0700 directories`);
+    }
+    if (created) await fsyncPath(path.dirname(current), `${label} parent`);
+  }
+  return current;
+};
+
+const canonicalSingleLinkFile = async (
+  filename,
+  label,
+  { allowEmpty = false } = {},
+) => {
+  let metadata;
+  try {
+    metadata = await lstat(filename);
+  } catch (error) {
+    fail(`${label} is unavailable: ${error.message}`);
+  }
+  if (
+    !metadata.isFile()
+    || metadata.isSymbolicLink()
+    || (!allowEmpty && metadata.size === 0)
+    || metadata.nlink !== 1
+  ) {
+    fail(`${label} must be a ${allowEmpty ? '' : 'nonempty '}single-link regular non-symlink file`);
+  }
+  const canonical = await realpath(filename);
+  if (canonical !== filename) {
+    fail(`${label} must be canonical and not resolve through a symlink`);
+  }
+  return metadata;
+};
+
+export const writePrivateFile = async (filename, bytes, label) => {
+  try {
+    await writeFile(filename, bytes, { mode: 0o600, flag: 'wx' });
+    await chmod(filename, 0o600);
+    await canonicalSingleLinkFile(filename, label, { allowEmpty: true });
+    await fsyncPath(filename, label);
+  } catch (error) {
+    if (error instanceof QualificationError) throw error;
+    fail(`${label} cannot be written privately: ${error.message}`);
+  }
+};
+
+export const preparePublicationPaths = async (options) => {
+  if (
+    options === null
+    || Array.isArray(options)
+    || typeof options !== 'object'
+    || typeof options.output !== 'string'
+    || typeof options.temporaryRoot !== 'string'
+  ) {
+    fail('publication options must include output and temporaryRoot paths');
+  }
+  const output = path.resolve(options.output);
+  const requestedTemporaryRoot = path.resolve(options.temporaryRoot);
+  const canonicalRepositoryRoot = await canonicalDirectory(
+    repositoryRoot,
+    'repository root',
+  );
+  if ((await stat(canonicalRepositoryRoot)).mode & 0o022) {
+    fail('repository root must not be writable by group or other users');
+  }
+  const buildRoot = await privateBuildRoot(canonicalRepositoryRoot);
+  const outputParent = path.dirname(output);
+  if (
+    !isStrictDescendant(buildRoot, output)
+    || (
+      outputParent !== buildRoot
+      && !isStrictDescendant(buildRoot, outputParent)
+    )
+  ) {
+    fail('output must be contained by the private build root');
+  }
+  await privateDescendantDirectory(buildRoot, outputParent, 'output parent');
+  await assertAbsent(output);
+  if (!isStrictDescendant(buildRoot, requestedTemporaryRoot)) {
+    fail('temporary root must be contained by the private build root');
+  }
+  const temporaryRoot = await privateDescendantDirectory(
+    buildRoot,
+    requestedTemporaryRoot,
+    'temporary root',
+  );
+  return Object.freeze({
+    buildRoot,
+    output,
+    repositoryRoot: canonicalRepositoryRoot,
+    outputParent,
+    temporaryRoot,
+  });
+};
+
+const publicationFileRecord = async (stage, filename) => {
+  if (
+    typeof filename !== 'string'
+    || !/^[a-z0-9][a-z0-9.-]*$/u.test(filename)
+    || path.basename(filename) !== filename
+    || filename === PF10_LIBAUTH_PUBLICATION_FILE
+  ) {
+    fail(`publication file name is invalid: ${String(filename)}`);
+  }
+  const source = path.join(stage, filename);
+  const before = await canonicalSingleLinkFile(
+    source,
+    `staged publication file ${filename}`,
+    { allowEmpty: true },
+  );
+  const bytes = await readFile(source);
+  const after = await lstat(source);
+  if (
+    before.dev !== after.dev
+    || before.ino !== after.ino
+    || before.size !== after.size
+    || before.mtimeMs !== after.mtimeMs
+    || before.ctimeMs !== after.ctimeMs
+    || bytes.length !== before.size
+  ) {
+    fail(`staged publication file ${filename} changed while it was read`);
+  }
+  return Object.freeze({
+    path: filename,
+    bytes: bytes.length,
+    sha256: sha256(bytes),
+  });
+};
+
+const removeOwnedReservation = async (output, reservedIdentity) => {
+  let current;
+  try {
+    current = await lstat(output);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  if (
+    !current.isDirectory()
+    || current.isSymbolicLink()
+    || current.dev !== reservedIdentity.dev
+    || current.ino !== reservedIdentity.ino
+  ) {
+    fail(
+      'refusing to clean a publication path whose reserved directory identity changed',
+    );
+  }
+  await rm(output, { recursive: true, force: false });
+};
+
+export const publishStage = async ({
+  stage,
+  output,
+  outputParent,
+  files = PF10_LIBAUTH_PUBLICATION_FILES,
+  beforeReserve = undefined,
+  beforeCommit = undefined,
+  afterCommit = undefined,
+}) => {
+  if (
+    !Array.isArray(files)
+    || files.length === 0
+    || files.some((entry, index) =>
+      typeof entry !== 'string'
+      || (index > 0 && files[index - 1] >= entry))
+  ) {
+    fail('publication files must be a nonempty strictly sorted unique array');
+  }
+  const present = (await readdir(stage)).sort();
+  if (
+    present.length !== files.length
+    || present.some((entry, index) => entry !== files[index])
+  ) {
+    fail('staged publication contains missing or unknown files');
+  }
+  const records = [];
+  for (const filename of files) {
+    records.push(await publicationFileRecord(stage, filename));
+  }
+  const completion = Object.freeze({
+    schema: PF10_LIBAUTH_PUBLICATION_SCHEMA,
+    files: Object.freeze(records),
+  });
+  await writePrivateFile(
+    path.join(stage, PF10_LIBAUTH_PUBLICATION_FILE),
+    canonicalBytes(completion),
+    'publication completion record',
+  );
+  await assertAbsent(output);
+  await fsyncPath(stage, 'staged publication directory');
+  await fsyncPath(outputParent, 'output parent directory before publication');
+  let reservedIdentity;
+  let committed = false;
+  try {
+    await beforeReserve?.();
+    try {
+      await mkdir(output, { recursive: false, mode: 0o700 });
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        fail(`refusing to overwrite existing output: ${output}`);
+      }
+      throw error;
+    }
+    // Capture the directory identity immediately after the exclusive
+    // reservation so every later pre-commit failure can clean only the
+    // directory created by this publisher.
+    reservedIdentity = await lstat(output);
+    await canonicalDirectory(
+      output,
+      'reserved publication output directory',
+      { privateMode: true },
+    );
+    for (const filename of files) {
+      await rename(
+        path.join(stage, filename),
+        path.join(output, filename),
+      );
+    }
+    await fsyncPath(output, 'reserved publication output directory');
+    await beforeCommit?.();
+    await rename(
+      path.join(stage, PF10_LIBAUTH_PUBLICATION_FILE),
+      path.join(output, PF10_LIBAUTH_PUBLICATION_FILE),
+    );
+    committed = true;
+    await fsyncPath(output, 'committed publication output directory');
+    await fsyncPath(outputParent, 'output parent directory after publication');
+    await afterCommit?.();
+    await rmdir(stage);
+    return completion;
+  } catch (error) {
+    if (committed) {
+      throw new QualificationPublicationCommittedError(
+        `PF10 Libauth publication committed at ${output}, but post-commit durability or cleanup failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error },
+      );
+    }
+    if (reservedIdentity !== undefined) {
+      try {
+        await removeOwnedReservation(output, reservedIdentity);
+        await fsyncPath(
+          outputParent,
+          'output parent directory after failed publication cleanup',
+        );
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'PF10 Libauth publication failed and its owned reservation could not be cleaned',
+          { cause: error },
+        );
+      }
+    }
+    throw error;
+  }
 };
 
 const runChild = ({ evidencePath, options, temporaryDirectory }) =>
@@ -658,46 +1030,58 @@ const validateEvidence = (value) => {
   return Object.freeze({ evidence, summaries });
 };
 
-const main = async () => {
-  const options = parseOptions(process.argv.slice(2));
-  await assertAbsent(options.output);
-  await mkdir(path.dirname(options.output), { recursive: true, mode: 0o700 });
-  await mkdir(options.temporaryRoot, { recursive: true, mode: 0o700 });
+export const runPf10LibauthQualification = async (
+  options,
+  { childRunner = runChild } = {},
+) => {
+  const publication = await preparePublicationPaths(options);
   const stage = await mkdtemp(path.join(
-    options.temporaryRoot,
+    publication.outputParent,
     '.pf10-libauth-stage-',
   ));
-  await chmod(stage, 0o700);
+  let childDirectory;
   let published = false;
   try {
-    const temporaryFiles = path.join(stage, 'tmp');
+    await canonicalDirectory(stage, 'staging directory', { privateMode: true });
+    childDirectory = await mkdtemp(path.join(
+      publication.temporaryRoot,
+      '.pf10-libauth-child-',
+    ));
+    await canonicalDirectory(childDirectory, 'child temporary directory', { privateMode: true });
+    const temporaryFiles = path.join(childDirectory, 'tmp');
     await mkdir(temporaryFiles, { mode: 0o700 });
+    await canonicalDirectory(temporaryFiles, 'child temporary files', { privateMode: true });
+    const childEvidencePath = path.join(childDirectory, 'libauth.json');
     const evidencePath = path.join(stage, 'libauth.json');
-    const executed = await runChild({
-      evidencePath,
-      options,
-      temporaryDirectory: stage,
+    const executed = await childRunner({
+      evidencePath: childEvidencePath,
+      options: Object.freeze({
+        ...options,
+        output: publication.output,
+        temporaryRoot: publication.temporaryRoot,
+      }),
+      temporaryDirectory: childDirectory,
     });
-    await writeFile(
+    await writePrivateFile(
       path.join(stage, 'stdout.txt'),
       executed.stdout,
-      { mode: 0o600 },
+      'qualification stdout',
     );
-    await writeFile(
+    await writePrivateFile(
       path.join(stage, 'stderr.txt'),
       executed.stderr,
-      { mode: 0o600 },
+      'qualification stderr',
     );
     if (executed.code !== 0 || executed.signal !== null) {
       fail(
         `PF10 Libauth qualification test failed: code=${executed.code} signal=${executed.signal}`,
       );
     }
-    const parsed = JSON.parse(await readFile(evidencePath, 'utf8'));
+    await canonicalSingleLinkFile(childEvidencePath, 'child Libauth evidence');
+    const parsed = JSON.parse(await readFile(childEvidencePath, 'utf8'));
     const validated = validateEvidence(parsed);
     const evidenceBytes = canonicalBytes(validated.evidence);
-    await writeFile(evidencePath, evidenceBytes, { mode: 0o600 });
-    await chmod(evidencePath, 0o600);
+    await writePrivateFile(evidencePath, evidenceBytes, 'canonical Libauth evidence');
     const summary = Object.freeze({
       schema: SCRIPT_SCHEMA,
       eligibility: 'development-only',
@@ -721,28 +1105,45 @@ const main = async () => {
       }),
     });
     const summaryBytes = canonicalBytes(summary);
-    await writeFile(
+    await writePrivateFile(
       path.join(stage, 'qualification-summary.json'),
       summaryBytes,
-      { mode: 0o600 },
+      'qualification summary',
     );
     await rm(temporaryFiles, { recursive: true, force: false });
-    await rename(stage, options.output);
+    await publishStage({
+      stage,
+      output: publication.output,
+      outputParent: publication.outputParent,
+    });
     published = true;
-    process.stdout.write(`${canonicalizeJcs(Object.freeze({
-      outputDirectory: options.output,
+    return Object.freeze({
+      outputDirectory: publication.output,
       evidenceSha256: summary.evidence.sha256,
       actions: summary.actions,
       eligibility: summary.eligibility,
-    }))}\n`);
+    });
   } finally {
+    if (childDirectory !== undefined) {
+      await rm(childDirectory, { recursive: true, force: true });
+    }
     if (!published) {
       await rm(stage, { recursive: true, force: true });
     }
   }
 };
 
-main().catch((error) => {
-  process.stderr.write(`${error?.stack ?? error}\n`);
-  process.exitCode = 1;
-});
+export const main = async (argv = process.argv.slice(2)) => {
+  const result = await runPf10LibauthQualification(parseOptions(argv));
+  process.stdout.write(`${canonicalizeJcs(result)}\n`);
+};
+
+const directRun = process.argv[1] !== undefined
+  && path.resolve(process.argv[1]) === import.meta.filename;
+
+if (directRun) {
+  main().catch((error) => {
+    process.stderr.write(`${error?.stack ?? error}\n`);
+    process.exitCode = 1;
+  });
+}
