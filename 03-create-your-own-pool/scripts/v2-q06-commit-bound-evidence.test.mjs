@@ -4,8 +4,9 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { canonicalJson } from '../packages/profile/load.mjs';
 
@@ -24,6 +25,7 @@ import { runV2CrashQualification } from './v2-crash-qualification.mjs';
 const root = () => mkdtempSync(join(tmpdir(), 'shieldkit-q06-'));
 const publicOutputRoot = () => mkdtempSync('/tmp/shieldkit-q06-public-');
 const hash = (value) => createHash('sha256').update(value).digest('hex');
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function resealArtifact(bundle, name, value) {
   const bytes = Buffer.from(canonicalJson(value), 'utf8');
@@ -40,8 +42,17 @@ test('Q-06 public generator refuses dirty/uncommitted source before it can run a
   // reaches the intended dirty-checkout gate rather than the earlier output
   // containment gate.
   const parent = publicOutputRoot();
-  try { await assert.rejects(() => runV2Q06CommitBoundEvidence({ outputDirectory: parent }), /clean committed source checkout/u); }
-  finally { rmSync(parent, { recursive: true, force: true }); }
+  const marker = join(repositoryRoot, `.q06-dirty-checkout-test-${process.pid}-${Date.now()}`);
+  try {
+    writeFileSync(marker, 'test-only dirty-checkout marker\n', { flag: 'wx', mode: 0o600 });
+    await assert.rejects(
+      () => runV2Q06CommitBoundEvidence({ outputDirectory: parent }),
+      /clean committed source checkout/u,
+    );
+  } finally {
+    rmSync(marker, { force: true });
+    rmSync(parent, { recursive: true, force: true });
+  }
 });
 
 test('Q-06 rejects ambient loader, module-path, dynamic-loader, and HOME controls', () => {
@@ -121,6 +132,13 @@ test('installed dependency inventory rejects symlinks outside installed or track
     }
     symlinkSync('../packages/tracked', join(repository, 'node_modules', 'tracked'));
     assert.match(installedDependencyInventoryForTest(repository).inventorySha256, /^[0-9a-f]{64}$/u);
+    const nested = join(repository, 'packages', 'tracked', 'nested.mjs');
+    symlinkSync('index.mjs', nested);
+    assert.throws(
+      () => installedDependencyInventoryForTest(repository),
+      /nested symlink outside node_modules/u,
+    );
+    rmSync(nested);
     writeFileSync(join(outside, 'unbound.mjs'), 'export default false;\n');
     symlinkSync(join(outside, 'unbound.mjs'), join(repository, 'node_modules', 'unbound'));
     assert.throws(
