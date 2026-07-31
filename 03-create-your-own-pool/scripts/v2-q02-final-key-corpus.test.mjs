@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ACTION_PACKET_OFFSETS } from '../packages/action/v2/packet.mjs';
 import {
+  assertV2Q02ExternalLaneMapForTestOnly,
   isV2Q02GenericPacketMutation,
   isV2Q02IsolatedOutpointMutation,
   parseV2Q02Arguments,
+  requiredV2Q02ExternalLanesForExpectation,
+  V2_Q02_ACCEPTANCE_EXTERNAL_LANES,
+  V2_Q02_REJECTION_EXTERNAL_LANES,
   V2Q02FinalKeyCorpusError,
   verifyV2Q02FinalKeyCorpus,
 } from './v2-q02-final-key-corpus.mjs';
@@ -37,6 +41,59 @@ test('Q-02 requires a compiled release-root and rejects legacy trusted-signers',
 });
 test('Q-02 refuses injected doubles before accepting any qualification path', async () => {
   await assert.rejects(() => verifyV2Q02FinalKeyCorpus({}, { fake: true }), /refuses injected test doubles/u);
+});
+
+test('Q-02 lane sets are exact and case-specific: mined inclusion is acceptance-only', () => {
+  assert.deepEqual(V2_Q02_ACCEPTANCE_EXTERNAL_LANES, [
+    'maintainer',
+    'bchn-mempool',
+    'bchn-mined',
+    'leanbch',
+  ]);
+  assert.deepEqual(V2_Q02_REJECTION_EXTERNAL_LANES, [
+    'maintainer',
+    'bchn-mempool',
+    'leanbch',
+  ]);
+  assert.equal(
+    requiredV2Q02ExternalLanesForExpectation('accept'),
+    V2_Q02_ACCEPTANCE_EXTERNAL_LANES,
+  );
+  assert.equal(
+    requiredV2Q02ExternalLanesForExpectation('reject'),
+    V2_Q02_REJECTION_EXTERNAL_LANES,
+  );
+  const acceptance = Object.fromEntries(
+    V2_Q02_ACCEPTANCE_EXTERNAL_LANES.map((lane) => [lane, null]),
+  );
+  const rejection = Object.fromEntries(
+    V2_Q02_REJECTION_EXTERNAL_LANES.map((lane) => [lane, null]),
+  );
+  assert.equal(
+    assertV2Q02ExternalLaneMapForTestOnly(acceptance, 'accept'),
+    acceptance,
+  );
+  assert.equal(
+    assertV2Q02ExternalLaneMapForTestOnly(rejection, 'reject'),
+    rejection,
+  );
+  assert.throws(
+    () => assertV2Q02ExternalLaneMapForTestOnly(
+      { ...acceptance, 'bchn-mined': undefined },
+      'reject',
+    ),
+    /missing or unknown properties/u,
+  );
+  const missingMined = { ...acceptance };
+  delete missingMined['bchn-mined'];
+  assert.throws(
+    () => assertV2Q02ExternalLaneMapForTestOnly(missingMined, 'accept'),
+    /missing or unknown properties/u,
+  );
+  assert.throws(
+    () => requiredV2Q02ExternalLanesForExpectation('unknown'),
+    /expectation is invalid/u,
+  );
 });
 
 test('Q-02 empty compiled release registry fails before descriptor or corpus work', async () => {

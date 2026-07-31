@@ -165,8 +165,10 @@ is independently executed by: latest **unmodified** maintainer verifier
 benchmark, Libauth, BCHN `testmempoolaccept`, mined BCHN, and LeanBCH.
 Base-case acceptance is replayed in all five lanes. Current Q-02
 rejection mutations are replayed in Libauth, maintainer, BCHN-mempool, and
-LeanBCH; BCHN-mined rejection evidence is a missing executable contract and
-must not be claimed present. Q-02's external authority roles are exactly `maintainer`,
+LeanBCH. BCHN-mined is intentionally acceptance-only: it proves canonical
+inclusion of a valid transaction and cannot prove rejection. An invalid-case
+mined-inclusion envelope is rejected rather than treated as negative
+evidence. Q-02's external authority roles are exactly `maintainer`,
 `bchn-mempool`, `bchn-mined`, and `leanbch`; their IDs and Ed25519 keys must be
 unique and come from signed artifact `q02-lane-authorities` with schema
 `shieldkit-v2-direct-q02-lane-authorities-v2`. Lane envelopes use
@@ -204,7 +206,11 @@ artifacts/v2-direct/<profileId>/verification/{maintainer,libauth,
 transaction byte count, every VM resource percentage, and every hash
 iteration, keyed to raw tx SHA-256 and txid. Reject a missing lane, any lane
 accepting a required-invalid case, any lane rejecting a required-valid case,
-different raw transactions/root, or any 100000/10000/100% violation.
+or a lane that is not in the exact case-specific set. Accepted base cases
+require maintainer, BCHN-mempool, BCHN-mined, and LeanBCH external envelopes;
+rejected mutations require maintainer, BCHN-mempool, and LeanBCH and forbid a
+BCHN-mined reference. Also reject different raw transactions/root, or any
+100000/10000/100% violation.
 
 Q-03 must execute burn, partial bundle, mixed parent, fake category, duplicate
 NFT, minting authority, omitted successor, altered role counts, and every

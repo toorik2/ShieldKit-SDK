@@ -574,7 +574,7 @@ test('TEST-ONLY rejects malformed nested BCHN RPC params and response transactio
   assertRejected(() => verify(fixture, badTxid.path, acceptCase));
 });
 
-test('TEST-ONLY rejects insufficient depth, header linkage, Merkle drift, and mined rejection evidence', () => {
+test('TEST-ONLY rejects insufficient depth, header linkage, Merkle drift, and a mined-inclusion envelope for a reject case', () => {
   const deepFixture = buildFixture({ minimumConfirmations: 2 });
   const depthEvidence = signedEnvelope({
     fixture: deepFixture, role: 'bchn-mined', expectedCase: makeCase(deepFixture.transaction),

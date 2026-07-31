@@ -66,13 +66,17 @@ import {
 
 const HASH = /^[0-9a-f]{64}$/;
 const KINDS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
-const BASE_EXTERNAL_LANES = Object.freeze([
+// Mined evidence proves canonical inclusion, so it is required only for
+// accepted base transactions. Rejected mutations require executable rejection
+// from the maintainer verifier, BCHN testmempoolaccept, and LeanBCH; accepting
+// a mined-inclusion envelope for a reject case is itself invalid.
+export const V2_Q02_ACCEPTANCE_EXTERNAL_LANES = Object.freeze([
   'maintainer',
   'bchn-mempool',
   'bchn-mined',
   'leanbch',
 ]);
-const REJECTION_EXTERNAL_LANES = Object.freeze([
+export const V2_Q02_REJECTION_EXTERNAL_LANES = Object.freeze([
   'maintainer',
   'bchn-mempool',
   'leanbch',
@@ -459,14 +463,30 @@ function laneReferences(value, expectedNames, label) {
   return value;
 }
 
+export function requiredV2Q02ExternalLanesForExpectation(expectation) {
+  if (expectation === 'accept') return V2_Q02_ACCEPTANCE_EXTERNAL_LANES;
+  if (expectation === 'reject') return V2_Q02_REJECTION_EXTERNAL_LANES;
+  fail('Q-02 external lane expectation is invalid');
+}
+
+export function assertV2Q02ExternalLaneMapForTestOnly(value, expectation) {
+  return laneReferences(
+    value,
+    requiredV2Q02ExternalLanesForExpectation(expectation),
+    'Q-02 external lane references',
+  );
+}
+
 function verifyExternalLanes({
   authorityContext,
   expectedCase,
   lanes,
-  names,
   root,
   runIds,
 }) {
+  const names = requiredV2Q02ExternalLanesForExpectation(
+    expectedCase.expectation,
+  );
   laneReferences(lanes, names, 'Q-02 external lane references');
   for (const name of names) {
     const artifact = reference(
@@ -779,7 +799,6 @@ async function validateBaseCase(
     authorityContext,
     expectedCase,
     lanes: entry.lanes,
-    names: BASE_EXTERNAL_LANES,
     root,
     runIds,
   });
@@ -1406,7 +1425,6 @@ async function validateMutations(
       authorityContext,
       expectedCase,
       lanes: entry.lanes,
-      names: REJECTION_EXTERNAL_LANES,
       root,
       runIds,
     });
