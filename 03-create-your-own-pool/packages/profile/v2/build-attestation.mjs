@@ -193,11 +193,17 @@ function portablePath(value, label) {
 function assertJsonTree(value, label = 'attestation', ancestors = new Set()) {
   if (value === null || typeof value === 'boolean') return;
   if (typeof value === 'string') {
-    if (
+    // Opaque, separately validated encodings may legitimately begin with `/`
+    // (standard Base64 has a 1-in-64 chance). Do not misclassify those bytes
+    // as host paths; their canonical decoding and cryptographic validation run
+    // later in the exact signer schema.
+    const opaqueSignerEncoding = label.endsWith('.signatureBase64')
+      || label.endsWith('.publicKeyPem');
+    if (!opaqueSignerEncoding && (
       value.startsWith('/')
       || /^[A-Za-z]:[\\/]/.test(value)
       || value.includes('\\')
-    ) {
+    )) {
       fail(`${label} contains an absolute or platform-specific path`);
     }
     return;

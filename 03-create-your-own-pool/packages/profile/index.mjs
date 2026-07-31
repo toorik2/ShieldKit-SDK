@@ -39,12 +39,25 @@ export {
   CeremonyError,
 } from './setup/ceremony.mjs';
 export {
+  BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE,
+  createBetaSingleContributorContributionRequest,
   createExternalContributionRequest,
+  signBetaSingleContributorContributionReceipt,
   signExternalContributionReceipt,
+  V2_BETA_SINGLE_CONTRIBUTOR_CONTRIBUTION_RECEIPT_SCHEMA,
+  V2_BETA_SINGLE_CONTRIBUTOR_CONTRIBUTION_REQUEST_SCHEMA,
+  V2_BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE_SCHEMA,
+  V2_BETA_SINGLE_CONTRIBUTOR_CEREMONY_TRANSCRIPT_SCHEMA,
+  verifyBetaSingleContributorExternalReceiptChain,
   verifyExternalContributionChain,
   digestContributionFile,
   ExternalContributionError,
 } from './setup/external-contribution.mjs';
+export {
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_SCHEMA,
+  BetaSingleContributorEntropyError,
+  deriveBetaSingleContributorEntropy,
+} from './setup/beta-single-contributor-entropy.mjs';
 export { buildVerifierProfileBundle, ProfileBuildError } from './build.mjs';
 // The historical setup-to-profile bridge is quarantined in bridge.mjs.
 export {

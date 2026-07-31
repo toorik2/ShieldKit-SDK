@@ -104,6 +104,20 @@ test('D-01 post-ceremony binding has the final-key-only success shape', () => {
   }
 });
 
+test('D-01 rejects a one-contributor final-evidence summary', () => {
+  const oneContributor = binding();
+  oneContributor.contributorCount = 1;
+  const matchingOneContributorExpectation = expected();
+  matchingOneContributorExpectation.contributorCount = 1;
+  assert.throws(
+    () => validateV2D01PostCeremonyBinding(
+      oneContributor,
+      matchingOneContributorExpectation,
+    ),
+    /invalid final-evidence summary/u,
+  );
+});
+
 test('D-01 ceremony custody requires every exact signed final-runtime record', () => {
   const finalEvidence = {
     schema: 'shieldkit-v2-direct-final-runtime-evidence-resolution-v2',
@@ -174,6 +188,7 @@ test('D-01 relies on the production final-runtime evidence red-team corpus', asy
   const { NODE_TEST_CONTEXT: _testContext, ...environment } = process.env;
   const result = await new Promise((resolveResult, reject) => execFile(process.execPath, ['--test', testPath], { encoding: 'utf8', env: environment }, (error, stdout, stderr) => error ? reject(new Error(`${stdout}\n${stderr}`)) : resolveResult(`${stdout}\n${stderr}`)));
   assert.match(result, /insufficient\/duplicate contributors/u);
+  assert.match(result, /one-contributor policy, registry, or transcript/u);
   assert.match(result, /broken zkey chain, beacon mismatch, and shared verifier machine/u);
   assert.match(result, /unknown or duplicate evidence references/u);
   assert.match(result, /substituted bytes for a nested manifest-referenced artifact/u);

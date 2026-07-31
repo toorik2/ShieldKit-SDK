@@ -51,6 +51,11 @@ wallet seeds, and host private keys stay local; host signing keys are direct,
 non-symlink, mode-0600 PKCS#8 files. Do not place secrets in the manifest,
 corpus, command transcript, or source tree.
 
+For a deliberately non-qualifying single-contributor beta setup, see
+[BETA_SINGLE_CONTRIBUTOR_CEREMONY.md](BETA_SINGLE_CONTRIBUTOR_CEREMONY.md).
+It is not an exception, shortcut, input, or promotion route for D-01; the
+five-party D-01 requirements below are unchanged.
+
 Use a fresh private output directory for every writer. Inputs and retained
 bundles are direct, user-owned, mode-0600 files under direct mode-0700
 directories unless a gate states a narrower contract. Paths are absolute and

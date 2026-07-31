@@ -43,6 +43,7 @@
     "qualification:v2:q01-pre": "node 03-create-your-own-pool/scripts/v2-q01-commit-bound-evidence.mjs",
     "qualification:v2:b01-pre-freeze": "node 03-create-your-own-pool/scripts/v2-b01-pre-freeze.mjs",
     "qualification:v2:final-ceremony": "node 03-create-your-own-pool/scripts/v2-final-ceremony-qualification.mjs",
+    "ceremony:v2:beta-single": "node 03-create-your-own-pool/scripts/v2-beta-single-contributor-ceremony.mjs",
     "qualification:v2:q01-final-replay": "node 03-create-your-own-pool/scripts/v2-q01-final-artifact-replay.mjs",
     "qualification:v2:pf10-libauth": "node 03-create-your-own-pool/scripts/v2-pf10-libauth-qualification.mjs",
     "qualification:v2:q07:indexed-microbenchmark": "node 03-create-your-own-pool/scripts/v2-q07-indexed-microbenchmark.mjs",

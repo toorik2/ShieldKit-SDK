@@ -15,6 +15,7 @@ target/
 # Local handover / secrets — never commit without explicit user authorization
 HANDOVER.md
 **/*private*key*
+**/participant-signing-key.pem
 **/*.wif
 **/secrets/**
 .grok/

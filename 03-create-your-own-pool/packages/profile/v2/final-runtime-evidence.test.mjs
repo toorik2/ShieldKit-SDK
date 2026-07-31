@@ -401,6 +401,31 @@ test('rejects policy substitution, insufficient/duplicate contributors, and a ta
   await rejects(bundle, /signature/);
 });
 
+test('rejects an otherwise pinned one-contributor policy, registry, or transcript', async () => {
+  let bundle = testOnlyBundle();
+  const policy = JSON.parse(bundle.blobs.get(
+    V2_FINAL_EVIDENCE_POLICY_ARTIFACT_ID,
+  ).toString('utf8'));
+  policy.ceremony.contributors = [policy.ceremony.contributors[0]];
+  const policyBytes = canonicalBytes(policy);
+  bundle.blobs.set(V2_FINAL_EVIDENCE_POLICY_ARTIFACT_ID, policyBytes);
+  bundle.entries[V2_FINAL_EVIDENCE_POLICY_ARTIFACT_ID].sha256 = sha256(policyBytes);
+  bundle.profileBaseArtifacts[V2_FINAL_EVIDENCE_POLICY_ARTIFACT_ID] = sha256(policyBytes);
+  await rejects(bundle, /must authorize at least 5 contributors/);
+
+  bundle = testOnlyBundle();
+  replaceEnvelope(bundle, 'contributor-registry', bundle.coordinator, (statement) => {
+    statement.contributors = [statement.contributors[0]];
+  });
+  await rejects(bundle, /registry requires at least 5 contributors/);
+
+  bundle = testOnlyBundle();
+  replaceEnvelope(bundle, 'transcript', bundle.coordinator, (statement) => {
+    statement.contributions = [statement.contributions[0]];
+  });
+  await rejects(bundle, /transcript requires at least 5 contributions/);
+});
+
 test('rejects a broken zkey chain, beacon mismatch, and shared verifier machine', async () => {
   let bundle = testOnlyBundle();
   replaceEnvelope(bundle, 'transcript', bundle.coordinator, (statement) => {
