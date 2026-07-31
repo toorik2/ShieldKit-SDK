@@ -142,14 +142,21 @@ const requestSha256 = (request) => {
   return `sha256:${digest.digest('hex')}`;
 };
 
+function hasExactKeys(value, keys) {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') {
+    return false;
+  }
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length
+    && actual.every((entry, index) => entry === expected[index]);
+}
+
 function exactKeys(value, label, keys) {
   if (value === null || Array.isArray(value) || typeof value !== 'object') {
     fail('BETA_SCHEMA_INVALID', `${label} must be an object`);
   }
-  const actual = Object.keys(value).sort();
-  const expected = [...keys].sort();
-  if (actual.length !== expected.length
-    || actual.some((entry, index) => entry !== expected[index])) {
+  if (!hasExactKeys(value, keys)) {
     fail('BETA_SCHEMA_INVALID', `${label} has missing or unknown properties`);
   }
   return value;
@@ -757,6 +764,21 @@ function parseB01Manifest(value) {
   return value;
 }
 
+export function assertV2BetaSingleContributorSourceBinding({
+  b01Source,
+  implementationSource,
+}) {
+  if (!hasExactKeys(b01Source, ['gitCommit', 'gitTree', 'repositoryRoot'])
+    || !hasExactKeys(implementationSource, ['gitCommit', 'gitTree'])
+    || b01Source.repositoryRoot !== REPOSITORY_ROOT
+    || !GIT.test(b01Source.gitCommit)
+    || !GIT.test(b01Source.gitTree)
+    || implementationSource.gitCommit !== b01Source.gitCommit
+    || implementationSource.gitTree !== b01Source.gitTree) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'B-01 source and beta implementation source differ');
+  }
+}
+
 function publicKeySpkiBase64(privateKey) {
   return createPublicKey(privateKey)
     .export({ type: 'spki', format: 'der' })
@@ -887,9 +909,10 @@ export async function prepareV2BetaSingleContributorCeremony({
   }
   const implementation = await collectV2BetaSingleContributorImplementationManifest();
   const implementationSha256 = sha256(jcsBytes(implementation));
-  if (canonicalJson(implementation.source) !== canonicalJson(b01.source)) {
-    fail('BETA_IMPLEMENTATION_INVALID', 'B-01 source and beta implementation source differ');
-  }
+  assertV2BetaSingleContributorSourceBinding({
+    b01Source: b01.source,
+    implementationSource: implementation.source,
+  });
   const runtime = await directPrivateDirectory(b01.runtime.path, 'B-01-bound runtime');
   const sources = Object.freeze({
     r1cs: path.join(runtime, 'proof', 'main-chipnet.r1cs'),

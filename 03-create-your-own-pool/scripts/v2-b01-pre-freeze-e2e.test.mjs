@@ -50,6 +50,7 @@ const ARTIFACT_DIRECTORIES = Object.freeze([
   'v2-pf10-libauth-qualification',
   'v2-pf10-development-runtime',
 ]);
+const BETA_PREPARE_STATUS = 'prepared-awaiting-local-secret-contribution';
 const CREATE_STATUS = 'b01-pre-freeze-candidate-awaiting-independent-review';
 const VERIFY_STATUS = 'verified-b01-pre-freeze-candidate-awaiting-independent-review';
 
@@ -440,6 +441,49 @@ test('B-01 real-artifact clean-clone create, verify, and tamper closure', {
     parseLastJson(baselineVerify, 'independent public B-01 verification'),
     VERIFY_STATUS,
   );
+
+  await t.test('real B-01 source identity prepares the exact beta custody inventory', () => {
+    const betaDirectory = join(evidence, 'beta-single-contributor');
+    const result = requireSuccess(nodeCommand(
+      checkout,
+      '03-create-your-own-pool/scripts/v2-beta-single-contributor-ceremony.mjs',
+      [
+        'prepare',
+        '--b01-bundle', b01Bundle,
+        '--ceremony-id', 'shieldkit-v2-beta-e2e',
+        '--participant-id', 'test-operator',
+        '--output-dir', betaDirectory,
+      ],
+    ), 'real B-01-bound beta preparation');
+    const prepared = parseLastJson(result, 'real B-01-bound beta preparation');
+    assert.equal(prepared.status, BETA_PREPARE_STATUS);
+    assert.equal(prepared.ceremonyDirectory, betaDirectory);
+    assert.match(prepared.preparationSha256, /^sha256:[0-9a-f]{64}$/u);
+    assert.equal(prepared.claims.production, false);
+    assert.equal(prepared.claims.releaseQualified, false);
+    assert.equal(prepared.claims.finalKey, false);
+    assertPrivatePath(betaDirectory, { directory: true });
+    const inventory = readdirSync(betaDirectory).sort();
+    assert.deepEqual(inventory, [
+      'initial.zkey',
+      'participant-signing-key.pem',
+      'powers-of-tau.ptau',
+      'preparation.json',
+      'relation.r1cs',
+    ]);
+    inventory.forEach((name) => assertPrivatePath(
+      join(betaDirectory, name),
+      { directory: false },
+    ));
+    const preparation = JSON.parse(readFileSync(
+      join(betaDirectory, 'preparation.json'),
+      'utf8',
+    ));
+    assert.deepEqual(preparation.source, { gitCommit: commit, gitTree: tree });
+    assert.deepEqual(preparation.implementation.source, preparation.source);
+    assert.equal(preparation.b01.bundleStatus, VERIFY_STATUS);
+    assert.equal(preparation.status, BETA_PREPARE_STATUS);
+  });
 
   await t.test('rejects a resealed B-01 production-claim overstatement', () => {
     const manifestPath = join(b01Bundle, 'manifest.json');

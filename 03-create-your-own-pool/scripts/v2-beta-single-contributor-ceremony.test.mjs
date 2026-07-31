@@ -34,9 +34,10 @@ import {
   collectV2FinalZkeyToolchainManifest,
 } from '../packages/profile/v2/final-zkey-verification.mjs';
 import {
-  contributeV2BetaSingleContributorCeremony,
   assertV2BetaSingleContributorCleanCheckout,
+  assertV2BetaSingleContributorSourceBinding,
   collectV2BetaSingleContributorImplementationManifest,
+  contributeV2BetaSingleContributorCeremony,
   parseV2BetaSingleContributorArguments,
   preflightV2BetaSingleContributorCeremony,
   V2_BETA_SINGLE_CONTRIBUTOR_PREPARATION_SCHEMA,
@@ -266,6 +267,33 @@ test('implementation provenance rejects unstaged, staged, and untracked checkout
       { code: 'BETA_IMPLEMENTATION_DIRTY' },
     );
   });
+});
+
+test('B-01 source binding compares Git identity without conflating repository metadata', () => {
+  const gitCommit = '1'.repeat(40);
+  const gitTree = '2'.repeat(40);
+  const implementationSource = { gitCommit, gitTree };
+  const b01Source = { gitCommit, gitTree, repositoryRoot };
+  assert.doesNotThrow(() => assertV2BetaSingleContributorSourceBinding({
+    b01Source,
+    implementationSource,
+  }));
+  for (const [label, changedB01, changedImplementation] of [
+    ['commit', { ...b01Source, gitCommit: '3'.repeat(40) }, implementationSource],
+    ['tree', { ...b01Source, gitTree: '4'.repeat(40) }, implementationSource],
+    ['root', { ...b01Source, repositoryRoot: path.dirname(repositoryRoot) }, implementationSource],
+    ['B-01 shape', { ...b01Source, extra: true }, implementationSource],
+    ['implementation shape', b01Source, { ...implementationSource, extra: true }],
+  ]) {
+    assert.throws(
+      () => assertV2BetaSingleContributorSourceBinding({
+        b01Source: changedB01,
+        implementationSource: changedImplementation,
+      }),
+      { code: 'BETA_IMPLEMENTATION_INVALID' },
+      label,
+    );
+  }
 });
 
 test('CLI has a separate exact beta contract and has no entropy argument', () => {
