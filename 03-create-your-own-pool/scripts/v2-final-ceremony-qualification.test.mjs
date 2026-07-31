@@ -10,8 +10,10 @@ import { tmpdir } from 'node:os';
 import {
   parseV2D01Arguments,
   runV2D01FinalCeremonyQualification,
+  validateV2D01CeremonyInventoryBindings,
   validateV2D01PostCeremonyBinding,
   V2_D01_POST_CEREMONY_BINDING_SCHEMA,
+  V2_D01_REQUIRED_CEREMONY_FILES,
   V2D01FinalCeremonyQualificationError,
 } from './v2-final-ceremony-qualification.mjs';
 
@@ -100,6 +102,70 @@ test('D-01 post-ceremony binding has the final-key-only success shape', () => {
     const invalid = binding(); mutate(invalid);
     assert.throws(() => validateV2D01PostCeremonyBinding(invalid, expected()), V2D01FinalCeremonyQualificationError);
   }
+});
+
+test('D-01 ceremony custody requires every exact signed final-runtime record', () => {
+  const finalEvidence = {
+    schema: 'shieldkit-v2-direct-final-runtime-evidence-resolution-v2',
+    policySha256: hash('1'),
+    contributorRegistrySha256: hash('2'),
+    transcriptSha256: hash('3'),
+    beaconSha256: hash('4'),
+    snarkjsToolchainSha256: hash('5'),
+    contributorCount: 5,
+    transcriptVerificationSha256s: [hash('6'), hash('7')],
+    reproductionSha256s: [hash('8'), hash('9')],
+    sourceCommit: 'a'.repeat(40),
+    sourceTree: 'b'.repeat(40),
+    lockfileSha256: hash('0'),
+  };
+  const pins = new Map([
+    [
+      V2_D01_REQUIRED_CEREMONY_FILES.contributorRegistry,
+      finalEvidence.contributorRegistrySha256,
+    ],
+    [
+      V2_D01_REQUIRED_CEREMONY_FILES.transcript,
+      finalEvidence.transcriptSha256,
+    ],
+    [
+      V2_D01_REQUIRED_CEREMONY_FILES.beacon,
+      finalEvidence.beaconSha256,
+    ],
+    ...V2_D01_REQUIRED_CEREMONY_FILES.transcriptVerifications.map(
+      (path, index) => [
+        path,
+        finalEvidence.transcriptVerificationSha256s[index],
+      ],
+    ),
+    ...V2_D01_REQUIRED_CEREMONY_FILES.reproductions.map(
+      (path, index) => [
+        path,
+        finalEvidence.reproductionSha256s[index],
+      ],
+    ),
+  ]);
+  assert.equal(
+    validateV2D01CeremonyInventoryBindings(pins, finalEvidence).length,
+    7,
+  );
+
+  const missing = new Map(pins);
+  missing.delete(V2_D01_REQUIRED_CEREMONY_FILES.transcript);
+  assert.throws(
+    () => validateV2D01CeremonyInventoryBindings(missing, finalEvidence),
+    /does not retain exact signed artifact transcript\.json/u,
+  );
+
+  const swapped = new Map(pins);
+  swapped.set(
+    V2_D01_REQUIRED_CEREMONY_FILES.transcriptVerifications[0],
+    finalEvidence.transcriptVerificationSha256s[1],
+  );
+  assert.throws(
+    () => validateV2D01CeremonyInventoryBindings(swapped, finalEvidence),
+    /verify-host-a\.json/u,
+  );
 });
 
 test('D-01 relies on the production final-runtime evidence red-team corpus', async () => {

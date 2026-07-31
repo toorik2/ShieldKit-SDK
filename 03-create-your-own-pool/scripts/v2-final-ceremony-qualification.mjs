@@ -7,8 +7,9 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  chmodSync, closeSync, constants, existsSync, fsyncSync, lstatSync, mkdirSync,
-  openSync, readFileSync, readdirSync, realpathSync, renameSync, writeSync,
+  chmodSync, closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync,
+  mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync,
+  writeSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -33,6 +34,19 @@ export const V2_D01_RESULT_SCHEMA =
   'shieldkit-v2-direct-d01-final-ceremony-qualification-v1';
 export const V2_D01_POST_CEREMONY_BINDING_SCHEMA =
   'shieldkit-v2-direct-d01-post-ceremony-binding-v1';
+export const V2_D01_REQUIRED_CEREMONY_FILES = Object.freeze({
+  contributorRegistry: 'contributors.json',
+  transcript: 'transcript.json',
+  beacon: 'beacon.json',
+  transcriptVerifications: Object.freeze([
+    'verify-host-a.json',
+    'verify-host-b.json',
+  ]),
+  reproductions: Object.freeze([
+    'repro-host-a.json',
+    'repro-host-b.json',
+  ]),
+});
 
 export class V2D01FinalCeremonyQualificationError extends Error {
   constructor(message) { super(message); this.name = 'V2D01FinalCeremonyQualificationError'; }
@@ -50,31 +64,94 @@ function absolute(value, label) {
   if (typeof value !== 'string' || !isAbsolute(value) || resolve(value) !== value) fail(`${label} must be an absolute normalized path`);
   return value;
 }
+function sameIdentity(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
+}
 function directFile(path, label) {
-  absolute(path, label); const entry = lstatSync(path, { throwIfNoEntry: false });
-  if (entry === undefined || !entry.isFile() || entry.isSymbolicLink() || entry.nlink !== 1 || realpathSync(path) !== path) fail(`${label} must be one direct regular non-symlink file`);
+  absolute(path, label); const entry = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (
+    entry === undefined
+    || !entry.isFile()
+    || entry.isSymbolicLink()
+    || entry.nlink !== 1n
+    || realpathSync(path) !== path
+    || (
+      typeof process.getuid === 'function'
+      && entry.uid !== BigInt(process.getuid())
+    )
+    || Number(entry.mode & 0o7777n) !== 0o600
+  ) fail(`${label} must be one direct user-owned mode-600 single-link file`);
   return entry;
 }
 function directDirectory(path, label) {
-  absolute(path, label); const entry = lstatSync(path, { throwIfNoEntry: false });
-  if (entry === undefined || !entry.isDirectory() || entry.isSymbolicLink() || realpathSync(path) !== path) fail(`${label} must be one direct canonical directory`);
+  absolute(path, label); const entry = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (
+    entry === undefined
+    || !entry.isDirectory()
+    || entry.isSymbolicLink()
+    || realpathSync(path) !== path
+    || (
+      typeof process.getuid === 'function'
+      && entry.uid !== BigInt(process.getuid())
+    )
+    || Number(entry.mode & 0o7777n) !== 0o700
+  ) fail(`${label} must be one direct user-owned mode-700 directory`);
   return entry;
 }
+function stableBytes(path, label) {
+  const pathBefore = directFile(path, label);
+  const fd = openSync(
+    path,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+  );
+  try {
+    const before = fstatSync(fd, { bigint: true });
+    if (!sameIdentity(pathBefore, before)) {
+      fail(`${label} changed before it was read`);
+    }
+    const bytes = readFileSync(fd);
+    const after = fstatSync(fd, { bigint: true });
+    const pathAfter = lstatSync(path, { bigint: true });
+    if (
+      !sameIdentity(before, after)
+      || !sameIdentity(after, pathAfter)
+      || BigInt(bytes.length) !== after.size
+      || realpathSync(path) !== path
+    ) {
+      fail(`${label} changed while it was read`);
+    }
+    return bytes;
+  } finally {
+    closeSync(fd);
+  }
+}
 function readJcs(path, label) {
-  directFile(path, label); const bytes = readFileSync(path); let value;
+  const bytes = stableBytes(path, label); let value;
   try { value = JSON.parse(bytes); } catch { fail(`${label} is not JSON`); }
   if (!bytes.equals(canonical(value))) fail(`${label} must use exact RFC8785/JCS bytes`);
   return Object.freeze({ bytes, path, sha256: sha256(bytes), value });
 }
 function listFiles(root) {
+  const rootBefore = directDirectory(root, 'D-01 ceremony directory');
   const files = []; const visit = (directory) => {
+    directDirectory(directory, `D-01 ceremony directory ${relative(root, directory) || '.'}`);
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       if (entry.isSymbolicLink()) fail('D-01 ceremony directory contains a symlink');
       if (entry.isDirectory()) visit(path); else if (entry.isFile()) files.push(relative(root, path));
       else fail('D-01 ceremony directory contains a non-regular artifact');
     }
-  }; visit(root); return files.sort();
+  };
+  visit(root);
+  const rootAfter = directDirectory(root, 'D-01 ceremony directory');
+  if (!sameIdentity(rootBefore, rootAfter)) {
+    fail('D-01 ceremony directory changed while inventoried');
+  }
+  return files.sort();
 }
 function readInventory(root) {
   const record = readJcs(join(root, 'inventory.json'), 'D-01 inventory');
@@ -90,9 +167,83 @@ function readInventory(root) {
   const actual = listFiles(root); const expected = [...pins.keys(), 'inventory.json'].sort();
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('D-01 ceremony directory has missing or unreferenced artifacts');
   for (const [path, hash] of pins) {
-    const bytes = readFileSync(join(root, path)); if (sha256(bytes) !== hash) fail(`D-01 inventory hash differs for ${path}`);
+    const bytes = stableBytes(join(root, path), `D-01 inventory artifact ${path}`); if (sha256(bytes) !== hash) fail(`D-01 inventory hash differs for ${path}`);
   }
   return Object.freeze({ pins, record });
+}
+/**
+ * Bind the independently retained ceremony directory to the exact signed
+ * final-runtime evidence. This is a custody check in addition to the
+ * descriptor/runtime verifier: a copied binding summary is not sufficient.
+ */
+export function validateV2D01CeremonyInventoryBindings(
+  pins,
+  finalEvidence,
+) {
+  if (!(pins instanceof Map)) {
+    fail('D-01 ceremony inventory pins must be a Map');
+  }
+  exact(finalEvidence, [
+    'beaconSha256',
+    'contributorCount',
+    'contributorRegistrySha256',
+    'lockfileSha256',
+    'policySha256',
+    'reproductionSha256s',
+    'schema',
+    'snarkjsToolchainSha256',
+    'sourceCommit',
+    'sourceTree',
+    'transcriptSha256',
+    'transcriptVerificationSha256s',
+  ], 'D-01 final runtime evidence summary');
+  if (
+    !Array.isArray(finalEvidence.transcriptVerificationSha256s)
+    || finalEvidence.transcriptVerificationSha256s.length !== 2
+    || !Array.isArray(finalEvidence.reproductionSha256s)
+    || finalEvidence.reproductionSha256s.length !== 2
+  ) {
+    fail('D-01 final runtime evidence does not contain two verifier and reproduction records');
+  }
+  const required = Object.freeze([
+    Object.freeze({
+      path: V2_D01_REQUIRED_CEREMONY_FILES.contributorRegistry,
+      sha256: finalEvidence.contributorRegistrySha256,
+    }),
+    Object.freeze({
+      path: V2_D01_REQUIRED_CEREMONY_FILES.transcript,
+      sha256: finalEvidence.transcriptSha256,
+    }),
+    Object.freeze({
+      path: V2_D01_REQUIRED_CEREMONY_FILES.beacon,
+      sha256: finalEvidence.beaconSha256,
+    }),
+    ...V2_D01_REQUIRED_CEREMONY_FILES.transcriptVerifications.map(
+      (path, index) => Object.freeze({
+        path,
+        sha256: finalEvidence.transcriptVerificationSha256s[index],
+      }),
+    ),
+    ...V2_D01_REQUIRED_CEREMONY_FILES.reproductions.map(
+      (path, index) => Object.freeze({
+        path,
+        sha256: finalEvidence.reproductionSha256s[index],
+      }),
+    ),
+  ]);
+  for (const record of required) {
+    if (
+      !HASH.test(record.sha256)
+      || pins.get(record.path) !== record.sha256
+    ) {
+      fail(
+        `D-01 ceremony inventory does not retain exact signed artifact ${
+          record.path
+        }`,
+      );
+    }
+  }
+  return required;
 }
 function parseArguments(argv) {
   const names = new Set(['--profile-core', '--descriptor', '--final-manifest', '--release-root', '--ceremony-dir', '--expected-commit', '--expected-tree', '--output-dir']);
@@ -144,9 +295,17 @@ async function gitState(git) {
 function writeDirect(directory, filename, value) {
   const path = join(directory, filename); const bytes = canonical(value); const temporary = join(directory, `.${process.pid}.${Date.now()}.tmp`);
   const fd = openSync(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
-  try { writeSync(fd, bytes); fsyncSync(fd); } finally { closeSync(fd); }
-  chmodSync(temporary, 0o600); renameSync(temporary, path); const entry = lstatSync(path);
-  if (!entry.isFile() || entry.isSymbolicLink() || entry.nlink !== 1 || entry.uid !== process.getuid() || (entry.mode & 0o7777) !== 0o600) fail(`D-01 ${filename} is not a direct user-owned 0600 single-link file`);
+  try {
+    let offset = 0;
+    while (offset < bytes.length) {
+      const written = writeSync(fd, bytes, offset, bytes.length - offset);
+      if (written <= 0) fail(`D-01 ${filename} atomic write made no progress`);
+      offset += written;
+    }
+    fsyncSync(fd);
+  } finally { closeSync(fd); }
+  chmodSync(temporary, 0o600); renameSync(temporary, path);
+  directFile(path, `D-01 ${filename}`);
   const directoryFd = openSync(directory, constants.O_RDONLY | (constants.O_DIRECTORY ?? 0)); try { fsyncSync(directoryFd); } finally { closeSync(directoryFd); }
   return Object.freeze({ path, sha256: sha256(bytes) });
 }
@@ -168,25 +327,37 @@ export function validateV2D01PostCeremonyBinding(value, expected) {
   if (!SHA1.test(value.sourceCommit) || !SHA1.test(value.sourceTree) || !Number.isSafeInteger(value.contributorCount) || value.contributorCount < 5 || !Array.isArray(value.transcriptVerificationSha256s) || value.transcriptVerificationSha256s.length !== 2 || !Array.isArray(value.reproductionSha256s) || value.reproductionSha256s.length !== 2) fail('D-01 post-ceremony binding has invalid final-evidence summary');
   return Object.freeze(value);
 }
+/**
+ * Read and revalidate the complete D-01 evidence bundle without creating an
+ * output artifact. Later gates use this rather than trusting a caller-supplied
+ * summary of the ceremony result.
+ */
+export async function verifyV2D01FinalCeremonyEvidence(options) {
+  exact(options, ['ceremonyDirectory', 'descriptorPath', 'expectedCommit', 'expectedTree', 'finalManifestPath', 'profileCorePath', 'releaseRootId'], 'D-01 evidence options');
+  safeRuntime(); const releaseRoot = resolveV2FinalReleaseRoot(options.releaseRootId); const git = await gitState(trustedGit());
+  if (git.commit !== options.expectedCommit || git.tree !== options.expectedTree) fail('D-01 live source differs from expected commit/tree');
+  for (const [path, label] of Object.entries({ profileCorePath: 'D-01 profile core', descriptorPath: 'D-01 descriptor', finalManifestPath: 'D-01 final manifest' })) directFile(options[path], label);
+  directDirectory(options.ceremonyDirectory, 'D-01 ceremony directory');
+  const profile = readJcs(options.profileCorePath, 'D-01 profile core'); const release = verifyV2FinalReleaseProfileCore(releaseRoot, profile.bytes, profile.value);
+  const descriptor = await loadV2InstanceDescriptor({ descriptorPath: options.descriptorPath, profileCore: profile.value, trustedSigners: release.descriptorSigners });
+  if (descriptor.manifest.filename !== options.finalManifestPath) fail('D-01 final manifest path is not descriptor-pinned');
+  const runtime = await deriveV2Pf10RuntimeFromValidatedDescriptor(descriptor);
+  if (runtime.eligibility !== 'final-qualified' || runtime.claims.finalKey !== true || runtime.claims.developmentKey !== false || runtime.claims.ceremonyQualified !== true || runtime.claims.production !== false || runtime.claims.releaseQualified !== false) fail('D-01 requires final-key, ceremony-qualified, non-production, non-release runtime material');
+  const inventory = readInventory(options.ceremonyDirectory);
+  validateV2D01CeremonyInventoryBindings(inventory.pins, runtime.finalEvidence);
+  const binding = readJcs(join(options.ceremonyDirectory, 'post-ceremony-binding.json'), 'D-01 post-ceremony binding');
+  if (inventory.pins.get('post-ceremony-binding.json') !== binding.sha256) fail('D-01 post-ceremony binding is not inventory-pinned');
+  const expected = expectedBinding(runtime, descriptor, options.releaseRootId, git); validateV2D01PostCeremonyBinding(binding.value, expected);
+  return Object.freeze({ schema: V2_D01_RESULT_SCHEMA, status: 'd01-qualified-final-key-not-production-or-release', d01Qualified: true, production: false, releaseQualified: false, releaseBootstrapSha256: release.releaseBootstrapSha256, ...expected, postCeremonyBindingSha256: binding.sha256, ceremonyInventorySha256: inventory.record.sha256 });
+}
 export async function runV2D01FinalCeremonyQualification(options) {
   exact(options, ['ceremonyDirectory', 'descriptorPath', 'expectedCommit', 'expectedTree', 'finalManifestPath', 'outputDirectory', 'profileCorePath', 'releaseRootId'], 'D-01 options');
   let outputCreated = false;
   try {
-    safeRuntime(); const releaseRoot = resolveV2FinalReleaseRoot(options.releaseRootId); const git = await gitState(trustedGit());
-    if (git.commit !== options.expectedCommit || git.tree !== options.expectedTree) fail('D-01 live source differs from expected commit/tree');
-    for (const [path, label] of Object.entries({ profileCorePath: 'D-01 profile core', descriptorPath: 'D-01 descriptor', finalManifestPath: 'D-01 final manifest' })) directFile(options[path], label);
-    directDirectory(options.ceremonyDirectory, 'D-01 ceremony directory');
-    const profile = readJcs(options.profileCorePath, 'D-01 profile core'); const release = verifyV2FinalReleaseProfileCore(releaseRoot, profile.bytes, profile.value);
-    const descriptor = await loadV2InstanceDescriptor({ descriptorPath: options.descriptorPath, profileCore: profile.value, trustedSigners: release.descriptorSigners });
-    if (descriptor.manifest.filename !== options.finalManifestPath) fail('D-01 final manifest path is not descriptor-pinned');
-    const runtime = await deriveV2Pf10RuntimeFromValidatedDescriptor(descriptor);
-    if (runtime.eligibility !== 'final-qualified' || runtime.claims.finalKey !== true || runtime.claims.developmentKey !== false || runtime.claims.ceremonyQualified !== true || runtime.claims.production !== false || runtime.claims.releaseQualified !== false) fail('D-01 requires final-key, ceremony-qualified, non-production, non-release runtime material');
-    const inventory = readInventory(options.ceremonyDirectory); const binding = readJcs(join(options.ceremonyDirectory, 'post-ceremony-binding.json'), 'D-01 post-ceremony binding');
-    if (inventory.pins.get('post-ceremony-binding.json') !== binding.sha256) fail('D-01 post-ceremony binding is not inventory-pinned');
-    const expected = expectedBinding(runtime, descriptor, options.releaseRootId, git); validateV2D01PostCeremonyBinding(binding.value, expected);
-    outputCreated = createOutput(options.outputDirectory); if (!outputCreated) fail('D-01 refuses a preexisting output directory');
-    const result = Object.freeze({ schema: V2_D01_RESULT_SCHEMA, status: 'd01-qualified-final-key-not-production-or-release', d01Qualified: true, production: false, releaseQualified: false, releaseBootstrapSha256: release.releaseBootstrapSha256, ...expected, postCeremonyBindingSha256: binding.sha256, ceremonyInventorySha256: inventory.record.sha256 });
-    const artifact = writeDirect(options.outputDirectory, 'd01-final-ceremony-qualification.json', result); return Object.freeze({ ...result, artifactPath: artifact.path, artifactSha256: artifact.sha256 });
+    const { outputDirectory, ...evidenceOptions } = options;
+    const result = await verifyV2D01FinalCeremonyEvidence(evidenceOptions);
+    outputCreated = createOutput(outputDirectory); if (!outputCreated) fail('D-01 refuses a preexisting output directory');
+    const artifact = writeDirect(outputDirectory, 'd01-final-ceremony-qualification.json', result); return Object.freeze({ ...result, artifactPath: artifact.path, artifactSha256: artifact.sha256 });
   } catch (error) { if (!outputCreated) failure(options.outputDirectory, error); throw error; }
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) { try { process.stdout.write(`${JSON.stringify(await runV2D01FinalCeremonyQualification(parseArguments(process.argv.slice(2))), null, 2)}\n`); } catch (error) { process.stderr.write(`D-01 final ceremony qualification failed: ${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; } }

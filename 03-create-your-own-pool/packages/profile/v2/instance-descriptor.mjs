@@ -2542,7 +2542,11 @@ async function derivePf10RuntimeFromValidatedPins({
       readRuntimeBytes,
       runtime,
     });
-    finalBuildEvidence = verifiedFinalBuild.evidence;
+    finalBuildEvidence = Object.freeze({
+      ...verifiedFinalBuild.evidence,
+      relationSourceManifestArtifactId:
+        runtime.buildArtifacts.relationSourceManifest,
+    });
     finalZkeyToolchain = verifiedFinalBuild.toolchain;
   }
   const runtimeMaterial = validateDirectV2Pf10RuntimeMaterial({

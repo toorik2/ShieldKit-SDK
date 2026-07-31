@@ -33,10 +33,11 @@ an unavailable VM for a failed candidate.
 ```text
 B-01-pre + Q-01-pre freeze, including the selected high-capacity descriptor
   -> D-01 ceremony (5 contributors, beacon, 2 transcript verifiers, 2 repro hosts)
-    -> B-02-final, Q-02, Q-03, Q-07 (same final root and raw transactions)
-      -> D-02 four independent audit closures
-        -> Q-08 two independent clean hosts with independently funded journeys
-          -> Q-09 30-day >=1000-settlement Chipnet soak plus separate 32-note playground
+    -> Q-01 final-artifact replay (same source, relation, profile, and D-01 root)
+      -> B-02-final, Q-02, Q-03, Q-07 (same final root and raw transactions)
+        -> D-02 four independent audit closures
+          -> Q-08 two independent clean hosts with independently funded journeys
+            -> Q-09 30-day >=1000-settlement Chipnet soak plus separate 32-note playground
 ```
 
 The ceremony coordinator, each contributor, each transcript verifier, each
@@ -50,12 +51,58 @@ wallet seeds, and host private keys stay local; host signing keys are direct,
 non-symlink, mode-0600 PKCS#8 files. Do not place secrets in the manifest,
 corpus, command transcript, or source tree.
 
-Use a fresh private output directory for every writer: Q-08/Q-09 require a
-nonexistent absolute output directory, create it mode 0700, and write direct
-0600 files. Their inputs must be absolute normalized direct regular files (no
-symlinks); Q-02 corpus references are safe relative paths under its corpus
+Use a fresh private output directory for every writer. Inputs and retained
+bundles are direct, user-owned, mode-0600 files under direct mode-0700
+directories unless a gate states a narrower contract. Paths are absolute and
+normalized; symlinks and hard-linked files are forbidden. Q-02 corpus
+references are the documented safe relative-path exception under its corpus
 directory. A failure must preserve a `failure.json` where the runner supports
 it; never overwrite, retry in place, or relabel a failed run as a fresh run.
+
+## B-01-pre and Q-01-pre: candidate freeze
+
+First create Q-01-pre at the exact clean commit/tree selected for review. The
+argument is an existing direct mode-0700 directory outside the checkout; the
+command creates one timestamped exact four-file bundle beneath it and prints
+the resulting absolute `bundlePath`:
+
+```text
+node 03-create-your-own-pool/scripts/v2-q01-commit-bound-evidence.mjs \
+  --output-directory <absolute-existing-mode-0700-directory>
+```
+
+Then seal that Q-01-pre bundle together with the development-key PF10 runtime:
+
+```text
+node 03-create-your-own-pool/scripts/v2-b01-pre-freeze.mjs \
+  --runtime-bundle <absolute-.codex-build/v2-pf10-development-runtime> \
+  --q01-pre-bundle <absolute-q01-bundlePath> \
+  --expected-commit <sha1> --expected-tree <sha1> \
+  --output-dir <absolute-new-directory-outside-the-checkout>
+
+node 03-create-your-own-pool/scripts/v2-b01-pre-freeze.mjs \
+  --verify <absolute-b01-pre-bundle>
+```
+
+The PF10 runtime directory must share its parent with the direct mode-0700
+`v2-pf10-libauth-qualification` and `v2-development-profile` bundles. B-01
+invokes the authoritative runtime-coherence verifier: exact 57-artifact
+inventory; development profile and relation source; build/setup
+attestations; R1CS, WASM, development zkey and VK; canonical and raw proof
+qualification; Libauth transactions; structural locks; runtime-material
+commitment; and independent Powers-of-Tau/zkey reproduction checks. It hashes
+the runtime before and after the four-lane Q-01 replay and rechecks the clean
+source commit/tree.
+
+Success is deliberately named
+`b01-pre-freeze-candidate-awaiting-independent-review`. It sets
+`reviewed:false`, `ceremonyAuthorized:false`, `finalKey:false`,
+`production:false`, and `releaseQualified:false`. It retains absolute custody
+paths and hashes rather than copying the large runtime. Independent reviewers
+must receive every referenced directory, rerun `--verify`, review the frozen
+relation/packet/public-input ABI/topology, and separately authorize the
+immutable commit/tag before D-01. The generated record is not that review or
+authorization.
 
 ## D-01: final ceremony and reproduction
 
@@ -110,8 +157,13 @@ shieldkit-v2-direct-final-reproduction-v2
 Stage the signed-manifest artifacts at:
 
 ```text
-artifacts/v2-direct/<profileId>/ceremony/{transcript,beacon,contributors,
-  verify-host-a,verify-host-b,repro-host-a,repro-host-b}.json
+artifacts/v2-direct/<profileId>/ceremony/contributors.json
+artifacts/v2-direct/<profileId>/ceremony/transcript.json
+artifacts/v2-direct/<profileId>/ceremony/beacon.json
+artifacts/v2-direct/<profileId>/ceremony/verify-host-a.json
+artifacts/v2-direct/<profileId>/ceremony/verify-host-b.json
+artifacts/v2-direct/<profileId>/ceremony/repro-host-a.json
+artifacts/v2-direct/<profileId>/ceremony/repro-host-b.json
 ```
 
 Accept D-01 only if all signatures, policy authorizations, artifact hashes,
@@ -149,11 +201,86 @@ canonical `post-ceremony-binding.json`, schema
 runtime evidence to the exact descriptor/manifest/release root/source commit
 and tree, R1CS/PTAU/final-zkey/VK/toolchain hashes, transcript/beacon,
 five-contributor threshold, and the two verifier plus two reproduction
-envelopes. The primary evidence remains the signed-manifest final-runtime
+envelopes. The inventory must retain the seven canonical filenames above
+with hashes exactly equal to the independently verified final-runtime
+contributor registry, transcript, beacon, verifier pair, and reproduction
+pair; a copied `post-ceremony-binding.json` cannot stand in for them. The
+primary evidence remains the signed-manifest final-runtime
 artifacts and is revalidated by `final-runtime-evidence.mjs`; this wrapper
 adds no alternate ceremony signature format. The public verifier has no test
 seam and writes no success artifact on failure; where it can safely create the
 new requested output directory it writes one direct 0600 `failure.json`.
+
+## Q-01: post-D-01 final-artifact replay
+
+Run this immediately after D-01 and before any final-key VM gate. The
+Q-01-pre bundle must be the immutable mode-0700, exact four-file bundle
+created at the same clean source commit/tree used by D-01. Its four direct
+mode-0600 files are `manifest.json`, `source-set.json`,
+`qualification.json`, and `execution.json`; no additional file, symlink,
+hard link, noncanonical JSON, or changed mode is accepted.
+
+```text
+node 03-create-your-own-pool/scripts/v2-q01-final-artifact-replay.mjs \
+  --profile-core <absolute-mode-0600-file> \
+  --descriptor <absolute-mode-0600-file> \
+  --final-manifest <absolute-mode-0600-file> \
+  --release-root <compiled-root-id> \
+  --d01-result <absolute-mode-0600-file> \
+  --ceremony-dir <absolute-direct-ceremony-directory> \
+  --q01-pre-bundle <absolute-mode-0700-directory> \
+  --expected-commit <sha1> --expected-tree <sha1> \
+  --output-dir <absolute-new-directory-outside-the-checkout>
+```
+
+The verifier resolves the compiled release root before opening
+caller-selected evidence. It then re-runs the read-only D-01 verifier over
+the direct ceremony directory and requires its resulting canonical D-01
+record to exactly equal `--d01-result`; a well-shaped caller-supplied D-01
+summary is never sufficient. It revalidates the canonical profile core,
+signed descriptor and final manifest through the existing final-runtime
+validators; requires `finalKey:true`, `developmentKey:false`,
+`ceremonyQualified:true`, `production:false`, and
+`releaseQualified:false`; and binds the exact D-01 result, release bootstrap,
+profile/instance/topology, descriptor/manifest, source commit/tree, R1CS,
+witness WASM, final zkey, VK, runtime material, SnarkJS toolchain, transcript,
+beacon, contributor threshold, transcript-verifier pair, and reproduction
+pair.
+
+The final relation-source-manifest artifact is resolved by its exact
+signed-runtime artifact ID and hash from the validated descriptor. The existing relation
+manifest parser checks its schema and complete include graph, then the
+existing source verifier independently compares every relation source with
+the live checkout. Finally, the authoritative Q-01-pre verifier reruns the
+TypeScript, Rust, compiled-Circom, and BCH-covenant lanes and requires their
+canonical semantic outputs to be byte-identical to the sealed freeze. The
+bundle is hashed before and after the replay and must remain unchanged.
+
+Success creates exactly one canonical mode-0600 file in the newly created
+mode-0700 output directory:
+
+```text
+q01-final-artifact-replay.json
+schema: shieldkit-v2-direct-q01-final-artifact-replay-v1
+status: q01-final-artifact-replay-qualified-not-production-or-release
+q01FinalReplayQualified: true
+production: false
+releaseQualified: false
+```
+
+Failure never leaves that success artifact and may leave only a bounded
+mode-0600 `failure.json`. Unknown CLI fields, a dirty or different source,
+test-only Q-01-pre evidence, development/pre-final runtime material,
+self-resealed semantic/vector/relation drift, a wrong release root or D-01
+identity, noncanonical input, unsafe path/mode, or injected public verifier
+seam is fatal. The exported TEST-ONLY dependency seam writes a distinct
+`shieldkit-v2-direct-q01-final-artifact-replay-test-only-v1` artifact with
+`q01FinalReplayQualified:false`; it validates test fixtures only and is never
+qualification evidence.
+
+The verifier is implemented, but no compiled final release root, authentic
+D-01 result, signed final descriptor/manifest, or post-D-01 Q-01 result exists
+yet. Do not promote its local test fixture.
 
 ## B-02-final and Q-02/Q-03/Q-07: one immutable transaction set
 

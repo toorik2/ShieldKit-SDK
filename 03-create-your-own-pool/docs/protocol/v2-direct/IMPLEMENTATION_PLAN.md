@@ -667,6 +667,15 @@ ceremony, and independent audits remain missing.
   relation/packet/digest freeze. Post-ceremony replay may bind final profile
   and instance identifiers, but it must remain byte-for-byte semantically
   identical and may not change the frozen relation or packet.
+- Create the pre-review custody record with
+  `scripts/v2-b01-pre-freeze.mjs`. It must invoke the authoritative PF10
+  development runtime verifier (including profile, relation, qualification,
+  Libauth, structural-lock, runtime-material, Powers-of-Tau, and zkey checks),
+  rerun Q-01-pre, and recheck the clean source and runtime inventory. Its only
+  success status is a development-key candidate awaiting independent review;
+  it never claims that review, ceremony authorization, a final key, production,
+  or release qualification. Independent review and an immutable authorized
+  commit/tag remain mandatory before D-01.
 
 ### Phase C — Persistent trees, wallet, and recovery
 
@@ -712,13 +721,25 @@ After the Phase-B relation/packet/ABI/topology freeze and Q-01-pre:
 - Keep the generic two-participant development helper visibly separate from
   the final D-01 validator, which requires all five contributors and both
   independent transcript-verification and artifact-reproduction records.
+- Preserve the exact clean source commit/tree and immutable Q-01-pre bundle
+  consumed by D-01. The post-ceremony replay accepts no regenerated,
+  semantically equivalent, test-only, or source-shifted substitute.
 
 ### Phase E — Final-key VM foundation and qualification
 
 Using only the final Phase-D artifacts:
 
 - Replay Q-01 against the final artifacts and require exact agreement with the
-  pre-ceremony semantic freeze.
+  pre-ceremony semantic freeze. Use
+  `scripts/v2-q01-final-artifact-replay.mjs`: it revalidates the compiled
+  release root, signed final profile/descriptor/manifest/runtime and D-01
+  result; independently verifies the signed relation-source manifest against
+  the live clean checkout; invokes the authoritative Q-01-pre verifier to
+  rerun all four implementation lanes; and writes one canonical
+  `shieldkit-v2-direct-q01-final-artifact-replay-v1` result. Its TEST-ONLY
+  injected seam is permanently nonqualifying. The verifier is implemented,
+  but no authentic final release root, D-01 result, or post-D-01 replay
+  artifact exists.
 - Execute real deposit, transfer, and withdrawal settlements using:
   - latest unmodified verifier benchmark;
   - Libauth;
