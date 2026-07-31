@@ -163,6 +163,12 @@ const LOCAL_VERIFIER_COMPLETION_ARTIFACTS = Object.freeze([
   '../.codex-build/v2-pf10-development-runtime/qualification/pf10-libauth-evidence.json',
 ]);
 const ARTIFACT_QUALIFICATION_TESTS = new Map([
+  ['packages/unlock-builder/v2/pf10-fused-q-genesis.test.mjs', Object.freeze([
+    '../.codex-build/v2-dev-groth16/verification_key.json',
+    '../.codex-build/v2-dev-proof-qualification/withdrawal/proof.json',
+    '../.codex-build/v2-dev-proof-qualification/withdrawal/public.json',
+    '../.codex-build/v2-dev-proof-qualification/withdrawal/packet.bin',
+  ])],
   ['packages/unlock-builder/v2/pf10-withdrawal.test.mjs', Object.freeze([
     '../.codex-build/v2-circuit-model/main-chipnet.r1cs',
     '../.codex-build/v2-dev-groth16/verification_key.json',

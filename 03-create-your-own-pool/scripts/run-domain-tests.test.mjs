@@ -954,12 +954,14 @@ test('tracked pinned verifier-lane tests bypass the bulk vendor exclusion', asyn
 test('artifact-gated V2 verifier reality tests remain local qualifications', async () => {
   const coherence =
     'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs';
+  const fused = 'packages/unlock-builder/v2/pf10-fused-q-genesis.test.mjs';
   const pf10 = 'packages/unlock-builder/v2/pf10-withdrawal.test.mjs';
   const pairfold = 'packages/unlock-builder/v2/total-pairfold.test.mjs';
   const runtime = 'scripts/v2-pf10-development-runtime.test.mjs';
   const root = await fixture({
     'packages/action/base.test.mjs': passingTest,
     [coherence]: passingTest,
+    [fused]: passingTest,
     [pf10]: passingTest,
     [pairfold]: passingTest,
     [runtime]: passingTest,
@@ -968,7 +970,7 @@ test('artifact-gated V2 verifier reality tests remain local qualifications', asy
   const selected = selectDomainTests(discovery, 'local-verifier-lane');
   assert.deepEqual(
     selected.map((entry) => entry.relativePath),
-    [coherence, pf10, pairfold, runtime],
+    [fused, coherence, pf10, pairfold, runtime],
   );
   assert.match(selected[0].reason, /artifact-dependent/);
   await assert.rejects(
