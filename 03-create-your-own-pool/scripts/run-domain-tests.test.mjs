@@ -615,9 +615,17 @@ test('portable test discovery does not eagerly load the materialized PF10 runtim
     source,
     /from '\.\.\/packages\/unlock-builder\/v2\/pf10-development-runtime-builder\.mjs';/u,
   );
+  assert.doesNotMatch(
+    source,
+    /from '\.\.\/packages\/profile\/v2\/instance-descriptor\.mjs';/u,
+  );
   assert.match(
     source,
     /import\(\s*'\.\.\/packages\/unlock-builder\/v2\/pf10-development-runtime-builder\.mjs'\s*\)/u,
+  );
+  assert.match(
+    source,
+    /import\(\s*'\.\.\/packages\/profile\/v2\/instance-descriptor\.mjs'\s*\)/u,
   );
 });
 

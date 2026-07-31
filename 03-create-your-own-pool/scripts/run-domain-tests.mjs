@@ -30,11 +30,6 @@ import {
   buildDirectV2StateTrampolineUnlock,
 } from '../packages/unlock-builder/v2/structural-covenants.mjs';
 import {
-  PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT,
-  validateV2DevelopmentPf10QualificationArtifacts,
-  validateV2UnsignedPf10RuntimeArtifactReferences,
-} from '../packages/profile/v2/instance-descriptor.mjs';
-import {
   canonicalizeJcs,
   deriveProfileId,
   validateProfileCore,
@@ -290,6 +285,7 @@ const NODE_TEST_DECLARATION = /\b(?:test|it|describe|suite)\s*\(/;
 const DOMAIN_TEST_TEMP_PREFIX = 'domain-test-run-';
 const managedDomainTestTemporaryDirectories = new Map();
 let pf10DevelopmentRuntimeBuilderModule;
+let v2InstanceDescriptorModule;
 
 export class DomainTestRunnerError extends Error {
   constructor(message) {
@@ -305,6 +301,13 @@ async function loadPf10DevelopmentRuntimeBuilder() {
     '../packages/unlock-builder/v2/pf10-development-runtime-builder.mjs'
   );
   return pf10DevelopmentRuntimeBuilderModule;
+}
+
+async function loadV2InstanceDescriptor() {
+  v2InstanceDescriptorModule ??= import(
+    '../packages/profile/v2/instance-descriptor.mjs'
+  );
+  return v2InstanceDescriptorModule;
 }
 
 function requiredObject(value, label) {
@@ -1468,6 +1471,11 @@ async function inspectLocalVerifierRuntimeCoherence({
     validateDirectV2Pf10LibauthEvidence,
     validateDirectV2Pf10Reproducibility,
   } = await loadPf10DevelopmentRuntimeBuilder();
+  const {
+    PF10_UNSIGNED_RUNTIME_REFERENCE_COUNT,
+    validateV2DevelopmentPf10QualificationArtifacts,
+    validateV2UnsignedPf10RuntimeArtifactReferences,
+  } = await loadV2InstanceDescriptor();
   const template = exactKeySet(
     manifest.artifactManifestTemplate,
     ['artifacts', 'instanceId', 'profileId', 'schema'],
