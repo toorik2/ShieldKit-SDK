@@ -26,6 +26,14 @@ import {
   V2ActionLifecycleError,
 } from '@shieldkit/kit/v2';
 import {
+  V2_ACTION_LIFECYCLE_CRASH_STAGES as lifecycleCrashStages,
+  V2ActionLifecycleCrash as LifecycleCrash,
+} from './action-lifecycle.mjs';
+import {
+  V2_ACTION_LIFECYCLE_CRASH_STAGES as crashStages,
+  V2ActionLifecycleCrash as Crash,
+} from './action-lifecycle-crash.mjs';
+import {
   createV2PrivateActionStore,
   V2PrivateActionStoreError,
 } from './private-action-store.mjs';
@@ -43,6 +51,14 @@ const PUBLIC_NULLIFIER = '33'.repeat(32);
 const fr = (value) => BigInt(value).toString(16).padStart(64, '0');
 const rejectsPrivateActionStore = (code) => (error) =>
   error instanceof V2PrivateActionStoreError && error.code === code;
+
+test('action lifecycle re-exports the exact lightweight crash seam identities', () => {
+  assert.strictEqual(lifecycleCrashStages, crashStages);
+  assert.strictEqual(LifecycleCrash, Crash);
+  const injected = new LifecycleCrash(crashStages[0]);
+  assert.equal(injected instanceof Crash, true);
+  assert.equal(injected.stage, 'prove.after_transition');
+});
 
 function fixedRng() {
   let next = 5n;

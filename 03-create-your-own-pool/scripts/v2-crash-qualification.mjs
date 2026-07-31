@@ -36,7 +36,7 @@ import { createDirectV2PoolModel } from '../packages/action/v2/transition.mjs';
 import {
   V2_ACTION_LIFECYCLE_CRASH_STAGES,
   V2ActionLifecycleCrash,
-} from '../packages/kit/v2/action-lifecycle.mjs';
+} from '../packages/kit/v2/action-lifecycle-crash.mjs';
 import {
   openV2DeliveryJournal,
   V2_DELIVERY_JOURNAL_CRASH_STAGES,

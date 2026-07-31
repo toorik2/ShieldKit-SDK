@@ -22,6 +22,7 @@ import {
 import { runV2CrashQualification } from './v2-crash-qualification.mjs';
 
 const root = () => mkdtempSync(join(tmpdir(), 'shieldkit-q06-'));
+const publicOutputRoot = () => mkdtempSync('/tmp/shieldkit-q06-public-');
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 function resealArtifact(bundle, name, value) {
@@ -34,7 +35,11 @@ function resealArtifact(bundle, name, value) {
 }
 
 test('Q-06 public generator refuses dirty/uncommitted source before it can run a campaign', async () => {
-  const parent = root();
+  // The portable runner deliberately points TMPDIR inside its clean checkout.
+  // Public evidence output must remain outside that source tree so this test
+  // reaches the intended dirty-checkout gate rather than the earlier output
+  // containment gate.
+  const parent = publicOutputRoot();
   try { await assert.rejects(() => runV2Q06CommitBoundEvidence({ outputDirectory: parent }), /clean committed source checkout/u); }
   finally { rmSync(parent, { recursive: true, force: true }); }
 });

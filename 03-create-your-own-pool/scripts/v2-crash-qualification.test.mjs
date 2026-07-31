@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -9,6 +9,18 @@ import {
   runV2ExternalCrashCorpus,
   V2CrashQualificationError,
 } from './v2-crash-qualification.mjs';
+
+test('crash qualification imports the lightweight lifecycle crash seam directly', () => {
+  const source = readFileSync(
+    new URL('./v2-crash-qualification.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /from '\.\.\/packages\/kit\/v2\/action-lifecycle-crash\.mjs';/u,
+  );
+  assert.doesNotMatch(source, /action-lifecycle\.mjs/u);
+});
 
 test('crash qualification command requires one new evidence output path', () => {
   assert.deepEqual(

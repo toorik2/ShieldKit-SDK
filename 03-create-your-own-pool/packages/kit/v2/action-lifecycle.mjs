@@ -74,10 +74,18 @@ import {
 import {
   commitV2PrivateActionMaterial,
 } from './private-action-commitment.mjs';
+import {
+  V2_ACTION_LIFECYCLE_CRASH_STAGES,
+  V2ActionLifecycleCrash,
+} from './action-lifecycle-crash.mjs';
 
 export {
   commitV2PrivateActionMaterial,
 } from './private-action-commitment.mjs';
+export {
+  V2_ACTION_LIFECYCLE_CRASH_STAGES,
+  V2ActionLifecycleCrash,
+} from './action-lifecycle-crash.mjs';
 
 export const V2_ACTION_LIFECYCLE_SCHEMA =
   'shieldkit-v2-direct-action-lifecycle-v1';
@@ -89,16 +97,6 @@ export const V2_HIGH_FEE_SIGNING_CONFIRMATION_SCHEMA =
   'shieldkit/v2-high-fee-signing-confirmation/v1';
 export const V2_HIGH_FEE_SIGNING_ACKNOWLEDGEMENT =
   'authorize-fee-above-10-sat-per-byte';
-export const V2_ACTION_LIFECYCLE_CRASH_STAGES = Object.freeze([
-  'prove.after_transition',
-  'prove.after_proof',
-  'prove.after_artifacts',
-  'prove.after_proved',
-  'sign.after_refresh',
-  'sign.after_signature',
-  'sign.after_artifacts',
-  'sign.after_signed',
-]);
 
 const OPERATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -128,14 +126,6 @@ export class V2ActionLifecycleError extends Error {
     this.name = 'V2ActionLifecycleError';
     this.code = code;
     this.recoverable = options?.recoverable === true;
-  }
-}
-
-export class V2ActionLifecycleCrash extends Error {
-  constructor(stage) {
-    super(`injected V2 action lifecycle crash at ${stage}`);
-    this.name = 'V2ActionLifecycleCrash';
-    this.stage = stage;
   }
 }
 
