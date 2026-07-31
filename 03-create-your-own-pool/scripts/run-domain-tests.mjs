@@ -128,6 +128,16 @@ const FILE_TIMEOUT_MS_BY_PATH = new Map([
     'scripts/v2-q05-evidence-verify.test.mjs',
     600_000,
   ],
+  // This exact qualification creates a detached clean local clone, performs an
+  // immutable install, copies the multi-gigabyte authenticated proof/runtime
+  // closure into private single-link files, generates/replays public Q-01
+  // evidence, and independently verifies B-01 before and after its mutation
+  // matrix. Hosted two-core runners need a bounded heavyweight supervisor
+  // without weakening any inner assertion.
+  [
+    'scripts/v2-b01-pre-freeze-e2e.test.mjs',
+    7_200_000,
+  ],
 ]);
 const VENDORED_VERIFIER_LANE_TEST_ROOT = 'packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/test';
 const VENDORED_VERIFIER_EXTERNAL_TESTS = new Set([
@@ -163,6 +173,22 @@ const LOCAL_VERIFIER_COMPLETION_ARTIFACTS = Object.freeze([
   '../.codex-build/v2-pf10-development-runtime/qualification/pf10-libauth-evidence.json',
 ]);
 const ARTIFACT_QUALIFICATION_TESTS = new Map([
+  ['scripts/v2-b01-pre-freeze-e2e.test.mjs', Object.freeze([
+    '../.codex-build/v2-circuit-model/main-chipnet.r1cs',
+    '../.codex-build/v2-circuit-model/main-chipnet.sym',
+    '../.codex-build/v2-circuit-model/main-chipnet_js/main-chipnet.wasm',
+    '../.codex-build/v2-dev-groth16/final.zkey',
+    '../.codex-build/v2-dev-groth16/initial.zkey',
+    '../.codex-build/v2-dev-groth16/verification_key.json',
+    '../.codex-build/v2-dev-ptau/pot19_final.ptau',
+    '../.codex-build/v2-development-profile/profile-core.json',
+    '../.codex-build/v2-development-profile/profile-package.json',
+    '../.codex-build/v2-pf10-libauth-qualification/libauth.json',
+    '../.codex-build/v2-pf10-libauth-qualification/publication-complete.json',
+    '../.codex-build/v2-pf10-libauth-qualification/qualification-summary.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime-build-manifest.json',
+    '../.codex-build/v2-pf10-development-runtime/runtime/pf10-runtime-material.json',
+  ])],
   ['packages/unlock-builder/v2/pf10-fused-q-genesis.test.mjs', Object.freeze([
     '../.codex-build/v2-dev-groth16/verification_key.json',
     '../.codex-build/v2-dev-proof-qualification/withdrawal/proof.json',

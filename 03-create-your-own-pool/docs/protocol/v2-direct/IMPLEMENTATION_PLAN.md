@@ -676,6 +676,20 @@ ceremony, and independent audits remain missing.
   it never claims that review, ceremony authorization, a final key, production,
   or release qualification. Independent review and an immutable authorized
   commit/tag remain mandatory before D-01.
+- Keep `scripts/v2-b01-pre-freeze-e2e.test.mjs` mandatory in the pinned local
+  verifier lane. It must create a detached exact-HEAD local clone, perform an
+  immutable install and toolchain setup, copy the complete authenticated proof,
+  profile, Libauth, and runtime closure into private single-link files, generate
+  public Q-01-pre evidence, and exercise the public B-01 create and verify CLIs.
+  It must then reject isolated changes to B-01 claims, runtime bytes, Libauth and
+  development-profile support evidence, a profile-bound proof artifact, Q-01
+  evidence, and tracked and untracked source state before one restored final
+  verification. This is local development-key regression evidence, not
+  independent review or D-01 evidence;
+  same-UID concurrent-replacement races retain the Q-01 boundary stated above.
+  Detect cgroup-aware available parallelism and expose every core to the inner
+  Cargo, Make, npm, and Node work; the mutation sequence itself remains serial
+  because every case changes and restores the same isolated fixture.
 
 ### Phase C — Persistent trees, wallet, and recovery
 

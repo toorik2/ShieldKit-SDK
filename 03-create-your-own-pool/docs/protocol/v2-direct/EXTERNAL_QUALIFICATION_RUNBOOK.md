@@ -94,6 +94,22 @@ commitment; and independent Powers-of-Tau/zkey reproduction checks. It hashes
 the runtime before and after the four-lane Q-01 replay and rechecks the clean
 source commit/tree.
 
+Before handing the candidate to independent reviewers, the mandatory internal
+verifier lane must also pass:
+
+```text
+npm run qualification:local-verifier-artifacts
+npm run test:qualification:local-verifier-lane
+```
+
+That lane includes `scripts/v2-b01-pre-freeze-e2e.test.mjs`. The test uses a
+detached exact-HEAD local clone and public Q-01/B-01 CLIs, then proves fail-closed
+rejection for changed B-01 claims, runtime bytes, Libauth and profile support
+evidence, a profile-bound proof artifact, Q-01 evidence, and tracked/untracked
+source state. It uses private copy-on-write or full-copy artifacts, never hard
+links. Passing it is required
+local regression evidence, but it is not the independent review below.
+
 Success is deliberately named
 `b01-pre-freeze-candidate-awaiting-independent-review`. It sets
 `reviewed:false`, `ceremonyAuthorized:false`, `finalKey:false`,
