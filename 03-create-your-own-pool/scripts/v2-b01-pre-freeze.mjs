@@ -38,9 +38,6 @@ export class V2B01PreFreezeError extends Error {
 }
 const fail = (message) => { throw new V2B01PreFreezeError(message); };
 function assertSafeRuntime() {
-  if (process.execArgv.length !== 0) {
-    fail('B-01-pre refuses Node loader, preload, or exec-argument controls');
-  }
   const contaminated = Object.keys(process.env).filter((key) =>
     key === 'NODE_OPTIONS'
       || key === 'NODE_PATH'
@@ -53,6 +50,9 @@ function assertSafeRuntime() {
         contaminated.sort().join(',')
       }`,
     );
+  }
+  if (process.execArgv.length !== 0) {
+    fail('B-01-pre refuses Node loader, preload, or exec-argument controls');
   }
 }
 function exact(value, keys, label) {
