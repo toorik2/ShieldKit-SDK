@@ -636,7 +636,7 @@ After qualification, V2 Direct becomes the default. V1 mutations require `--prot
 - Implement independent state-transition and indexed-tree reference models.
 - Prove or model state arithmetic, tree insertion, value conservation, and counter bounds before circuit work.
 
-### Phase B — Circuit and verifier foundation gate
+### Phase B — Pre-ceremony relation, packet, and candidate freeze
 
 Current circuit sources are development-only and not qualification. Current
 development-key PF10 proof evidence proves witness validity and local Groth16
@@ -646,7 +646,8 @@ local artifact proves a final relation, final key, p95 performance result, or
 release candidate; BCHN, LeanBCH, the unmodified maintainer benchmark,
 ceremony, and independent audits remain missing.
 
-- Implement the complete final `PoolActionV2Direct` relation under an explicitly development-only setup.
+- Implement the complete candidate `PoolActionV2Direct` relation under an
+  explicitly development-only setup.
 - Compile and record constraints, R1CS hash, WASM/native prover artifacts, and public-input ABI.
 - Generate real proofs for the actual circuit and VK.
 - Replace bounded-retry ECIP `vk_x` with exact fixed-round MSM using the
@@ -661,16 +662,18 @@ ceremony, and independent audits remain missing.
   repartitions. Generate deterministic verifier candidates and apply the
   carrier selection rule to complete transactions, not component lower bounds.
 - Add instance/category guards and the rolling successor outputs.
-- Execute real deposit, transfer, and withdrawal settlements using:
-  - latest unmodified verifier benchmark;
-  - Libauth;
-  - BCHN `testmempoolaccept`;
-  - mined BCHN execution;
-  - LeanBCH.
-- Measure every source output, output, lock, unlock, transaction, VM cost, and hash iteration.
-- If no rolling verifier candidate passes, mark V2 Direct blocked. Do not restore preparation transactions or weaken packet binding.
+- Freeze the relation, packet, public-input ABI, and selected topology before
+  the final ceremony. Q-01-pre is the committed four-implementation
+  relation/packet/digest freeze. Post-ceremony replay may bind final profile
+  and instance identifiers, but it must remain byte-for-byte semantically
+  identical and may not change the frozen relation or packet.
 
 ### Phase C — Persistent trees, wallet, and recovery
+
+Phase C starts after A-02 and may proceed in parallel with Phase B.
+Final-artifact-backed completion follows the final-key VM foundation in
+Phase E; Phase C development work is not a prerequisite for conducting the
+frozen-relation ceremony.
 
 Current local persistence/proving boundary (not qualification): schema v12
 persists each owned note's note index and nullifier. `deriveProvingTransition`
@@ -697,14 +700,44 @@ both are local-only test evidence.
 - Verify signed/hash-pinned artifacts before use.
 - Use tracked workspace lockfiles and immutable `npm ci`.
 
-### Phase D — Final setup and audits
+### Phase D — Final ceremony and artifact reproduction
 
-After the circuit and packet are frozen:
+After the Phase-B relation/packet/ABI/topology freeze and Q-01-pre:
 
 - Conduct one Groth16 phase-2 ceremony with at least five independent contributors.
 - Apply a final public beacon.
 - Independently verify the transcript on two clean machines.
 - Reproduce final artifacts on two independent clean hosts.
+
+### Phase E — Final-key VM foundation and qualification
+
+Using only the final Phase-D artifacts:
+
+- Replay Q-01 against the final artifacts and require exact agreement with the
+  pre-ceremony semantic freeze.
+- Execute real deposit, transfer, and withdrawal settlements using:
+  - latest unmodified verifier benchmark;
+  - Libauth;
+  - BCHN `testmempoolaccept`;
+  - mined BCHN execution;
+  - LeanBCH.
+- Measure every source output, output, lock, unlock, transaction, VM cost, and
+  hash iteration.
+- Complete the final-key Q-02, Q-03, and Q-07 evidence against the same
+  immutable descriptor, locks, transactions, runtime pins, and manifest root.
+- If no rolling verifier candidate passes, mark V2 Direct blocked. Do not
+  restore preparation transactions or weaken packet binding.
+
+### Phase F — Independent audits
+
+After Phase E has frozen the final-artifact-backed pre-audit evidence
+(`Q-01` final replay, B-02-final, Q-02, Q-03, Q-07, and the applicable
+pre-audit Q-05/Q-06 evidence):
+
+- Do not make D-02 depend on Q-08, Q-09, or any status whose own completion
+  requires the D-02 closure. D-02 is the audit boundary those later gates
+  consume, not a retrospective approval of their external execution.
+
 - Obtain independent audits for:
   - protocol and privacy;
   - circuit, note encryption, and ceremony;
