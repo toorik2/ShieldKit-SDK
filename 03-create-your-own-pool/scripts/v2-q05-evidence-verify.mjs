@@ -858,7 +858,7 @@ function runQ05JsEvidenceAt(sourceRoot) {
   } catch (error) {
     fail(`Q-05 JS corpus output is not strict JSON: ${error.message}`);
   }
-  if (`${JSON.stringify(report)}\n` !== result.stdout) fail('Q-05 JS corpus stdout contains non-JSON bytes');
+  if (`${canonicalJson(report)}\n` !== result.stdout) fail('Q-05 JS corpus stdout is not canonical JSON');
   validateQ05JsReport(report);
   const value = Object.freeze({
     schema: Q05_JS_EVIDENCE_SCHEMA,
@@ -1006,7 +1006,7 @@ export function validateQ05JsEvidence(value) {
   if (typeof value.stdout !== 'string' || sha(value.stdoutSha256, 'JS stdout hash') !== digest(Buffer.from(value.stdout))) fail('JS stdout capture is invalid');
   if (typeof value.stderr !== 'string' || sha(value.stderrSha256, 'JS stderr hash') !== digest(Buffer.from(value.stderr))) fail('JS stderr capture is invalid');
   if (value.stderr !== '') fail('JS evidence contains unexpected stderr');
-  if (value.stdout !== `${JSON.stringify(value.report)}\n`) fail('JS stdout is not exactly the serialized JSON report');
+  if (value.stdout !== `${canonicalJson(value.report)}\n`) fail('JS stdout is not exactly the canonical serialized JSON report');
   exactKeys(value.execution, ['args', 'cwd', 'environment', 'runtime'], 'JS execution');
   equalArray(value.execution.args, ['packages/action/v2/notes.q05-evidence.mjs'], 'JS execution args');
   if (value.execution.cwd !== projectPrefix) fail('JS execution cwd differs');

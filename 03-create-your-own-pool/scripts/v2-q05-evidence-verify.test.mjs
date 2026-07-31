@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { BABYJUB_SUBGROUP_ORDER } from '../packages/recover/portable-core.mjs';
+import { canonicalJson, parseStrictJson } from '../packages/profile/load.mjs';
 import { deriveDirectV2Address } from '../packages/action/v2/notes.mjs';
 import {
   Q05_DEPENDENCY_INVENTORY_SCHEMA,
@@ -46,7 +47,7 @@ const rustEvidence = () => {
   return structuredClone(cachedRust);
 };
 const resealJsStdout = (value) => {
-  value.stdout = `${JSON.stringify(value.report)}\n`;
+  value.stdout = `${canonicalJson(value.report)}\n`;
   value.stdoutSha256 = sha256(value.stdout);
 };
 
@@ -69,6 +70,17 @@ test('[test-only] Q05 transcript is dynamically counted, complete, and determini
     JSON.stringify(runQ05JsEvidenceForTestOnly().report.transcript),
     JSON.stringify(evidence.report.transcript),
   );
+});
+
+test('[test-only] Q05 production artifact write/read keeps the JS stream canonical', () => {
+  const generated = jsEvidence();
+  // Production writes the complete evidence value via canonicalJson, then the
+  // verifier reads it back with parseStrictJson. This regression ensures that
+  // round trip preserves the exact stream definition, rather than depending
+  // on the report object's pre-write insertion order.
+  const reloaded = parseStrictJson(Buffer.from(canonicalJson(generated)));
+  assert.equal(reloaded.stdout, `${canonicalJson(reloaded.report)}\n`);
+  assert.equal(validateQ05JsEvidence(reloaded).totalChecks, 152);
 });
 
 test('[test-only] Q05 JS transcript tampering is rejected after report and stream resealing', () => {

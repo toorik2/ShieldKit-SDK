@@ -462,6 +462,15 @@ function lockPath(path) {
   );
 }
 
+/*
+ * Git emits `ls-files` in bytewise pathname order. Keep the sealed inventory
+ * on that same explicit UTF-8 byte ordering: locale collation is not the
+ * source-set format and can order otherwise-identical path lists differently.
+ */
+function compareSourcePaths(left, right) {
+  return Buffer.compare(Buffer.from(left, 'utf8'), Buffer.from(right, 'utf8'));
+}
+
 function trackedEntries(root) {
   const records = runGit(root, ['ls-files', '-s', '-z']);
   const files = [];
@@ -508,8 +517,12 @@ function trackedEntries(root) {
     fail('Q-01 source checkout lacks source files or lock/toolchain files');
   }
   return Object.freeze({
-    files: Object.freeze(files),
-    locks: Object.freeze(locks),
+    files: Object.freeze(files.sort((left, right) => (
+      compareSourcePaths(left.path, right.path)
+    ))),
+    locks: Object.freeze(locks.sort((left, right) => (
+      compareSourcePaths(left.path, right.path)
+    ))),
   });
 }
 
@@ -2026,7 +2039,7 @@ function validateSourceEntries(entries, label) {
       || entry.path.split('/').some(
         (part) => part === '' || part === '.' || part === '..',
       )
-      || (previous !== null && previous.localeCompare(entry.path, 'en') >= 0)
+      || (previous !== null && compareSourcePaths(previous, entry.path) >= 0)
       || !MODE.test(entry.mode)
       || !GIT.test(entry.blob)
       || !Number.isSafeInteger(entry.bytes)
@@ -2839,12 +2852,12 @@ function fixtureSource() {
     RUST_TEST_PATH,
     STATE_VECTOR_PATH,
     VECTOR_PATH,
-  ].sort((left, right) => left.localeCompare(right, 'en'));
+  ].sort(compareSourcePaths);
   const requiredLocks = [
     RUST_LOCK_PATH,
     RUST_TOOLCHAIN_PATH,
     LOCK_PATH,
-  ].sort((left, right) => left.localeCompare(right, 'en'));
+  ].sort(compareSourcePaths);
   const files = Object.freeze(requiredFiles.map((path) => fixtureEntry(path)));
   const locks = Object.freeze(
     requiredLocks.map((path) => fixtureEntry(path, true)),
@@ -3045,8 +3058,16 @@ export function probeV2Q01RuntimeBindingForTest() {
 }
 
 /** TEST-ONLY: snapshots the same complete tracked-source contract used publicly. */
-export function snapshotV2Q01TrackedSourcesForTest(root) {
+export function snapshotV2Q01TrackedSourcesForTest(root = moduleRoot) {
   return trackedEntries(resolve(root));
+}
+
+/** TEST-ONLY: validates the actual serialized source-inventory ordering. */
+export function assertV2Q01TrackedSourceInventoryForTest(root = moduleRoot) {
+  const inventory = trackedEntries(resolve(root));
+  validateSourceEntries(inventory.files, 'source files');
+  validateSourceEntries(inventory.locks, 'source locks');
+  return inventory;
 }
 
 /** TEST-ONLY: exercises the exact clean committed checkout gate used publicly. */

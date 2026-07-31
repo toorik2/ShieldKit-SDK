@@ -818,6 +818,11 @@ export function parseV2Q06CommitBoundArguments(argv, cwd = process.cwd()) {
   if (!Array.isArray(argv) || argv.length !== 2 || !['--output-directory', '--verify'].includes(argv[0]) || typeof argv[1] !== 'string' || argv[1].startsWith('--')) fail('usage: v2-q06-commit-bound-evidence.mjs --output-directory <existing-mode-0700-directory> | --verify <bundle>');
   return Object.freeze(argv[0] === '--verify' ? { mode: 'verify', bundlePath: resolve(cwd, argv[1]) } : { mode: 'run', outputDirectory: resolve(cwd, argv[1]) });
 }
+export function publicV2Q06GeneratorOptions(argumentsValue) {
+  exact(argumentsValue, ['mode', 'outputDirectory'], 'Q-06 run CLI arguments');
+  if (argumentsValue.mode !== 'run' || typeof argumentsValue.outputDirectory !== 'string') fail('Q-06 run CLI arguments are invalid');
+  return Object.freeze({ outputDirectory: argumentsValue.outputDirectory });
+}
 // TEST-ONLY fixture builder; it cannot fabricate a public bundle because the
 // public verifier rejects execution.testOnly before accepting any provenance.
 export function q06TestFixtures() {
@@ -839,6 +844,6 @@ export function q06TestFixtures() {
   return Object.freeze({ source, crash, reorg, replayCorpus });
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  try { const args = parseV2Q06CommitBoundArguments(process.argv.slice(2)); const result = args.mode === 'verify' ? verifyV2Q06CommitBoundBundle(args.bundlePath) : await runV2Q06CommitBoundEvidence(args); process.stdout.write(`${canonicalJson(result)}\n`); }
+  try { const args = parseV2Q06CommitBoundArguments(process.argv.slice(2)); const result = args.mode === 'verify' ? verifyV2Q06CommitBoundBundle(args.bundlePath) : await runV2Q06CommitBoundEvidence(publicV2Q06GeneratorOptions(args)); process.stdout.write(`${canonicalJson(result)}\n`); }
   catch (error) { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; }
 }

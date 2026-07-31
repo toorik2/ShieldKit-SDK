@@ -17,6 +17,7 @@ import { canonicalJson } from '../packages/profile/load.mjs';
 
 import {
   assertV2Q01CleanCommittedCheckoutForTest,
+  assertV2Q01TrackedSourceInventoryForTest,
   assertV2Q01TrackedSourcesUnchangedForTest,
   parseV2Q01CommitBoundArguments,
   probeV2Q01RuntimeBindingForTest,
@@ -245,6 +246,14 @@ test('Q-01 complete tracked-source snapshot detects live byte drift', () => {
   } finally {
     rmSync(repository, { recursive: true, force: true });
   }
+});
+
+test('Q-01 current source inventory is bytewise ordered and deterministic', () => {
+  const first = assertV2Q01TrackedSourceInventoryForTest();
+  const second = assertV2Q01TrackedSourceInventoryForTest();
+  assert.deepEqual(second, first);
+  assert.ok(first.files.length > 0);
+  assert.ok(first.locks.length > 0);
 });
 
 test('Q-01 child environment ignores ambient Git, Node, npm, Rust, and Cargo controls', () => {

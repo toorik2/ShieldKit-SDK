@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { BABYJUB_SUBGROUP_ORDER } from '../../recover/portable-core.mjs';
+import { canonicalJson } from '../../profile/load.mjs';
 
 import {
   decodeDirectV2Address,
@@ -190,7 +191,9 @@ checkLabels.push('serializedJsonCanaryNonEmissionChecks:report-excludes-secret-c
 checks.serializedJsonCanaryNonEmissionChecks = 1;
 report.totalChecks = checkLabels.length;
 report.transcript.sha256 = digest(JSON.stringify(report.transcript.labels));
-const serialized = JSON.stringify(report);
+// This is an evidence stream, not a display format. Keep its byte definition
+// identical to the one used for the sealed evidence artifacts and replay.
+const serialized = canonicalJson(report);
 for (const secret of [spendSecret, incomingViewSecret, foreignSpendSecret, foreignIncomingViewSecret]) {
   assert.equal(serialized.includes(secret), false, 'secret canary appeared in serialized JSON report');
 }

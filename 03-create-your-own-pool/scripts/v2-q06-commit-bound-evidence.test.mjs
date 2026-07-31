@@ -13,6 +13,7 @@ import {
   assertV2Q06SafeHostEnvironment,
   V2Q06CommitBoundEvidenceError, parseV2Q06CommitBoundArguments, q06TestFixtures,
   installedDependencyInventoryForTest,
+  publicV2Q06GeneratorOptions,
   runV2Q06CommitBoundEvidence, runV2Q06CommitBoundEvidenceForTest,
   validateV2Q06CrashCampaignForTest,
   verifyV2Q06CheckoutRootBindingForTest, verifyV2Q06CommitBoundBundle,
@@ -185,6 +186,26 @@ test('Q-06 checkout binding rejects a self-resealed alternate clean Git source',
 
 test('Q-06 CLI accepts only a public output directory or bundle verification target', () => {
   assert.deepEqual(parseV2Q06CommitBoundArguments(['--verify', '/bundle'], '/cwd'), { mode: 'verify', bundlePath: '/bundle' });
+  assert.deepEqual(
+    publicV2Q06GeneratorOptions(
+      parseV2Q06CommitBoundArguments(['--output-directory', '/output'], '/cwd'),
+    ),
+    { outputDirectory: '/output' },
+  );
   assert.throws(() => parseV2Q06CommitBoundArguments(['--cases', '1']), V2Q06CommitBoundEvidenceError);
   assert.throws(() => parseV2Q06CommitBoundArguments([]), V2Q06CommitBoundEvidenceError);
+});
+
+test('Q-06 public generator rejects CLI mode and every injected campaign seam', async () => {
+  const parent = root();
+  try {
+    await assert.rejects(
+      () => runV2Q06CommitBoundEvidence({ mode: 'run', outputDirectory: parent }),
+      /accepts only outputDirectory/u,
+    );
+    await assert.rejects(
+      () => runV2Q06CommitBoundEvidence({ outputDirectory: parent, cases: 1 }),
+      /accepts only outputDirectory/u,
+    );
+  } finally { rmSync(parent, { recursive: true, force: true }); }
 });
