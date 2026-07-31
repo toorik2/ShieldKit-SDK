@@ -379,7 +379,7 @@ Every verifier carrier also requires the real state category at the fixed state-
 
 ### Rolling bundle
 
-Current foundation status (2026-07-28): **local hard-limit candidate found;
+Current foundation status (2026-07-31): **local hard-limit candidate found;
 release qualification open**. The bounded-retry PF7 ECIP candidate is
 non-total and rejected. PF11 remains only a semantic correctness oracle:
 five executor carriers, four exact-MSM carriers, a separate identity-aware
@@ -396,10 +396,10 @@ local candidate. It fuses the final MSM window and identity-aware Miller
 genesis at role 8, places the terminal at role 9, binding at role 10, state at
 role 11, and funding at role 12. The current local Libauth evidence is
 development-only: `.codex-build/v2-pf10-libauth-qualification/libauth.json`
-(`sha256:83588c201252930a2f6d403ed11662175d381177c5bc70909b2224f813106478`)
+(`sha256:df45748c3c3fb929f3d7568973badfadbe614be68e92c0e508b45535c77c7c10`)
 records all thirteen inputs accepted for deterministic deposit, transfer, and
 withdrawal fixtures, serialized sizes 97,852/97,852/97,886 bytes, a 10,000-byte
-maximum unlock, and 96.76% peak operation use. Its own claims exclude a final
+maximum unlock, and 96.75% peak operation use. Its own claims exclude a final
 key, BCHN, LeanBCH, maintainer benchmark, live-chain provenance, production,
 and release qualification. These facts are development telemetry, not BCHN,
 LeanBCH, ceremony, audit, clean-host, or release qualification. A circuit
@@ -680,9 +680,10 @@ persists each owned note's note index and nullifier. `deriveProvingTransition`
 returns the versioned compact proving object from one read-only SQLite
 transaction, including fixed 32-level note membership/append and indexed
 nullifier paths; it does not hand the prover an in-memory history tree.
-`buildDirectV2CircuitInput` accepts that versioned compact object. The current
-store suite is 42/42 and CLI suite is 28/28 when run with `TMPDIR=/dev/shm`;
-both are local-only test evidence.
+`buildDirectV2CircuitInput` accepts that versioned compact object. Registered
+portable store and CLI tests exercise this boundary, but their result belongs
+to an exact clean-source execution record; this plan does not preserve
+untraceable historical pass counts as qualification evidence.
 
 - Implement persistent note frontier and internal nodes.
 - Implement indexed-nullifier nodes, successor leaves, and ordered predecessor index.
@@ -708,6 +709,9 @@ After the Phase-B relation/packet/ABI/topology freeze and Q-01-pre:
 - Apply a final public beacon.
 - Independently verify the transcript on two clean machines.
 - Reproduce final artifacts on two independent clean hosts.
+- Keep the generic two-participant development helper visibly separate from
+  the final D-01 validator, which requires all five contributors and both
+  independent transcript-verification and artifact-reproduction records.
 
 ### Phase E — Final-key VM foundation and qualification
 
@@ -762,6 +766,17 @@ which binds `evidence.json`
 This is a bounded aggregate-four-history result, not one 100,000-entry history
 or any claim beyond 100,000 historical nullifiers; Q07 lifecycle/performance
 qualification remains separate and open.
+
+Current local Q07 development result: a resumed, hash-bound, explicitly
+non-chain corpus completed the fixed 100,000-action lifecycle (one deposit,
+99,998 transfers, one withdrawal) and matched both the JavaScript and
+independent Rust verifiers. The 670,291,065-byte corpus has sha256
+`aa39af48d1690aa9e45885e52816b11b95ff08820dbe26625eac215777819fde`;
+its bundle manifest has sha256
+`4c21368ec6e7385b095538a361c1c42fd7114c09aa5f5358bcee6460e37ef9e7`.
+The bundle is local-only, resumed from an interrupted run, and expressly not
+chain-authenticated, final-artifact, published-machine, production, or Q07
+qualification evidence. It does not close any final performance target below.
 
 - State codec vectors for every boundary and every one-byte mutation across all 128 bytes.
 - Rejection of 127- and 129-byte state commitments.
