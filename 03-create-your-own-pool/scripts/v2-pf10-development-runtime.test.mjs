@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -186,8 +193,10 @@ test('PF10 Libauth evidence fails closed on per-instance and runtime-material id
 });
 
 test('PF10 development-runtime rejects malformed and non-profile JSON before any runtime build', async (t) => {
+  const buildRoot = path.join(process.cwd(), '.codex-build');
+  await mkdir(buildRoot, { recursive: true, mode: 0o700 });
   const temporaryRoot = await mkdtemp(
-    path.join(process.cwd(), '.codex-build/v2-runtime-schema-'),
+    path.join(buildRoot, 'v2-runtime-schema-'),
   );
   t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
   const malformedProfile = path.join(temporaryRoot, 'malformed.json');

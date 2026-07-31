@@ -606,6 +606,21 @@ test('local verifier provisioning is an attested PF10-only pipeline in dependenc
   }
 });
 
+test('portable test discovery does not eagerly load the materialized PF10 runtime builder', async () => {
+  const source = await readFile(
+    new URL('./run-domain-tests.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(
+    source,
+    /from '\.\.\/packages\/unlock-builder\/v2\/pf10-development-runtime-builder\.mjs';/u,
+  );
+  assert.match(
+    source,
+    /import\(\s*'\.\.\/packages\/unlock-builder\/v2\/pf10-development-runtime-builder\.mjs'\s*\)/u,
+  );
+});
+
 async function materializeCoherentDirectV2Artifacts(root) {
   const artifactRoot = path.resolve(root, '../.codex-build');
   const files = {

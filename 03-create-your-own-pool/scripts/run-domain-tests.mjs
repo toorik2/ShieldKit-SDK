@@ -19,10 +19,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  validateDirectV2Pf10LibauthEvidence,
-  validateDirectV2Pf10Reproducibility,
-} from '../packages/unlock-builder/v2/pf10-development-runtime-builder.mjs';
-import {
   DIRECT_V2_PF10_RUNTIME_SCHEMA,
   validateDirectV2Pf10RuntimeMaterial,
 } from '../packages/unlock-builder/v2/pf10-action-witness.mjs';
@@ -293,6 +289,7 @@ const SKIP_OR_TODO_SOURCE = /(?:\b(?:test|it|describe|suite|t)\s*\.\s*(?:skip|to
 const NODE_TEST_DECLARATION = /\b(?:test|it|describe|suite)\s*\(/;
 const DOMAIN_TEST_TEMP_PREFIX = 'domain-test-run-';
 const managedDomainTestTemporaryDirectories = new Map();
+let pf10DevelopmentRuntimeBuilderModule;
 
 export class DomainTestRunnerError extends Error {
   constructor(message) {
@@ -302,6 +299,13 @@ export class DomainTestRunnerError extends Error {
 }
 const fail = (message) => { throw new DomainTestRunnerError(message); };
 const posix = (value) => value.split(path.sep).join('/');
+
+async function loadPf10DevelopmentRuntimeBuilder() {
+  pf10DevelopmentRuntimeBuilderModule ??= import(
+    '../packages/unlock-builder/v2/pf10-development-runtime-builder.mjs'
+  );
+  return pf10DevelopmentRuntimeBuilderModule;
+}
 
 function requiredObject(value, label) {
   if (value === null || Array.isArray(value) || typeof value !== 'object') {
@@ -1460,6 +1464,10 @@ async function inspectLocalVerifierRuntimeCoherence({
   ) {
     fail('local verifier PF10 runtime build manifest identity is unsupported');
   }
+  const {
+    validateDirectV2Pf10LibauthEvidence,
+    validateDirectV2Pf10Reproducibility,
+  } = await loadPf10DevelopmentRuntimeBuilder();
   const template = exactKeySet(
     manifest.artifactManifestTemplate,
     ['artifacts', 'instanceId', 'profileId', 'schema'],
