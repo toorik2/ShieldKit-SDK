@@ -293,6 +293,7 @@ test('[test-only] Q05 Rust transcript uses an empty fresh target, never a cached
   assert.equal(evidence.execution.cargoTarget.kind, 'fresh-temporary-mode-0700');
   assert.equal(evidence.execution.cargoTarget.initialEntries, 0);
   assert.match(evidence.selectedExecutable.targetRelativePath, /^debug\/deps\/notes-[0-9a-f]{16}$/u);
+  assert.equal(evidence.selectedExecutable.mode, '0700');
   assert.match(evidence.selectedExecutable.sha256, /^[0-9a-f]{64}$/u);
   const changed = rustEvidence();
   changed.testNames[0] = 'substituted_test_name';

@@ -923,7 +923,19 @@ function runQ05RustEvidenceAt(sourceRoot, cargoTargetRoot) {
   );
   if (preparation.stderr !== '') fail('Q-05 Rust preparation emitted unexpected stderr');
   const prepared = parseCargoPreparation(preparation.stdout, cargoTargetRoot);
-  const selectedIdentity = executableIdentity(prepared.selectedPath, 'Cargo-selected Rust notes test');
+  // Cargo's output mode otherwise depends on the invoking host's umask
+  // (typically 0755 under 0022, but 0700 under the restrictive 0077 used by
+  // the evidence runners). Normalize the private, freshly built executable so
+  // its recorded metadata is deterministic and never group/world accessible.
+  const preparedIdentity = executableIdentity(
+    prepared.selectedPath,
+    'Cargo-selected Rust notes test',
+  );
+  chmodSync(preparedIdentity.resolvedPath, 0o700);
+  const selectedIdentity = executableIdentity(
+    preparedIdentity.resolvedPath,
+    'normalized Cargo-selected Rust notes test',
+  );
   const selectedRelativePath = relative(cargoTargetRoot, selectedIdentity.resolvedPath).split(sep).join('/');
   const selectedExecutable = Object.freeze({
     targetRelativePath: selectedRelativePath,
@@ -1053,7 +1065,7 @@ export function validateQ05RustEvidence(value, sourceRoot = projectRoot) {
   if (
     !Number.isSafeInteger(value.selectedExecutable.bytes)
     || value.selectedExecutable.bytes < 1
-    || value.selectedExecutable.mode !== '0755'
+    || value.selectedExecutable.mode !== '0700'
     || typeof value.selectedExecutable.targetRelativePath !== 'string'
     || !/^debug\/deps\/notes-[0-9a-f]{16}$/u.test(value.selectedExecutable.targetRelativePath)
   ) fail('Rust selected executable metadata is invalid');

@@ -943,6 +943,10 @@ test('the exhaustive production depth-4 state-space campaign is mandatory and ha
     relativePath:
       'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs',
   }), 900_000);
+  assert.equal(fileTimeoutForDomainTest({
+    classification: 'portable',
+    relativePath: 'scripts/v2-q05-evidence-verify.test.mjs',
+  }), 600_000);
   assert.throws(
     () => assertCompleteSelection(discovery, depth4.slice(0, 1), 'local-depth4-campaign'),
     /omitted=.*depth4-production-state-space/,

@@ -119,6 +119,15 @@ const FILE_TIMEOUT_MS_BY_PATH = new Map([
     'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs',
     900_000,
   ],
+  // Q-05 deliberately proves clean-checkout behavior several times: each
+  // relevant case performs a fresh immutable npm install and selected cases
+  // also compile/run the Rust lane in a fresh target. Keep it mandatory in
+  // the portable suite, but give the process supervisor enough time for the
+  // cold work rather than killing a healthy test at the generic deadline.
+  [
+    'scripts/v2-q05-evidence-verify.test.mjs',
+    600_000,
+  ],
 ]);
 const VENDORED_VERIFIER_LANE_TEST_ROOT = 'packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/test';
 const VENDORED_VERIFIER_EXTERNAL_TESTS = new Set([
