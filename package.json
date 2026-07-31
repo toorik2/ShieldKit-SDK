@@ -23,6 +23,7 @@
     "test:v2:circuit-model": "node --test 03-create-your-own-pool/packages/action/v2/circuit-model.test.mjs",
     "test:v2:campaign:strict-codec": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign",
     "test:v2:campaign:depth4": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-depth4-campaign",
+    "test:v2:q03:support": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite q03-portable-support",
     "test:v2:q07:support": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite q07-portable-support",
     "test:qualification:covenants": "npm run test:qualification:local-covenants",
     "test:qualification:local-covenants": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-covenants",

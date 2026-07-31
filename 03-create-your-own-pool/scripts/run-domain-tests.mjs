@@ -90,6 +90,13 @@ const LOCAL_CAMPAIGN_TESTS = new Map([
     'exhaustively checks the production Poseidon depth-4 state space, including durable SQLite replay',
   ],
 ]);
+// Q-03 support tests define the exact 219-case attack matrix and the
+// fail-closed verifier for its signed three-lane evidence closure. Keep this
+// list exhaustive so new Q-03 tests cannot silently inherit a generic class.
+const Q03_PORTABLE_SUPPORT_TESTS = new Map([
+  ['scripts/v2-q03-attack-matrix.test.mjs', 'Q-03 exact attack-matrix support test'],
+  ['scripts/v2-q03-final-lock-attacks.test.mjs', 'Q-03 final-lock evidence verifier support test'],
+]);
 // Q-07 support tests exercise evidence schemas, dataset integrity, worker
 // boundaries, and the explicitly non-qualifying small-fixture harness. They
 // are mandatory portable tests, but are named separately so a later 100k
@@ -100,6 +107,7 @@ const Q07_PORTABLE_SUPPORT_TESTS = new Map([
   ['scripts/v2-q07-bundle-verify.test.mjs', 'Q-07 hash-bound bundle verifier support test'],
   ['scripts/v2-q07-dataset.test.mjs', 'Q-07 deterministic dataset integrity support test'],
   ['scripts/v2-q07-evidence.test.mjs', 'Q-07 evidence-contract support test'],
+  ['scripts/v2-q07-final-performance.test.mjs', 'Q-07 final-performance verifier fail-closed support test'],
   ['scripts/v2-q07-indexed-microbenchmark.test.mjs', 'Q-07 indexed-store microbenchmark boundary support test'],
   ['scripts/v2-q07-lifecycle-corpus.test.mjs', 'Q-07 non-chain lifecycle corpus integrity support test'],
   ['scripts/v2-q07-local-lifecycle-run.test.mjs', 'Q-07 exact local lifecycle runner integrity support test'],
@@ -272,6 +280,7 @@ const SUITES = new Set([
   'local-verifier-lane',
   'local-strict-codec-campaign',
   'local-depth4-campaign',
+  'q03-portable-support',
   'q07-portable-support',
 ]);
 const SKIP_OR_TODO_SOURCE = /(?:\b(?:test|it|describe|suite|t)\s*\.\s*(?:skip|todo)\s*\(|\b(?:skip|todo)\s*:)/;
@@ -2208,6 +2217,16 @@ function classify(relativePath) {
       reason: `${campaignReason}; run via its explicit local campaign command and the mandatory matching CI campaign job`,
     });
   }
+  const q03SupportReason = Q03_PORTABLE_SUPPORT_TESTS.get(relativePath);
+  if (q03SupportReason !== undefined) {
+    return Object.freeze({
+      classification: 'q03-portable-support',
+      reason: `${q03SupportReason}; mandatory via npm test and test:v2:q03:support; it is not external qualification evidence`,
+    });
+  }
+  if (relativePath.startsWith('scripts/v2-q03-') && relativePath.endsWith('.test.mjs')) {
+    fail(`${relativePath} must be explicitly registered as Q-03 portable support`);
+  }
   const q07SupportReason = Q07_PORTABLE_SUPPORT_TESTS.get(relativePath);
   if (q07SupportReason !== undefined) {
     return Object.freeze({
@@ -2760,13 +2779,14 @@ export function discoverDomainTests({ projectRoot = project } = {}) {
 export function selectDomainTests(discovery, suite = 'portable') {
   if (!SUITES.has(suite)) fail(`unknown test suite: ${suite}`);
   const classifications = {
-    portable: new Set(['portable', 'q07-portable-support']),
+    portable: new Set(['portable', 'q03-portable-support', 'q07-portable-support']),
     'external-fixtures': new Set(['external-fixture']),
     'external-verifier-source': new Set(['external-verifier-source-qualification']),
     'local-covenants': new Set(['local-covenant-qualification']),
     'local-verifier-lane': new Set(['local-verifier-lane-qualification']),
     'local-strict-codec-campaign': new Set(['local-strict-codec-campaign']),
     'local-depth4-campaign': new Set(['local-depth4-campaign']),
+    'q03-portable-support': new Set(['q03-portable-support']),
     'q07-portable-support': new Set(['q07-portable-support']),
   }[suite];
   const selected = discovery.tests.filter((record) => classifications.has(record.classification));
@@ -3005,7 +3025,7 @@ function parse(argv) {
   if (argv.length === 2 && argv[0] === '--suite' && SUITES.has(argv[1])) {
     return Object.freeze({ suite: argv[1], provisionOnly: false });
   }
-  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q07-portable-support] | --provision-local-verifier-artifacts');
+  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q03-portable-support|q07-portable-support] | --provision-local-verifier-artifacts');
 }
 
 export async function runDomainTests({ suite = 'portable', projectRoot = project, provisionOnly = false } = {}) {
