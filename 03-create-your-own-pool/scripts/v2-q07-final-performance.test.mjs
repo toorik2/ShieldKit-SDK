@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   createHash, generateKeyPairSync, sign,
 } from 'node:crypto';
@@ -8,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { encodeTokenPrefix } from '@bitauth/libauth';
 
 import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
@@ -41,7 +43,6 @@ import {
   validateV2Q07AuthorityForTestOnly,
   validateV2Q07B02FinalPinsForTestOnly,
   validateV2Q07SampleManifestForTestOnly,
-  verifyV2Q07FinalPerformance,
   verifyV2Q07FinalHistoryForTestOnly,
   verifyV2Q07PublishedEnvelopeForTestOnly,
   V2_Q07_BENCHMARK_AUTHORITY_SCHEMA,
@@ -1164,6 +1165,12 @@ test('Q-07 CLI is exact and rejects ambiguous legacy inputs', () => {
     'release-root',
   );
   assert.throws(
+    () => parseV2Q07FinalPerformanceArguments(
+      base.map((value) => value === 'release-root' ? '../caller-controlled' : value),
+    ),
+    /arguments are incomplete or expected pins are malformed/u,
+  );
+  assert.throws(
     () => parseV2Q07FinalPerformanceArguments([
       ...base.slice(0, -2), '--evidence-dir', '/other',
     ]),
@@ -1171,21 +1178,53 @@ test('Q-07 CLI is exact and rejects ambiguous legacy inputs', () => {
   );
 });
 
-test('Q-07 resolves the compiled release root before opening caller paths', async () => {
-  await assert.rejects(
-    () => verifyV2Q07FinalPerformance({
-      b02ResultPath: '/must-not-open/b02.json',
-      descriptorPath: '/must-not-open/descriptor.json',
-      evidenceDirectory: '/must-not-open/evidence',
-      expectedCommit: 'a'.repeat(40),
-      expectedTree: 'b'.repeat(40),
-      finalManifestPath: '/must-not-open/manifest.json',
-      outputDirectory: '/must-not-create/q07-output',
-      profileCorePath: '/must-not-open/profile.json',
-      q02CorpusPath: '/must-not-open/q02.json',
-      releaseRootId: '../caller-controlled',
-    }),
-    /final release root id is malformed/u,
+test('Q-07 refuses ambient loader controls and a clean child resolves the compiled root first', () => {
+  const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    key !== 'NODE_OPTIONS' && key !== 'NODE_PATH' && key !== 'NODE_TEST_CONTEXT'
+    && !key.startsWith('LD_') && !key.startsWith('DYLD_')));
+  const command = [
+    fileURLToPath(new URL('./v2-q07-final-performance.mjs', import.meta.url)),
+    '--profile-core', '/must-not-open/profile.json',
+    '--descriptor', '/must-not-open/descriptor.json',
+    '--final-manifest', '/must-not-open/manifest.json',
+    '--release-root', 'unapproved-release-root-test',
+    '--q02-corpus', '/must-not-open/q02.json',
+    '--b02-result', '/must-not-open/b02.json',
+    '--evidence-dir', '/must-not-open/evidence',
+    '--expected-commit', 'a'.repeat(40),
+    '--expected-tree', 'b'.repeat(40),
+    '--output-dir', '/must-not-create/q07-output',
+  ];
+  const unsafeChild = spawnSync(process.execPath, command, {
+    encoding: 'utf8',
+    env: { ...environment, NODE_PATH: '/must-not-load' },
+    maxBuffer: 1024 * 1024,
+  });
+  assert.equal(unsafeChild.error, undefined);
+  assert.equal(unsafeChild.status, 1);
+  assert.equal(unsafeChild.signal, null);
+  assert.equal(unsafeChild.stdout, '');
+  assert.match(
+    unsafeChild.stderr,
+    /refuses ambient loader, module-path, preload, or dynamic-linker controls/u,
+  );
+
+  const child = spawnSync(process.execPath, command, {
+    encoding: 'utf8',
+    env: environment,
+    maxBuffer: 1024 * 1024,
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 1);
+  assert.equal(child.signal, null);
+  assert.equal(child.stdout, '');
+  assert.match(
+    child.stderr,
+    /no approved V2 Direct final release roots|release root id is not approved/u,
+  );
+  assert.doesNotMatch(
+    child.stderr,
+    /refuses ambient loader, module-path, preload, or dynamic-linker controls/u,
   );
 });
 
