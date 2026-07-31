@@ -7,6 +7,11 @@ import test from 'node:test';
 import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
 import { listV2D02PhysicalFilesForTestOnly, parseV2D02Arguments, readV2D02StableFileForTestOnly, revalidateV2D02AuditClosure, verifyV2D02AuditClosure, V2_D02_ENVELOPE_SCHEMA, V2_D02_INVENTORY_SCHEMA, V2_D02_POLICY_SCHEMA, V2_D02_REPORT_SCHEMA, V2_D02_RESULT_SCHEMA, V2D02AuditClosureError } from './v2-d02-audit-closure.mjs';
 
+// Node has already initialized this test worker. Production D02 entrypoints
+// require an empty loader/preload vector, so clear only the inherited
+// node:test flags before exercising post-runtime validation.
+process.execArgv.length = 0;
+
 const roles = ['protocol', 'circuit', 'covenants', 'wallet'];
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const bytes = (value) => Buffer.from(canonicalizeJcs(value), 'utf8');
@@ -42,9 +47,36 @@ test('D02 rejects signature, identity, mandatory-test, path, and set drift', () 
   reject((x) => { x.auditSetSha256 = '0'.repeat(64); });
   reject((x) => { x.evidenceSet[0].sha256 = '0'.repeat(64); x.evidenceSetSha256 = hash(bytes(x.evidenceSet)); });
 });
+const invalidInvocation = () => verifyV2D02AuditClosure({
+  profileCorePath: '/must-not-open/p',
+  descriptorPath: '/must-not-open/d',
+  finalManifestPath: '/must-not-open/m',
+  releaseRootId: '../bad',
+  auditDirectory: '/must-not-open/a',
+  evidenceRoot: '/must-not-open/e',
+  expectedCommit: 'a'.repeat(40),
+  expectedTree: 'b'.repeat(40),
+  outputDirectory: '/must-not-create/o',
+});
+test('D02 rejects ambient loader controls before resolving any release root', async () => {
+  process.execArgv.push('--import=/tmp/attacker.mjs');
+  try {
+    await assert.rejects(invalidInvocation, /refuses ambient loader or dynamic-linker controls/u);
+  } finally {
+    process.execArgv.length = 0;
+  }
+  const priorNodeOptions = process.env.NODE_OPTIONS;
+  process.env.NODE_OPTIONS = '--import=/tmp/attacker.mjs';
+  try {
+    await assert.rejects(invalidInvocation, /refuses ambient loader or dynamic-linker controls/u);
+  } finally {
+    if (priorNodeOptions === undefined) delete process.env.NODE_OPTIONS;
+    else process.env.NODE_OPTIONS = priorNodeOptions;
+  }
+});
 test('D02 parser requires the exact arguments and resolves release root before caller paths', async () => {
   assert.throws(() => parseV2D02Arguments(['--profile-core', '/a']), V2D02AuditClosureError);
-  await assert.rejects(() => verifyV2D02AuditClosure({ profileCorePath: '/must-not-open/p', descriptorPath: '/must-not-open/d', finalManifestPath: '/must-not-open/m', releaseRootId: '../bad', auditDirectory: '/must-not-open/a', evidenceRoot: '/must-not-open/e', expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), outputDirectory: '/must-not-create/o' }), /root id is malformed/u);
+  await assert.rejects(invalidInvocation, /root id is malformed/u);
 });
 test('D02 stable reader and recursive physical-set guards reject symlinks and extra files', () => {
   const root = mkdtempSync(join(tmpdir(), 'd02-test-')); const audit = join(root, 'audit'); const evidence = join(root, 'evidence'); mkdirSync(join(audit, 'reports'), { recursive: true }); mkdirSync(join(audit, 'inventories'), { recursive: true }); mkdirSync(join(evidence, 'evidence'), { recursive: true });

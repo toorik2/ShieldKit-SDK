@@ -15,6 +15,11 @@ import {
   V2D01FinalCeremonyQualificationError,
 } from './v2-final-ceremony-qualification.mjs';
 
+// Node has already initialized this test worker. Production D01 entrypoints
+// require an empty loader/preload vector, so clear only the inherited
+// node:test flags before exercising post-runtime validation.
+process.execArgv.length = 0;
+
 const hash = (letter) => letter.repeat(64);
 const expected = () => ({
   profileId: hash('a'), instanceId: hash('b'), topologyId: 'pf10-fused',
@@ -39,23 +44,44 @@ test('D-01 accepts only the complete canonical public argument interface', () =>
   assert.throws(() => parseV2D01Arguments(valid().map((value) => value === '/tmp/d01/ceremony' ? 'relative' : value)), /absolute normalized/u);
 });
 
+const invalidInvocation = (outputDirectory = '/this/must/not-be-created/output') =>
+  runV2D01FinalCeremonyQualification({
+    ceremonyDirectory: '/this/must/not/be-opened/ceremony',
+    descriptorPath: '/this/must/not/be-opened/descriptor.json',
+    expectedCommit: 'a'.repeat(40),
+    expectedTree: 'b'.repeat(40),
+    finalManifestPath: '/this/must/not/be-opened/manifest.json',
+    outputDirectory,
+    profileCorePath: '/this/must/not/be-opened/profile-core.json',
+    releaseRootId: '../injected-root',
+  });
+
+test('D-01 rejects ambient loader controls before resolving any release root', async () => {
+  process.execArgv.push('--import=/tmp/attacker.mjs');
+  try {
+    await assert.rejects(invalidInvocation, /refuses Node loaders, preloads, exec arguments, module-path injection, or dynamic-loader controls/u);
+  } finally {
+    process.execArgv.length = 0;
+  }
+  const priorNodeOptions = process.env.NODE_OPTIONS;
+  process.env.NODE_OPTIONS = '--import=/tmp/attacker.mjs';
+  try {
+    await assert.rejects(invalidInvocation, /refuses Node loaders, preloads, exec arguments, module-path injection, or dynamic-loader controls/u);
+  } finally {
+    if (priorNodeOptions === undefined) delete process.env.NODE_OPTIONS;
+    else process.env.NODE_OPTIONS = priorNodeOptions;
+  }
+});
+
 test('D-01 resolves the compiled release root before caller-selected paths', async () => {
-  await assert.rejects(() => runV2D01FinalCeremonyQualification({
-    ceremonyDirectory: '/this/must/not/be-opened/ceremony', descriptorPath: '/this/must/not/be-opened/descriptor.json',
-    expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), finalManifestPath: '/this/must/not/be-opened/manifest.json',
-    outputDirectory: '/this/must/not-be-created/output', profileCorePath: '/this/must/not/be-opened/profile-core.json', releaseRootId: '../injected-root',
-  }), /root id is malformed/u);
+  await assert.rejects(invalidInvocation, /root id is malformed/u);
 });
 
 test('D-01 records one 0600 failure result only in a fresh caller-selected output directory', async () => {
   const parent = mkdtempSync(resolve(tmpdir(), 'shieldkit-d01-test-'));
   const outputDirectory = resolve(parent, 'result');
   try {
-    await assert.rejects(() => runV2D01FinalCeremonyQualification({
-      ceremonyDirectory: '/this/must/not/be-opened/ceremony', descriptorPath: '/this/must/not/be-opened/descriptor.json',
-      expectedCommit: 'a'.repeat(40), expectedTree: 'b'.repeat(40), finalManifestPath: '/this/must/not/be-opened/manifest.json',
-      outputDirectory, profileCorePath: '/this/must/not/be-opened/profile-core.json', releaseRootId: '../injected-root',
-    }), /root id is malformed/u);
+    await assert.rejects(() => invalidInvocation(outputDirectory), /root id is malformed/u);
     const failure = JSON.parse(readFileSync(resolve(outputDirectory, 'failure.json')));
     assert.equal(failure.d01Qualified, false);
     assert.equal(statSync(resolve(outputDirectory, 'failure.json')).mode & 0o777, 0o600);
