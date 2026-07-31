@@ -428,6 +428,41 @@ test('TEST-ONLY authority lane optionally binds all inputs, source closures, and
   assert.deepEqual(result.execution.tool, evidence.envelope.tool);
 });
 
+test('TEST-ONLY generic authority replay admits an explicitly bound non-topology input count', () => {
+  const transaction = parseV2RawTransaction(makeRawTransaction(12).toString('hex'));
+  const expectedCase = makeCase(transaction);
+  const evidence = signedEnvelope({
+    role: 'leanbch',
+    expectedCase,
+    stdin: vmStdin(transaction),
+    stdout: vmStdout(transaction),
+  });
+  const sourceHashes = Array.from(
+    { length: transaction.inputs.length },
+    () => sha256(Buffer.from(SOURCE_OUTPUT, 'hex')),
+  );
+  const result = verifyWithClosure(
+    fixture,
+    evidence.path,
+    expectedCase,
+    'leanbch',
+    {
+      expectedInputCount: transaction.inputs.length,
+      expectedSourceOutputSha256s: sourceHashes,
+    },
+  );
+  assert.equal(result.derivedOutcome, 'accepted');
+  assert.equal(result.execution.stdout.inputCount, 12);
+  assert.throws(
+    () => verifyV2Q02LaneEvidence({
+      authorityContext: fixture.context,
+      case: expectedCase,
+      envelopePath: evidence.path,
+    }),
+    V2Q02LaneEvidenceError,
+  );
+});
+
 test('TEST-ONLY authority lane rejects optional input/source closure drift', () => {
   const evidence = signedEnvelope({
     role: 'maintainer', expectedCase: acceptCase,

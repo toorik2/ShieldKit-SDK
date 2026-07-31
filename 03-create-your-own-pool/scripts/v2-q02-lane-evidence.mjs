@@ -698,6 +698,8 @@ function verifyAuthorityLaneEnvelope({
     accepted = validateExternalPerInputLane({
       context,
       expected: expectedTransaction,
+      expectedInputCount:
+        expectedInputCount ?? context.topology.inputCount,
       role: expectedRole,
       stdin: stdin.value,
       stdinSchema: vmInputSchema,

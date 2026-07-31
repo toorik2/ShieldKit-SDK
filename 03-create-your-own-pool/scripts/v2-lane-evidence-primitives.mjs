@@ -250,12 +250,22 @@ export function createV2LaneEvidencePrimitives({
     return Buffer.from(value, 'hex');
   };
 
-  const validateExternalPerInputLane = ({ stdin, stdout, context, expected, role, stdinSchema, stdoutSchema }) => {
+  const validateExternalPerInputLane = ({
+    stdin,
+    stdout,
+    context,
+    expected,
+    expectedInputCount = context.topology.inputCount,
+    role,
+    stdinSchema,
+    stdoutSchema,
+  }) => {
     exact(stdin, ['rawTransactionHex', 'schema', 'sourceOutputs'], `${role} stdin`);
     if (stdin.schema !== stdinSchema || !Array.isArray(stdin.sourceOutputs)) fail(`${role} stdin schema or source outputs are invalid`);
     const transaction = transactionFromHex(stdin.rawTransactionHex, expected, `${role} stdin`);
-    if (transaction.inputs.length !== context.topology.inputCount || stdin.sourceOutputs.length !== transaction.inputs.length) {
-      fail(`${role} stdin does not contain every selected-topology input`);
+    integer(expectedInputCount, 1, 258, `${role} expected input count`);
+    if (transaction.inputs.length !== expectedInputCount || stdin.sourceOutputs.length !== transaction.inputs.length) {
+      fail(`${role} stdin does not contain every exact expected input`);
     }
     const sourceHashes = stdin.sourceOutputs.map((entry, index) => sha256(sourceOutputBytes(entry, `${role} source output ${index}`)));
     exact(stdout, ['inputCount', 'inputs', 'rawTransactionSha256', 'schema', 'transactionId'], `${role} stdout`);
