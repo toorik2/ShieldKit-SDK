@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { encodeTransactionOutput } from '@bitauth/libauth';
+import {
+  bigIntToCompactUint,
+  encodeTransactionOutput,
+} from '@bitauth/libauth';
 
 import {
   parseV2RawTransaction,
@@ -9,10 +12,12 @@ import {
 import {
   assertV2VmResourceMetrics,
   canonicalizeV2Evidence,
+  evaluateV2RawTransactionInputs,
   inspectV2LocalVmEvidence,
 } from './vm-evidence.mjs';
 import {
   createV2InputRoleLayout,
+  transactionId,
 } from './transaction-policy.mjs';
 import {
   buildRawTransaction,
@@ -25,6 +30,8 @@ import {
 } from './v2-test-fixtures.mjs';
 
 const hasCode = (code) => (error) => error?.code === code;
+const DECIMAL = /^(?:0|[1-9][0-9]*)$/;
+const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 function recommit(value) {
   const { evidenceHash: ignored, ...core } = value;
@@ -44,6 +51,317 @@ function mutateEvidence(bytes, mutate) {
   mutate(value);
   return recommit(value);
 }
+
+const u32 = (value) => {
+  const bytes = Buffer.alloc(4);
+  bytes.writeUInt32LE(value);
+  return bytes;
+};
+
+function genericSourceTransaction({
+  index,
+  lockingBytecode = Buffer.from([0x51]),
+  valueSatoshis = 100_000n,
+}) {
+  return Buffer.concat([
+    u32(2),
+    bigIntToCompactUint(1n),
+    Buffer.alloc(32, index + 1),
+    u32(index),
+    bigIntToCompactUint(0n),
+    u32(0xffff_ffff),
+    bigIntToCompactUint(1n),
+    Buffer.from(encodeTransactionOutput({
+      valueSatoshis,
+      lockingBytecode,
+    })),
+    u32(index + 1),
+  ]).toString('hex');
+}
+
+function genericResolvedTransaction({
+  lockingBytecodes,
+  unlockingBytecodes = lockingBytecodes.map(() => Buffer.alloc(0)),
+  outputLockingBytecode = Buffer.alloc(50, 0x51),
+  outputValueSatoshis =
+    BigInt(lockingBytecodes.length * 100_000) - 1_000n,
+  duplicateOutpoint = false,
+  vouts = lockingBytecodes.map(() => 0),
+} = {}) {
+  const sourceTransactionHexes = lockingBytecodes.map(
+    (lockingBytecode, index) =>
+      genericSourceTransaction({ index, lockingBytecode }),
+  );
+  const pieces = [
+    u32(2),
+    bigIntToCompactUint(BigInt(lockingBytecodes.length)),
+  ];
+  for (let index = 0; index < lockingBytecodes.length; index += 1) {
+    const sourceIndex = duplicateOutpoint && index === 1 ? 0 : index;
+    pieces.push(
+      Buffer.from(
+        transactionId(
+          Buffer.from(sourceTransactionHexes[sourceIndex], 'hex'),
+        ),
+        'hex',
+      ).reverse(),
+      u32(vouts[index]),
+      bigIntToCompactUint(BigInt(unlockingBytecodes[index].length)),
+      Buffer.from(unlockingBytecodes[index]),
+      u32(0xffff_ffff),
+    );
+  }
+  pieces.push(
+    bigIntToCompactUint(1n),
+    Buffer.from(encodeTransactionOutput({
+      valueSatoshis: outputValueSatoshis,
+      lockingBytecode: outputLockingBytecode,
+    })),
+    u32(0),
+  );
+  return Object.freeze({
+    rawTransactionHex: Buffer.concat(pieces).toString('hex'),
+    sourceTransactionHexes: Object.freeze(
+      duplicateOutpoint
+        ? [
+            sourceTransactionHexes[0],
+            sourceTransactionHexes[0],
+            ...sourceTransactionHexes.slice(2),
+          ]
+        : sourceTransactionHexes,
+    ),
+  });
+}
+
+function genericResolvedTransactionAtSize(sizeBytes) {
+  for (
+    let lockingBytes = Math.max(0, sizeBytes - 100);
+    lockingBytes <= sizeBytes;
+    lockingBytes += 1
+  ) {
+    const value = genericResolvedTransaction({
+      lockingBytecodes: [Buffer.from([0x51])],
+      outputLockingBytecode: Buffer.alloc(lockingBytes, 0x61),
+    });
+    if (value.rawTransactionHex.length / 2 === sizeBytes) return value;
+  }
+  throw new Error(`could not construct generic transaction at ${sizeBytes} bytes`);
+}
+
+test('fresh raw evaluator accepts arbitrary input counts without assigning roles', () => {
+  for (const inputCount of [1, 2, 4, 11]) {
+    const closure = genericResolvedTransaction({
+      lockingBytecodes: Array.from(
+        { length: inputCount },
+        () => Buffer.from([0x51]),
+      ),
+    });
+    const result = evaluateV2RawTransactionInputs(closure);
+    assert.deepEqual(
+      Object.keys(result).sort(),
+      [
+        'allInputsAccepted',
+        'inputs',
+        'rawTransactionSha256',
+        'sourceTransactionSha256s',
+        'transactionId',
+      ],
+    );
+    assert.equal(result.allInputsAccepted, true);
+    assert.equal(result.inputs.length, inputCount);
+    assert.deepEqual(
+      result.inputs.map((input) => input.index),
+      Array.from({ length: inputCount }, (_, index) => index),
+    );
+    for (const input of result.inputs) {
+      assert.deepEqual(
+        Object.keys(input).sort(),
+        [
+          'accepted',
+          'error',
+          'index',
+          'metrics',
+          'sourceOutputSha256',
+          'unlockingBytecodeSha256',
+        ],
+      );
+      assert.equal(input.accepted, true);
+      assert.equal(input.error, null);
+      assert.equal(Object.hasOwn(input, 'role'), false);
+      assert.equal(Object.hasOwn(input, 'q07Qualified'), false);
+    }
+    assert.equal(
+      result.rawTransactionSha256,
+      hash(Buffer.from(closure.rawTransactionHex, 'hex')),
+    );
+    assert.deepEqual(
+      result.sourceTransactionSha256s,
+      closure.sourceTransactionHexes.map((raw) =>
+        hash(Buffer.from(raw, 'hex'))),
+    );
+    assert.equal(
+      result.transactionId,
+      transactionId(Buffer.from(closure.rawTransactionHex, 'hex')),
+    );
+    assert.ok(Object.isFrozen(result));
+    assert.ok(Object.isFrozen(result.inputs));
+    assert.ok(Object.isFrozen(result.sourceTransactionSha256s));
+    assert.ok(result.inputs.every((input) =>
+      Object.isFrozen(input) && Object.isFrozen(input.metrics)));
+  }
+  const closure = genericResolvedTransaction({
+    lockingBytecodes: [Buffer.from([0x51])],
+  });
+  assert.throws(
+    () => evaluateV2RawTransactionInputs({
+      ...closure,
+      carrierCount: 1,
+    }),
+    hasCode('INVALID_VM_EVIDENCE'),
+  );
+});
+
+test('fresh raw evaluator attributes ordinary script rejection and still evaluates every input', () => {
+  const closure = genericResolvedTransaction({
+    lockingBytecodes: [
+      Buffer.from([0x51]),
+      Buffer.from([0x00]),
+      Buffer.from([0x51]),
+    ],
+  });
+  const result = evaluateV2RawTransactionInputs(closure);
+  assert.equal(result.allInputsAccepted, false);
+  assert.deepEqual(
+    result.inputs.map((input) => input.accepted),
+    [true, false, true],
+  );
+  assert.equal(result.inputs[0].error, null);
+  assert.equal(typeof result.inputs[1].error, 'string');
+  assert.notEqual(result.inputs[1].error.length, 0);
+  assert.equal(result.inputs[2].error, null);
+  for (const input of result.inputs) {
+    assert.match(input.metrics.operationCost, DECIMAL);
+    assert.match(input.metrics.maximumOperationCost, DECIMAL);
+    assert.match(input.sourceOutputSha256, /^[0-9a-f]{64}$/);
+    assert.match(input.unlockingBytecodeSha256, /^[0-9a-f]{64}$/);
+  }
+
+  const wholeTransactionReject = evaluateV2RawTransactionInputs(
+    genericResolvedTransaction({
+      lockingBytecodes: [Buffer.from([0x51])],
+      outputValueSatoshis: 100_001n,
+    }),
+  );
+  assert.equal(
+    wholeTransactionReject.inputs[0].accepted,
+    true,
+    'the input script is independently accepted',
+  );
+  assert.equal(
+    wholeTransactionReject.allInputsAccepted,
+    false,
+    'vm.verify rejection participates in allInputsAccepted',
+  );
+});
+
+test('fresh raw evaluator requires the complete ordered source-transaction closure', () => {
+  const closure = genericResolvedTransaction({
+    lockingBytecodes: [
+      Buffer.from([0x51]),
+      Buffer.from([0x51]),
+      Buffer.from([0x51]),
+    ],
+  });
+  for (const sourceTransactionHexes of [
+    closure.sourceTransactionHexes.slice(0, -1),
+    [...closure.sourceTransactionHexes, closure.sourceTransactionHexes[0]],
+    Object.assign(new Array(3), {
+      0: closure.sourceTransactionHexes[0],
+      2: closure.sourceTransactionHexes[2],
+    }),
+  ]) {
+    assert.throws(
+      () => evaluateV2RawTransactionInputs({
+        rawTransactionHex: closure.rawTransactionHex,
+        sourceTransactionHexes,
+      }),
+      hasCode('SOURCE_TRANSACTION_CLOSURE_REQUIRED'),
+    );
+  }
+});
+
+test('fresh raw evaluator rejects duplicate spending outpoints before execution', () => {
+  const closure = genericResolvedTransaction({
+    lockingBytecodes: [
+      Buffer.from([0x51]),
+      Buffer.from([0x51]),
+    ],
+    duplicateOutpoint: true,
+  });
+  assert.throws(
+    () => evaluateV2RawTransactionInputs(closure),
+    hasCode('DUPLICATE_INPUT_OUTPOINT'),
+  );
+});
+
+test('fresh raw evaluator enforces exact generic transaction and unlocking hard limits', () => {
+  const exactTransaction = genericResolvedTransactionAtSize(100_000);
+  const exactResult = evaluateV2RawTransactionInputs(exactTransaction);
+  assert.equal(exactResult.inputs.length, 1);
+  assert.throws(
+    () => evaluateV2RawTransactionInputs(
+      genericResolvedTransactionAtSize(100_001),
+    ),
+    hasCode('TRANSACTION_SIZE_LIMIT'),
+  );
+
+  const exactUnlock = genericResolvedTransaction({
+    lockingBytecodes: [Buffer.from([0x51])],
+    unlockingBytecodes: [Buffer.alloc(10_000, 0x61)],
+  });
+  const exactUnlockResult =
+    evaluateV2RawTransactionInputs(exactUnlock);
+  assert.equal(exactUnlockResult.inputs.length, 1);
+  assert.throws(
+    () => evaluateV2RawTransactionInputs(
+      genericResolvedTransaction({
+        lockingBytecodes: [Buffer.from([0x51])],
+        unlockingBytecodes: [Buffer.alloc(10_001, 0x61)],
+      }),
+    ),
+    hasCode('UNLOCKING_BYTECODE_LIMIT'),
+  );
+});
+
+test('fresh raw evaluator authenticates each source txid and vout', () => {
+  const closure = genericResolvedTransaction({
+    lockingBytecodes: [
+      Buffer.from([0x51]),
+      Buffer.from([0x51]),
+    ],
+  });
+  assert.throws(
+    () => evaluateV2RawTransactionInputs({
+      rawTransactionHex: closure.rawTransactionHex,
+      sourceTransactionHexes: [
+        closure.sourceTransactionHexes[1],
+        closure.sourceTransactionHexes[0],
+      ],
+    }),
+    hasCode('SOURCE_TRANSACTION_MISMATCH'),
+  );
+  const badVout = genericResolvedTransaction({
+    lockingBytecodes: [
+      Buffer.from([0x51]),
+      Buffer.from([0x51]),
+    ],
+    vouts: [1, 0],
+  });
+  assert.throws(
+    () => evaluateV2RawTransactionInputs(badVout),
+    hasCode('SOURCE_OUTPOINT_MISMATCH'),
+  );
+});
 
 // These validate the serialized evidence boundary only. The fixture records do
 // not claim execution by a live BCH node or independently qualify a VM result.

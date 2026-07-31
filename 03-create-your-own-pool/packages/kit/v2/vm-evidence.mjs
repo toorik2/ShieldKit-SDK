@@ -191,7 +191,12 @@ function normalizeRoleLayout(value, carrierCount) {
   );
 }
 
-function normalizeMetrics(value, index, unlockingBytecodeBytes) {
+function normalizeMetrics(
+  value,
+  index,
+  unlockingBytecodeBytes,
+  { allowRejectedResourceOverage = false } = {},
+) {
   exact(value, METRIC_FIELDS, `input ${index} metrics`);
   const normalized = {};
   for (const field of METRIC_FIELDS) {
@@ -234,7 +239,10 @@ function normalizeMetrics(value, index, unlockingBytecodeBytes) {
     ['signatureCheckCount', 'maximumSignatureCheckCount'],
   ];
   for (const [used, limit] of resourcePairs) {
-    if (BigInt(normalized[used]) > BigInt(normalized[limit])) {
+    if (
+      !allowRejectedResourceOverage &&
+      BigInt(normalized[used]) > BigInt(normalized[limit])
+    ) {
       fail(
         'VM_RESOURCE_LIMIT',
         `input ${index} ${used} exceeds its full standard-policy limit`,
@@ -393,7 +401,12 @@ function decodeExactTransaction(rawTransactionHex, label) {
   return decoded;
 }
 
-function actualMetricRecord(state, index, unlockingBytecodeBytes) {
+function actualMetricRecord(
+  state,
+  index,
+  unlockingBytecodeBytes,
+  { accepted = true } = {},
+) {
   const metrics = Object.fromEntries(
     METRIC_FIELDS.map((field) => {
       const value = state.metrics?.[field];
@@ -409,7 +422,45 @@ function actualMetricRecord(state, index, unlockingBytecodeBytes) {
       return [field, String(value)];
     }),
   );
-  return normalizeMetrics(metrics, index, unlockingBytecodeBytes);
+  return normalizeMetrics(
+    metrics,
+    index,
+    unlockingBytecodeBytes,
+    { allowRejectedResourceOverage: !accepted },
+  );
+}
+
+function createFreshStandardVm() {
+  if (!TOOL_VERSION.test(LIBAUTH_VERSION)) {
+    fail(
+      'UNSUPPORTED_VM_TOOL',
+      'the installed @bitauth/libauth version is not a canonical production tool version',
+    );
+  }
+  let vm;
+  try {
+    vm = createVirtualMachineBch2026(true);
+  } catch (error) {
+    fail(
+      'VM_TOOL_FAILURE',
+      `installed BCH_2026_STANDARD Libauth could not initialize: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    vm === null ||
+    typeof vm !== 'object' ||
+    typeof vm.verify !== 'function' ||
+    typeof vm.evaluate !== 'function' ||
+    typeof vm.stateSuccess !== 'function'
+  ) {
+    fail(
+      'VM_TOOL_FAILURE',
+      'installed BCH_2026_STANDARD Libauth evaluator is incomplete',
+    );
+  }
+  return vm;
 }
 
 function evaluateExactStandardTransaction({ transaction, inputs }) {
@@ -431,7 +482,7 @@ function evaluateExactStandardTransaction({ transaction, inputs }) {
     }
     return output;
   });
-  const vm = createVirtualMachineBch2026(true);
+  const vm = createFreshStandardVm();
   const verdict = vm.verify({
     sourceOutputs,
     transaction: decodedTransaction,
@@ -463,6 +514,172 @@ function evaluateExactStandardTransaction({ transaction, inputs }) {
       );
     }),
   );
+}
+
+/**
+ * Qualification-neutral fresh evaluation of a fully source-resolved raw BCH
+ * transaction. This API deliberately has no V2 role/topology knowledge: it
+ * enforces only the generic standard transaction envelope and exact source
+ * closure before evaluating every input under BCH_2026_STANDARD.
+ */
+export function evaluateV2RawTransactionInputs(value) {
+  exact(
+    value,
+    ['rawTransactionHex', 'sourceTransactionHexes'],
+    'raw transaction evaluator input',
+  );
+  const transaction = assertV2StandardTransactionEnvelope(
+    parseV2RawTransaction(value.rawTransactionHex),
+  );
+  if (
+    !Array.isArray(value.sourceTransactionHexes) ||
+    value.sourceTransactionHexes.length !== transaction.inputs.length ||
+    Object.keys(value.sourceTransactionHexes).length !==
+      value.sourceTransactionHexes.length
+  ) {
+    fail(
+      'SOURCE_TRANSACTION_CLOSURE_REQUIRED',
+      'raw transaction evaluation requires exactly one complete source transaction per input',
+    );
+  }
+
+  const resolved = Object.freeze(
+    transaction.inputs.map((input, index) => {
+      if (!Object.hasOwn(value.sourceTransactionHexes, index)) {
+        fail(
+          'SOURCE_TRANSACTION_CLOSURE_REQUIRED',
+          `raw transaction evaluation lacks source transaction ${index}`,
+        );
+      }
+      const rawTransactionHex = value.sourceTransactionHexes[index];
+      const authenticated = authenticateSourceTransaction({
+        rawTransactionHex,
+        outpoint: input.outpoint,
+        index,
+      });
+      const decoded = decodeExactTransaction(
+        authenticated.sourceTransaction.rawTransactionHex,
+        `source transaction ${index}`,
+      );
+      const sourceOutput = decoded.outputs[input.outpoint.vout];
+      if (sourceOutput === undefined) {
+        fail(
+          'SOURCE_OUTPOINT_MISMATCH',
+          `source transaction ${index} lacks its authenticated output`,
+        );
+      }
+      return Object.freeze({
+        decodedSourceOutput: sourceOutput,
+        rawTransactionSha256: sha256Hex(
+          Buffer.from(
+            authenticated.sourceTransaction.rawTransactionHex,
+            'hex',
+          ),
+        ),
+        sourceOutputSha256: authenticated.sourceOutput.sha256,
+      });
+    }),
+  );
+
+  const decodedTransaction = decodeExactTransaction(
+    transaction.rawTransactionHex,
+    'signed transaction',
+  );
+  const sourceOutputs = resolved.map(
+    (entry) => entry.decodedSourceOutput,
+  );
+  const vm = createFreshStandardVm();
+  let transactionVerdict;
+  try {
+    transactionVerdict = vm.verify({
+      sourceOutputs,
+      transaction: decodedTransaction,
+    });
+  } catch (error) {
+    fail(
+      'VM_TOOL_FAILURE',
+      `installed BCH_2026_STANDARD Libauth verify failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    transactionVerdict !== true &&
+    typeof transactionVerdict !== 'string'
+  ) {
+    fail(
+      'VM_TOOL_FAILURE',
+      'installed BCH_2026_STANDARD Libauth returned a malformed transaction verdict',
+    );
+  }
+
+  const inputs = Object.freeze(
+    transaction.inputs.map((input, index) => {
+      let state;
+      try {
+        state = vm.evaluate({
+          inputIndex: index,
+          sourceOutputs,
+          transaction: decodedTransaction,
+        });
+      } catch (error) {
+        fail(
+          'VM_TOOL_FAILURE',
+          `installed BCH_2026_STANDARD Libauth input ${index} evaluation failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      let verdict;
+      try {
+        verdict = vm.stateSuccess(state);
+      } catch (error) {
+        fail(
+          'VM_TOOL_FAILURE',
+          `installed BCH_2026_STANDARD Libauth input ${index} verdict failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      if (verdict !== true && typeof verdict !== 'string') {
+        fail(
+          'VM_TOOL_FAILURE',
+          `installed BCH_2026_STANDARD Libauth input ${index} returned a malformed verdict`,
+        );
+      }
+      const accepted = verdict === true;
+      return Object.freeze({
+        accepted,
+        error: accepted ? null : verdict,
+        index,
+        metrics: actualMetricRecord(
+          state,
+          index,
+          input.unlockingBytecodeBytes,
+          { accepted },
+        ),
+        sourceOutputSha256: resolved[index].sourceOutputSha256,
+        unlockingBytecodeSha256: sha256Hex(input.unlockingBytecode),
+      });
+    }),
+  );
+  const everyInputAccepted = inputs.every((input) => input.accepted);
+  if (transactionVerdict === true && !everyInputAccepted) {
+    fail(
+      'VM_TOOL_FAILURE',
+      'installed BCH_2026_STANDARD Libauth transaction and per-input verdicts are inconsistent',
+    );
+  }
+  return Object.freeze({
+    allInputsAccepted:
+      transactionVerdict === true && everyInputAccepted,
+    inputs,
+    rawTransactionSha256: sha256Hex(transaction.bytes),
+    sourceTransactionSha256s: Object.freeze(
+      resolved.map((entry) => entry.rawTransactionSha256),
+    ),
+    transactionId: transaction.txid,
+  });
 }
 
 function validateNormalizedSourceTransaction(value, index, outpoint) {
