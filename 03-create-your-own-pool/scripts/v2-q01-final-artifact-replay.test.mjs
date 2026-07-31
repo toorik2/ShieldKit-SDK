@@ -7,13 +7,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
@@ -58,6 +58,7 @@ const PROFILE_ID = hash('profile-id');
 const INSTANCE_ID = hash('instance-id');
 const TOPOLOGY_ID = 'pf10-fused-q-genesis-v1';
 const ROOT_ID = 'test-only-final-root';
+const EXTERNAL_TEST_TEMP_ROOT = realpathSync('/tmp');
 
 function privateDirectory(path) {
   mkdirSync(path, { mode: 0o700 });
@@ -98,7 +99,12 @@ function relationFixture() {
 }
 
 async function scenario() {
-  const root = mkdtempSync(resolve(tmpdir(), 'shieldkit-q01-final-test-'));
+  // The mandatory domain runner deliberately redirects tmpdir() into the
+  // checkout. Final-replay evidence must remain outside the bound source root,
+  // so this test uses the canonical OS temporary root explicitly.
+  const root = mkdtempSync(
+    resolve(EXTERNAL_TEST_TEMP_ROOT, 'shieldkit-q01-final-test-'),
+  );
   chmodSync(root, 0o700);
   const q01Parent = privateDirectory(join(root, 'q01'));
   const fixtures = q01TestFixtures();
