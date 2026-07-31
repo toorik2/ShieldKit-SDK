@@ -6,7 +6,7 @@ import {
 import { canonicalJson } from '../load.mjs';
 
 export const BETA_SINGLE_CONTRIBUTOR_ENTROPY_SCHEMA =
-  'shieldkit/beta-single-contributor-entropy/v1';
+  'shieldkit/beta-single-contributor-entropy/v2';
 
 export class BetaSingleContributorEntropyError extends Error {
   constructor(message) {
@@ -15,17 +15,47 @@ export class BetaSingleContributorEntropyError extends Error {
   }
 }
 
-const DICE_ROLLS = 100;
+export const BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS = 100;
+export const BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS = 128;
 const OS_RANDOM_BYTES = 64;
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const REQUEST_SCHEMA =
-  'shieldkit/v2-beta-single-contributor-contribution-request/v1';
+  'shieldkit/v2-beta-single-contributor-contribution-request/v2';
 const MIX_SALT_DOMAIN = 'shieldkit/v2/beta/phase2/mix-salt/v1\0';
 const PROMPT_INFO_DOMAIN = 'shieldkit/v2/beta/phase2/snarkjs-prompt/v1\0';
 const COMMITMENT_DOMAIN = 'shieldkit/v2/beta/phase2/entropy-commitment/v1\0';
 const REQUEST_HASH_DOMAIN = 'shieldkit/v2/beta/phase2/request/v1\0';
 const HEX_ASCII = Buffer.from('0123456789abcdef', 'ascii');
+
+export const BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY = Object.freeze({
+  schema: 'shieldkit/v2-beta-single-contributor-entropy-policy/v1',
+  dice: Object.freeze({
+    alphabet: '123456',
+    encoding: 'ascii-digits-without-separators',
+    lengthPrefix: 'u32be',
+    maximumRolls: BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS,
+    minimumRolls: BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS,
+  }),
+  derivation: Object.freeze({
+    commitmentDomain: COMMITMENT_DOMAIN,
+    hkdf: 'HKDF-SHA256',
+    mixSaltDomain: MIX_SALT_DOMAIN,
+    outputBytes: 64,
+    promptEncoding: 'SKV2P2-prefix-plus-lowercase-hex',
+    promptInfoDomain: PROMPT_INFO_DOMAIN,
+    requestHashDomain: REQUEST_HASH_DOMAIN,
+  }),
+  osRandom: Object.freeze({
+    bytes: OS_RANDOM_BYTES,
+    lengthPrefix: 'u32be',
+    source: 'node-crypto-randomBytes',
+  }),
+});
+export const BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256 =
+  `sha256:${createHash('sha256')
+    .update(Buffer.from(canonicalJson(BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY), 'utf8'))
+    .digest('hex')}`;
 
 const fail = (message) => {
   throw new BetaSingleContributorEntropyError(message);
@@ -62,6 +92,8 @@ function exactKeys(value, label, keys) {
 function validateRequest(request) {
   exactKeys(request, 'request', [
     'ceremonyId',
+    'entropyPolicySha256',
+    'implementationSha256',
     'previousZkeySha256',
     'ptauSha256',
     'r1csSha256',
@@ -69,6 +101,10 @@ function validateRequest(request) {
     'sequence',
   ]);
   if (request.schema !== REQUEST_SCHEMA) fail('request schema is invalid');
+  if (request.entropyPolicySha256 !== BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256) {
+    fail('request entropy policy is invalid');
+  }
+  if (!HASH.test(request.implementationSha256)) fail('request implementation hash is invalid');
   if (!ID.test(request.ceremonyId) || !/^[1-9][0-9]*$/.test(request.sequence)) {
     fail('request identity or sequence is invalid');
   }
@@ -79,9 +115,10 @@ function validateRequest(request) {
 
 function validateDice(dice) {
   if (!(dice instanceof Uint8Array)
-    || dice.byteLength !== DICE_ROLLS
+    || dice.byteLength < BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS
+    || dice.byteLength > BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS
     || dice.some((byte) => byte < 0x31 || byte > 0x36)) {
-    fail('dice must be exactly 100 ASCII bytes from 1 through 6');
+    fail('dice must be 100 through 128 ASCII bytes from 1 through 6');
   }
 }
 
@@ -130,7 +167,7 @@ export function deriveBetaSingleContributorEntropy(input) {
     salt = Buffer.from(sha256Bytes(MIX_SALT_DOMAIN, requestBytes));
     diceBytes = Buffer.from(dice);
     osBytes = Buffer.from(osRandomBytes);
-    diceLength = u32be(DICE_ROLLS);
+    diceLength = u32be(diceBytes.byteLength);
     osLength = u32be(OS_RANDOM_BYTES);
     ikm = Buffer.concat([diceLength, diceBytes, osLength, osBytes]);
     info = Buffer.alloc(Buffer.byteLength(PROMPT_INFO_DOMAIN, 'utf8') + requestBytes.length);

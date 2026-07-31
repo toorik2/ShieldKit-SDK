@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, randomBytes } from 'node:crypto';
 import test from 'node:test';
 import {
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+} from './beta-single-contributor-entropy.mjs';
+import {
   BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE,
   createBetaSingleContributorContributionRequest,
   createExternalContributionRequest,
@@ -16,6 +19,7 @@ const digest = (value) => `sha256:${createHash('sha256').update(value).digest('h
 const r1csSha256 = digest('r1cs');
 const ptauSha256 = digest('ptau');
 const initialZkeySha256 = digest('initial');
+const implementationSha256 = digest('beta-implementation');
 
 function receipt({ sequence, previous, output, participant }) {
   const { privateKey } = generateKeyPairSync('ed25519');
@@ -39,6 +43,8 @@ function betaReceipt({ sequence, previous, output, participant }) {
   const { privateKey } = generateKeyPairSync('ed25519');
   const request = createBetaSingleContributorContributionRequest({
     ceremonyId: 'shielded-action-v2-beta',
+    entropyPolicySha256: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+    implementationSha256,
     sequence,
     r1csSha256,
     ptauSha256,
@@ -92,6 +98,8 @@ test('BETA profile accepts exactly one receipt and makes no qualification claim'
   assert.equal(transcript.profile, BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE);
   assert.equal(transcript.contributorCount, 1);
   assert.equal(transcript.betaProvingKeySha256, output);
+  assert.equal(transcript.entropyPolicySha256, BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256);
+  assert.equal(transcript.implementationSha256, implementationSha256);
   assert.equal(Object.hasOwn(transcript, 'finalZkeySha256'), false);
   assert.deepEqual(transcript.profile.claims, {
     b02Qualified: false,

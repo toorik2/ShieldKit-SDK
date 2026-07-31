@@ -28,11 +28,17 @@ import {
   createBetaSingleContributorContributionRequest,
 } from '../packages/profile/setup/external-contribution.mjs';
 import {
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+} from '../packages/profile/setup/beta-single-contributor-entropy.mjs';
+import {
   collectV2FinalZkeyToolchainManifest,
 } from '../packages/profile/v2/final-zkey-verification.mjs';
 import {
   contributeV2BetaSingleContributorCeremony,
+  assertV2BetaSingleContributorCleanCheckout,
+  collectV2BetaSingleContributorImplementationManifest,
   parseV2BetaSingleContributorArguments,
+  preflightV2BetaSingleContributorCeremony,
   V2_BETA_SINGLE_CONTRIBUTOR_PREPARATION_SCHEMA,
   V2_BETA_SINGLE_CONTRIBUTOR_RESULT_SCHEMA,
   V2_BETA_SINGLE_CONTRIBUTOR_VERIFICATION_SCHEMA,
@@ -67,6 +73,25 @@ const FALSE_CLAIMS = Object.freeze({
 
 async function writeCanonical(filename, value) {
   await writeFile(filename, canonicalJson(value), { mode: 0o600, flag: 'wx' });
+}
+
+async function createCleanGitFixture(t) {
+  const root = await mkdtemp(path.join(tmpdir(), 'shieldkit-beta-git-'));
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  const git = (args) => execFileAsync('/usr/bin/git', args, {
+    cwd: root,
+    env: { LANG: 'C', LC_ALL: 'C', PATH: '', TZ: 'UTC' },
+    maxBuffer: 1024 * 1024,
+  });
+  await git(['init', '--quiet']);
+  await writeFile(path.join(root, 'tracked.txt'), 'committed\n', { mode: 0o600 });
+  await git(['add', '--', 'tracked.txt']);
+  await git([
+    '-c', 'user.name=ShieldKit Test',
+    '-c', 'user.email=shieldkit-test@example.invalid',
+    'commit', '--quiet', '-m', 'test fixture',
+  ]);
+  return { git, root };
 }
 
 async function createTinyPreparedCeremony(root) {
@@ -128,8 +153,12 @@ async function createTinyPreparedCeremony(root) {
       sha256: await digest(r1cs),
     },
   };
+  const implementation = await collectV2BetaSingleContributorImplementationManifest();
+  const implementationSha256 = digestBytes(Buffer.from(canonicalJson(implementation), 'utf8'));
   const request = createBetaSingleContributorContributionRequest({
     ceremonyId: 'shieldkit-v2-beta-test',
+    entropyPolicySha256: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+    implementationSha256,
     sequence: 1,
     r1csSha256: artifacts.r1cs.sha256,
     ptauSha256: artifacts.ptau.sha256,
@@ -147,14 +176,14 @@ async function createTinyPreparedCeremony(root) {
         .export({ type: 'spki', format: 'der' })
         .toString('base64'),
     },
-    source: {
-      gitCommit: '1'.repeat(40),
-      gitTree: '2'.repeat(40),
-    },
+    source: implementation.source,
     b01: {
       bundleStatus: 'verified-b01-pre-freeze-candidate-awaiting-independent-review',
       manifestSha256: `sha256:${'3'.repeat(64)}`,
     },
+    entropyPolicySha256: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+    implementation,
+    implementationSha256,
     artifacts,
     request,
     toolchain,
@@ -207,6 +236,38 @@ async function collectChild(child, timeoutMs = 20_000) {
   }
 }
 
+test('implementation provenance rejects unstaged, staged, and untracked checkout changes', async (t) => {
+  await t.test('clean checkout passes', async (t) => {
+    const { root } = await createCleanGitFixture(t);
+    assert.doesNotThrow(() => assertV2BetaSingleContributorCleanCheckout(root));
+  });
+  await t.test('unstaged tracked change fails', async (t) => {
+    const { root } = await createCleanGitFixture(t);
+    await writeFile(path.join(root, 'tracked.txt'), 'unstaged\n', { mode: 0o600 });
+    assert.throws(
+      () => assertV2BetaSingleContributorCleanCheckout(root),
+      { code: 'BETA_IMPLEMENTATION_DIRTY' },
+    );
+  });
+  await t.test('staged tracked change fails', async (t) => {
+    const { git, root } = await createCleanGitFixture(t);
+    await writeFile(path.join(root, 'tracked.txt'), 'staged\n', { mode: 0o600 });
+    await git(['add', '--', 'tracked.txt']);
+    assert.throws(
+      () => assertV2BetaSingleContributorCleanCheckout(root),
+      { code: 'BETA_IMPLEMENTATION_DIRTY' },
+    );
+  });
+  await t.test('untracked path fails', async (t) => {
+    const { root } = await createCleanGitFixture(t);
+    await writeFile(path.join(root, 'untracked.txt'), 'untracked\n', { mode: 0o600 });
+    assert.throws(
+      () => assertV2BetaSingleContributorCleanCheckout(root),
+      { code: 'BETA_IMPLEMENTATION_DIRTY' },
+    );
+  });
+});
+
 test('CLI has a separate exact beta contract and has no entropy argument', () => {
   assert.deepEqual(parseV2BetaSingleContributorArguments([
     'prepare',
@@ -242,6 +303,46 @@ test('real tiny beta contribution is atomic, signed, cryptographically verified,
   const root = await mkdtemp(path.join(tmpdir(), 'shieldkit-v2-beta-ceremony-test-'));
   try {
     const preparation = await createTinyPreparedCeremony(root);
+    const preparationPath = path.join(root, 'preparation.json');
+    const ready = await preflightV2BetaSingleContributorCeremony({ ceremonyDirectory: root });
+    assert.equal(ready.status, 'ready-for-local-secret-contribution');
+    assert.equal(ready.entropyPolicySha256, preparation.entropyPolicySha256);
+    assert.equal(ready.implementationSha256, preparation.implementationSha256);
+
+    const legacy = { ...preparation, schema: 'shieldkit-v2-beta-single-contributor-preparation-v1' };
+    await writeFile(preparationPath, canonicalJson(legacy), { mode: 0o600 });
+    await assert.rejects(
+      () => preflightV2BetaSingleContributorCeremony({ ceremonyDirectory: root }),
+      /claim or identity boundary is invalid/u,
+    );
+    await writeFile(preparationPath, canonicalJson(preparation), { mode: 0o600 });
+
+    const substituted = structuredClone(preparation);
+    substituted.implementation.files[0].sha256 = `sha256:${'4'.repeat(64)}`;
+    substituted.implementationSha256 = digestBytes(Buffer.from(
+      canonicalJson(substituted.implementation),
+      'utf8',
+    ));
+    substituted.request.implementationSha256 = substituted.implementationSha256;
+    await writeFile(preparationPath, canonicalJson(substituted), { mode: 0o600 });
+    await assert.rejects(
+      () => preflightV2BetaSingleContributorCeremony({ ceremonyDirectory: root }),
+      /implementation source or entropy policy changed/u,
+    );
+    await writeFile(preparationPath, canonicalJson(preparation), { mode: 0o600 });
+
+    for (const length of [99, 129]) {
+      const outOfRangeDice = Buffer.alloc(length, 0x31);
+      await assert.rejects(
+        () => contributeV2BetaSingleContributorCeremony({
+          ceremonyDirectory: root,
+          dice: outOfRangeDice,
+          osRandomBytes: Buffer.alloc(64, 1),
+        }),
+        /dice must be 100 through 128 ASCII bytes from 1 through 6/u,
+      );
+      assert.equal(outOfRangeDice.every((byte) => byte === 0), true);
+    }
     const invalidDice = Buffer.from('7'.repeat(100), 'ascii');
     await assert.rejects(
       () => contributeV2BetaSingleContributorCeremony({
@@ -249,7 +350,7 @@ test('real tiny beta contribution is atomic, signed, cryptographically verified,
         dice: invalidDice,
         osRandomBytes: Buffer.alloc(64, 1),
       }),
-      /dice must be exactly 100 ASCII bytes from 1 through 6/u,
+      /dice must be 100 through 128 ASCII bytes from 1 through 6/u,
     );
     assert.equal(invalidDice.every((byte) => byte === 0), true);
     assert.equal((await readdir(root)).includes('result'), false);
@@ -283,7 +384,7 @@ test('real tiny beta contribution is atomic, signed, cryptographically verified,
     assert.equal(preflightOs.every((byte) => byte === 0), true);
     await writeFile(signingKeyPath, signingKeyBytes, { mode: 0o600 });
     signingKeyBytes.fill(0);
-    const diceMarker = '123456'.repeat(16) + '1234';
+    const diceMarker = '123456'.repeat(21) + '12';
     const osMarker = Buffer.from('ab'.repeat(64), 'hex');
     const dice = Buffer.from(diceMarker, 'ascii');
     const contributed = await contributeV2BetaSingleContributorCeremony({
@@ -450,10 +551,10 @@ test('operator SIGTERM after private staging clears publication and preserves di
   }
 });
 
-test('PTY dice entry suppresses echo and restores the exact terminal state', { timeout: 30_000 }, async () => {
+test('PTY accepts more than 100 dice rolls, suppresses echo, and restores the exact terminal state', { timeout: 30_000 }, async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'shieldkit-v2-beta-tty-test-'));
   const helper = path.join(root, 'tty-helper.mjs');
-  const diceText = '123456'.repeat(16) + '1234';
+  const diceText = '123456'.repeat(19) + '123';
   try {
     const moduleUrl = pathToFileURL(fileURLToPath(new URL(
       './v2-beta-single-contributor-ceremony.mjs',
@@ -492,9 +593,61 @@ test('PTY dice entry suppresses echo and restores the exact terminal state', { t
     const match = /SHIELDKIT_TTY_RESULT:(\{[^\r\n]+\})/u.exec(result.stdout);
     assert.notEqual(match, null, result.stdout);
     const report = JSON.parse(match[1]);
-    assert.equal(report.length, 100);
+    assert.equal(report.length, 117);
     assert.equal(report.before, report.after);
     assert.equal(report.sha256, createHash('sha256').update(diceText, 'ascii').digest('hex'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('PTY rejects more than 128 dice rolls without echo and restores the exact terminal state', { timeout: 30_000 }, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'shieldkit-v2-beta-tty-overflow-test-'));
+  const helper = path.join(root, 'tty-overflow-helper.mjs');
+  const diceText = '1'.repeat(129);
+  try {
+    const moduleUrl = pathToFileURL(fileURLToPath(new URL(
+      './v2-beta-single-contributor-ceremony.mjs',
+      import.meta.url,
+    ))).href;
+    await writeFile(helper, [
+      "import { spawnSync } from 'node:child_process';",
+      `import { readV2BetaDiceFromControllingTerminal } from ${JSON.stringify(moduleUrl)};`,
+      "const state = () => String(spawnSync('/usr/bin/stty', ['--file=/dev/tty', '-g'], { encoding: 'utf8' }).stdout).trim();",
+      'const before = state();',
+      'let code;',
+      'try {',
+      '  await readV2BetaDiceFromControllingTerminal();',
+      "  code = 'unexpected-success';",
+      '} catch (error) {',
+      "  code = error?.code ?? 'unknown';",
+      '}',
+      'const after = state();',
+      "process.stdout.write(`SHIELDKIT_TTY_OVERFLOW:${JSON.stringify({ before, after, code })}\\n`);",
+      '',
+    ].join('\n'), { mode: 0o600 });
+    const command = `'${process.execPath.replaceAll("'", "'\\''")}' '${helper.replaceAll("'", "'\\''")}'`;
+    const child = spawn('/usr/bin/script', [
+      '--quiet', '--return', '--flush', '--command', command, '/dev/null',
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const completed = collectChild(child);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out waiting for hidden dice prompt')), 10_000);
+      child.stdout.on('data', (chunk) => {
+        if (!String(chunk).includes('Nothing will echo:')) return;
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    child.stdin.end(`${diceText}\n`);
+    const result = await completed;
+    assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
+    assert.equal(result.stdout.includes(diceText), false);
+    const match = /SHIELDKIT_TTY_OVERFLOW:(\{[^\r\n]+\})/u.exec(result.stdout);
+    assert.notEqual(match, null, result.stdout);
+    const report = JSON.parse(match[1]);
+    assert.equal(report.code, 'BETA_DICE_INVALID');
+    assert.equal(report.before, report.after);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -54,7 +54,11 @@ export {
   ExternalContributionError,
 } from './setup/external-contribution.mjs';
 export {
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY,
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
   BETA_SINGLE_CONTRIBUTOR_ENTROPY_SCHEMA,
+  BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS,
+  BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS,
   BetaSingleContributorEntropyError,
   deriveBetaSingleContributorEntropy,
 } from './setup/beta-single-contributor-entropy.mjs';

@@ -11,18 +11,18 @@ import { canonicalJson } from '../load.mjs';
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const DOMAIN = 'shieldkit/external-phase2-contribution/v1\0';
-const BETA_DOMAIN = 'shieldkit/v2/beta-single-contributor-receipt/v1\0';
+const BETA_DOMAIN = 'shieldkit/v2/beta-single-contributor-receipt/v2\0';
 const EXTERNAL_REQUEST_SCHEMA = 'shieldkit/external-contribution-request/v1';
 const EXTERNAL_RECEIPT_SCHEMA = 'shieldkit/external-contribution-receipt/v1';
 
 export const V2_BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE_SCHEMA =
-  'shieldkit/v2-beta-single-contributor-ceremony-profile/v1';
+  'shieldkit/v2-beta-single-contributor-ceremony-profile/v2';
 export const V2_BETA_SINGLE_CONTRIBUTOR_CEREMONY_TRANSCRIPT_SCHEMA =
-  'shieldkit/v2-beta-single-contributor-ceremony-transcript/v1';
+  'shieldkit/v2-beta-single-contributor-ceremony-transcript/v2';
 export const V2_BETA_SINGLE_CONTRIBUTOR_CONTRIBUTION_REQUEST_SCHEMA =
-  'shieldkit/v2-beta-single-contributor-contribution-request/v1';
+  'shieldkit/v2-beta-single-contributor-contribution-request/v2';
 export const V2_BETA_SINGLE_CONTRIBUTOR_CONTRIBUTION_RECEIPT_SCHEMA =
-  'shieldkit/v2-beta-single-contributor-contribution-receipt/v1';
+  'shieldkit/v2-beta-single-contributor-contribution-receipt/v2';
 export const BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE = Object.freeze({
   schema: V2_BETA_SINGLE_CONTRIBUTOR_CEREMONY_PROFILE_SCHEMA,
   id: 'beta-single-contributor',
@@ -77,8 +77,8 @@ function validateRequest(request, schema = EXTERNAL_REQUEST_SCHEMA, exact = fals
   if (exact) {
     const actual = Object.keys(request).sort();
     const expected = [
-      'ceremonyId', 'previousZkeySha256', 'ptauSha256', 'r1csSha256',
-      'schema', 'sequence',
+      'ceremonyId', 'entropyPolicySha256', 'implementationSha256',
+      'previousZkeySha256', 'ptauSha256', 'r1csSha256', 'schema', 'sequence',
     ].sort();
     if (actual.length !== expected.length
       || actual.some((key, index) => key !== expected[index])) {
@@ -90,6 +90,10 @@ function validateRequest(request, schema = EXTERNAL_REQUEST_SCHEMA, exact = fals
   }
   for (const field of ['r1csSha256', 'ptauSha256', 'previousZkeySha256']) {
     if (!HASH.test(request[field])) fail(`contribution request ${field} is invalid`);
+  }
+  if (exact && (!HASH.test(request.entropyPolicySha256)
+    || !HASH.test(request.implementationSha256))) {
+    fail('beta contribution request policy or implementation hash is invalid');
   }
   return request;
 }
@@ -119,6 +123,8 @@ export function createExternalContributionRequest({
 /** Create the domain-separated, exactly-one-contributor BETA request. */
 export function createBetaSingleContributorContributionRequest({
   ceremonyId,
+  entropyPolicySha256,
+  implementationSha256,
   sequence,
   r1csSha256,
   ptauSha256,
@@ -127,6 +133,8 @@ export function createBetaSingleContributorContributionRequest({
   return Object.freeze(validateRequest({
     schema: V2_BETA_SINGLE_CONTRIBUTOR_CONTRIBUTION_REQUEST_SCHEMA,
     ceremonyId,
+    entropyPolicySha256,
+    implementationSha256,
     sequence: String(sequence),
     r1csSha256,
     ptauSha256,
@@ -391,6 +399,8 @@ export function verifyBetaSingleContributorExternalReceiptChain({
     ptauSha256: chain.ptauSha256,
     initialZkeySha256: chain.initialZkeySha256,
     betaProvingKeySha256: chain.outputZkeySha256,
+    entropyPolicySha256: chain.receipts[0].request.entropyPolicySha256,
+    implementationSha256: chain.receipts[0].request.implementationSha256,
     contributorCount: 1,
     receipts: chain.receipts,
   };

@@ -59,16 +59,17 @@ for custody verification.
 
 The contribution process combines two independent inputs:
 
-1. Roll a fair six-sided die 100 times. Enter the sequence only through the
-   contribution process's controlling TTY; do not save it, copy it through a
-   clipboard manager, or redirect it.
+1. Roll a fair six-sided die at least 100 times. Enter between 100 and 128
+   outcomes as digits from `1` through `6`, with no spaces or separators,
+   only through the contribution process's controlling TTY; do not save it,
+   copy it through a clipboard manager, or redirect it.
 2. It adds a 64-byte operating-system randomness hedge generated inside that same
    process. It must not be passed into the process through argv, environment,
    a file, a pipe, chat, or a log.
 
-The 100 d6 rolls are operator entropy; the 64-byte OS value is a hedge, not a
-substitute for the rolls. TTY-only input reduces accidental persistence but
-does not prove entropy quality or secret destruction.
+The 100-or-more d6 rolls are operator entropy; the 64-byte OS value is a hedge,
+not a substitute for the rolls. TTY-only input reduces accidental persistence
+but does not prove entropy quality or secret destruction.
 
 ## Lifecycle
 
@@ -84,13 +85,13 @@ does not prove entropy quality or secret destruction.
    zkey contribute` over those exact inputs.
 
    ```text
-   shieldkit/v2-beta-single-contributor-contribution-request/v1
-   shieldkit/v2-beta-single-contributor-contribution-receipt/v1
-   shieldkit/v2-beta-single-contributor-ceremony-transcript/v1
+   shieldkit/v2-beta-single-contributor-contribution-request/v2
+   shieldkit/v2-beta-single-contributor-contribution-receipt/v2
+   shieldkit/v2-beta-single-contributor-ceremony-transcript/v2
    ```
-3. Collect the 100 d6 rolls only through the controlling TTY, and obtain the
-   independent 64-byte OS hedge directly from the in-process CSPRNG. Keep all
-   raw entropy out of persistent channels.
+3. Collect at least 100 d6 rolls only through the controlling TTY, and obtain
+   the independent 64-byte OS hedge directly from the in-process CSPRNG. Keep
+   all raw entropy out of persistent channels.
 4. Record the output zkey hash and receipt/transcript. Run cryptographic zkey
    verification against the pinned R1CS and PTau, then export and hash the
    verification key. Preserve both success and failure records; a failure is
@@ -124,17 +125,18 @@ After a successful signed receipt and atomic result publication, the runner
 removes that local private receipt key; public verification needs only the
 prepared public key and signed receipt.
 
-When the 100 physical die outcomes are ready, run the contribution directly
-in an interactive terminal. Do not paste the rolls here or into any other
-chat, file, shell argument, environment variable, or pipe:
+When at least 100 physical die outcomes are ready, run the contribution
+directly in an interactive terminal. Do not paste the rolls here or into any
+other chat, file, shell argument, environment variable, or pipe:
 
 ```text
 npm run ceremony:v2:beta-single -- contribute \
   --ceremony-dir <absolute-beta-custody-directory>
 ```
 
-The process disables TTY echo, accepts exactly 100 characters from `1` through
-`6`, adds 64 bytes from the operating-system CSPRNG, derives a request-bound
+The process disables TTY echo, accepts 100 through 128 characters from `1`
+through `6` with no spaces or separators, length-prefixes the complete sequence,
+adds 64 bytes from the operating-system CSPRNG, derives a request-bound
 secret, and sends it to the pinned snarkjs child only after the exact entropy
 prompt appears. It does not offer an entropy CLI option. The result directory
 is published atomically only after `zkey verify`, canonical verification-key
@@ -152,7 +154,19 @@ This re-reads every pin and signed record, reruns zkey verification, derives
 the verification key again, and still returns only
 `beta-single-contributor-reverified-unqualified` with every qualification,
 production, and release claim false. Unknown or duplicate arguments fail
-closed. There is deliberately no `--beta` flag on D-01 and no broadcast flag.
+closed. The signed v2 request binds the exact entropy-policy hash and the
+preparation pins and remeasures the security-critical implementation files
+before and after contribution. The CLI completes all non-secret preparation,
+artifact, toolchain, implementation, and signing-key checks before asking for
+dice. A v1 preparation is deliberately incompatible and cannot be reused.
+There is deliberately no `--beta` flag on D-01 and no broadcast flag.
+Preparation, contribution, and verification require a clean Git index and
+worktree: staged changes, unstaged changes, and non-ignored untracked paths all
+fail closed. The implementation manifest hashes every tracked file and requires
+the same Git commit and tree before and after that measurement, so it detects
+source drift after preparation without falsely labeling dirty bytes as a clean
+commit. It is not an external trust anchor and cannot defeat a host or same-user
+attacker who controlled the runner before preparation.
 If the process is interrupted after a private stage is created, the runner
 refuses in-place retry: preserve diagnostics, discard that ceremony attempt,
 and prepare a fresh ceremony ID with fresh dice. If terminal state appears

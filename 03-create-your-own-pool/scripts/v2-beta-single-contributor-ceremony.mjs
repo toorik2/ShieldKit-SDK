@@ -4,8 +4,9 @@
  *
  * This lane is intentionally separate from D-01. It cannot emit a final-key,
  * production, release, or ceremony-qualified claim. The operator CLI accepts
- * secret entropy only from the controlling terminal; it is never a command-line
- * argument, environment variable, file, or retained log field.
+ * secret entropy only from the controlling terminal on the CLI path; it is
+ * never a command-line argument, environment variable, file, or retained log
+ * field.
  */
 import {
   createHash,
@@ -37,6 +38,10 @@ import {
   verifyBetaSingleContributorExternalReceiptChain,
 } from '../packages/profile/setup/external-contribution.mjs';
 import {
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY,
+  BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+  BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS,
+  BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS,
   deriveBetaSingleContributorEntropy,
 } from '../packages/profile/setup/beta-single-contributor-entropy.mjs';
 import {
@@ -48,11 +53,11 @@ import {
 } from './v2-b01-pre-freeze.mjs';
 
 export const V2_BETA_SINGLE_CONTRIBUTOR_PREPARATION_SCHEMA =
-  'shieldkit-v2-beta-single-contributor-preparation-v1';
+  'shieldkit-v2-beta-single-contributor-preparation-v2';
 export const V2_BETA_SINGLE_CONTRIBUTOR_RESULT_SCHEMA =
-  'shieldkit-v2-beta-single-contributor-result-v1';
+  'shieldkit-v2-beta-single-contributor-result-v2';
 export const V2_BETA_SINGLE_CONTRIBUTOR_VERIFICATION_SCHEMA =
-  'shieldkit-v2-beta-single-contributor-verification-v1';
+  'shieldkit-v2-beta-single-contributor-verification-v2';
 
 const B01_SCHEMA = 'shieldkit-v2-direct-b01-pre-freeze-v1';
 const HASH = /^sha256:[0-9a-f]{64}$/u;
@@ -65,6 +70,19 @@ const REPOSITORY_ROOT = path.resolve(
   '..',
   '..',
 );
+const BETA_IMPLEMENTATION_SCHEMA =
+  'shieldkit/v2-beta-single-contributor-implementation/v1';
+const BETA_IMPLEMENTATION_ENTRYPOINT =
+  '03-create-your-own-pool/scripts/v2-beta-single-contributor-ceremony.mjs';
+const GIT_ENVIRONMENT = Object.freeze({
+  GIT_CONFIG_COUNT: '0',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_NOSYSTEM: '1',
+  LANG: 'C',
+  LC_ALL: 'C',
+  PATH: '',
+  TZ: 'UTC',
+});
 const PRIVATE_KEY_FILE = 'participant-signing-key.pem';
 const INTERNAL_TTY_READER_MODE = '__shieldkit_internal_beta_tty_reader_v1';
 const PREPARATION_FILES = Object.freeze([
@@ -137,6 +155,179 @@ function exactKeys(value, label, keys) {
   return value;
 }
 
+async function measureImplementationSourceFile(relativePath) {
+  const filename = path.join(REPOSITORY_ROOT, relativePath);
+  const label = `beta implementation ${relativePath}`;
+  const initial = await lstat(filename, { bigint: true });
+  if (await realpath(filename) !== filename) {
+    fail('BETA_IMPLEMENTATION_CHANGED', `${label} has symlink traversal`);
+  }
+  assertStableImplementationFileStat(initial, label);
+  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0);
+  let handle;
+  try {
+    handle = await open(filename, flags);
+    const before = await handle.stat({ bigint: true });
+    assertStableImplementationFileStat(before, label);
+    if (!sameIdentity(initial, before) || initial.mode !== before.mode
+      || before.size > 32n * 1024n * 1024n) {
+      fail('BETA_IMPLEMENTATION_CHANGED', `${label} changed or is oversized`);
+    }
+    const digest = createHash('sha256');
+    for await (const chunk of handle.createReadStream({ autoClose: false })) digest.update(chunk);
+    const after = await handle.stat({ bigint: true });
+    const afterPath = await lstat(filename, { bigint: true });
+    assertStableImplementationFileStat(after, label);
+    assertStableImplementationFileStat(afterPath, label);
+    if (!sameIdentity(before, after) || !sameIdentity(after, afterPath)
+      || before.mode !== after.mode || after.mode !== afterPath.mode) {
+      fail('BETA_IMPLEMENTATION_CHANGED', `${label} changed during measurement`);
+    }
+    return Object.freeze({
+      bytes: String(after.size),
+      mode: Number(after.mode & 0o7777n).toString(8).padStart(4, '0'),
+      path: relativePath,
+      sha256: `sha256:${digest.digest('hex')}`,
+    });
+  } finally {
+    await handle?.close();
+  }
+}
+
+function trustedGit(args, {
+  binary = false,
+  repositoryRoot = REPOSITORY_ROOT,
+} = {}) {
+  const result = spawnSync('/usr/bin/git', args, {
+    cwd: repositoryRoot,
+    encoding: binary ? null : 'utf8',
+    env: GIT_ENVIRONMENT,
+    maxBuffer: 16 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error || result.status !== 0 || result.signal !== null) {
+    fail('BETA_IMPLEMENTATION_INVALID', `trusted Git failed: ${args.join(' ')}`);
+  }
+  return result.stdout;
+}
+
+function implementationSourceIdentity(repositoryRoot = REPOSITORY_ROOT) {
+  const source = Object.freeze({
+    gitCommit: String(trustedGit(
+      ['rev-parse', '--verify', 'HEAD'],
+      { repositoryRoot },
+    )).trim(),
+    gitTree: String(trustedGit(
+      ['rev-parse', '--verify', 'HEAD^{tree}'],
+      { repositoryRoot },
+    )).trim(),
+  });
+  if (!GIT.test(source.gitCommit) || !GIT.test(source.gitTree)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation Git identity is invalid');
+  }
+  return source;
+}
+
+export function assertV2BetaSingleContributorCleanCheckout(
+  repositoryRoot = REPOSITORY_ROOT,
+) {
+  const status = Buffer.from(trustedGit([
+    'status',
+    '--porcelain=v1',
+    '-z',
+    '--untracked-files=all',
+    '--ignore-submodules=none',
+  ], { binary: true, repositoryRoot }));
+  if (status.length !== 0) {
+    fail(
+      'BETA_IMPLEMENTATION_DIRTY',
+      'beta implementation requires a clean Git index and worktree',
+    );
+  }
+}
+
+function trackedImplementationPaths() {
+  const output = Buffer.from(trustedGit(['ls-files', '--cached', '-z'], { binary: true }));
+  const raw = output.subarray(0, output.length - (output.at(-1) === 0 ? 1 : 0));
+  const decoded = raw.toString('utf8');
+  if (!Buffer.from(decoded, 'utf8').equals(raw)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'tracked paths must be canonical UTF-8');
+  }
+  const paths = decoded.split('\0').sort();
+  if (paths.length === 0
+    || paths.some((entry, index) => entry.length === 0
+      || path.posix.normalize(entry) !== entry
+      || path.posix.isAbsolute(entry)
+      || entry.startsWith('../')
+      || entry.includes('\\')
+      || (index > 0 && entry === paths[index - 1]))
+    || !paths.includes(BETA_IMPLEMENTATION_ENTRYPOINT)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'tracked beta implementation inventory is invalid');
+  }
+  return paths;
+}
+
+export async function collectV2BetaSingleContributorImplementationManifest() {
+  assertV2BetaSingleContributorCleanCheckout();
+  const source = implementationSourceIdentity();
+  const files = [];
+  for (const relativePath of trackedImplementationPaths()) {
+    files.push(await measureImplementationSourceFile(relativePath));
+  }
+  assertV2BetaSingleContributorCleanCheckout();
+  const finalSource = implementationSourceIdentity();
+  if (canonicalJson(finalSource) !== canonicalJson(source)) {
+    fail('BETA_IMPLEMENTATION_CHANGED', 'beta implementation source changed during measurement');
+  }
+  return Object.freeze({
+    schema: BETA_IMPLEMENTATION_SCHEMA,
+    entropyPolicy: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY,
+    source,
+    files: Object.freeze(files),
+  });
+}
+
+function validateImplementationManifest(value) {
+  exactKeys(value, 'beta implementation manifest', ['entropyPolicy', 'files', 'schema', 'source']);
+  if (value.schema !== BETA_IMPLEMENTATION_SCHEMA
+    || canonicalJson(value.entropyPolicy)
+      !== canonicalJson(BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY)
+    || !Array.isArray(value.files)
+    || value.files.length === 0
+    || !GIT.test(value.source?.gitCommit)
+    || !GIT.test(value.source?.gitTree)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation manifest is invalid');
+  }
+  exactKeys(value.source, 'beta implementation source', ['gitCommit', 'gitTree']);
+  value.files.forEach((file, index) => {
+    exactKeys(file, `beta implementation file ${index}`, ['bytes', 'mode', 'path', 'sha256']);
+    if (typeof file.path !== 'string'
+      || path.posix.normalize(file.path) !== file.path
+      || path.posix.isAbsolute(file.path)
+      || file.path.startsWith('../')
+      || file.path.includes('\\')
+      || (index > 0 && file.path <= value.files[index - 1].path)
+      || !/^[0-7]{4}$/u.test(file.mode)
+      || !HASH.test(file.sha256)
+      || !/^(?:0|[1-9][0-9]*)$/u.test(file.bytes)) {
+      fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation file inventory is invalid');
+    }
+  });
+  if (!value.files.some((file) => file.path === BETA_IMPLEMENTATION_ENTRYPOINT)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation entrypoint is absent');
+  }
+  return value;
+}
+
+async function verifyImplementationManifest(expected) {
+  validateImplementationManifest(expected);
+  const current = await collectV2BetaSingleContributorImplementationManifest();
+  if (canonicalJson(current) !== canonicalJson(expected)) {
+    fail('BETA_IMPLEMENTATION_CHANGED', 'beta implementation source or entropy policy changed');
+  }
+  return current;
+}
+
 function assertNodeVersion() {
   const [major, minor] = process.versions.node.split('.').map(Number);
   if (major < 22 || (major === 22 && minor < 5)) {
@@ -194,6 +385,20 @@ function assertStablePrivateFileStat(stat, label, options = {}) {
     fail(
       'BETA_INPUT_CHANGED',
       `${label} ceased to be a user-owned nonempty single-link private file`,
+    );
+  }
+}
+
+function assertStableImplementationFileStat(stat, label) {
+  const mode = Number(stat.mode & 0o7777n);
+  if (!stat.isFile()
+    || stat.isSymbolicLink()
+    || stat.nlink !== 1n
+    || !owner(stat)
+    || (mode & 0o022) !== 0) {
+    fail(
+      'BETA_IMPLEMENTATION_CHANGED',
+      `${label} must be a user-owned single-link file without group/other write access`,
     );
   }
 }
@@ -572,7 +777,8 @@ function canonicalVerificationKey(bytes) {
 function validatePreparation(value) {
   exactKeys(value, 'beta preparation', [
     'artifacts', 'assurance', 'b01', 'ceremonyId', 'claims', 'participant',
-    'request', 'schema', 'source', 'status', 'toolchain', 'toolchainSha256',
+    'entropyPolicySha256', 'implementation', 'implementationSha256', 'request',
+    'schema', 'source', 'status', 'toolchain', 'toolchainSha256',
   ]);
   if (value.schema !== V2_BETA_SINGLE_CONTRIBUTOR_PREPARATION_SCHEMA
     || value.status !== 'prepared-awaiting-local-secret-contribution'
@@ -581,6 +787,8 @@ function validatePreparation(value) {
     || !ID.test(value.ceremonyId)
     || !ID.test(value.participant?.id)
     || typeof value.participant.publicKeySpkiBase64 !== 'string'
+    || value.entropyPolicySha256 !== BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256
+    || !HASH.test(value.implementationSha256)
     || !HASH.test(value.toolchainSha256)
     || !HASH.test(value.b01?.manifestSha256)
     || !GIT.test(value.source?.gitCommit)
@@ -590,6 +798,10 @@ function validatePreparation(value) {
   exactKeys(value.participant, 'beta preparation participant', ['id', 'publicKeySpkiBase64']);
   exactKeys(value.source, 'beta preparation source', ['gitCommit', 'gitTree']);
   exactKeys(value.b01, 'beta preparation B-01 binding', ['bundleStatus', 'manifestSha256']);
+  validateImplementationManifest(value.implementation);
+  if (canonicalJson(value.implementation.source) !== canonicalJson(value.source)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation does not bind the preparation source');
+  }
   if (value.b01.bundleStatus
     !== 'verified-b01-pre-freeze-candidate-awaiting-independent-review') {
     fail('BETA_SCHEMA_INVALID', 'beta preparation B-01 verification status is invalid');
@@ -608,11 +820,14 @@ function validatePreparation(value) {
     }
   }
   if (Object.keys(value.artifacts ?? {}).length !== 3
-    || sha256(jcsBytes(value.toolchain)) !== value.toolchainSha256) {
+    || sha256(jcsBytes(value.toolchain)) !== value.toolchainSha256
+    || sha256(jcsBytes(value.implementation)) !== value.implementationSha256) {
     fail('BETA_SCHEMA_INVALID', 'beta preparation toolchain or artifact inventory is invalid');
   }
   const expectedRequest = createBetaSingleContributorContributionRequest({
     ceremonyId: value.ceremonyId,
+    entropyPolicySha256: value.entropyPolicySha256,
+    implementationSha256: value.implementationSha256,
     sequence: 1,
     r1csSha256: value.artifacts.r1cs.sha256,
     ptauSha256: value.artifacts.ptau.sha256,
@@ -670,6 +885,11 @@ export async function prepareV2BetaSingleContributorCeremony({
   if (verifiedB01.manifestSha256 !== b01Record.sha256.slice('sha256:'.length)) {
     fail('BETA_B01_INVALID', 'B-01-pre verifier and manifest hash disagree');
   }
+  const implementation = await collectV2BetaSingleContributorImplementationManifest();
+  const implementationSha256 = sha256(jcsBytes(implementation));
+  if (canonicalJson(implementation.source) !== canonicalJson(b01.source)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'B-01 source and beta implementation source differ');
+  }
   const runtime = await directPrivateDirectory(b01.runtime.path, 'B-01-bound runtime');
   const sources = Object.freeze({
     r1cs: path.join(runtime, 'proof', 'main-chipnet.r1cs'),
@@ -711,6 +931,7 @@ export async function prepareV2BetaSingleContributorCeremony({
       path.join(stage, artifacts.ptau.file), path.join(stage, artifacts.initialZkey.file),
     ], { cwd: stage });
     await verifyV2FinalZkeyToolchainManifest(toolchain);
+    await verifyImplementationManifest(implementation);
 
     const { privateKey } = generateKeyPairSync('ed25519');
     const privateKeyBytes = Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' }));
@@ -721,6 +942,8 @@ export async function prepareV2BetaSingleContributorCeremony({
     }
     const request = createBetaSingleContributorContributionRequest({
       ceremonyId,
+      entropyPolicySha256: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+      implementationSha256,
       sequence: 1,
       r1csSha256: artifacts.r1cs.sha256,
       ptauSha256: artifacts.ptau.sha256,
@@ -744,6 +967,9 @@ export async function prepareV2BetaSingleContributorCeremony({
         bundleStatus: verifiedB01.status,
         manifestSha256: b01Record.sha256,
       }),
+      entropyPolicySha256: BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256,
+      implementation,
+      implementationSha256,
       artifacts: Object.freeze({
         initialZkey: Object.freeze(artifacts.initialZkey),
         ptau: Object.freeze(artifacts.ptau),
@@ -797,7 +1023,7 @@ async function runInternalTtyReader() {
     const bytes = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
     const newline = bytes.findIndex((byte) => byte === 0x0a || byte === 0x0d);
     const length = newline === -1 ? bytes.length : newline;
-    if (total + length > 128) {
+    if (total + length > BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS) {
       bytes.fill(0);
       return 65;
     }
@@ -818,7 +1044,7 @@ async function runInternalTtyReader() {
   return 66;
 }
 
-/** Read exactly 100 d6 outcomes without echoing or retaining them. */
+/** Read 100 through 128 d6 outcomes without echoing or retaining them. */
 export async function readV2BetaDiceFromControllingTerminal() {
   let tty;
   let originalTerminalState;
@@ -867,10 +1093,10 @@ export async function readV2BetaDiceFromControllingTerminal() {
       process.prependListener(signal, handler);
     }
     await tty.write(Buffer.from(
-      'Enter exactly 100 physical d6 results (digits 1-6), then press Enter. Nothing will echo:\n> ',
+      'Enter 100-128 physical d6 results (digits 1-6 only; no spaces), then press Enter. Nothing will echo:\n> ',
       'utf8',
     ));
-    collected = Buffer.alloc(128);
+    collected = Buffer.alloc(BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS);
     let length = 0;
     if (interruptedSignal !== undefined) {
       fail('BETA_TTY_INTERRUPTED', `dice entry interrupted by ${interruptedSignal}`);
@@ -916,9 +1142,11 @@ export async function readV2BetaDiceFromControllingTerminal() {
     }
     const dice = Buffer.from(collected.subarray(0, length));
     collected.fill(0);
-    if (dice.length !== 100 || dice.some((byte) => byte < 0x31 || byte > 0x36)) {
+    if (dice.length < BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS
+      || dice.length > BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS
+      || dice.some((byte) => byte < 0x31 || byte > 0x36)) {
       dice.fill(0);
-      fail('BETA_DICE_INVALID', 'dice entry must be exactly 100 digits from 1 through 6');
+      fail('BETA_DICE_INVALID', 'dice entry must be 100 through 128 digits from 1 through 6');
     }
     acceptedDice = dice;
     return acceptedDice;
@@ -964,9 +1192,11 @@ async function loadPreparation(ceremonyDirectory) {
     path.join(directory, 'preparation.json'),
     'beta preparation',
   );
+  const preparation = validatePreparation(preparationRecord.value);
+  await verifyImplementationManifest(preparation.implementation);
   return Object.freeze({
     directory,
-    preparation: validatePreparation(preparationRecord.value),
+    preparation,
     preparationSha256: preparationRecord.sha256,
   });
 }
@@ -987,7 +1217,53 @@ async function remeasurePreparationArtifacts(directory, preparation) {
   return Object.freeze(measured);
 }
 
-/** Execute the secret contribution and atomically publish only verified output. */
+async function loadPreparedParticipantPrivateKey(loaded) {
+  const keyFilename = path.join(loaded.directory, PRIVATE_KEY_FILE);
+  let privateKey;
+  let privateKeyBytes;
+  try {
+    privateKeyBytes = await readPrivateBytes(
+      keyFilename,
+      'beta participant signing key',
+      64n * 1024n,
+    );
+    privateKey = createPrivateKey(privateKeyBytes);
+  } catch (error) {
+    if (error instanceof V2BetaSingleContributorCeremonyError) throw error;
+    fail('BETA_SIGNING_KEY_INVALID', 'beta signing key is not a valid private key', error);
+  } finally {
+    privateKeyBytes?.fill(0);
+  }
+  if (privateKey.asymmetricKeyType !== 'ed25519'
+    || publicKeySpkiBase64(privateKey) !== loaded.preparation.participant.publicKeySpkiBase64) {
+    fail('BETA_SIGNING_KEY_INVALID', 'beta signing key does not match the preparation participant');
+  }
+  return privateKey;
+}
+
+/** Complete all non-secret contribution checks before asking for physical rolls. */
+export async function preflightV2BetaSingleContributorCeremony({ ceremonyDirectory }) {
+  assertNodeVersion();
+  const loaded = await loadPreparation(ceremonyDirectory);
+  if ((await readdir(loaded.directory)).includes('result')) {
+    fail('BETA_ALREADY_CONTRIBUTED', 'beta result already exists; contributions are never retried in place');
+  }
+  await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
+  await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
+  await loadPreparedParticipantPrivateKey(loaded);
+  return Object.freeze({
+    ceremonyDirectory: loaded.directory,
+    entropyPolicySha256: loaded.preparation.entropyPolicySha256,
+    implementationSha256: loaded.preparation.implementationSha256,
+    status: 'ready-for-local-secret-contribution',
+  });
+}
+
+/**
+ * Execute the secret contribution and atomically publish only verified output.
+ * Programmatic callers should run the exported secretless preflight before
+ * collecting rolls; this function repeats every check after receiving them.
+ */
 export async function contributeV2BetaSingleContributorCeremony({
   ceremonyDirectory,
   dice,
@@ -995,7 +1271,7 @@ export async function contributeV2BetaSingleContributorCeremony({
   snarkjsTimeoutMs = 30 * 60 * 1000,
 }) {
   if (!(dice instanceof Uint8Array)) {
-    fail('BETA_DICE_INVALID', 'the ceremony executor accepts dice only as a 100-byte Uint8Array');
+    fail('BETA_DICE_INVALID', 'the ceremony executor accepts dice only as a Uint8Array');
   }
   const diceBytes = Buffer.from(dice.buffer, dice.byteOffset, dice.byteLength);
   const abortController = new AbortController();
@@ -1036,9 +1312,10 @@ export async function contributeV2BetaSingleContributorCeremony({
       || snarkjsTimeoutMs > 30 * 60 * 1000) {
       fail('BETA_TIMEOUT_INVALID', 'snarkjsTimeoutMs must be an integer from 1 through 1800000');
     }
-    if (diceBytes.length !== 100
+    if (diceBytes.length < BETA_SINGLE_CONTRIBUTOR_MIN_DICE_ROLLS
+      || diceBytes.length > BETA_SINGLE_CONTRIBUTOR_MAX_DICE_ROLLS
       || diceBytes.some((byte) => byte < 0x31 || byte > 0x36)) {
-      fail('BETA_DICE_INVALID', 'dice must be exactly 100 ASCII bytes from 1 through 6');
+      fail('BETA_DICE_INVALID', 'dice must be 100 through 128 ASCII bytes from 1 through 6');
     }
     if (osRandomBytes === undefined) {
       osBytes = randomBytes(64);
@@ -1065,26 +1342,8 @@ export async function contributeV2BetaSingleContributorCeremony({
     const toolchain = await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
     throwIfAborted();
     const keyFilename = path.join(loaded.directory, PRIVATE_KEY_FILE);
-    let privateKey;
-    let privateKeyBytes;
-    try {
-      privateKeyBytes = await readPrivateBytes(
-        keyFilename,
-        'beta participant signing key',
-        64n * 1024n,
-      );
-      throwIfAborted();
-      privateKey = createPrivateKey(privateKeyBytes);
-    } catch (error) {
-      if (error instanceof V2BetaSingleContributorCeremonyError) throw error;
-      fail('BETA_SIGNING_KEY_INVALID', 'beta signing key is not a valid private key', error);
-    } finally {
-      privateKeyBytes?.fill(0);
-    }
-    if (privateKey.asymmetricKeyType !== 'ed25519'
-      || publicKeySpkiBase64(privateKey) !== loaded.preparation.participant.publicKeySpkiBase64) {
-      fail('BETA_SIGNING_KEY_INVALID', 'beta signing key does not match the preparation participant');
-    }
+    const privateKey = await loadPreparedParticipantPrivateKey(loaded);
+    throwIfAborted();
     stage = await mkdtemp(path.join(loaded.directory, '.contribution-stage-'));
     await chmod(stage, 0o700);
     await directPrivateDirectory(stage, 'beta contribution stage');
@@ -1155,6 +1414,7 @@ export async function contributeV2BetaSingleContributorCeremony({
     );
     await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
     await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
+    await verifyImplementationManifest(loaded.preparation.implementation);
 
     const receipt = signBetaSingleContributorContributionReceipt({
       request: loaded.preparation.request,
@@ -1182,6 +1442,8 @@ export async function contributeV2BetaSingleContributorCeremony({
       source: loaded.preparation.source,
       preparationSha256: loaded.preparationSha256,
       b01ManifestSha256: loaded.preparation.b01.manifestSha256,
+      entropyPolicySha256: loaded.preparation.entropyPolicySha256,
+      implementationSha256: loaded.preparation.implementationSha256,
       toolchainSha256: loaded.preparation.toolchainSha256,
       requestSha256: entropy.requestSha256,
       entropyCommitment: entropy.entropyCommitment,
@@ -1240,9 +1502,10 @@ export async function contributeV2BetaSingleContributorCeremony({
 function validateResult(value, preparationSha256) {
   exactKeys(value, 'beta result', [
     'artifacts', 'assuranceClass', 'b01ManifestSha256', 'ceremonyId', 'claims',
-    'entropyCommitment', 'participant', 'preparationSha256', 'receiptSha256',
-    'requestSha256', 'schema', 'source', 'status', 'toolchainSha256',
-    'transcriptFileSha256', 'transcriptSha256', 'verification',
+    'entropyCommitment', 'entropyPolicySha256', 'implementationSha256',
+    'participant', 'preparationSha256', 'receiptSha256', 'requestSha256',
+    'schema', 'source', 'status', 'toolchainSha256', 'transcriptFileSha256',
+    'transcriptSha256', 'verification',
   ]);
   if (value.schema !== V2_BETA_SINGLE_CONTRIBUTOR_RESULT_SCHEMA
     || value.status !== 'beta-single-contributor-cryptographically-verified-unqualified'
@@ -1250,6 +1513,8 @@ function validateResult(value, preparationSha256) {
     || canonicalJson(value.claims) !== canonicalJson(FALSE_CLAIMS)
     || value.preparationSha256 !== preparationSha256
     || !HASH.test(value.b01ManifestSha256)
+    || value.entropyPolicySha256 !== BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY_SHA256
+    || !HASH.test(value.implementationSha256)
     || !HASH.test(value.toolchainSha256)
     || !HASH.test(value.requestSha256)
     || !HASH.test(value.entropyCommitment)
@@ -1299,6 +1564,8 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
     || canonicalJson(result.participant) !== canonicalJson(loaded.preparation.participant)
     || canonicalJson(result.source) !== canonicalJson(loaded.preparation.source)
     || result.b01ManifestSha256 !== loaded.preparation.b01.manifestSha256
+    || result.entropyPolicySha256 !== loaded.preparation.entropyPolicySha256
+    || result.implementationSha256 !== loaded.preparation.implementationSha256
     || result.toolchainSha256 !== loaded.preparation.toolchainSha256) {
     fail('BETA_BINDING_INVALID', 'beta result is not bound to its preparation');
   }
@@ -1318,6 +1585,8 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
   if (canonicalJson(transcript) !== canonicalJson(transcriptRecord.value)
     || transcript.transcriptSha256 !== result.transcriptSha256
     || transcript.betaProvingKeySha256 !== result.artifacts.betaProvingKey.sha256
+    || transcript.entropyPolicySha256 !== loaded.preparation.entropyPolicySha256
+    || transcript.implementationSha256 !== loaded.preparation.implementationSha256
     || receiptRecord.value.entropyCommitment !== result.entropyCommitment
     || canonicalJson(receiptRecord.value.participant)
       !== canonicalJson(loaded.preparation.participant)) {
@@ -1378,6 +1647,7 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
   }
   await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
   await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
+  await verifyImplementationManifest(loaded.preparation.implementation);
   return Object.freeze({
     schema: V2_BETA_SINGLE_CONTRIBUTOR_VERIFICATION_SCHEMA,
     status: 'beta-single-contributor-reverified-unqualified',
@@ -1386,6 +1656,8 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
     preparationSha256: loaded.preparationSha256,
     resultSha256: resultRecord.sha256,
     betaProvingKeySha256: provingKey.sha256,
+    entropyPolicySha256: loaded.preparation.entropyPolicySha256,
+    implementationSha256: loaded.preparation.implementationSha256,
     verificationKeySha256: verificationKey.sha256,
     transcriptFileSha256: transcriptRecord.sha256,
     transcriptSha256: transcript.transcriptSha256,
@@ -1449,6 +1721,9 @@ async function main(argv) {
   if (parsed.command === 'verify') {
     return verifyV2BetaSingleContributorCeremony({ ceremonyDirectory: parsed.ceremonyDirectory });
   }
+  await preflightV2BetaSingleContributorCeremony({
+    ceremonyDirectory: parsed.ceremonyDirectory,
+  });
   const dice = await readV2BetaDiceFromControllingTerminal();
   return contributeV2BetaSingleContributorCeremony({
     ceremonyDirectory: parsed.ceremonyDirectory,
