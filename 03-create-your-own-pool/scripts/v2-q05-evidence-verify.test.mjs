@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 import { BABYJUB_SUBGROUP_ORDER } from '../packages/recover/portable-core.mjs';
 import { canonicalJson, parseStrictJson } from '../packages/profile/load.mjs';
@@ -20,7 +20,7 @@ import {
   q05ControlledEnvironment,
   q05Git,
   runQ05JsEvidenceForTestOnly,
-  runQ05RustEvidenceForTestOnly,
+  runQ05RustEvidenceFromSnapshot,
   validateQ05ExecutionSnapshot,
   validateQ05JsEvidence,
   validateQ05JsReport,
@@ -38,14 +38,22 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const fr = (value) => BigInt(value).toString(16).padStart(64, '0');
 let cachedJs;
 let cachedRust;
+let cachedRustSnapshot;
 const jsEvidence = () => {
   cachedJs ??= runQ05JsEvidenceForTestOnly();
   return structuredClone(cachedJs);
 };
 const rustEvidence = () => {
-  cachedRust ??= runQ05RustEvidenceForTestOnly();
+  if (cachedRust === undefined) {
+    cachedRustSnapshot = createQ05ExecutionSnapshotForTestOnly();
+    cachedRust = runQ05RustEvidenceFromSnapshot(cachedRustSnapshot);
+  }
   return structuredClone(cachedRust);
 };
+const validateCachedRustEvidence = (value) => validateQ05RustEvidence(value, cachedRustSnapshot.projectRoot);
+after(() => {
+  if (cachedRustSnapshot !== undefined) destroyQ05ExecutionSnapshot(cachedRustSnapshot);
+});
 const resealJsStdout = (value) => {
   value.stdout = `${canonicalJson(value.report)}\n`;
   value.stdoutSha256 = sha256(value.stdout);
@@ -240,12 +248,40 @@ test('[test-only] Q05 exact-HEAD snapshot performs fresh npm ci and binds immuta
   }
 });
 
+test('[test-only] Q05 Rust preparation replay normalizes two private snapshot roots', () => {
+  const snapshotA = createQ05ExecutionSnapshotForTestOnly();
+  let snapshotB;
+  try {
+    const evidence = runQ05RustEvidenceFromSnapshot(snapshotA);
+    snapshotB = createQ05ExecutionSnapshotForTestOnly();
+    assert.equal(validateQ05RustEvidence(evidence, snapshotB.projectRoot).tests, 5);
+    assert.match(evidence.execution.normalizedPreparationStdout, /<q05-snapshot>\/source\/03-create-your-own-pool\/crates\/shieldkit-v2-codec\/Cargo\.toml/u);
+    assert.match(evidence.execution.normalizedPreparationStdout, /<q05-snapshot>\/cargo-target\/debug\/deps\//u);
+  } finally {
+    if (snapshotB !== undefined) destroyQ05ExecutionSnapshot(snapshotB);
+    destroyQ05ExecutionSnapshot(snapshotA);
+  }
+});
+
+test('[test-only] Q05 rejects a foreign private snapshot path in Cargo preparation output', () => {
+  const changed = rustEvidence();
+  const lines = changed.execution.preparationStdout.trimEnd().split('\n');
+  const first = JSON.parse(lines[0]);
+  first.foreignSnapshotPath = '/tmp/shieldkit-q05-foreign/escape';
+  lines[0] = JSON.stringify(first);
+  changed.execution.preparationStdout = `${lines.join('\n')}\n`;
+  changed.execution.preparationStdoutSha256 = sha256(changed.execution.preparationStdout);
+  assert.throws(() => validateCachedRustEvidence(changed), /foreign Q-05 snapshot container/u);
+});
+
 test('[test-only] Q05 Cargo execution ignores hostile inherited Rust wrappers', () => {
   const previous = process.env.RUSTC_WRAPPER;
   process.env.RUSTC_WRAPPER = '/tmp/q05-attacker-rustc-wrapper';
+  const snapshot = createQ05ExecutionSnapshotForTestOnly();
   try {
-    assert.equal(validateQ05RustEvidence(rustEvidence()).tests, 5);
+    assert.equal(validateQ05RustEvidence(runQ05RustEvidenceFromSnapshot(snapshot), snapshot.projectRoot).tests, 5);
   } finally {
+    destroyQ05ExecutionSnapshot(snapshot);
     if (previous === undefined) delete process.env.RUSTC_WRAPPER;
     else process.env.RUSTC_WRAPPER = previous;
   }
@@ -253,36 +289,36 @@ test('[test-only] Q05 Cargo execution ignores hostile inherited Rust wrappers', 
 
 test('[test-only] Q05 Rust transcript uses an empty fresh target, never a cached target', () => {
   const evidence = rustEvidence();
-  assert.equal(validateQ05RustEvidence(evidence).tests, 5);
+  assert.equal(validateCachedRustEvidence(evidence).tests, 5);
   assert.equal(evidence.execution.cargoTarget.kind, 'fresh-temporary-mode-0700');
   assert.equal(evidence.execution.cargoTarget.initialEntries, 0);
   assert.match(evidence.selectedExecutable.targetRelativePath, /^debug\/deps\/notes-[0-9a-f]{16}$/u);
   assert.match(evidence.selectedExecutable.sha256, /^[0-9a-f]{64}$/u);
   const changed = rustEvidence();
   changed.testNames[0] = 'substituted_test_name';
-  assert.throws(() => validateQ05RustEvidence(changed), /test names/u);
+  assert.throws(() => validateCachedRustEvidence(changed), /test names/u);
 });
 
 test('[test-only] Q05 rejects arbitrary extra Rust output even after hash resealing', () => {
   const stdoutChanged = rustEvidence();
   stdoutChanged.stdout += 'attacker-extra-stdout\n';
   stdoutChanged.stdoutSha256 = sha256(stdoutChanged.stdout);
-  assert.throws(() => validateQ05RustEvidence(stdoutChanged), /Rust stdout contains unexpected/u);
+  assert.throws(() => validateCachedRustEvidence(stdoutChanged), /Rust stdout contains unexpected/u);
 
   const stderrChanged = rustEvidence();
   stderrChanged.stderr += 'attacker-extra-stderr\n';
   stderrChanged.stderrSha256 = sha256(stderrChanged.stderr);
-  assert.throws(() => validateQ05RustEvidence(stderrChanged), /Rust stderr contains unexpected/u);
+  assert.throws(() => validateCachedRustEvidence(stderrChanged), /Rust stderr contains unexpected/u);
 });
 
 test('[test-only] Q05 Rust toolchain path and hash tampering is rejected', () => {
   const pathChanged = rustEvidence();
   pathChanged.toolchain.rustc.resolvedPath = '/tmp/not-rustc';
-  assert.throws(() => validateQ05RustEvidence(pathChanged), /toolchain differs/u);
+  assert.throws(() => validateCachedRustEvidence(pathChanged), /toolchain differs/u);
 
   const hashChanged = rustEvidence();
   hashChanged.toolchain.cargo.sha256 = '00'.repeat(32);
-  assert.throws(() => validateQ05RustEvidence(hashChanged), /toolchain differs/u);
+  assert.throws(() => validateCachedRustEvidence(hashChanged), /toolchain differs/u);
 });
 
 test('[test-only] Q05 generator usage failure is caught without an uncaught stack', () => {

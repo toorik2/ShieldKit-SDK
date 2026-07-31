@@ -790,23 +790,36 @@ function strictRustStderr(stderr) {
   return stderr;
 }
 
-function normalizeCargoJsonValue(value, sourceRepositoryRoot, cargoTargetRoot) {
+function q05SnapshotRootFromCargoTarget(cargoTargetRoot) {
+  if (typeof cargoTargetRoot !== 'string' || resolve(cargoTargetRoot) !== cargoTargetRoot) fail('Cargo target root is not an absolute normalized path');
+  const snapshotRoot = dirname(cargoTargetRoot);
+  if (
+    cargoTargetRoot !== join(snapshotRoot, 'cargo-target')
+    || !/^\/tmp\/shieldkit-q05-[A-Za-z0-9]+$/u.test(snapshotRoot)
+  ) fail('Cargo target root is not inside a direct Q-05 private snapshot container');
+  return snapshotRoot;
+}
+
+function normalizeCargoJsonValue(value, snapshotRoot) {
   if (typeof value === 'string') {
     // Cargo embeds paths both as standalone JSON fields and inside values such
-    // as path+file:// package IDs. Normalize every occurrence so two secure
-    // snapshots of the same exact HEAD have a comparable preparation record.
-    return value
-      .replaceAll(sourceRepositoryRoot, '<exact-head>')
-      .replaceAll(cargoTargetRoot, '<fresh-cargo-target>');
+    // as path+file:// package IDs. A replay cannot use its new snapshot root
+    // to normalize a recorded old one, so normalize only the bounded private
+    // container which owns both source and cargo-target paths.
+    for (const match of value.matchAll(/\/tmp\/shieldkit-q05-[A-Za-z0-9]+(?=\/|$)/gu)) {
+      if (match[0] !== snapshotRoot) fail('Cargo preparation references a foreign Q-05 snapshot container');
+    }
+    return value.replaceAll(snapshotRoot, '<q05-snapshot>');
   }
-  if (Array.isArray(value)) return value.map((entry) => normalizeCargoJsonValue(entry, sourceRepositoryRoot, cargoTargetRoot));
+  if (Array.isArray(value)) return value.map((entry) => normalizeCargoJsonValue(entry, snapshotRoot));
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, normalizeCargoJsonValue(entry, sourceRepositoryRoot, cargoTargetRoot)]));
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, normalizeCargoJsonValue(entry, snapshotRoot)]));
   }
   return value;
 }
 
-function parseCargoPreparation(stdout, sourceRepositoryRoot, cargoTargetRoot) {
+function parseCargoPreparation(stdout, cargoTargetRoot) {
+  const snapshotRoot = q05SnapshotRootFromCargoTarget(cargoTargetRoot);
   if (typeof stdout !== 'string' || !stdout.endsWith('\n')) fail('Cargo JSON preparation stdout is malformed');
   const messages = stdout.slice(0, -1).split('\n').map((line, index) => {
     try {
@@ -834,13 +847,14 @@ function parseCargoPreparation(stdout, sourceRepositoryRoot, cargoTargetRoot) {
     && typeof message.executable === 'string'
   ));
   if (selected.length !== 1) fail('Cargo JSON preparation did not select exactly one notes test executable');
+  if (selected[0].manifest_path !== join(snapshotRoot, 'source', projectPrefix, rustCratePath, 'Cargo.toml')) fail('Cargo-selected notes test manifest path is not the exact snapshot crate manifest');
   const selectedPath = resolve(selected[0].executable);
   if (relative(cargoTargetRoot, selectedPath).startsWith(`..${sep}`) || relative(cargoTargetRoot, selectedPath) === '') fail('Cargo-selected notes test executable escapes the fresh target');
   const normalizedLines = messages
     .slice(0, -1)
-    .map((message) => canonicalJson(normalizeCargoJsonValue(message, sourceRepositoryRoot, cargoTargetRoot)))
+    .map((message) => canonicalJson(normalizeCargoJsonValue(message, snapshotRoot)))
     .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
-  normalizedLines.push(canonicalJson(normalizeCargoJsonValue(messages.at(-1), sourceRepositoryRoot, cargoTargetRoot)));
+  normalizedLines.push(canonicalJson(normalizeCargoJsonValue(messages.at(-1), snapshotRoot)));
   const normalizedStdout = `${normalizedLines.join('\n')}\n`;
   return Object.freeze({ selectedPath, normalizedStdout });
 }
@@ -889,7 +903,7 @@ export function runQ05JsEvidenceFromSnapshot(snapshot) {
   return value;
 }
 
-function runQ05RustEvidenceAt(sourceRoot, cargoTargetRoot, sourceRepositoryRoot) {
+function runQ05RustEvidenceAt(sourceRoot, cargoTargetRoot) {
   const toolchain = pinnedRustToolchain(sourceRoot);
   const environment = q05ControlledEnvironment('cargo');
   const configBoundary = cargoConfigBoundary(sourceRoot);
@@ -908,7 +922,7 @@ function runQ05RustEvidenceAt(sourceRoot, cargoTargetRoot, sourceRepositoryRoot)
     { CARGO_TARGET_DIR: cargoTargetRoot },
   );
   if (preparation.stderr !== '') fail('Q-05 Rust preparation emitted unexpected stderr');
-  const prepared = parseCargoPreparation(preparation.stdout, sourceRepositoryRoot, cargoTargetRoot);
+  const prepared = parseCargoPreparation(preparation.stdout, cargoTargetRoot);
   const selectedIdentity = executableIdentity(prepared.selectedPath, 'Cargo-selected Rust notes test');
   const selectedRelativePath = relative(cargoTargetRoot, selectedIdentity.resolvedPath).split(sep).join('/');
   const selectedExecutable = Object.freeze({
@@ -962,17 +976,18 @@ function runQ05RustEvidenceAt(sourceRoot, cargoTargetRoot, sourceRepositoryRoot)
 }
 
 export function runQ05RustEvidenceForTestOnly(sourceRoot = projectRoot) {
-  const container = secureTemporaryDirectory('test-only Q-05 Rust execution');
+  if (sourceRoot !== projectRoot) fail('test-only Q-05 Rust execution requires the canonical project root');
+  const snapshot = createQ05ExecutionSnapshotForTestOnly();
   try {
-    return runQ05RustEvidenceAt(sourceRoot, join(container, 'cargo-target'), resolve(sourceRoot, '..'));
+    return runQ05RustEvidenceFromSnapshot(snapshot);
   } finally {
-    destroyQ05ExecutionSnapshot(Object.freeze({ container }));
+    destroyQ05ExecutionSnapshot(snapshot);
   }
 }
 
 export function runQ05RustEvidenceFromSnapshot(snapshot) {
   validateQ05ExecutionSnapshot(snapshot);
-  const value = runQ05RustEvidenceAt(snapshot.projectRoot, snapshot.cargoTargetRoot, snapshot.repositoryRoot);
+  const value = runQ05RustEvidenceAt(snapshot.projectRoot, snapshot.cargoTargetRoot);
   validateQ05ExecutionSnapshot(snapshot);
   return value;
 }
@@ -1079,7 +1094,7 @@ export function validateQ05RustEvidence(value, sourceRoot = projectRoot) {
   if (typeof selectedPath !== 'string' || !selectedPath.endsWith(`/${value.selectedExecutable.targetRelativePath}`)) fail('Rust preparation did not select the recorded test executable');
   let cargoTargetRoot = selectedPath;
   for (const _part of value.selectedExecutable.targetRelativePath.split('/')) cargoTargetRoot = dirname(cargoTargetRoot);
-  const parsedPreparation = parseCargoPreparation(value.execution.preparationStdout, resolve(sourceRoot, '..'), cargoTargetRoot);
+  const parsedPreparation = parseCargoPreparation(value.execution.preparationStdout, cargoTargetRoot);
   if (
     value.execution.normalizedPreparationStdout !== parsedPreparation.normalizedStdout
     || sha(value.execution.normalizedPreparationStdoutSha256, 'Rust normalized preparation stdout hash') !== digest(Buffer.from(parsedPreparation.normalizedStdout))
