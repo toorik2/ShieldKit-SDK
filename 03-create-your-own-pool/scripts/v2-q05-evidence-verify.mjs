@@ -33,6 +33,7 @@ export const Q05_RESULT_SCHEMA = 'shieldkit-v2-direct/q05-commit-bound-evidence-
 export const Q05_EXECUTION_ENVIRONMENT_SCHEMA = 'shieldkit-v2-direct/q05-controlled-spawn-environment/v2';
 export const Q05_EXECUTION_SNAPSHOT_SCHEMA = 'shieldkit-v2-direct/q05-exact-head-execution-snapshot/v1';
 export const Q05_DEPENDENCY_INVENTORY_SCHEMA = 'shieldkit-v2-direct/q05-installed-dependency-inventory/v1';
+export const Q05_MINIMUM_NODE_VERSION = '22.5.0';
 
 const HASH = /^[0-9a-f]{64}$/;
 const GIT_OBJECT = /^[0-9a-f]{40}$/;
@@ -689,9 +690,22 @@ export function validateQ05ExecutionSnapshot(snapshot) {
   return snapshot.record;
 }
 
+export function isQ05SupportedNodeVersion(version) {
+  if (typeof version !== 'string') return false;
+  const match = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.exec(version);
+  if (match === null) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  if (![major, minor, patch].every(Number.isSafeInteger)) return false;
+  return major > 22 || (major === 22 && minor >= 5);
+}
+
 function currentNodeRuntime() {
   const executable = executableIdentity(realpathSync(process.execPath), 'Node');
-  if (!/^v25\./.test(process.version)) fail('Q-05 evidence requires Node 25');
+  if (!isQ05SupportedNodeVersion(process.version)) {
+    fail(`Q-05 evidence requires Node >=${Q05_MINIMUM_NODE_VERSION}`);
+  }
   return Object.freeze({
     executable,
     version: process.version,

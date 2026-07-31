@@ -9,11 +9,13 @@ import { deriveDirectV2Address } from '../packages/action/v2/notes.mjs';
 import {
   Q05_DEPENDENCY_INVENTORY_SCHEMA,
   Q05_EXECUTION_SNAPSHOT_SCHEMA,
+  Q05_MINIMUM_NODE_VERSION,
   Q05_SOURCE_DEFINITIONS,
   Q05_VALIDATED_PROPERTIES,
   assertQ05SafeHostEnvironment,
   createQ05ExecutionSnapshotForTestOnly,
   destroyQ05ExecutionSnapshot,
+  isQ05SupportedNodeVersion,
   q05ControlledEnvironment,
   q05Git,
   runQ05JsEvidenceForTestOnly,
@@ -47,6 +49,16 @@ const resealJsStdout = (value) => {
   value.stdout = `${JSON.stringify(value.report)}\n`;
   value.stdoutSha256 = sha256(value.stdout);
 };
+
+test('[test-only] Q05 Node policy exactly matches the repository >=22.5 runtime floor', () => {
+  assert.equal(Q05_MINIMUM_NODE_VERSION, '22.5.0');
+  for (const version of ['v22.5.0', 'v22.23.1', 'v23.0.0', 'v25.9.0', 'v100.0.0']) {
+    assert.equal(isQ05SupportedNodeVersion(version), true, version);
+  }
+  for (const version of ['v22.4.99', 'v21.99.99', '22.5.0', 'v22.5', 'v22.5.0-rc.1', '', null]) {
+    assert.equal(isQ05SupportedNodeVersion(version), false, String(version));
+  }
+});
 
 test('[test-only] Q05 transcript is dynamically counted, complete, and deterministic', () => {
   const evidence = jsEvidence();
