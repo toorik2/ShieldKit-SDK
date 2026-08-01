@@ -51,6 +51,26 @@ test('beta integration accepts only the complete local custody/build interface',
   assert.equal(parsed.outputDirectory, root);
   assert.equal(parsed.ceremonyDirectory, '/tmp/beta-ceremony');
   assert.equal(parsed.b01Runtime, '/tmp/b01/runtime');
+  assert.equal(parsed.maximumLiveNotes, '32');
+  const capacityBound = parseV2BetaLocalIntegrationArguments([
+    '--ceremony-dir', '/tmp/beta-ceremony',
+    '--b01-manifest', '/tmp/b01/manifest.json',
+    '--b01-runtime', '/tmp/b01/runtime',
+    '--output', `${root}-100000`,
+    '--temporary-root', '/tmp/beta-tmp',
+    '--maximum-live-notes', '100000',
+  ]);
+  assert.equal(capacityBound.maximumLiveNotes, '100000');
+  for (const invalid of ['0', '0100000', '210000001']) {
+    assert.throws(() => parseV2BetaLocalIntegrationArguments([
+      '--ceremony-dir', '/tmp/beta-ceremony',
+      '--b01-manifest', '/tmp/b01/manifest.json',
+      '--b01-runtime', '/tmp/b01/runtime',
+      '--output', `${root}-${invalid}`,
+      '--temporary-root', '/tmp/beta-tmp',
+      '--maximum-live-notes', invalid,
+    ]), /\[1, 210000000\]/u);
+  }
   assert.throws(() => parseV2BetaLocalIntegrationArguments([
     '--ceremony-dir', '/tmp/beta-ceremony',
     '--b01-manifest', '/tmp/b01/manifest.json',
@@ -83,7 +103,8 @@ test('beta integration source has no network, broadcaster, or descriptor admissi
     "from './v2-network", "from '../packages/network", "from '../packages/kit/v2/network",
     'resolveV2Instance', 'fetch(', 'http:', 'https:', 'WebSocket',
   ]) assert.equal(source.includes(forbidden), false, `forbidden beta integration dependency: ${forbidden}`);
-  assert.match(source, /maximumLiveNotes: MAXIMUM_LIVE_NOTES/u);
+  assert.match(source, /maximumLiveNotes: input\.maximumLiveNotes/u);
+  assert.match(source, /DEFAULT_MAXIMUM_LIVE_NOTES = '32'/u);
   assert.match(source, /const CARRIER_COUNT = 10/u);
   assert.match(
     source,

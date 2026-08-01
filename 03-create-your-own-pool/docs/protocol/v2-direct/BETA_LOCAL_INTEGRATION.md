@@ -35,6 +35,19 @@ The required inputs are:
   `runtime-build-manifest.json`, complete inventory, and every required proof
   artifact must match the manifest.
 
+The builder also accepts an optional instance admission cap:
+
+```text
+--maximum-live-notes <1..210000000>
+```
+
+It defaults to `32`. The value is canonical decimal, becomes immutable beta
+instance state, and is bound into the capacity-specific synthetic local
+instance ID, proofs, packets, runtime, persistence evidence, inventory, and
+completion record. It changes neither the depth-32 trees nor the prepared
+relation/proving key. An existing output cannot be resized; create a new output
+root instead.
+
 Use direct, non-symlinked, private directories (mode `0700`) and regular
 single-link private files (mode `0600`). The output must be a new path strictly
 below this checkout's `.codex-build/` directory; the runner refuses an existing
@@ -63,11 +76,13 @@ npm run qualification:v2:beta-local-integration -- \
   --b01-manifest <absolute-b01-pre-manifest.json> \
   --b01-runtime <absolute-b01-pre-runtime-directory> \
   --output "$PWD/.codex-build/beta-local/<new-run-id>" \
-  --temporary-root <absolute-private-temporary-directory>
+  --temporary-root <absolute-private-temporary-directory> \
+  --maximum-live-notes <1..210000000>
 ```
 
-All five option/value pairs are required exactly once. The supplied B-01
-manifest must match the ceremony's bound B-01 manifest hash. The runner refuses
+The first five option/value pairs are required exactly once; the capacity pair
+is optional and defaults to `32`. The supplied B-01 manifest must match the
+ceremony's bound B-01 manifest hash. The runner refuses
 non-private, symlinked, incomplete, altered, or inventory-inconsistent runtime
 inputs; it also refuses Node preloads, loaders, inspectors/evaluators, and
 ambient loader controls such as `NODE_OPTIONS`, `NODE_PATH`, `LD_*`, or

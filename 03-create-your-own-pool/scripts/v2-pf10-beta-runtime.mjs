@@ -43,6 +43,8 @@ export const V2_PF10_BETA_RUNTIME_MANIFEST = 'beta-runtime-manifest.json';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const HASH = /^[0-9a-f]{64}$/u;
+const DECIMAL = /^(0|[1-9][0-9]*)$/u;
+const MAXIMUM_LIVE_NOTES = 210_000_000n;
 const ACTIONS = Object.freeze(['deposit', 'transfer', 'withdrawal']);
 const SOURCE_NAMES = Object.freeze([
   'profileCore', 'r1cs', 'wasm', 'betaProvingKey', 'verificationKey',
@@ -96,6 +98,13 @@ const exact = (value, keys, label) => {
 };
 const hash = (value, label) => {
   if (typeof value !== 'string' || !HASH.test(value)) fail(`${label} must be lowercase SHA-256`);
+  return value;
+};
+const capacity = (value, label) => {
+  if (typeof value !== 'string' || !DECIMAL.test(value)
+      || BigInt(value) === 0n || BigInt(value) > MAXIMUM_LIVE_NOTES) {
+    fail(`${label} must be canonical decimal in [1, 210000000]`);
+  }
   return value;
 };
 const repoRelative = (filename, label) => {
@@ -214,7 +223,11 @@ function validateInputBinding({ profile, profilePackage, evidence, instanceId })
   const checkedPackage = validateV2BetaLocalProfilePackage(profilePackage.value, profile.value);
   if (checkedPackage.profileId !== profileId || checkedPackage.profileCoreSha256 !== profile.sha256) fail('beta profile package differs from supplied beta profile core');
   if (evidence.value.schema !== V2_BETA_PROOF_QUALIFICATION_SCHEMA || evidence.value.evidenceClass !== V2_BETA_PROOF_EVIDENCE_CLASS || evidence.value.eligibility !== V2_BETA_LOCAL_ELIGIBILITY) fail('qualification evidence is not beta proof evidence');
-  if (evidence.value.identity?.profileId !== profileId || evidence.value.identity?.instanceId !== instanceId || evidence.value.identity?.maximumLiveNotes !== '32' || evidence.value.identity?.denominationSats !== '10000000') fail('qualification evidence is not bound to this beta profile and instance');
+  const maximumLiveNotes = capacity(
+    evidence.value.identity?.maximumLiveNotes,
+    'qualification evidence maximumLiveNotes',
+  );
+  if (evidence.value.identity?.profileId !== profileId || evidence.value.identity?.instanceId !== instanceId || evidence.value.identity?.denominationSats !== '10000000') fail('qualification evidence is not bound to this beta profile and instance');
   if (canonicalizeJcs(evidence.value.claims)
       !== canonicalizeJcs(V2_BETA_LOCAL_FALSE_CLAIMS)) {
     fail('qualification evidence claims differ from the beta boundary');
@@ -227,11 +240,11 @@ function validateInputBinding({ profile, profilePackage, evidence, instanceId })
   };
   for (const [name, expectedHash] of Object.entries(expected)) if (evidence.value.sourceArtifacts?.[name]?.sha256 !== expectedHash) fail(`qualification evidence ${name} differs from beta profile package`);
   if (evidence.value.sourceArtifacts?.profileCore?.sha256 !== profile.sha256) fail('qualification evidence profile core differs from beta profile package');
-  return Object.freeze({ profileId, profilePackage: checkedPackage });
+  return Object.freeze({ maximumLiveNotes, profileId, profilePackage: checkedPackage });
 }
 
 function claims() { return V2_BETA_LOCAL_FALSE_CLAIMS; }
-function manifestValue({ profileId, instanceId, profile, profilePackage, sourceEvidence, localEvidence, artifacts, build, refs }) {
+function manifestValue({ profileId, instanceId, maximumLiveNotes, profile, profilePackage, sourceEvidence, localEvidence, artifacts, build, refs }) {
   return Object.freeze({
     schema: V2_PF10_BETA_RUNTIME_BUNDLE_SCHEMA,
     status: 'beta-local-runtime-built-unqualified',
@@ -239,7 +252,7 @@ function manifestValue({ profileId, instanceId, profile, profilePackage, sourceE
     assuranceClass: 'beta-single-contributor',
     claims: claims(),
     profile: Object.freeze({ profileId, profileCore: artifactRef(refs.profileCore), betaProfilePackage: artifactRef(refs.profilePackage), ceremonyResultSha256: profilePackage.ceremony.resultSha256 }),
-    identity: Object.freeze({ instanceId, maximumLiveNotes: '32', denominationSats: '10000000' }),
+    identity: Object.freeze({ instanceId, maximumLiveNotes, denominationSats: '10000000' }),
     proofQualification: Object.freeze({ inputEvidence: artifactRef(refs.inputEvidence), inputEvidenceSha256: sourceEvidence.sha256, localEvidence: artifactRef(refs.localEvidence), betaProvenance: artifactRef(refs.betaProvenance), actionEvidence: Object.freeze(Object.fromEntries(ACTIONS.map((action) => [action, Object.freeze(Object.fromEntries(Object.keys(actionFileNames).map((kind) => [kind, artifactRef(refs.actionEvidence[action][kind])])))]))) }),
     proofArtifacts: Object.freeze(Object.fromEntries(Object.entries(refs.proof).map(([name, entry]) => [name, artifactRef(entry)]))),
     runtime: Object.freeze({ materialSha256: build.runtimeMaterial.materialSha256, material: artifactRef(refs.runtimeMaterial), artifacts: Object.freeze(Object.fromEntries(Object.entries(refs.runtime).map(([name, entry]) => [name, Array.isArray(entry) ? entry.map(artifactRef) : artifactRef(entry)]))), topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID, verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES, baseValues: build.baseValues, fixedTables: build.fixedTables, layout: build.layout, programs: build.programs && Object.freeze(Object.fromEntries(Object.entries(build.programs).map(([name, program]) => [name, Array.isArray(program) ? program.map((p) => p.hashes) : program.hashes]))), structural: Object.freeze(Object.fromEntries(Object.entries(refs.structural).map(([name, entry]) => [name, Array.isArray(entry) ? entry.map(artifactRef) : artifactRef(entry)]))), reproducibility: refs.repro }),
@@ -304,7 +317,7 @@ export async function runV2Pf10BetaRuntime(argv, { cwd = process.cwd(), reposito
     refs.localEvidence = await copyArtifact(target.stage, artifacts, 'beta-proof-evidence', 'qualification/beta-proof-evidence.json', { bytes: canonicalBytes(localEvidence) });
     const build = await buildDirectV2Pf10BetaRuntime({ repositoryRoot: ROOT, temporaryRoot: options.temporaryRoot, profileId: binding.profileId, instanceId: options.instanceId, proofArtifacts: { provingKey: { path: path.join(target.stage, refs.proof.provingKey.path), sha256: refs.proof.provingKey.sha256 }, r1cs: { path: path.join(target.stage, refs.proof.r1cs.path), sha256: refs.proof.r1cs.sha256 }, verificationKey: { path: path.join(target.stage, refs.proof.verificationKey.path), sha256: refs.proof.verificationKey.sha256 }, wasm: { path: path.join(target.stage, refs.proof.wasm.path), sha256: refs.proof.wasm.sha256 } } });
     await emitBuild(target.stage, artifacts, refs, build);
-    const manifest = manifestValue({ profileId: binding.profileId, instanceId: options.instanceId, profile, profilePackage: binding.profilePackage, sourceEvidence: evidence, localEvidence, artifacts, build, refs });
+    const manifest = manifestValue({ profileId: binding.profileId, instanceId: options.instanceId, maximumLiveNotes: binding.maximumLiveNotes, profile, profilePackage: binding.profilePackage, sourceEvidence: evidence, localEvidence, artifacts, build, refs });
     const manifestBytes = canonicalBytes(manifest); await writeExact(path.join(target.stage, V2_PF10_BETA_RUNTIME_MANIFEST), manifestBytes);
     const handle = await open(target.stage, fsConstants.O_RDONLY); try { await handle.sync(); } finally { await handle.close(); }
     await rename(target.stage, target.output); const parent = await open(target.parent, fsConstants.O_RDONLY); try { await parent.sync(); } finally { await parent.close(); }
@@ -352,13 +365,23 @@ export async function verifyV2Pf10BetaRuntime({ outputDirectory, temporaryRoot }
   for (const entry of manifest.artifacts) await artifactByRef(output, entry, `artifact ${entry.id}`);
   const profile = await artifactByRef(output, manifest.profile.profileCore, 'profile core'); const profilePackage = await artifactByRef(output, manifest.profile.betaProfilePackage, 'beta profile package');
   const profileValue = JSON.parse(profile.bytes.toString('utf8')); validateProfileCore(profileValue); const profileId = deriveProfileId(profileValue); const packageValue = validateV2BetaLocalProfilePackage(JSON.parse(profilePackage.bytes.toString('utf8')), profileValue);
-  if (profileId !== manifest.profile.profileId || packageValue.profileId !== profileId || manifest.identity.maximumLiveNotes !== '32' || manifest.identity.denominationSats !== '10000000') fail('beta runtime profile identity is invalid');
+  const maximumLiveNotes = capacity(
+    manifest.identity?.maximumLiveNotes,
+    'beta runtime manifest maximumLiveNotes',
+  );
+  if (profileId !== manifest.profile.profileId || packageValue.profileId !== profileId || manifest.identity.denominationSats !== '10000000') fail('beta runtime profile identity is invalid');
   const evidence = await artifactByRef(output, manifest.proofQualification.localEvidence, 'local beta proof evidence');
   const inputEvidence = await artifactByRef(output, manifest.proofQualification.inputEvidence, 'input beta proof evidence');
   if (inputEvidence.sha256 !== manifest.proofQualification.inputEvidenceSha256) fail('input beta proof evidence hash is not bound by the manifest');
   let originalEvidence; let localEvidence;
   try { originalEvidence = JSON.parse(inputEvidence.bytes.toString('utf8')); localEvidence = JSON.parse(evidence.bytes.toString('utf8')); } catch (error) { fail(`beta proof evidence is not JSON: ${error.message}`); }
   if (canonicalizeJcs(cloneLocalEvidence(originalEvidence, output)) !== canonicalizeJcs(localEvidence)) fail('local beta proof evidence is not an exact relocation of the input evidence');
+  if (originalEvidence.identity?.profileId !== profileId
+      || originalEvidence.identity?.instanceId !== manifest.identity.instanceId
+      || originalEvidence.identity?.maximumLiveNotes !== maximumLiveNotes
+      || originalEvidence.identity?.denominationSats !== '10000000') {
+    fail('beta runtime manifest identity differs from its proof evidence');
+  }
   const verification = await verifyBetaProofQualification({ evidencePath: evidence.filename });
   if (verification.eligibility !== V2_BETA_LOCAL_ELIGIBILITY) fail('local beta proof evidence did not retain beta eligibility');
   const proof = Object.fromEntries(await Promise.all(Object.entries(manifest.proofArtifacts).map(async ([name, ref]) => [name, await artifactByRef(output, ref, `proof ${name}`)])));

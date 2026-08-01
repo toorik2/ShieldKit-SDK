@@ -107,6 +107,17 @@ function decimal(value, label, { nonzero = false } = {}) {
   return value;
 }
 
+function capacity(value, label = 'maximumLiveNotes') {
+  const normalized = decimal(value, label, { nonzero: true });
+  if (BigInt(normalized) > 210_000_000n) {
+    fail(
+      'BETA_PERSISTENCE_INVALID',
+      `${label} must not exceed 210000000`,
+    );
+  }
+  return normalized;
+}
+
 function falseClaims(value, label) {
   exact(value, Object.keys(V2_BETA_LOCAL_FALSE_CLAIMS), label);
   if (canonicalizeJcs(value) !== canonicalizeJcs(V2_BETA_LOCAL_FALSE_CLAIMS)) {
@@ -190,7 +201,7 @@ function runtimeBinding(value, binding) {
   falseClaims(manifest.claims, 'beta runtime manifest claims');
   if (manifest.profile?.profileId !== binding.profileId
     || manifest.identity?.instanceId !== binding.instanceId
-    || manifest.identity?.maximumLiveNotes !== '32'
+    || manifest.identity?.maximumLiveNotes !== binding.maximumLiveNotes
     || manifest.identity?.denominationSats !== binding.profileCore.denominationSats
     || !HASH.test(manifest.runtime?.materialSha256)) {
     fail('BETA_PERSISTENCE_EVIDENCE_REJECTED', 'beta runtime manifest does not bind the exact profile, instance, or material');
@@ -218,7 +229,7 @@ function proofBinding(value, binding) {
     || evidence.eligibility !== V2_BETA_LOCAL_ELIGIBILITY
     || evidence.identity?.profileId !== binding.profileId
     || evidence.identity?.instanceId !== binding.instanceId
-    || evidence.identity?.maximumLiveNotes !== '32'
+    || evidence.identity?.maximumLiveNotes !== binding.maximumLiveNotes
     || evidence.identity?.denominationSats !== binding.profileCore.denominationSats) {
     fail('BETA_PERSISTENCE_EVIDENCE_REJECTED', 'beta proof evidence does not bind the exact beta identity');
   }
@@ -239,7 +250,7 @@ function proofBinding(value, binding) {
     eligibility: V2_BETA_LOCAL_ELIGIBILITY,
     profileId: binding.profileId,
     instanceId: binding.instanceId,
-    maximumLiveNotes: '32',
+    maximumLiveNotes: binding.maximumLiveNotes,
     status: 'beta-proof-qualification-reverified-unqualified',
     claims: V2_BETA_LOCAL_FALSE_CLAIMS,
   }, 'beta proof verification');
@@ -346,10 +357,14 @@ function input(value) {
     'betaRuntime', 'carrierCount', 'genesis', 'instanceId', 'maximumLiveNotes',
     'preparedActions', 'privateActionDirectory', 'profileCore', 'stateStorePath',
   ], 'beta persistence recovery input');
-  const binding = profileBinding({
-    betaProfilePackage: value.betaProfilePackage,
-    instanceId: value.instanceId,
-    profileCore: value.profileCore,
+  const selectedCapacity = capacity(value.maximumLiveNotes);
+  const binding = Object.freeze({
+    ...profileBinding({
+      betaProfilePackage: value.betaProfilePackage,
+      instanceId: value.instanceId,
+      profileCore: value.profileCore,
+    }),
+    maximumLiveNotes: selectedCapacity,
   });
   if (!Array.isArray(value.preparedActions) || value.preparedActions.length !== ACTIONS.length
     || new Set(value.preparedActions.map((action) => action?.operationId)).size !== ACTIONS.length) {
@@ -372,8 +387,8 @@ function input(value) {
     if (packet.kind !== ACTIONS[index] || packet.networkId !== binding.profileCore.network.id
       || packet.instanceId !== binding.instanceId || packet.preState.profileId !== binding.profileId
       || packet.postState.profileId !== binding.profileId
-      || packet.preState.maximumLiveNotes !== value.maximumLiveNotes
-      || packet.postState.maximumLiveNotes !== value.maximumLiveNotes) {
+      || packet.preState.maximumLiveNotes !== selectedCapacity
+      || packet.postState.maximumLiveNotes !== selectedCapacity) {
       fail('BETA_PERSISTENCE_EVIDENCE_REJECTED', 'proof packet differs from beta profile/instance/capacity binding');
     }
     const expectedPublicInputs = actionPacketPublicLimbs(libauth.actions[index].packet, { denominationSats: binding.profileCore.denominationSats });
@@ -386,7 +401,7 @@ function input(value) {
     ...binding,
     carrierCount: integer(value.carrierCount, 'carrierCount', 1, 0xff),
     genesis: Object.freeze({ blockHash: hash(value.genesis.blockHash, 'genesis.blockHash'), height: integer(value.genesis.height, 'genesis.height'), outpoint: Object.freeze({ txid: hash(value.genesis.outpoint.txid, 'genesis.outpoint.txid'), vout: integer(value.genesis.outpoint.vout, 'genesis.outpoint.vout') }) }),
-    maximumLiveNotes: decimal(value.maximumLiveNotes, 'maximumLiveNotes', { nonzero: true }),
+    maximumLiveNotes: selectedCapacity,
     preparedActions,
     privateActionDirectory: value.privateActionDirectory,
     stateStorePath: value.stateStorePath,

@@ -14,11 +14,15 @@ export const V2_BETA_LOCAL_PROFILE_STATUS =
   'beta-single-contributor-profile-cryptographically-bound-unqualified';
 export const V2_BETA_LOCAL_INSTANCE_DOMAIN =
   'shieldkit/v2-beta-local-instance/v1';
+export const V2_BETA_LOCAL_CAPACITY_INSTANCE_DOMAIN =
+  'shieldkit/v2-beta-local-instance/v2';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const PREFIXED_HASH = /^sha256:[0-9a-f]{64}$/u;
 const GIT = /^[0-9a-f]{40}$/u;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
+const DECIMAL = /^(0|[1-9][0-9]*)$/u;
+const MAXIMUM_LIVE_NOTES = 210_000_000n;
 
 export const V2_BETA_LOCAL_FALSE_CLAIMS = Object.freeze({
   b02Qualified: false,
@@ -131,14 +135,32 @@ const sha256 = (value) =>
 export function deriveV2BetaLocalInstanceId({
   profileId,
   ceremonyResultSha256,
+  maximumLiveNotes,
 }) {
   rawHash(profileId, 'profileId');
   prefixedHash(ceremonyResultSha256, 'ceremonyResultSha256');
+  let domain = V2_BETA_LOCAL_INSTANCE_DOMAIN;
+  let capacityBytes = Buffer.alloc(0);
+  if (maximumLiveNotes !== undefined) {
+    if (typeof maximumLiveNotes !== 'string'
+      || !DECIMAL.test(maximumLiveNotes)
+      || BigInt(maximumLiveNotes) === 0n
+      || BigInt(maximumLiveNotes) > MAXIMUM_LIVE_NOTES) {
+      fail(
+        'BETA_PROFILE_INVALID',
+        'maximumLiveNotes must be canonical decimal in [1, 210000000]',
+      );
+    }
+    domain = V2_BETA_LOCAL_CAPACITY_INSTANCE_DOMAIN;
+    capacityBytes = Buffer.alloc(4);
+    capacityBytes.writeUInt32LE(Number(maximumLiveNotes));
+  }
   return createHash('sha256')
-    .update(V2_BETA_LOCAL_INSTANCE_DOMAIN, 'utf8')
+    .update(domain, 'utf8')
     .update(Buffer.from([0]))
     .update(Buffer.from(profileId, 'hex'))
     .update(Buffer.from(ceremonyResultSha256.slice(7), 'hex'))
+    .update(capacityBytes)
     .digest('hex');
 }
 

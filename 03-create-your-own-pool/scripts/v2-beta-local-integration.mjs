@@ -51,13 +51,16 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const HASH = /^[0-9a-f]{64}$/u;
 const COMPLETION_FILE = 'beta-local-complete.json';
 const INVENTORY_FILE = 'private-inventory.json';
-const SCHEMA = 'shieldkit-v2-direct-beta-local-integration-v1';
+const LEGACY_SCHEMA = 'shieldkit-v2-direct-beta-local-integration-v1';
+const SCHEMA = 'shieldkit-v2-direct-beta-local-integration-v2';
 const STATUS = 'beta-single-contributor-local-integration-verified-unqualified';
 const PRIVATE_DIR_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const CARRIER_COUNT = 10;
-const MAXIMUM_LIVE_NOTES = '32';
+const DEFAULT_MAXIMUM_LIVE_NOTES = '32';
+const MAXIMUM_LIVE_NOTES_LIMIT = 210_000_000n;
 const DENOMINATION_SATS = '10000000';
+const DECIMAL = /^(0|[1-9][0-9]*)$/u;
 
 export class V2BetaLocalIntegrationError extends Error {
   constructor(message) { super(message); this.name = 'V2BetaLocalIntegrationError'; }
@@ -66,6 +69,14 @@ const fail = (message) => { throw new V2BetaLocalIntegrationError(message); };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const canonicalBytes = (value) => Buffer.from(canonicalizeJcs(value), 'utf8');
 const jsonHash = (value) => sha256(canonicalBytes(value));
+
+function maximumLiveNotes(value, label = 'maximumLiveNotes') {
+  if (typeof value !== 'string' || !DECIMAL.test(value)
+      || BigInt(value) === 0n || BigInt(value) > MAXIMUM_LIVE_NOTES_LIMIT) {
+    fail(`${label} must be canonical decimal in [1, 210000000]`);
+  }
+  return value;
+}
 
 function assertSafeRuntime() {
   const allowedExecArguments = new Set([
@@ -279,6 +290,7 @@ const BUILD_OPTIONS = Object.freeze({
   '--ceremony-dir': 'ceremonyDirectory', '--b01-manifest': 'b01Manifest',
   '--b01-runtime': 'b01Runtime', '--output': 'outputDirectory',
   '--temporary-root': 'temporaryRoot',
+  '--maximum-live-notes': 'maximumLiveNotes',
 });
 export function parseV2BetaLocalIntegrationArguments(argv, cwd = process.cwd()) {
   if (!Array.isArray(argv) || argv.length % 2 !== 0) fail('beta integration arguments must be complete option/value pairs');
@@ -286,9 +298,17 @@ export function parseV2BetaLocalIntegrationArguments(argv, cwd = process.cwd()) 
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index]; const key = BUILD_OPTIONS[option]; const value = argv[index + 1];
     if (key === undefined || Object.hasOwn(values, key) || typeof value !== 'string' || value.length === 0 || value.startsWith('--')) fail(`invalid or duplicate beta integration option: ${String(option)}`);
-    values[key] = path.resolve(cwd, value);
+    values[key] = key === 'maximumLiveNotes' ? value : path.resolve(cwd, value);
   }
-  for (const [option, key] of Object.entries(BUILD_OPTIONS)) if (!Object.hasOwn(values, key)) fail(`missing required beta integration option: ${option}`);
+  for (const [option, key] of Object.entries(BUILD_OPTIONS)) {
+    if (key !== 'maximumLiveNotes' && !Object.hasOwn(values, key)) {
+      fail(`missing required beta integration option: ${option}`);
+    }
+  }
+  values.maximumLiveNotes = maximumLiveNotes(
+    values.maximumLiveNotes ?? DEFAULT_MAXIMUM_LIVE_NOTES,
+    '--maximum-live-notes',
+  );
   for (const key of ['ceremonyDirectory', 'b01Manifest', 'b01Runtime', 'temporaryRoot']) boundedAbsolute(values[key], key);
   return Object.freeze({ ...values, outputDirectory: repoOutput(values.outputDirectory, 'output directory') });
 }
@@ -376,11 +396,11 @@ async function copyCeremony(source, target) {
   }
   await recurse(source, target);
 }
-function makePersistenceActions({ profileId, instanceId }) {
+function makePersistenceActions({ profileId, instanceId, maximumLiveNotes: capacity }) {
   const fixture = buildDeterministicDirectV2Chain({
     profileId,
     instanceId,
-    maximumLiveNotes: MAXIMUM_LIVE_NOTES,
+    maximumLiveNotes: capacity,
   });
   return Object.freeze([
     'deposit', 'transfer', 'withdrawal',
@@ -484,6 +504,7 @@ export async function buildV2BetaLocalIntegration(options) {
     '--ceremony-dir', options.ceremonyDirectory, '--b01-manifest', options.b01Manifest,
     '--b01-runtime', options.b01Runtime, '--output', options.outputDirectory,
     '--temporary-root', options.temporaryRoot,
+    '--maximum-live-notes', options.maximumLiveNotes ?? DEFAULT_MAXIMUM_LIVE_NOTES,
   ], ROOT);
   if (await exists(input.outputDirectory)) fail('beta integration output must not already exist');
   await mkdir(path.dirname(input.outputDirectory), { recursive: true, mode: PRIVATE_DIR_MODE });
@@ -542,8 +563,8 @@ export async function buildV2BetaLocalIntegration(options) {
     },
   });
   const betaProfilePath = path.join(output, 'profile/beta-profile-package.json'); await writeJson(betaProfilePath, betaProfile);
-  const instanceId = deriveV2BetaLocalInstanceId({ profileId: betaProfile.profileId, ceremonyResultSha256: copied.resultSha256 });
-  const proof = await runBetaProofQualification({ ceremonyDirectory: path.join(output, 'custody/ceremony'), profileCore: profileCorePath, r1cs: path.join(output, 'custody/ceremony/relation.r1cs'), wasm: path.join(output, 'custody/b01/main-chipnet.wasm'), zkey: path.join(output, 'custody/ceremony/result/beta-proving-key.zkey'), verificationKey: path.join(output, 'custody/ceremony/result/verification-key.json'), outputDirectory: path.join(output, 'proof/qualification'), instanceId, maximumLiveNotes: MAXIMUM_LIVE_NOTES, singleThread: false });
+  const instanceId = deriveV2BetaLocalInstanceId({ profileId: betaProfile.profileId, ceremonyResultSha256: copied.resultSha256, maximumLiveNotes: input.maximumLiveNotes });
+  const proof = await runBetaProofQualification({ ceremonyDirectory: path.join(output, 'custody/ceremony'), profileCore: profileCorePath, r1cs: path.join(output, 'custody/ceremony/relation.r1cs'), wasm: path.join(output, 'custody/b01/main-chipnet.wasm'), zkey: path.join(output, 'custody/ceremony/result/beta-proving-key.zkey'), verificationKey: path.join(output, 'custody/ceremony/result/verification-key.json'), outputDirectory: path.join(output, 'proof/qualification'), instanceId, maximumLiveNotes: input.maximumLiveNotes, singleThread: false });
   const proofVerification = await verifyBetaProofQualification({ evidencePath: proof.evidencePath });
   const proofEvidence = await readRegular(
     proof.evidencePath,
@@ -567,6 +588,7 @@ export async function buildV2BetaLocalIntegration(options) {
   const preparedActions = makePersistenceActions({
     profileId: betaProfile.profileId,
     instanceId,
+    maximumLiveNotes: input.maximumLiveNotes,
   });
   const betaRuntime = Object.freeze({
     manifest: runtimeManifest.value,
@@ -612,7 +634,7 @@ export async function buildV2BetaLocalIntegration(options) {
       },
     },
     instanceId,
-    maximumLiveNotes: MAXIMUM_LIVE_NOTES,
+    maximumLiveNotes: input.maximumLiveNotes,
     preparedActions,
     privateActionDirectory,
     profileCore: betaCore.profileCore,
@@ -646,9 +668,9 @@ export async function buildV2BetaLocalIntegration(options) {
     path.join(output, INVENTORY_FILE),
     'private inventory',
   );
-  const completion = Object.freeze({ schema: SCHEMA, status: STATUS, eligibility: V2_BETA_LOCAL_ELIGIBILITY, assuranceClass: 'beta-single-contributor', claims: V2_BETA_LOCAL_FALSE_CLAIMS, identity: Object.freeze({ profileId: betaProfile.profileId, instanceId, maximumLiveNotes: MAXIMUM_LIVE_NOTES, denominationSats: DENOMINATION_SATS, carrierCount: CARRIER_COUNT }), git, custody: Object.freeze({ ceremonyResultSha256: copied.resultSha256, b01ManifestSha256: copied.b01ManifestSha256 }), profile: Object.freeze({ coreSha256: betaCore.profileCoreSha256, packageSha256: betaProfileFile.sha256, provenanceSha256: provenanceFile.sha256 }), verification: Object.freeze({ proof: proofVerification, runtime: runtimeVerification, libauth: libauthVerification, persistence: persistenceVerification }), privateInventory: Object.freeze({ path: INVENTORY_FILE, bytes: inventoryFile.byteLength, sha256: inventoryFile.sha256 }) });
+  const completion = Object.freeze({ schema: SCHEMA, status: STATUS, eligibility: V2_BETA_LOCAL_ELIGIBILITY, assuranceClass: 'beta-single-contributor', claims: V2_BETA_LOCAL_FALSE_CLAIMS, identity: Object.freeze({ profileId: betaProfile.profileId, instanceId, maximumLiveNotes: input.maximumLiveNotes, denominationSats: DENOMINATION_SATS, carrierCount: CARRIER_COUNT }), git, custody: Object.freeze({ ceremonyResultSha256: copied.resultSha256, b01ManifestSha256: copied.b01ManifestSha256 }), profile: Object.freeze({ coreSha256: betaCore.profileCoreSha256, packageSha256: betaProfileFile.sha256, provenanceSha256: provenanceFile.sha256 }), verification: Object.freeze({ proof: proofVerification, runtime: runtimeVerification, libauth: libauthVerification, persistence: persistenceVerification }), privateInventory: Object.freeze({ path: INVENTORY_FILE, bytes: inventoryFile.byteLength, sha256: inventoryFile.sha256 }) });
   await writeJson(path.join(output, COMPLETION_FILE), completion);
-  return Object.freeze({ outputDirectory: output, completionPath: path.join(output, COMPLETION_FILE), completionSha256: sha256(canonicalBytes(completion)), profileId: betaProfile.profileId, instanceId, eligibility: V2_BETA_LOCAL_ELIGIBILITY });
+  return Object.freeze({ outputDirectory: output, completionPath: path.join(output, COMPLETION_FILE), completionSha256: sha256(canonicalBytes(completion)), profileId: betaProfile.profileId, instanceId, maximumLiveNotes: input.maximumLiveNotes, eligibility: V2_BETA_LOCAL_ELIGIBILITY });
 }
 
 export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryRoot }) {
@@ -657,14 +679,15 @@ export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryR
   const completion = await readRegular(path.join(output, COMPLETION_FILE), 'beta integration completion', { canonicalJson: true });
   const value = completion.value;
   exact(value, ['assuranceClass', 'claims', 'custody', 'eligibility', 'git', 'identity', 'privateInventory', 'profile', 'schema', 'status', 'verification'], 'beta integration completion');
-  if (value.schema !== SCHEMA || value.status !== STATUS || value.eligibility !== V2_BETA_LOCAL_ELIGIBILITY || value.assuranceClass !== 'beta-single-contributor') fail('beta integration completion boundary is invalid');
+  if (![LEGACY_SCHEMA, SCHEMA].includes(value.schema) || value.status !== STATUS || value.eligibility !== V2_BETA_LOCAL_ELIGIBILITY || value.assuranceClass !== 'beta-single-contributor') fail('beta integration completion boundary is invalid');
   currentBetaClaims(value.claims, 'beta integration completion claims');
   await verifyGitBinding(value.git);
-  if (value.identity.maximumLiveNotes !== MAXIMUM_LIVE_NOTES || value.identity.carrierCount !== CARRIER_COUNT || value.identity.denominationSats !== DENOMINATION_SATS || !HASH.test(value.identity.profileId) || !HASH.test(value.identity.instanceId)) fail('beta integration identity is invalid');
+  const capacity = maximumLiveNotes(value.identity.maximumLiveNotes, 'beta integration identity maximumLiveNotes');
+  if ((value.schema === LEGACY_SCHEMA && capacity !== DEFAULT_MAXIMUM_LIVE_NOTES) || value.identity.carrierCount !== CARRIER_COUNT || value.identity.denominationSats !== DENOMINATION_SATS || !HASH.test(value.identity.profileId) || !HASH.test(value.identity.instanceId)) fail('beta integration identity is invalid');
   const files = await inventory(output, { exclude: new Set([INVENTORY_FILE, COMPLETION_FILE]) });
   const retained = await readRegular(path.join(output, INVENTORY_FILE), 'private inventory', { canonicalJson: true });
   exact(retained.value, ['files', 'schema', 'sha256'], 'private inventory');
-  if (retained.value.schema !== `${SCHEMA}-private-inventory` || retained.value.sha256 !== jsonHash(retained.value.files) || canonicalizeJcs(retained.value.files) !== canonicalizeJcs(files)) fail('private inventory differs from exhaustive beta output inventory');
+  if (retained.value.schema !== `${value.schema}-private-inventory` || retained.value.sha256 !== jsonHash(retained.value.files) || canonicalizeJcs(retained.value.files) !== canonicalizeJcs(files)) fail('private inventory differs from exhaustive beta output inventory');
   if (value.privateInventory.sha256 !== retained.sha256 || value.privateInventory.bytes !== retained.bytes.length || value.privateInventory.path !== INVENTORY_FILE) fail('completion does not bind the private inventory');
   const ceremony = await resolveV2BetaSingleContributorHistoricalCeremony({ ceremonyDirectory: path.join(output, 'custody/ceremony') });
   if (ceremony.resultSha256 !== value.custody.ceremonyResultSha256 || ceremony.b01ManifestSha256 !== value.custody.b01ManifestSha256) fail('copied ceremony resolution does not match completion custody pins');
@@ -686,7 +709,7 @@ export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryR
       !== canonicalizeJcs(copiedB01.value)
     || canonicalizeJcs(provenance.value)
       !== canonicalizeJcs(createV2BetaLocalProvenancePin(ceremony))
-    || betaPackage.profileId !== value.identity.profileId || deriveProfileId(core.value) !== value.identity.profileId || deriveV2BetaLocalInstanceId({ profileId: value.identity.profileId, ceremonyResultSha256: ceremony.resultSha256 }) !== value.identity.instanceId || core.sha256 !== value.profile.coreSha256 || packageFile.sha256 !== value.profile.packageSha256 || provenance.sha256 !== value.profile.provenanceSha256) fail('beta profile/instance binding differs from completion');
+    || betaPackage.profileId !== value.identity.profileId || deriveProfileId(core.value) !== value.identity.profileId || deriveV2BetaLocalInstanceId({ profileId: value.identity.profileId, ceremonyResultSha256: ceremony.resultSha256, ...(value.schema === SCHEMA ? { maximumLiveNotes: capacity } : {}) }) !== value.identity.instanceId || core.sha256 !== value.profile.coreSha256 || packageFile.sha256 !== value.profile.packageSha256 || provenance.sha256 !== value.profile.provenanceSha256) fail('beta profile/instance binding differs from completion');
   const proof = await verifyBetaProofQualification({ evidencePath: path.join(output, 'proof/qualification/qualification-evidence.json') });
   const runtime = await verifyV2Pf10BetaRuntime({ outputDirectory: path.join(output, 'runtime'), temporaryRoot });
   const libauth = await verifyPf10BetaLibauthQualification({ output: path.join(output, 'libauth'), betaProofEvidencePath: path.join(output, 'proof/qualification/qualification-evidence.json') });
@@ -710,6 +733,7 @@ export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryR
   const preparedActions = makePersistenceActions({
     profileId: betaPackage.profileId,
     instanceId: value.identity.instanceId,
+    maximumLiveNotes: capacity,
   });
   const betaRuntime = Object.freeze({
     manifest: runtimeManifest.value,
@@ -750,7 +774,7 @@ export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryR
     }
   }
   for (const candidate of [proof, runtime, libauth, persistence]) if (candidate?.eligibility !== undefined && candidate.eligibility !== V2_BETA_LOCAL_ELIGIBILITY) fail('a sub-verifier left the beta-only eligibility boundary');
-  return Object.freeze({ schema: `${SCHEMA}-verification`, status: STATUS, eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: V2_BETA_LOCAL_FALSE_CLAIMS, completionSha256: completion.sha256, profileId: betaPackage.profileId, instanceId: value.identity.instanceId });
+  return Object.freeze({ schema: `${value.schema}-verification`, status: STATUS, eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: V2_BETA_LOCAL_FALSE_CLAIMS, completionSha256: completion.sha256, profileId: betaPackage.profileId, instanceId: value.identity.instanceId, maximumLiveNotes: capacity });
 }
 
 async function main(argv = process.argv.slice(2)) {

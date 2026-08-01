@@ -61,6 +61,27 @@ test('beta local instance identity is deterministic and domain bound', () => {
     }),
     instanceId,
   );
+  const capacityBound = deriveV2BetaLocalInstanceId({
+    ...input,
+    maximumLiveNotes: '100000',
+  });
+  assert.match(capacityBound, /^[0-9a-f]{64}$/u);
+  assert.notEqual(capacityBound, instanceId);
+  assert.notEqual(
+    capacityBound,
+    deriveV2BetaLocalInstanceId({ ...input, maximumLiveNotes: '32' }),
+  );
+  assert.throws(
+    () => deriveV2BetaLocalInstanceId({ ...input, maximumLiveNotes: '00' }),
+    V2BetaLocalProfileError,
+  );
+  assert.throws(
+    () => deriveV2BetaLocalInstanceId({
+      ...input,
+      maximumLiveNotes: '210000001',
+    }),
+    V2BetaLocalProfileError,
+  );
 });
 
 const artifact = (path, sha256) => ({ bytes: 1, path, sha256 });
