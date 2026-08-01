@@ -159,6 +159,17 @@ assert.equal(
   true,
   'SHIELDKIT_PF10_BETA_LOCAL must be absent or exactly "1"',
 );
+test.after(async () => {
+  const curve = globalThis.curve_bn128;
+  if (curve !== undefined && curve !== null) {
+    assert.equal(
+      typeof curve.terminate,
+      'function',
+      'parallel BN254 curve must expose its worker teardown',
+    );
+    await curve.terminate();
+  }
+});
 const explicitArtifactEnvironment = Object.freeze({
   evidenceRoot: process.env.SHIELDKIT_PF10_QUALIFICATION_ROOT,
   r1cs: process.env.SHIELDKIT_PF10_R1CS,
