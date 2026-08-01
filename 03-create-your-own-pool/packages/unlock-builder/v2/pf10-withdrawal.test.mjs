@@ -1963,14 +1963,14 @@ test(
         const bindingLockDrift = cloneRuntimeInput();
         bindingLockDrift.bindingLockingBytecode[0] ^= 1;
         assert.throws(
-          () => validateDirectV2Pf10RuntimeMaterial(bindingLockDrift),
+          () => validateRuntimeMaterial(bindingLockDrift),
           expects('PF10_BINDING_MISMATCH'),
         );
         const carrierDrift = cloneRuntimeInput();
         carrierDrift.fixedCarrierPads[0][0] ^= 1;
         assert.throws(
           () => buildAdapterWitness({
-            material: validateDirectV2Pf10RuntimeMaterial(carrierDrift),
+            material: validateRuntimeMaterial(carrierDrift),
           }),
           expects('PF10_FIXED_TABLE_MISMATCH'),
         );
@@ -1978,7 +1978,7 @@ test(
         programDrift.verifierLockingBytecodes[0][0] ^= 1;
         assert.throws(
           () => buildAdapterWitness({
-            material: validateDirectV2Pf10RuntimeMaterial(programDrift),
+            material: validateRuntimeMaterial(programDrift),
           }),
           expects('PF10_PROGRAM_LOCK_MISMATCH'),
         );

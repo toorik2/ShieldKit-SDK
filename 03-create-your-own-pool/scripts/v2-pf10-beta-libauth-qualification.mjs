@@ -52,7 +52,7 @@ import {
 } from './v2-pf10-libauth-qualification.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
+const PROJECT_ROOT = path.resolve(import.meta.dirname, '../..');
 const expectedFiles = Object.freeze([
   'libauth.json',
   'qualification-summary.json',
@@ -92,7 +92,11 @@ function assertSafeRuntime() {
   }
 }
 
-const readPrivateRegularFile = async (filename, label) => {
+const readPrivateRegularFile = async (
+  filename,
+  label,
+  { allowEmpty = false } = {},
+) => {
   const resolved = path.resolve(filename);
   const metadata = await lstat(resolved, { bigint: true });
   if (
@@ -100,7 +104,7 @@ const readPrivateRegularFile = async (filename, label) => {
     || metadata.isSymbolicLink()
     || metadata.nlink !== 1n
     || (metadata.mode & 0o777n) !== 0o600n
-    || metadata.size <= 0n
+    || (!allowEmpty && metadata.size === 0n)
     || metadata.size > BigInt(Number.MAX_SAFE_INTEGER)
     || await realpath(resolved) !== resolved
   ) fail(`${label} must be a mode-0600 single-link regular file`);
@@ -146,7 +150,7 @@ const readCanonicalJson = async (filename, label) => {
   return Object.freeze({ bytes, value });
 };
 
-const proofArtifactPath = (record, label) => {
+export const resolvePf10BetaProofArtifactPath = (record, label) => {
   if (
     record === null
     || Array.isArray(record)
@@ -212,6 +216,7 @@ export const verifyPf10BetaLibauthQualification = async ({
     const bytes = await readPrivateRegularFile(
       path.join(directory, filename),
       `beta Libauth ${filename}`,
+      { allowEmpty: filename === 'stderr.txt' },
     );
     const record = records.get(filename);
     if (
@@ -271,7 +276,10 @@ export const verifyPf10BetaLibauthQualification = async ({
   const verificationKeyRecord =
     proofEvidence.value?.sourceArtifacts?.verificationKey;
   const verificationKeyBytes = await readPrivateRegularFile(
-    proofArtifactPath(verificationKeyRecord, 'verification key'),
+    resolvePf10BetaProofArtifactPath(
+      verificationKeyRecord,
+      'verification key',
+    ),
     'ceremony-pinned verification key',
   );
   if (

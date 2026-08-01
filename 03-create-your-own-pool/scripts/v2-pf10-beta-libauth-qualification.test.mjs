@@ -21,9 +21,23 @@ import {
 import {
   BetaLibauthQualificationError,
   main,
+  resolvePf10BetaProofArtifactPath,
 } from './v2-pf10-beta-libauth-qualification.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+test('beta Libauth proof references resolve from the ShieldKit root', () => {
+  assert.equal(
+    resolvePf10BetaProofArtifactPath({
+      path: '.codex-build/beta/proof/verification-key.json',
+      sha256: '0'.repeat(64),
+    }, 'verification key'),
+    path.resolve(
+      import.meta.dirname,
+      '../../.codex-build/beta/proof/verification-key.json',
+    ),
+  );
+});
 const hex = (byte) => byte.repeat(32);
 const fr = (value) => value.toString(16).padStart(64, '0');
 const state = (noteCount, sequence, root, reserveSats) => ({
