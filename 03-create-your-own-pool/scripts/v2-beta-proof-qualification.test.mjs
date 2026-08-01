@@ -8,6 +8,7 @@ import {
   createV2BetaLocalProvenancePin,
   parseBetaProofQualificationArguments,
   parseBetaProofVerificationArguments,
+  resolveV2BetaEvidenceFilePath,
   serializeV2BetaCanonicalJson,
   validateV2BetaLocalProvenancePin,
   V2_BETA_PROOF_EVIDENCE_CLASS,
@@ -30,6 +31,20 @@ const file = (name, digit = '0') => ({
   path: `evidence/${name}`,
   bytes: 1,
   sha256: hash(digit),
+});
+
+test('repository-scoped beta evidence resolves from the ShieldKit root', () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..');
+  assert.equal(
+    resolveV2BetaEvidenceFilePath(
+      { path: '.codex-build/beta/actions/deposit/packet.bin' },
+      'packet',
+    ),
+    path.join(
+      repositoryRoot,
+      '.codex-build/beta/actions/deposit/packet.bin',
+    ),
+  );
 });
 
 const action = (name) => ({

@@ -39,7 +39,7 @@ import {
   resolveV2BetaSingleContributorHistoricalCeremony,
 } from './v2-beta-single-contributor-ceremony.mjs';
 
-const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
+const PROJECT_ROOT = path.resolve(import.meta.dirname, '../..');
 const HASH = /^[0-9a-f]{64}$/;
 const PREFIXED_HASH = /^sha256:[0-9a-f]{64}$/;
 const GIT = /^[0-9a-f]{40}$/;
@@ -542,7 +542,7 @@ export async function runBetaProofQualification(configuration) {
   });
 }
 
-function evidenceFilePath(record, label) {
+export function resolveV2BetaEvidenceFilePath(record, label) {
   const { path: relative, pathScope = 'repository' } = record;
   if (typeof relative !== 'string' || relative.length === 0) fail(`${label} path is invalid`);
   if (pathScope === 'absolute') {
@@ -574,7 +574,7 @@ async function rehashEvidenceFile(record, label) {
     || record.bytes <= 0
     || !HASH.test(record.sha256)
   ) fail(`${label} file evidence is invalid`);
-  const filename = evidenceFilePath(record, label);
+  const filename = resolveV2BetaEvidenceFilePath(record, label);
   const measured = await stablePrivateFileEvidence(
     filename,
     label,
@@ -737,13 +737,16 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       : await runBetaProofQualification(
         parseBetaProofQualificationArguments(process.argv.slice(2)),
       );
-    process.stdout.write(`${canonicalizeJcs(result)}\n`);
+    process.stdout.write(
+      `${canonicalizeJcs(result)}\n`,
+      () => process.exit(0),
+    );
   } catch (error) {
     process.stderr.write(
       `V2 beta proof qualification failed: ${
         error instanceof Error ? error.message : String(error)
       }\n`,
-      () => { process.exitCode = 1; },
+      () => process.exit(1),
     );
   }
 }

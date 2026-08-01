@@ -383,5 +383,22 @@ export async function verifyV2Pf10BetaRuntime({ outputDirectory, temporaryRoot }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  try { const result = process.argv[2] === '--verify' ? await verifyV2Pf10BetaRuntime(parseV2Pf10BetaRuntimeVerifyArguments(process.argv.slice(2))) : await runV2Pf10BetaRuntime(process.argv.slice(2)); process.stdout.write(`${canonicalizeJcs(result)}\n`); } catch (error) { process.stderr.write(`V2 beta PF10 runtime failed: ${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; }
+  try {
+    const result = process.argv[2] === '--verify'
+      ? await verifyV2Pf10BetaRuntime(
+        parseV2Pf10BetaRuntimeVerifyArguments(process.argv.slice(2)),
+      )
+      : await runV2Pf10BetaRuntime(process.argv.slice(2));
+    process.stdout.write(
+      `${canonicalizeJcs(result)}\n`,
+      () => process.exit(0),
+    );
+  } catch (error) {
+    process.stderr.write(
+      `V2 beta PF10 runtime failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+      () => process.exit(1),
+    );
+  }
 }

@@ -732,5 +732,14 @@ async function main(argv = process.argv.slice(2)) {
   return buildV2BetaLocalIntegration(parseV2BetaLocalIntegrationArguments(argv));
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main().then((result) => process.stdout.write(`${canonicalizeJcs(result)}\n`), (error) => { process.stderr.write(`${error?.stack ?? error}\n`); process.exitCode = 1; });
+  main().then(
+    (result) => process.stdout.write(
+      `${canonicalizeJcs(result)}\n`,
+      () => process.exit(0),
+    ),
+    (error) => process.stderr.write(
+      `${error?.stack ?? error}\n`,
+      () => process.exit(1),
+    ),
+  );
 }

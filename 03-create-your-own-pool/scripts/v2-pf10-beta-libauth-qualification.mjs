@@ -376,10 +376,13 @@ export const main = async (argv = process.argv.slice(2)) => {
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === import.meta.filename) {
   main().then(
-    (result) => process.stdout.write(`${canonicalizeJcs(result)}\n`),
-    (error) => {
-      process.stderr.write(`${error?.stack ?? error}\n`);
-      process.exitCode = 1;
-    },
+    (result) => process.stdout.write(
+      `${canonicalizeJcs(result)}\n`,
+      () => process.exit(0),
+    ),
+    (error) => process.stderr.write(
+      `${error?.stack ?? error}\n`,
+      () => process.exit(1),
+    ),
   );
 }
