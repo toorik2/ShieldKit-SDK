@@ -192,7 +192,7 @@ function runtimeBinding(value, binding) {
     'proofArtifacts', 'proofQualification', 'runtime', 'schema', 'status',
   ], 'beta runtime manifest');
   if (canonicalSha256(manifest) !== hash(value.manifestSha256, 'runtime manifestSha256')
-    || manifest.schema !== 'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v1'
+    || manifest.schema !== 'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v2'
     || manifest.status !== 'beta-local-runtime-built-unqualified'
     || manifest.eligibility !== V2_BETA_LOCAL_ELIGIBILITY
     || manifest.assuranceClass !== 'beta-single-contributor') {

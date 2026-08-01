@@ -15,6 +15,7 @@ import {
   V2_BETA_PROOF_QUALIFICATION_SCHEMA,
   V2_BETA_PROVENANCE_PIN_SCHEMA,
   V2_BETA_PROVENANCE_PIN_STATUS,
+  V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE,
 } from './v2-beta-proof-qualification.mjs';
 import {
   V2_BETA_LOCAL_ELIGIBILITY,
@@ -45,6 +46,53 @@ test('repository-scoped beta evidence resolves from the ShieldKit root', () => {
       '.codex-build/beta/actions/deposit/packet.bin',
     ),
   );
+});
+
+test('runtime-bundle evidence resolves only strict paths from its fixed location', () => {
+  const evidencePath = '/private/runtime/qualification/beta-proof-evidence.json';
+  const record = {
+    path: 'proof/main-chipnet.r1cs',
+    pathScope: V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE,
+  };
+  assert.equal(
+    resolveV2BetaEvidenceFilePath(record, 'r1cs', { evidencePath }),
+    '/private/runtime/proof/main-chipnet.r1cs',
+  );
+  for (const invalidPath of [
+    '/proof/main-chipnet.r1cs',
+    '../proof/main-chipnet.r1cs',
+    'proof/../main-chipnet.r1cs',
+    'proof/./main-chipnet.r1cs',
+    'proof//main-chipnet.r1cs',
+    'proof\\main-chipnet.r1cs',
+    'proof/main chipnet.r1cs',
+    'proof/main-chipnet.r1cs\0suffix',
+    'C:/proof/main-chipnet.r1cs',
+  ]) {
+    assert.throws(
+      () => resolveV2BetaEvidenceFilePath(
+        { ...record, path: invalidPath },
+        'r1cs',
+        { evidencePath },
+      ),
+      BetaProofQualificationError,
+    );
+  }
+  for (const invalidEvidencePath of [
+    undefined,
+    'runtime/qualification/beta-proof-evidence.json',
+    '/private/runtime/evidence/beta-proof-evidence.json',
+    '/private/runtime/qualification/renamed.json',
+  ]) {
+    assert.throws(
+      () => resolveV2BetaEvidenceFilePath(
+        record,
+        'r1cs',
+        { evidencePath: invalidEvidencePath },
+      ),
+      BetaProofQualificationError,
+    );
+  }
 });
 
 const action = (name) => ({

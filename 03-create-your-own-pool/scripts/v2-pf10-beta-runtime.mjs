@@ -34,11 +34,12 @@ import {
 import {
   V2_BETA_PROOF_EVIDENCE_CLASS,
   V2_BETA_PROOF_QUALIFICATION_SCHEMA,
+  V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE,
   verifyBetaProofQualification,
 } from './v2-beta-proof-qualification.mjs';
 
 export const V2_PF10_BETA_RUNTIME_BUNDLE_SCHEMA =
-  'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v1';
+  'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v2';
 export const V2_PF10_BETA_RUNTIME_MANIFEST = 'beta-runtime-manifest.json';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
@@ -227,17 +228,13 @@ async function evidenceArtifact(record, label) {
   if (source.bytes.length !== record.bytes || source.sha256 !== record.sha256) fail(`${label} differs from beta proof evidence`);
   return source;
 }
-function cloneLocalEvidence(evidence, finalOutput) {
+export function createV2Pf10BetaRuntimeLocalEvidence(evidence) {
   const copy = structuredClone(evidence);
   const local = (record, relative) => {
-    const filename = path.join(finalOutput, relative);
-    const repositoryRelative = path.relative(ROOT, filename);
-    const external = repositoryRelative === '' || repositoryRelative === '..'
-      || repositoryRelative.startsWith(`..${path.sep}`) || path.isAbsolute(repositoryRelative);
     return {
       bytes: record.bytes,
-      path: external ? filename : repositoryRelative.split(path.sep).join('/'),
-      ...(external ? { pathScope: 'absolute' } : {}),
+      path: relative,
+      pathScope: V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE,
       sha256: record.sha256,
     };
   };
@@ -359,7 +356,7 @@ export async function runV2Pf10BetaRuntime(argv, {
     refs.proof.verificationKey = await copyArtifact(target.stage, artifacts, 'proof-verification-key', 'proof/verification_key.json', sources.verificationKey);
     refs.betaProvenance = await copyArtifact(target.stage, artifacts, 'beta-provenance', 'qualification/beta-provenance.json', provenance);
     for (const action of ACTIONS) { refs.actionEvidence[action] = {}; for (const [kind, filename] of Object.entries(actionFileNames)) refs.actionEvidence[action][kind] = await copyArtifact(target.stage, artifacts, `qualification-${action}-${kind}`, `qualification/actions/${action}/${filename}`, actionSources[action][kind]); }
-    const localEvidence = cloneLocalEvidence(evidence.value, target.output);
+    const localEvidence = createV2Pf10BetaRuntimeLocalEvidence(evidence.value);
     refs.localEvidence = await copyArtifact(target.stage, artifacts, 'beta-proof-evidence', 'qualification/beta-proof-evidence.json', { bytes: canonicalBytes(localEvidence) });
     const build = await buildDirectV2Pf10BetaRuntime({ repositoryRoot: ROOT, temporaryRoot: options.temporaryRoot, profileId: binding.profileId, instanceId: options.instanceId, proofArtifacts: { provingKey: { path: path.join(target.stage, refs.proof.provingKey.path), sha256: refs.proof.provingKey.sha256 }, r1cs: { path: path.join(target.stage, refs.proof.r1cs.path), sha256: refs.proof.r1cs.sha256 }, verificationKey: { path: path.join(target.stage, refs.proof.verificationKey.path), sha256: refs.proof.verificationKey.sha256 }, wasm: { path: path.join(target.stage, refs.proof.wasm.path), sha256: refs.proof.wasm.sha256 } } });
     await emitBuild(target.stage, artifacts, refs, build);
@@ -430,7 +427,7 @@ export async function verifyV2Pf10BetaRuntime({
   if (inputEvidence.sha256 !== manifest.proofQualification.inputEvidenceSha256) fail('input beta proof evidence hash is not bound by the manifest');
   let originalEvidence; let localEvidence;
   try { originalEvidence = JSON.parse(inputEvidence.bytes.toString('utf8')); localEvidence = JSON.parse(evidence.bytes.toString('utf8')); } catch (error) { fail(`beta proof evidence is not JSON: ${error.message}`); }
-  if (canonicalizeJcs(cloneLocalEvidence(originalEvidence, output)) !== canonicalizeJcs(localEvidence)) fail('local beta proof evidence is not an exact relocation of the input evidence');
+  if (canonicalizeJcs(createV2Pf10BetaRuntimeLocalEvidence(originalEvidence)) !== canonicalizeJcs(localEvidence)) fail('local beta proof evidence is not an exact runtime-bundle relocation of the input evidence');
   if (originalEvidence.identity?.profileId !== profileId
       || originalEvidence.identity?.instanceId !== manifest.identity.instanceId
       || originalEvidence.identity?.maximumLiveNotes !== maximumLiveNotes

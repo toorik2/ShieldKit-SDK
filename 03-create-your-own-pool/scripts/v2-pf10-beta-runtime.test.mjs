@@ -4,6 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  createV2Pf10BetaRuntimeLocalEvidence,
   parseV2Pf10BetaRuntimeArguments,
   parseV2Pf10BetaRuntimeVerifyArguments,
   V2Pf10BetaRuntimeError,
@@ -24,7 +25,7 @@ const required = () => [
 test('beta runtime CLI is an exact beta-only interface', () => {
   assert.equal(
     V2_PF10_BETA_RUNTIME_BUNDLE_SCHEMA,
-    'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v1',
+    'shieldkit-v2-direct-pf10-beta-local-runtime-bundle-v2',
   );
   assert.equal(V2_PF10_BETA_RUNTIME_MANIFEST, 'beta-runtime-manifest.json');
   assert.deepEqual(parseV2Pf10BetaRuntimeArguments(required(), '/beta'), {
@@ -65,6 +66,56 @@ test('beta runtime CLI is an exact beta-only interface', () => {
   }
 });
 
+test('local runtime proof evidence is location-independent and exact', () => {
+  const artifact = (digit) => ({
+    bytes: Number(digit) + 1,
+    path: `/original/${digit}`,
+    pathScope: 'absolute',
+    sha256: digit.repeat(64),
+  });
+  const actionFiles = (offset) => Object.fromEntries([
+    'packet', 'input', 'witness', 'proof', 'publicSignals',
+    'v2DirectGroth16Adapter',
+  ].map((name, index) => [name, artifact(String(offset + index))]));
+  const evidence = {
+    marker: 'retained',
+    sourceArtifacts: {
+      profileCore: artifact('0'),
+      r1cs: artifact('1'),
+      wasm: artifact('2'),
+      betaProvingKey: artifact('3'),
+      verificationKey: artifact('4'),
+    },
+    actions: {
+      deposit: { files: actionFiles(1) },
+      transfer: { files: actionFiles(2) },
+      withdrawal: { files: actionFiles(3) },
+    },
+  };
+  const first = createV2Pf10BetaRuntimeLocalEvidence(evidence, '/first/root');
+  const second = createV2Pf10BetaRuntimeLocalEvidence(evidence, '/other/root');
+  assert.deepEqual(first, second);
+  assert.equal(first.marker, 'retained');
+  const records = [
+    ...Object.values(first.sourceArtifacts),
+    ...Object.values(first.actions).flatMap((action) =>
+      Object.values(action.files)),
+  ];
+  assert.equal(records.length, 23);
+  assert.equal(records.every((record) =>
+    record.pathScope === 'runtime-bundle'), true);
+  assert.deepEqual(first.sourceArtifacts.r1cs, {
+    bytes: 2,
+    path: 'proof/main-chipnet.r1cs',
+    pathScope: 'runtime-bundle',
+    sha256: '1'.repeat(64),
+  });
+  assert.equal(
+    first.actions.withdrawal.files.v2DirectGroth16Adapter.path,
+    'qualification/actions/withdrawal/v2-direct-groth16-adapter.json',
+  );
+});
+
 test('beta runtime source uses a private beta manifest and never imports a normal descriptor', async () => {
   const source = await readFile(
     new URL('./v2-pf10-beta-runtime.mjs', import.meta.url),
@@ -75,7 +126,7 @@ test('beta runtime source uses a private beta manifest and never imports a norma
   assert.match(source, /onVerifiedRuntime/u);
   assert.match(source, /privateOutputRoot/u);
   assert.match(source, /relativeWithin\(allowedRoot, output/u);
-  assert.match(source, /pathScope: 'absolute'/u);
+  assert.match(source, /pathScope: V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE/u);
   assert.match(source, /0o700/u);
   assert.match(source, /0o600/u);
   assert.match(source, /assertSafeRuntime/u);

@@ -56,6 +56,7 @@ export const V2_BETA_PROVENANCE_PIN_SCHEMA =
   'shieldkit-v2-beta-local-provenance-pin-v1';
 export const V2_BETA_PROVENANCE_PIN_STATUS =
   'beta-local-provenance-cryptographically-reverified-unqualified';
+export const V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE = 'runtime-bundle';
 
 export const V2_BETA_PROOF_CLAIMS = V2_BETA_LOCAL_FALSE_CLAIMS;
 
@@ -543,7 +544,73 @@ export async function runBetaProofQualification(configuration) {
   });
 }
 
-export function resolveV2BetaEvidenceFilePath(record, label) {
+const RUNTIME_BUNDLE_EVIDENCE_FILE = 'beta-proof-evidence.json';
+const RUNTIME_BUNDLE_QUALIFICATION_DIRECTORY = 'qualification';
+const RUNTIME_BUNDLE_PATH_COMPONENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+
+function runtimeBundleRootFromEvidencePath(evidencePath, label) {
+  if (typeof evidencePath !== 'string' || !path.isAbsolute(evidencePath)
+      || path.resolve(evidencePath) !== evidencePath
+      || path.basename(evidencePath) !== RUNTIME_BUNDLE_EVIDENCE_FILE
+      || path.basename(path.dirname(evidencePath))
+        !== RUNTIME_BUNDLE_QUALIFICATION_DIRECTORY) {
+    fail(`${label} runtime-bundle scope requires the canonical runtime qualification evidence location`);
+  }
+  return path.dirname(path.dirname(evidencePath));
+}
+
+function resolveRuntimeBundleRelativePath(relative, evidencePath, label) {
+  if (typeof relative !== 'string' || relative.length === 0
+      || relative.includes('\0') || relative.includes('\\')
+      || path.posix.isAbsolute(relative)) {
+    fail(`${label} runtime-bundle path is invalid`);
+  }
+  const components = relative.split('/');
+  if (components.some((component) => component === ''
+      || component === '.' || component === '..'
+      || !RUNTIME_BUNDLE_PATH_COMPONENT.test(component))) {
+    fail(`${label} runtime-bundle path is invalid`);
+  }
+  const root = runtimeBundleRootFromEvidencePath(evidencePath, label);
+  const absolute = path.resolve(root, ...components);
+  const within = path.relative(root, absolute);
+  if (within === '' || within === '..'
+      || within.startsWith(`..${path.sep}`) || path.isAbsolute(within)) {
+    fail(`${label} escapes the runtime bundle`);
+  }
+  return absolute;
+}
+
+async function assertPrivateCanonicalDirectory(filename, label) {
+  let metadata;
+  try {
+    metadata = await lstat(filename);
+  } catch (error) {
+    fail(`${label} is not readable: ${error.message}`);
+  }
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()
+      || (metadata.mode & 0o077) !== 0 || await realpath(filename) !== filename) {
+    fail(`${label} must be a private canonical directory`);
+  }
+}
+
+async function assertRuntimeBundleEvidenceLocation(evidencePath) {
+  const root = runtimeBundleRootFromEvidencePath(
+    evidencePath,
+    'beta qualification evidence',
+  );
+  await assertPrivateCanonicalDirectory(root, 'runtime bundle root');
+  await assertPrivateCanonicalDirectory(
+    path.dirname(evidencePath),
+    'runtime bundle qualification directory',
+  );
+}
+
+export function resolveV2BetaEvidenceFilePath(
+  record,
+  label,
+  { evidencePath } = {},
+) {
   const { path: relative, pathScope = 'repository' } = record;
   if (typeof relative !== 'string' || relative.length === 0) fail(`${label} path is invalid`);
   if (pathScope === 'absolute') {
@@ -551,6 +618,9 @@ export function resolveV2BetaEvidenceFilePath(record, label) {
       fail(`${label} absolute path is invalid`);
     }
     return relative;
+  }
+  if (pathScope === V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE) {
+    return resolveRuntimeBundleRelativePath(relative, evidencePath, label);
   }
   if (pathScope !== 'repository') fail(`${label} path scope is invalid`);
   const absolute = path.resolve(PROJECT_ROOT, relative);
@@ -561,7 +631,7 @@ export function resolveV2BetaEvidenceFilePath(record, label) {
   return absolute;
 }
 
-async function rehashEvidenceFile(record, label) {
+async function rehashEvidenceFile(record, label, evidencePath) {
   plain(record, label);
   const keys = Object.keys(record).sort();
   const expected = Object.hasOwn(record, 'pathScope')
@@ -575,7 +645,11 @@ async function rehashEvidenceFile(record, label) {
     || record.bytes <= 0
     || !HASH.test(record.sha256)
   ) fail(`${label} file evidence is invalid`);
-  const filename = resolveV2BetaEvidenceFilePath(record, label);
+  const filename = resolveV2BetaEvidenceFilePath(
+    record,
+    label,
+    { evidencePath },
+  );
   const measured = await stablePrivateFileEvidence(
     filename,
     label,
@@ -641,9 +715,22 @@ export async function verifyBetaProofQualification({ evidencePath }) {
     'beta qualification evidence',
   );
   const evidence = validateBetaEvidence(evidenceFile.value);
+  const referencedFiles = [
+    ...Object.values(evidence.sourceArtifacts),
+    ...ACTIONS.flatMap((name) =>
+      Object.values(evidence.actions[name]?.files ?? {})),
+  ];
+  if (referencedFiles.some((record) =>
+    record?.pathScope === V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE)) {
+    await assertRuntimeBundleEvidenceLocation(evidenceFile.path);
+  }
   const sources = {};
   for (const [name, record] of Object.entries(evidence.sourceArtifacts)) {
-    sources[name] = await rehashEvidenceFile(record, `sourceArtifacts.${name}`);
+    sources[name] = await rehashEvidenceFile(
+      record,
+      `sourceArtifacts.${name}`,
+      evidenceFile.path,
+    );
   }
   const profileCore = JSON.parse(sources.profileCore.bytes.toString('utf8'));
   try {
@@ -694,7 +781,11 @@ export async function verifyBetaProofQualification({ evidencePath }) {
       for (const kind of [
         'packet', 'input', 'witness', 'proof', 'publicSignals',
         'v2DirectGroth16Adapter',
-      ]) files[kind] = await rehashEvidenceFile(action.files?.[kind], `${name}.${kind}`);
+      ]) files[kind] = await rehashEvidenceFile(
+        action.files?.[kind],
+        `${name}.${kind}`,
+        evidenceFile.path,
+      );
       if (
         files.packet.bytes.length !== 552
         || sha256(files.packet.bytes) !== action.packetDigest
