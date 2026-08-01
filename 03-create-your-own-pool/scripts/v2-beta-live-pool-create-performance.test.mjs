@@ -23,6 +23,7 @@ function options() { return { evidenceDirectory: '/private/evidence', poolDataHo
 test('measures twenty single-command fresh pool creates with distinct secret-free provenance hashes', async () => {
   const subject = fixture(); const result = await runV2BetaLivePoolCreatePerformanceForTest(options(), subject.deps);
   assert.equal(result.evidence.pools.length, 20); assert.equal(result.evidence.metrics.sampleCount, 20);
+  assert.equal(result.evidence.receiptSha256, H(1));
   assert.deepEqual(Object.keys(result.evidence.metrics).sort(), ['commandDurationMs', 'sampleCount']);
   assert.equal(subject.calls.commands.length, 20); assert.equal(subject.calls.inspect.length, 20); assert.ok(subject.calls.inspect.every((value) => value.options.requireFreshLink === true));
   for (const literal of subject.calls.commands) assert.deepEqual(literal.slice(1), ['pool', 'create', '--data-home', literal[4], '--funding-wallet', literal[6], '--funding-utxo', literal[8], '--json']);

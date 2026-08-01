@@ -9,7 +9,7 @@ import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
 import { assertPrivateDirectory, assertPrivateFile, readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
 import { inspectV2BetaLivePoolCreateEvidence, parseFundingOutpoint, sourceOutpointProvenanceSha256, validateV2BetaPinnedInstall } from './v2-beta-live-qualification.mjs';
 
-export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-pool-create-performance-v1';
+export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-pool-create-performance-v2';
 export const V2_BETA_POOL_CREATE_PERFORMANCE_MINIMUM = 20;
 const JOURNAL_SCHEMA = 'shieldkit-v2-beta-live-pool-create-performance-journal-v1';
 const JOURNAL_FILE = 'live-pool-create-performance-run.json';
@@ -53,7 +53,7 @@ async function run(options, dependencies) {
       sample = { ...sample, state: 'accepted', pool, commandDurationMs: deps.now() - commandStarted }; record = await journal.update(replaceSample(record, index, sample));
     }
     const samples = record.samples.map(publicSample); for (const key of ['sourceOutpointProvenanceSha256', 'sourceTransactionId', 'genesisTransactionId', 'instanceId', 'actionFundingSetSha256']) if (new Set(samples.map((sample) => sample[key])).size !== samples.length) fail('LIVE_POOL_PERFORMANCE_RESULT_REJECTED', `${key} is duplicated across fresh pool samples`); const metrics = distributions(samples); assertThresholds(metrics);
-    const evidence = Object.freeze({ schema: V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA, scope: 'fresh-pool-create-performance-explicitly-unqualified', claims: claims({ confirmed: false, mined: false, productionQualified: false }, 'pool performance claims'), pools: Object.freeze(samples), metrics, elapsedMs: deps.now() - started }); const serialized = JSON.stringify(evidence); if (/(?:dataHome|fundingWallet|fundingUtxo|rawTransaction|privateKey|secret|witness|circuitInput)/iu.test(serialized)) fail('LIVE_POOL_PERFORMANCE_EVIDENCE_SECRET_REJECTED', 'pool performance evidence includes a private path, raw outpoint, transaction, or secret'); return Object.freeze({ evidence, evidencePath: await deps.writeEvidence(options.evidenceDirectory, evidence) });
+    const evidence = Object.freeze({ schema: V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA, scope: 'fresh-pool-create-performance-explicitly-unqualified', receiptSha256: installed[0].receiptSha256, claims: claims({ confirmed: false, mined: false, productionQualified: false }, 'pool performance claims'), pools: Object.freeze(samples), metrics, elapsedMs: deps.now() - started }); const serialized = JSON.stringify(evidence); if (/(?:dataHome|fundingWallet|fundingUtxo|rawTransaction|privateKey|secret|witness|circuitInput)/iu.test(serialized)) fail('LIVE_POOL_PERFORMANCE_EVIDENCE_SECRET_REJECTED', 'pool performance evidence includes a private path, raw outpoint, transaction, or secret'); return Object.freeze({ evidence, evidencePath: await deps.writeEvidence(options.evidenceDirectory, evidence) });
   } finally { journal.close(); }
 }
 export async function runV2BetaLivePoolCreatePerformanceForTest(options, dependencies) { return run(options, dependencies); }

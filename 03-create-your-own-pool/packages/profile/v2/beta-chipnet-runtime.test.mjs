@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import {
+  cp,
   lstat,
   mkdir,
   mkdtemp,
@@ -294,6 +295,34 @@ if (process.argv[2] === '--beta-runtime-generate-child') {
         () => assertV2BetaChipnetRuntimeResolution(structuredClone(warm)),
         V2BetaChipnetRuntimeError,
       );
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('beta Chipnet runtime independently verifies after a full private relocation', async () => {
+    await requireQualificationRuntimeFixture(runtimeDirectory);
+    const parent = path.join(repositoryRoot, '.codex-build', 'test-tmp');
+    await mkdir(parent, { recursive: true, mode: 0o700 });
+    const temporaryRoot = await mkdtemp(path.join(parent, 'beta-chipnet-relocation-'));
+    const relocatedRuntime = path.join(temporaryRoot, 'runtime');
+    try {
+      await cp(runtimeDirectory, relocatedRuntime, {
+        recursive: true,
+        force: false,
+        preserveTimestamps: true,
+      });
+      const result = await runChild([
+        path.join(import.meta.dirname, 'beta-chipnet-runtime.test.mjs'),
+        '--beta-chipnet-runtime-child',
+        relocatedRuntime,
+        temporaryRoot,
+      ]);
+      assert.equal(result.signal, null, result.stderr);
+      assert.equal(result.code, 0, result.stderr);
+      const output = JSON.parse(result.stdout);
+      assert.match(output.instanceId, /^[0-9a-f]{64}$/u);
+      assert.match(output.runtimeMaterialSha256, /^[0-9a-f]{64}$/u);
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true });
     }

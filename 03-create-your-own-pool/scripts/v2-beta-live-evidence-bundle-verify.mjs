@@ -20,7 +20,7 @@ export const V2_BETA_LIVE_EVIDENCE_BUNDLE_MANIFEST_SCHEMA =
 export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v2';
 export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v1';
 export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA =
-  'shieldkit-v2-beta-live-pool-create-performance-v1';
+  'shieldkit-v2-beta-live-pool-create-performance-v2';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const GIT_ID = /^[0-9a-f]{40}$/u;
@@ -311,12 +311,14 @@ function validatePoolCreateMetrics(value, samples) {
   }
 }
 
-function validatePoolCreatePerformance(value, disallowedIds) {
-  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'schema', 'scope'], 'pool-create performance evidence');
+function validatePoolCreatePerformance(value, disallowedIds, installReceiptSha256) {
+  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'receiptSha256', 'schema', 'scope'], 'pool-create performance evidence');
   if (value.schema !== V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA
     || value.scope !== 'fresh-pool-create-performance-explicitly-unqualified') {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create performance schema or scope is unsupported');
   }
+  hash(value.receiptSha256, 'pool-create performance.receiptSha256');
+  if (value.receiptSha256 !== installReceiptSha256) fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create performance receipt differs from the semantic pinned install');
   claims(value.claims, 'pool-create performance.claims'); duration(value.elapsedMs, 'pool-create performance.elapsedMs');
   if (!Array.isArray(value.pools) || value.pools.length < 20) {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'at least twenty fresh pool-create samples are required');
@@ -396,7 +398,7 @@ export function createV2BetaLiveEvidenceBundleManifest({ semanticBytes, performa
     ...performance.samples.deposits.map((entry) => entry.transactionId),
     ...performance.samples.withdrawals.map((entry) => entry.transactionId),
   ]);
-  const poolCreatePerformance = validatePoolCreatePerformance(poolCreatePerformanceFile.value, disallowedPoolIds);
+  const poolCreatePerformance = validatePoolCreatePerformance(poolCreatePerformanceFile.value, disallowedPoolIds, semantic.install.receiptSha256);
   const core = manifestCore({ semantic: { schema: semantic.schema, sha256: semanticFile.sha256 }, performance: { schema: performance.schema, sha256: performanceFile.sha256 }, poolCreatePerformance: { schema: poolCreatePerformance.schema, sha256: poolCreatePerformanceFile.sha256 }, facts: factValue });
   return Object.freeze({ ...core, manifestSha256: sha256(Buffer.from(canonicalizeJcs(core), 'utf8')) });
 }
@@ -414,7 +416,7 @@ export function verifyV2BetaLiveEvidenceBundleManifest(manifest, files, verifica
 /** Local fact collector, kept separate from the pure verifier for test injection. */
 export function collectV2BetaLiveEvidenceBundleFacts({ repositoryRoot = path.resolve(import.meta.dirname, '../..') } = {}) {
   const runGit = (args) => execFileSync('git', ['-C', repositoryRoot, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  const pin = '03-create-your-own-pool/pins/v2-beta-product-offline-r1.pin.json';
+  const pin = '03-create-your-own-pool/pins/v2-beta-product-offline-r2.pin.json';
   const status = runGit(['status', '--porcelain=v1', '--untracked-files=all']);
   const tracked = (() => { try { runGit(['ls-files', '--error-unmatch', pin]); return true; } catch { return false; } })();
   return Object.freeze({
