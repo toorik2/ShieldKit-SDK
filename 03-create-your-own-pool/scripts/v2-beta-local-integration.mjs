@@ -119,13 +119,18 @@ const sameFile = (left, right) => left.dev === right.dev
   && left.size === right.size
   && left.mtimeNs === right.mtimeNs
   && left.ctimeNs === right.ctimeNs;
-async function measureRegular(filename, label, { readBytes = false } = {}) {
+async function measureRegular(
+  filename,
+  label,
+  { allowEmpty = false, readBytes = false } = {},
+) {
   const resolved = path.resolve(filename);
   const initial = await lstat(resolved, { bigint: true });
   if (!initial.isFile() || initial.isSymbolicLink() || initial.nlink !== 1n
-      || initial.size <= 0n || (initial.mode & 0o077n) !== 0n
+      || (!allowEmpty && initial.size === 0n)
+      || (initial.mode & 0o077n) !== 0n
       || await realpath(resolved) !== resolved) {
-    fail(`${label} must be a private nonempty canonical single-link regular file`);
+    fail(`${label} must be a private${allowEmpty ? '' : ' nonempty'} canonical single-link regular file`);
   }
   const handle = await open(
     resolved,
@@ -257,7 +262,14 @@ async function inventory(directory, { exclude = new Set() } = {}) {
   const files = await walkFiles(directory); const entries = [];
   for (const relative of files) {
     if (exclude.has(relative)) continue;
-    const source = await measureRegular(path.join(directory, relative), `inventory ${relative}`);
+    // A successful child qualification has no diagnostics, so this one
+    // manifest-pinned file is intentionally empty. Every other inventory
+    // artifact remains subject to the nonempty invariant.
+    const source = await measureRegular(
+      path.join(directory, relative),
+      `inventory ${relative}`,
+      { allowEmpty: relative === 'libauth/stderr.txt' },
+    );
     entries.push(Object.freeze({ bytes: source.byteLength, path: relative, sha256: source.sha256 }));
   }
   return Object.freeze(entries.sort((a, b) => a.path.localeCompare(b.path)));

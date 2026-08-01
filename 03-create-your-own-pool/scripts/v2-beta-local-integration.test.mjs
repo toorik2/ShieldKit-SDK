@@ -103,4 +103,13 @@ test('beta integration source has no network, broadcaster, or descriptor admissi
       < source.indexOf('runV2BetaLocalPersistenceRecovery(persistenceInput)'),
     'private persistence parents must exist before opening the state store',
   );
+  assert.match(
+    source,
+    /allowEmpty: relative === 'libauth\/stderr\.txt'/u,
+  );
+  assert.equal(
+    (source.match(/allowEmpty: relative ===/gu) ?? []).length,
+    1,
+    'only the exact successful-child stderr artifact may be empty',
+  );
 });
