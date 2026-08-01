@@ -178,8 +178,8 @@ test('rejects manifest corruption, extra files, unsafe links, and corrupt journa
 
 test('uses the repository-tracked real release pin and rejects a self-authenticating replacement manifest', async (t) => {
   const tracked = await loadV2BetaProductTrackedReleasePin();
-  assert.equal(tracked.releaseId, 'shieldkit-v2-beta-20260802-r2');
-  assert.equal(tracked.releaseManifestSha256, '8d3ed9cc604556e1c3ec811c5d0e1a275839c0ad3e45429f070e6d87e1a5c20d');
+  assert.equal(tracked.releaseId, 'shieldkit-v2-beta-20260802-r3');
+  assert.equal(tracked.releaseManifestSha256, '6aa1a3b8670b414e2beb4f8e08cd93519883f7920a899b73eacd743a28d780a0');
 
   const subject = await fixture(t);
   const trusted = releasePin(subject);

@@ -30,7 +30,7 @@ export const V2_BETA_OFFLINE_BOOTSTRAP_DIRECTORY = '.v2-beta-offline-bootstrap';
 export const V2_BETA_PRODUCT_RELEASE_PIN_SCHEMA =
   'shieldkit-v2-beta-product-release-pin-v1';
 export const V2_BETA_PRODUCT_RELEASE_PIN_PATH = fileURLToPath(new URL(
-  '../../../pins/v2-beta-product-offline-r2.pin.json',
+  '../../../pins/v2-beta-product-offline-r3.pin.json',
   import.meta.url,
 ));
 

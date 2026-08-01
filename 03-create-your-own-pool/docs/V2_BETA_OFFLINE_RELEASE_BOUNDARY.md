@@ -5,7 +5,7 @@ into a new private local bundle and emits an exact-JCS allowlist of runtime,
 ceremony, and native files. The manifest is published last as the bundle commit
 marker. `install-v2-beta-offline-bundle.mjs` accepts only the exact release ID
 and manifest SHA-256 committed by the repository-tracked
-`pins/v2-beta-product-offline-r2.pin.json`; the bundle cannot authenticate a
+`pins/v2-beta-product-offline-r3.pin.json`; the bundle cannot authenticate a
 replacement manifest using hashes it supplied itself. Neither command performs
 a network request or makes a production or release-qualified claim.
 
@@ -47,7 +47,7 @@ On a blank machine, keep the stages separate:
 
 2. In the separate private custody/preparation environment, create a new local
    bundle from already prepared beta material. The release ID must be the one
-   pinned by `pins/v2-beta-product-offline-r2.pin.json`.
+   pinned by `pins/v2-beta-product-offline-r3.pin.json`.
 
    ```sh
    npm run beta:offline:pack -- \
