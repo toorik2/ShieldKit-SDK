@@ -34,6 +34,7 @@ import {
 } from './v2-beta-proof-qualification.mjs';
 import {
   resolveV2BetaSingleContributorHistoricalCeremony,
+  V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS,
 } from './v2-beta-single-contributor-ceremony.mjs';
 import {
   parseBetaOptions, runPf10LibauthQualification,
@@ -451,10 +452,18 @@ async function verifyGitBinding(value) {
     fail('beta integration historical Git commit/tree no longer resolves');
   }
 }
-function falseClaims(value, label) {
+function currentBetaClaims(value, label) {
   exact(value, Object.keys(V2_BETA_LOCAL_FALSE_CLAIMS), label);
   if (canonicalizeJcs(value) !== canonicalizeJcs(V2_BETA_LOCAL_FALSE_CLAIMS)) fail(`${label} differs from fixed beta-only claims`);
   return V2_BETA_LOCAL_FALSE_CLAIMS;
+}
+function ceremonyClaims(value, label) {
+  exact(value, Object.keys(V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS), label);
+  if (canonicalizeJcs(value)
+      !== canonicalizeJcs(V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS)) {
+    fail(`${label} differs from the exact single-contributor ceremony claims`);
+  }
+  return V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS;
 }
 
 export async function buildV2BetaLocalIntegration(options) {
@@ -473,7 +482,7 @@ export async function buildV2BetaLocalIntegration(options) {
   const git = await gitBinding();
   await writeJson(path.join(output, 'build-start.json'), Object.freeze({ schema: SCHEMA, status: 'incomplete', eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: V2_BETA_LOCAL_FALSE_CLAIMS, git }));
   const original = await resolveV2BetaSingleContributorHistoricalCeremony({ ceremonyDirectory: input.ceremonyDirectory });
-  falseClaims(original.claims, 'original ceremony claims');
+  ceremonyClaims(original.claims, 'original ceremony claims');
   await copyCeremony(input.ceremonyDirectory, path.join(output, 'custody/ceremony'));
   const copied = await resolveV2BetaSingleContributorHistoricalCeremony({ ceremonyDirectory: path.join(output, 'custody/ceremony') });
   const { artifacts: _originalArtifacts, ...originalResolution } = original;
@@ -619,7 +628,7 @@ export async function verifyV2BetaLocalIntegration({ outputDirectory, temporaryR
   const value = completion.value;
   exact(value, ['assuranceClass', 'claims', 'custody', 'eligibility', 'git', 'identity', 'privateInventory', 'profile', 'schema', 'status', 'verification'], 'beta integration completion');
   if (value.schema !== SCHEMA || value.status !== STATUS || value.eligibility !== V2_BETA_LOCAL_ELIGIBILITY || value.assuranceClass !== 'beta-single-contributor') fail('beta integration completion boundary is invalid');
-  falseClaims(value.claims, 'beta integration completion claims');
+  currentBetaClaims(value.claims, 'beta integration completion claims');
   await verifyGitBinding(value.git);
   if (value.identity.maximumLiveNotes !== MAXIMUM_LIVE_NOTES || value.identity.carrierCount !== CARRIER_COUNT || value.identity.denominationSats !== DENOMINATION_SATS || !HASH.test(value.identity.profileId) || !HASH.test(value.identity.instanceId)) fail('beta integration identity is invalid');
   const files = await inventory(output, { exclude: new Set([INVENTORY_FILE, COMPLETION_FILE]) });

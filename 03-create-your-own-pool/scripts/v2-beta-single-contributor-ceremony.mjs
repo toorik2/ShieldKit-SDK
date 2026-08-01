@@ -103,7 +103,7 @@ const RESULT_FILES = Object.freeze([
   'transcript.json',
   'verification-key.json',
 ]);
-const FALSE_CLAIMS = Object.freeze({
+export const V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS = Object.freeze({
   b02Qualified: false,
   ceremonyQualified: false,
   d01Qualified: false,
@@ -119,6 +119,7 @@ const FALSE_CLAIMS = Object.freeze({
   q09Qualified: false,
   releaseQualified: false,
 });
+const FALSE_CLAIMS = V2_BETA_SINGLE_CONTRIBUTOR_FALSE_CLAIMS;
 const REQUEST_HASH_DOMAIN = 'shieldkit/v2/beta/phase2/request/v1\0';
 
 export class V2BetaSingleContributorCeremonyError extends Error {
