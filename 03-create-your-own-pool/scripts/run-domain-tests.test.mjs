@@ -1463,6 +1463,47 @@ test('domain-test runner uses every available core by default and bounds an expl
   }
 });
 
+test('domain-test runner drains the all-core pool before starting the full circuit qualification', async () => {
+  const normal = (label) => [
+    "import { appendFileSync } from 'node:fs';",
+    "import test from 'node:test';",
+    `test('${label}', async () => {`,
+    `  appendFileSync(process.env.DOMAIN_TEST_MARKER, 'start:${label}\\n');`,
+    '  await new Promise((resolve) => setTimeout(resolve, 120));',
+    `  appendFileSync(process.env.DOMAIN_TEST_MARKER, 'end:${label}\\n');`,
+    '});',
+    '',
+  ].join('\n');
+  const root = await fixture({
+    'packages/action/normal-a.test.mjs': normal('a'),
+    'packages/action/normal-b.test.mjs': normal('b'),
+    'packages/action/v2/circuit-model.test.mjs': [
+      "import { appendFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('exclusive circuit model', () => {",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, 'start:circuit-model\\n');",
+      '});',
+      '',
+    ].join('\n'),
+  });
+  const marker = path.join(path.dirname(root), 'exclusive-circuit-marker');
+  const selected = selectDomainTests(discoverDomainTests({ projectRoot: root }));
+  const summary = await runSelectedDomainTests(selected, {
+    cwd: root,
+    environment: { ...process.env, DOMAIN_TEST_MARKER: marker },
+    testParallelism: 2,
+  });
+  assert.deepEqual(summary, Object.freeze({
+    files: 3, tests: 3, pass: 3, fail: 0, cancelled: 0, skipped: 0,
+    ['to' + 'do']: 0,
+  }));
+  const events = (await readFile(marker, 'utf8')).trim().split('\n');
+  const circuitStart = events.indexOf('start:circuit-model');
+  assert.notEqual(circuitStart, -1);
+  assert.ok(circuitStart > events.indexOf('end:a'));
+  assert.ok(circuitStart > events.indexOf('end:b'));
+});
+
 test('domain-test runner kills deadline-exceeded children and removes their private roots', async () => {
   const root = await fixture({
     'packages/action/timeout.test.mjs': [
