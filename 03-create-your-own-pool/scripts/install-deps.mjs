@@ -23,6 +23,8 @@ const required = [
   'node_modules/@bitauth/libauth/build/index.js',
   'node_modules/snarkjs/package.json',
   'node_modules/poseidon-lite/package.json',
+  'node_modules/@cashscript/utils/dist/index.js',
+  'node_modules/cashc/dist/index.js',
   'node_modules/.bin/tsx',
 ];
 const missing = required.filter((relative) => !existsSync(path.join(ROOT, relative)));

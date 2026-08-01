@@ -18,7 +18,9 @@
     "03-create-your-own-pool/packages/profile",
     "03-create-your-own-pool/packages/prove",
     "03-create-your-own-pool/packages/recover",
-    "03-create-your-own-pool/packages/unlock-builder"
+    "03-create-your-own-pool/packages/unlock-builder",
+    "03-create-your-own-pool/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/utils",
+    "03-create-your-own-pool/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc"
   ],
   "scripts": {
     "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
