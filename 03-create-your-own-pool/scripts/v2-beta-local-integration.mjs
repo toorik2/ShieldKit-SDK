@@ -571,6 +571,20 @@ export async function buildV2BetaLocalIntegration(options) {
     evidenceSha256: libauthEvidence.sha256,
     verification: libauthVerification,
   });
+  const persistenceDirectory = path.join(output, 'persistence');
+  const privateActionDirectory = path.join(
+    persistenceDirectory,
+    'prepared-actions',
+  );
+  const stateDirectory = path.join(persistenceDirectory, 'state');
+  await mkdir(persistenceDirectory, { mode: PRIVATE_DIR_MODE });
+  await mkdir(privateActionDirectory, { mode: PRIVATE_DIR_MODE });
+  await mkdir(stateDirectory, { mode: PRIVATE_DIR_MODE });
+  for (const [directory, label] of [
+    [persistenceDirectory, 'beta persistence directory'],
+    [privateActionDirectory, 'beta private-action directory'],
+    [stateDirectory, 'beta state-store directory'],
+  ]) await assertPrivateDirectory(directory, label);
   const persistenceInput = Object.freeze({
     betaLibauthQualification,
     betaProfilePackage: betaProfile,
@@ -588,9 +602,9 @@ export async function buildV2BetaLocalIntegration(options) {
     instanceId,
     maximumLiveNotes: MAXIMUM_LIVE_NOTES,
     preparedActions,
-    privateActionDirectory: path.join(output, 'persistence/prepared-actions'),
+    privateActionDirectory,
     profileCore: betaCore.profileCore,
-    stateStorePath: path.join(output, 'persistence/state/pool.sqlite'),
+    stateStorePath: path.join(stateDirectory, 'pool.sqlite'),
   });
   const persistence = await runV2BetaLocalPersistenceRecovery(persistenceInput);
   const persistenceVerification = await verifyV2BetaLocalPersistenceRecovery({

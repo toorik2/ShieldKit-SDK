@@ -94,4 +94,13 @@ test('beta integration source has no network, broadcaster, or descriptor admissi
       < source.indexOf('copyCeremony(input.ceremonyDirectory'),
     'private custody parents must exist before ceremony/artifact copies',
   );
+  assert.match(
+    source,
+    /await mkdir\(stateDirectory, \{ mode: PRIVATE_DIR_MODE \}\)/u,
+  );
+  assert.ok(
+    source.indexOf('await mkdir(stateDirectory')
+      < source.indexOf('runV2BetaLocalPersistenceRecovery(persistenceInput)'),
+    'private persistence parents must exist before opening the state store',
+  );
 });
