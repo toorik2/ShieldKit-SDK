@@ -58,7 +58,11 @@ function packetsAndRecords(profileId, instanceId) {
   return { packets, records: [ { expectedActionSequence: 0, kind: 'deposit', operationId: op(1), output: depositOutput, publicNullifier: null }, { expectedActionSequence: 1, kind: 'transfer', operationId: op(2), output: transferOutput, publicNullifier: first.nullifier }, { expectedActionSequence: 2, kind: 'withdrawal', operationId: op(3), output: null, publicNullifier: second.nullifier } ] };
 }
 
-function betaClaims() { return { ...V2_BETA_LOCAL_FALSE_CLAIMS, authenticatedSerializedParentOutputs: true, bchnMempool: false, bchnMined: false, leanBch: false, libauthBch2026: true, liveChainParentProvenance: false, productionSettlementBuilderPath: true, unmodifiedMaintainerBenchmark: false }; }
+function betaClaims() {
+  const claims = { ...V2_BETA_LOCAL_FALSE_CLAIMS };
+  delete claims.bchVm;
+  return { ...claims, authenticatedSerializedParentOutputs: true, bchnMempool: false, bchnMined: false, leanBch: false, libauthBch2026: true, liveChainParentProvenance: false, productionSettlementBuilderPath: true, unmodifiedMaintainerBenchmark: false };
+}
 
 async function fixture(t) {
   await mkdir(TEST_BUILD_ROOT, { recursive: true, mode: 0o700 }); await chmod(TEST_BUILD_ROOT, 0o700);
@@ -92,6 +96,7 @@ const verifyInput = (value, evidence) => ({
 
 test('beta lane persists three evidence-bound checkpoints and cold-reopens the terminal state', async (t) => {
   const value = await fixture(t); const result = await runV2BetaLocalPersistenceRecovery(value);
+  assert.equal(Object.hasOwn(value.betaLibauthQualification.evidence.claims, 'bchVm'), false);
   assert.equal(result.schema, V2_BETA_LOCAL_PERSISTENCE_RECOVERY_SCHEMA); assert.equal(result.replay.coldReopenCount, 3); assert.equal(result.actions.length, 3);
   for (const [index, action] of result.actions.entries()) {
     const source = value.betaLibauthQualification.evidence.pf10FusedQGenesisActions.actions[index];

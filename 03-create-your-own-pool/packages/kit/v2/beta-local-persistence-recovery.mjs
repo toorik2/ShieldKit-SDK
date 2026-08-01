@@ -148,8 +148,16 @@ function verification(value, expected, label) {
 }
 
 function betaLibauthClaims(value) {
+  // `bchVm` is the broad top-level qualification claim and remains false for
+  // this beta bundle. The nested Libauth evidence uses the narrower,
+  // independently checked `libauthBch2026` claim instead, so its exact schema
+  // intentionally omits `bchVm` (matching validatePf10BetaLibauthEvidence).
+  const betaBoundaryClaims = Object.fromEntries(
+    Object.entries(V2_BETA_LOCAL_FALSE_CLAIMS)
+      .filter(([name]) => name !== 'bchVm'),
+  );
   const expected = {
-    ...V2_BETA_LOCAL_FALSE_CLAIMS,
+    ...betaBoundaryClaims,
     authenticatedSerializedParentOutputs: true,
     bchnMempool: false,
     bchnMined: false,
