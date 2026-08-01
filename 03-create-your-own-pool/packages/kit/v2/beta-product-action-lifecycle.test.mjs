@@ -170,15 +170,19 @@ before(async () => {
     provingKey: path.join(root, 'beta.zkey'),
     r1cs: path.join(root, 'main.r1cs'),
     wasm: path.join(root, 'main.wasm'),
-    verificationKey: path.join(
-      ROOT,
-      '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json',
-    ),
+    verificationKey: path.join(root, 'verification_key.json'),
   };
   for (const [name, filename] of Object.entries(artifacts)) {
-    if (name !== 'verificationKey') {
-      writeFileSync(filename, `${name}-fixture`, { mode: 0o600 });
-    }
+    writeFileSync(
+      filename,
+      name === 'verificationKey'
+        ? readFileSync(path.join(
+          ROOT,
+          '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json',
+        ))
+        : `${name}-fixture`,
+      { mode: 0o600 },
+    );
   }
   const proofArtifacts = Object.freeze(Object.fromEntries(
     Object.entries(artifacts).map(([name, filename]) => [name, Object.freeze({
@@ -196,6 +200,7 @@ before(async () => {
   const instanceId = Buffer.from(sourceTxid, 'hex').reverse().toString('hex');
   const genesisRuntime = await createV2BetaChipnetGenesisRuntime({
     repositoryRoot: ROOT,
+    artifactRoot: root,
     temporaryRoot,
     profileCore: core,
     proofArtifacts,

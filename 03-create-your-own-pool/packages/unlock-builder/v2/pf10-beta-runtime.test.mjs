@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  link,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -54,22 +65,250 @@ test('PF10 beta runtime has a distinct material/build/witness lane with generate
   assert.equal(DIRECT_V2_PF10_BETA_RUNTIME_BUILD_SCHEMA, 'shieldkit-v2-direct-pf10-beta-runtime-build-v1');
   assert.equal(DIRECT_V2_PF10_BETA_ACTION_WITNESS_SCHEMA, 'shieldkit-v2-direct-pf10-beta-action-witness-v1');
   assert.equal(DIRECT_V2_PF10_BETA_ELIGIBILITY, 'beta-single-contributor-unqualified');
-  const buildRoot = path.join(repositoryRoot, '.codex-build');
-  await mkdir(buildRoot, { recursive: true, mode: 0o700 });
-  const temporaryRoot = await mkdtemp(path.join(buildRoot, 'pf10-beta-runtime-test-'));
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'shieldkit-pf10-beta-runtime-test-'));
+  await chmod(testRoot, 0o700);
+  const artifactRoot = path.join(testRoot, 'artifacts');
+  const temporaryRoot = path.join(testRoot, 'scratch');
+  await mkdir(artifactRoot, { mode: 0o700 });
+  await mkdir(temporaryRoot, { mode: 0o700 });
   try {
-    const inputs = await generatedBetaInputs(temporaryRoot);
+    const inputs = await generatedBetaInputs(artifactRoot);
     const runtime = await buildDirectV2Pf10BetaRuntime({
       repositoryRoot,
+      artifactRoot,
       temporaryRoot,
       profileId: inputs.profileId,
       instanceId: 'be'.repeat(32),
       proofArtifacts: inputs.proofArtifacts,
     });
     assertPf10BetaRuntimeLane(runtime, inputs);
+    assert.equal(
+      runtime.proofArtifacts.provingKey.path,
+      'proof-artifacts/fixture.zkey',
+    );
+    assert.equal(
+      JSON.stringify(runtime).includes(artifactRoot),
+      false,
+      'runtime output must not leak its private absolute artifact root',
+    );
     await assert.rejects(
       buildDirectV2Pf10BetaRuntime({
         repositoryRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: inputs.proofArtifacts,
+      }),
+      /requires an explicit artifactRoot/u,
+    );
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot: testRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: inputs.proofArtifacts,
+      }),
+      /exact checkout containing the loaded PF10 builder/u,
+    );
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            path: verificationKeyFixture,
+            sha256: sha256(await readFile(verificationKeyFixture)),
+          },
+        },
+      }),
+      /PF10 provingKey escapes artifactRoot/u,
+    );
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            ...inputs.proofArtifacts.provingKey,
+            path: `${artifactRoot}/proof-artifacts/../proof-artifacts/fixture.zkey`,
+          },
+        },
+      }),
+      /proofArtifacts must contain exact path\/SHA-256 records/u,
+    );
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            ...inputs.proofArtifacts.provingKey,
+            sha256: '00'.repeat(32),
+          },
+        },
+      }),
+      /SHA-256 differs from the supplied profile pin/u,
+    );
+    const emptyArtifact = path.join(artifactRoot, 'empty.zkey');
+    await writeFile(emptyArtifact, Buffer.alloc(0), { mode: 0o600 });
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: { path: emptyArtifact, sha256: sha256(Buffer.alloc(0)) },
+        },
+      }),
+      /canonical nonempty regular file/u,
+    );
+    const symlinkArtifact = path.join(artifactRoot, 'symlink.zkey');
+    await symlink(inputs.proofArtifacts.provingKey.path, symlinkArtifact);
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            path: symlinkArtifact,
+            sha256: inputs.proofArtifacts.provingKey.sha256,
+          },
+        },
+      }),
+      /canonical nonempty regular file/u,
+    );
+    const hardlinkArtifact = path.join(artifactRoot, 'hardlink.zkey');
+    await link(inputs.proofArtifacts.provingKey.path, hardlinkArtifact);
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            path: hardlinkArtifact,
+            sha256: inputs.proofArtifacts.provingKey.sha256,
+          },
+        },
+      }),
+      /canonical nonempty regular file/u,
+    );
+    await rm(hardlinkArtifact);
+    await chmod(artifactRoot, 0o755);
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: inputs.proofArtifacts,
+      }),
+      /artifactRoot must be an owner-private directory/u,
+    );
+    await chmod(artifactRoot, 0o700);
+    const artifactParentAlias = path.join(testRoot, 'artifact-parent-alias');
+    await symlink(testRoot, artifactParentAlias);
+    const aliasedArtifactRoot = path.join(artifactParentAlias, 'artifacts');
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot: aliasedArtifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: Object.freeze(Object.fromEntries(
+          Object.entries(inputs.proofArtifacts).map(([name, record]) => [
+            name,
+            Object.freeze({
+              ...record,
+              path: path.join(
+                aliasedArtifactRoot,
+                path.relative(artifactRoot, record.path),
+              ),
+            }),
+          ]),
+        )),
+      }),
+      /artifactRoot must be a canonical non-symlink directory/u,
+    );
+    const scratchSymlink = path.join(testRoot, 'scratch-link');
+    await symlink(temporaryRoot, scratchSymlink);
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot: scratchSymlink,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: inputs.proofArtifacts,
+      }),
+      /temporaryRoot (?:is not readable|must be a canonical non-symlink directory)/u,
+    );
+    await chmod(temporaryRoot, 0o755);
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: inputs.proofArtifacts,
+      }),
+      /temporaryRoot must be an owner-private directory/u,
+    );
+    await chmod(temporaryRoot, 0o700);
+    const missingScratch = path.join(testRoot, 'created-scratch');
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
+        temporaryRoot: missingScratch,
+        profileId: inputs.profileId,
+        instanceId: 'be'.repeat(32),
+        proofArtifacts: {
+          ...inputs.proofArtifacts,
+          provingKey: {
+            ...inputs.proofArtifacts.provingKey,
+            sha256: '00'.repeat(32),
+          },
+        },
+      }),
+      /SHA-256 differs from the supplied profile pin/u,
+    );
+    assert.deepEqual(
+      await readdir(missingScratch),
+      [],
+      'failed builds must remove only their identity-bound work directory',
+    );
+    await assert.rejects(
+      buildDirectV2Pf10BetaRuntime({
+        repositoryRoot,
+        artifactRoot,
         temporaryRoot,
         profileId: inputs.profileId,
         instanceId: 'be'.repeat(32),
@@ -79,6 +318,6 @@ test('PF10 beta runtime has a distinct material/build/witness lane with generate
       /does not accept Libauth evidence/u,
     );
   } finally {
-    await rm(temporaryRoot, { recursive: true, force: true });
+    await rm(testRoot, { recursive: true, force: true });
   }
 });

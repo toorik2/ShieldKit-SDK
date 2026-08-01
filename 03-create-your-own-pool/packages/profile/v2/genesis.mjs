@@ -435,6 +435,7 @@ function issueGenesisRuntimeFromBuild({ build, instanceId, lane, profileCore }) 
  */
 async function createGenesisRuntimeForLane(options, lane) {
   exactKeys(options, 'genesis runtime options', [
+    ...(Object.hasOwn(options, 'artifactRoot') ? ['artifactRoot'] : []),
     'instanceId',
     'profileCore',
     'proofArtifacts',
@@ -442,6 +443,7 @@ async function createGenesisRuntimeForLane(options, lane) {
     'temporaryRoot',
   ]);
   const {
+    artifactRoot,
     instanceId,
     profileCore,
     proofArtifacts,
@@ -471,6 +473,7 @@ async function createGenesisRuntimeForLane(options, lane) {
   try {
     build = await lane.buildRuntime({
       repositoryRoot,
+      ...(artifactRoot === undefined ? {} : { artifactRoot }),
       temporaryRoot,
       profileId,
       instanceId,

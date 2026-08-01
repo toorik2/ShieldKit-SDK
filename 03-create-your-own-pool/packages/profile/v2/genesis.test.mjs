@@ -321,16 +321,21 @@ before(async () => {
     provingKey: path.join(testDirectory, 'development.zkey'),
     r1cs: path.join(testDirectory, 'main.r1cs'),
     wasm: path.join(testDirectory, 'main.wasm'),
-    verificationKey: path.join(
-      repositoryRoot,
-      '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json',
-    ),
+    verificationKey: path.join(testDirectory, 'verification_key.json'),
   };
   await writeFile(artifactPaths.provingKey, 'development-key-fixture', {
     mode: 0o600,
   });
   await writeFile(artifactPaths.r1cs, 'r1cs-fixture', { mode: 0o600 });
   await writeFile(artifactPaths.wasm, 'wasm-fixture', { mode: 0o600 });
+  await writeFile(
+    artifactPaths.verificationKey,
+    await readFile(path.join(
+      repositoryRoot,
+      '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json',
+    )),
+    { mode: 0o600 },
+  );
   proofArtifacts = Object.freeze(Object.fromEntries(
     await Promise.all(Object.entries(artifactPaths).map(
       async ([name, artifactPath]) => [
@@ -349,6 +354,7 @@ before(async () => {
   runtime = await createRuntime(defaultInstanceId);
   betaRuntime = await createV2BetaChipnetGenesisRuntime({
     repositoryRoot,
+    artifactRoot: testDirectory,
     temporaryRoot,
     profileCore: core,
     proofArtifacts,

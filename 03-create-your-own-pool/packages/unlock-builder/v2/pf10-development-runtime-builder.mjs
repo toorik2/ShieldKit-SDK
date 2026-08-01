@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import {
-  chmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -9,7 +9,6 @@ import {
   readFile,
   realpath,
   rm,
-  stat,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -106,6 +105,7 @@ const PROOF_ARTIFACT_NAMES = Object.freeze([
 const NETWORK_ID = 2;
 const DENOMINATION_SATS = 10_000_000n;
 const MINIMUM_CHANGE_SATS = 546n;
+const MODULE_REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const EXPECTED_INPUT_COUNT = 13;
 const EXPECTED_ACTIONS = Object.freeze([
   Object.freeze({ kind: 'deposit', outputCount: 13, transactionBytes: 97_852 }),
@@ -183,6 +183,36 @@ const sha256 = (value) =>
 
 const execFileAsync = promisify(execFile);
 
+const FILE_IDENTITY_FIELDS = Object.freeze([
+  'birthtimeNs',
+  'ctimeNs',
+  'dev',
+  'gid',
+  'ino',
+  'mode',
+  'mtimeNs',
+  'nlink',
+  'size',
+  'uid',
+]);
+const DIRECTORY_IDENTITY_FIELDS = Object.freeze([
+  'dev',
+  'gid',
+  'ino',
+  'mode',
+  'uid',
+]);
+
+function filesystemIdentity(stat, fields = FILE_IDENTITY_FIELDS) {
+  return Object.freeze(Object.fromEntries(
+    fields.map((field) => [field, stat[field].toString()]),
+  ));
+}
+
+function sameFilesystemIdentity(left, right, fields = FILE_IDENTITY_FIELDS) {
+  return fields.every((field) => left[field] === right[field]);
+}
+
 const concat = (...parts) =>
   Buffer.concat(parts.map((part) => Buffer.from(part)));
 
@@ -219,6 +249,8 @@ function exactArtifactRecord(value) {
         || Object.keys(artifact).sort().join(',') !== 'path,sha256'
         || typeof artifact.path !== 'string'
         || !path.isAbsolute(artifact.path)
+        || path.normalize(artifact.path) !== artifact.path
+        || artifact.path.includes('\0')
         || typeof artifact.sha256 !== 'string'
         || !HASH.test(artifact.sha256)
       );
@@ -241,6 +273,8 @@ function exactPinnedArtifactRecord(value, label) {
     || Object.keys(value).sort().join(',') !== 'path,sha256'
     || typeof value.path !== 'string'
     || !path.isAbsolute(value.path)
+    || path.normalize(value.path) !== value.path
+    || value.path.includes('\0')
     || typeof value.sha256 !== 'string'
     || !HASH.test(value.sha256)
   ) {
@@ -1032,31 +1066,134 @@ function repositoryRelative(root, filename) {
   return relative.split(path.sep).join('/');
 }
 
-async function canonicalRepository(value) {
-  if (typeof value !== 'string' || !path.isAbsolute(value)) {
-    fail('PF10_BUILD_PATH_INVALID', 'repositoryRoot must be absolute');
-  }
-  const resolved = path.resolve(value);
-  let canonical;
-  try {
-    canonical = await realpath(resolved);
-  } catch (error) {
-    fail('PF10_BUILD_PATH_INVALID', 'repositoryRoot is not readable', error);
-  }
-  if (resolved !== canonical) {
+function artifactRelative(root, filename, label) {
+  const relative = path.relative(root, filename);
+  if (relative.length === 0 || relative === '..'
+      || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     fail(
       'PF10_BUILD_PATH_INVALID',
-      'repositoryRoot must be canonical without symlink traversal',
+      `${label} escapes artifactRoot: ${filename}`,
     );
   }
-  return resolved;
+  return relative.split(path.sep).join('/');
+}
+
+async function canonicalRepository(value) {
+  if (typeof value !== 'string' || !path.isAbsolute(value)
+      || path.normalize(value) !== value || value.includes('\0')) {
+    fail('PF10_BUILD_PATH_INVALID', 'repositoryRoot must be a normalized absolute path');
+  }
+  let moduleRoot;
+  try {
+    moduleRoot = await realpath(MODULE_REPOSITORY_ROOT);
+  } catch (error) {
+    fail('PF10_BUILD_PATH_INVALID', 'loaded builder checkout is not readable', error);
+  }
+  if (value !== moduleRoot) {
+    fail(
+      'PF10_BUILD_PATH_INVALID',
+      'repositoryRoot must be the exact checkout containing the loaded PF10 builder',
+    );
+  }
+  const record = await canonicalDirectoryRecord(
+    value,
+    'repositoryRoot',
+    { privateOwner: false },
+  );
+  return record.path;
+}
+
+async function canonicalDirectoryRecord(value, label, { privateOwner }) {
+  if (typeof value !== 'string' || !path.isAbsolute(value)
+      || path.normalize(value) !== value || value.includes('\0')) {
+    fail('PF10_BUILD_PATH_INVALID', `${label} must be a normalized absolute path`);
+  }
+  let metadata;
+  let canonical;
+  let handle;
+  try {
+    metadata = await lstat(value, { bigint: true });
+    canonical = await realpath(value);
+    handle = await open(
+      value,
+      fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW,
+    );
+    const opened = await handle.stat({ bigint: true });
+    if (!sameFilesystemIdentity(
+      filesystemIdentity(metadata, DIRECTORY_IDENTITY_FIELDS),
+      filesystemIdentity(opened, DIRECTORY_IDENTITY_FIELDS),
+      DIRECTORY_IDENTITY_FIELDS,
+    )) {
+      fail('PF10_BUILD_PATH_RACE', `${label} changed before it could be opened`);
+    }
+    metadata = opened;
+  } catch (error) {
+    if (error instanceof DirectV2Pf10RuntimeBuildError) throw error;
+    fail('PF10_BUILD_PATH_INVALID', `${label} is not readable`, error);
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()
+      || canonical !== value) {
+    fail(
+      'PF10_BUILD_PATH_INVALID',
+      `${label} must be a canonical non-symlink directory`,
+    );
+  }
+  if (privateOwner
+      && ((metadata.mode & 0o077n) !== 0n
+        || (typeof process.getuid === 'function'
+          && metadata.uid !== BigInt(process.getuid())))) {
+    fail(
+      'PF10_BUILD_PATH_INVALID',
+      `${label} must be an owner-private directory`,
+    );
+  }
+  return Object.freeze({
+    path: value,
+    identity: filesystemIdentity(metadata, DIRECTORY_IDENTITY_FIELDS),
+    privateOwner,
+  });
+}
+
+async function assertDirectoryRecord(record, label) {
+  const current = await canonicalDirectoryRecord(
+    record.path,
+    label,
+    { privateOwner: record.privateOwner },
+  );
+  if (!sameFilesystemIdentity(
+    record.identity,
+    current.identity,
+    DIRECTORY_IDENTITY_FIELDS,
+  )) {
+    fail('PF10_BUILD_PATH_RACE', `${label} identity changed`);
+  }
+  return current;
+}
+
+async function canonicalArtifactRoot(value, repositoryRoot, {
+  requirePrivate,
+}) {
+  const selected = value === undefined ? repositoryRoot : value;
+  return canonicalDirectoryRecord(
+    selected,
+    'artifactRoot',
+    { privateOwner: requirePrivate || selected !== repositoryRoot },
+  );
 }
 
 async function stableArtifact(root, value, label, includeData = false) {
-  const filename = path.resolve(value.path);
-  repositoryRelative(root, filename);
+  if (typeof value.path !== 'string' || !path.isAbsolute(value.path)
+      || path.normalize(value.path) !== value.path || value.path.includes('\0')) {
+    fail('PF10_BUILD_PATH_INVALID', `${label} path must be normalized and absolute`);
+  }
+  const filename = value.path;
+  artifactRelative(root.path, filename, label);
+  await assertDirectoryRecord(root, 'artifactRoot');
   let metadata;
   let canonical;
+  let handle;
   try {
     metadata = await lstat(filename, { bigint: true });
     canonical = await realpath(filename);
@@ -1075,9 +1212,20 @@ async function stableArtifact(root, value, label, includeData = false) {
       `${label} must be one canonical nonempty regular file`,
     );
   }
-  const handle = await open(filename, 'r');
   try {
+    handle = await open(
+      filename,
+      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+    );
     const before = await handle.stat({ bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n
+        || before.size === 0n
+        || !sameFilesystemIdentity(
+          filesystemIdentity(metadata),
+          filesystemIdentity(before),
+        )) {
+      fail('PF10_BUILD_ARTIFACT_CHANGED', `${label} changed before it could be opened`);
+    }
     const digest = createHash('sha256');
     const chunks = [];
     let size = 0n;
@@ -1087,16 +1235,23 @@ async function stableArtifact(root, value, label, includeData = false) {
       if (includeData) chunks.push(Buffer.from(chunk));
     }
     const after = await handle.stat({ bigint: true });
+    const named = await lstat(filename, { bigint: true });
+    const finalCanonical = await realpath(filename);
     if (
-      before.dev !== after.dev
-      || before.ino !== after.ino
-      || before.size !== after.size
-      || before.mtimeNs !== after.mtimeNs
-      || before.ctimeNs !== after.ctimeNs
+      !sameFilesystemIdentity(
+        filesystemIdentity(before),
+        filesystemIdentity(after),
+      )
+      || !sameFilesystemIdentity(
+        filesystemIdentity(before),
+        filesystemIdentity(named),
+      )
+      || finalCanonical !== filename
       || size !== before.size
     ) {
       fail('PF10_BUILD_ARTIFACT_CHANGED', `${label} changed while read`);
     }
+    await assertDirectoryRecord(root, 'artifactRoot');
     const actual = digest.digest('hex');
     if (actual !== value.sha256) {
       fail(
@@ -1108,56 +1263,76 @@ async function stableArtifact(root, value, label, includeData = false) {
       fail('PF10_BUILD_ARTIFACT_TOO_LARGE', `${label} is too large`);
     }
     return Object.freeze({
-      path: repositoryRelative(root, filename),
+      path: artifactRelative(root.path, filename, label),
       bytes: Number(before.size),
       sha256: actual,
       data: includeData ? Buffer.concat(chunks) : undefined,
     });
+  } catch (error) {
+    if (error instanceof DirectV2Pf10RuntimeBuildError) throw error;
+    fail('PF10_BUILD_PATH_INVALID', `${label} cannot be opened safely`, error);
   } finally {
-    await handle.close();
+    await handle?.close().catch(() => undefined);
   }
 }
 
-async function privateTemporaryDirectory(root, value) {
-  if (typeof value !== 'string' || !path.isAbsolute(value)) {
-    fail('PF10_BUILD_PATH_INVALID', 'temporaryRoot must be absolute');
+async function privateTemporaryDirectory(value) {
+  if (typeof value !== 'string' || !path.isAbsolute(value)
+      || path.resolve(value) !== value) {
+    fail('PF10_BUILD_PATH_INVALID', 'temporaryRoot must be a normalized absolute path');
   }
-  const directory = path.resolve(value);
-  repositoryRelative(root, directory);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  // Do not chmod an existing path until it has been proven not to be a
-  // symlink. A repository-local symlink could otherwise change permissions on
-  // an external target before the later realpath check rejects it.
-  let metadata;
+  const directory = value;
+  const parent = path.dirname(directory);
+  let exists = true;
   try {
-    metadata = await lstat(directory);
+    await lstat(directory);
   } catch (error) {
-    fail('PF10_BUILD_PATH_INVALID', 'temporaryRoot is not readable', error);
+    if (error?.code !== 'ENOENT') {
+      fail('PF10_BUILD_PATH_INVALID', 'temporaryRoot is not readable', error);
+    }
+    exists = false;
   }
-  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-    fail(
-      'PF10_BUILD_PATH_INVALID',
-      'temporaryRoot must be a non-symlink directory',
-    );
+  const parentRecord = await canonicalDirectoryRecord(
+    parent,
+    'temporaryRoot parent',
+    { privateOwner: !exists },
+  );
+  try {
+    await mkdir(directory, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== 'EEXIST') {
+      fail('PF10_BUILD_PATH_INVALID', 'temporaryRoot cannot be created', error);
+    }
   }
-  const canonical = await realpath(directory);
-  if (
-    canonical !== directory
-  ) {
-    fail(
-      'PF10_BUILD_PATH_INVALID',
-      'temporaryRoot must be a canonical directory',
-    );
-  }
-  await chmod(directory, 0o700);
-  metadata = await stat(directory);
-  if ((metadata.mode & 0o077) !== 0) {
-    fail(
-      'PF10_BUILD_PATH_INVALID',
-      'temporaryRoot must be a private directory',
-    );
-  }
-  return mkdtemp(path.join(directory, 'pf10-runtime-'));
+  await assertDirectoryRecord(parentRecord, 'temporaryRoot parent');
+  const rootRecord = await canonicalDirectoryRecord(
+    directory,
+    'temporaryRoot',
+    { privateOwner: true },
+  );
+  const workDirectory = await mkdtemp(path.join(directory, 'pf10-runtime-'));
+  const workRecord = await canonicalDirectoryRecord(
+    workDirectory,
+    'PF10 work directory',
+    { privateOwner: true },
+  );
+  await assertDirectoryRecord(rootRecord, 'temporaryRoot');
+  await assertDirectoryRecord(parentRecord, 'temporaryRoot parent');
+  return Object.freeze({
+    path: workDirectory,
+    root: rootRecord,
+    parent: parentRecord,
+    work: workRecord,
+  });
+}
+
+async function cleanupPrivateTemporaryDirectory(record) {
+  await assertDirectoryRecord(record.parent, 'temporaryRoot parent');
+  await assertDirectoryRecord(record.root, 'temporaryRoot');
+  await assertDirectoryRecord(record.work, 'PF10 work directory');
+  await rm(record.path, { recursive: true, force: false });
+  await assertDirectoryRecord(record.root, 'temporaryRoot');
+  await assertDirectoryRecord(record.parent, 'temporaryRoot parent');
 }
 
 function compile(source, files = {}) {
@@ -1377,7 +1552,7 @@ export async function validateDirectV2Pf10Reproducibility({
       'runtimeArtifacts.terminalRedeem',
     ),
   });
-  const workDirectory = await privateTemporaryDirectory(root, temporaryRoot);
+  const workDirectory = await privateTemporaryDirectory(temporaryRoot);
   try {
     const optimizerRoot = path.join(
       root,
@@ -1409,7 +1584,7 @@ export async function validateDirectV2Pf10Reproducibility({
         bytecode: compiled,
         label: `reproduce-${name}`,
         optimizerRoot,
-        workDirectory,
+        workDirectory: workDirectory.path,
       });
       if (
         expectedRedeem !== undefined
@@ -1496,7 +1671,7 @@ export async function validateDirectV2Pf10Reproducibility({
       }),
     });
   } finally {
-    await rm(workDirectory, { recursive: true, force: true });
+    await cleanupPrivateTemporaryDirectory(workDirectory);
   }
 }
 
@@ -1572,6 +1747,7 @@ function immutableProgram({ source, raw, redeem }) {
  */
 async function buildDirectV2Pf10Runtime({
   repositoryRoot,
+  artifactRoot: artifactRootValue = repositoryRoot,
   temporaryRoot,
   profileId: profileIdentity,
   instanceId: instanceIdentity,
@@ -1582,9 +1758,15 @@ async function buildDirectV2Pf10Runtime({
   runtimeBuildSchema,
   validateRuntimeMaterial,
   includeLibauthEvidence,
+  requirePrivateArtifactRoot = false,
   onOptimizeStage: suppliedOptimizeStage = undefined,
 } = {}) {
   const root = await canonicalRepository(repositoryRoot);
+  const artifactRoot = await canonicalArtifactRoot(
+    artifactRootValue,
+    root,
+    { requirePrivate: requirePrivateArtifactRoot },
+  );
   const profileId = exactIdentity(profileIdentity, 'profileId');
   const instanceId = exactIdentity(instanceIdentity, 'instanceId');
   const proofArtifacts = exactArtifactRecord(proofArtifactRecords);
@@ -1602,12 +1784,12 @@ async function buildDirectV2Pf10Runtime({
       libauthEvidenceRecord,
       'PF10 Libauth evidence',
     );
-  const workDirectory = await privateTemporaryDirectory(root, temporaryRoot);
+  const workDirectory = await privateTemporaryDirectory(temporaryRoot);
   try {
     const verifiedArtifacts = {};
     for (const name of PROOF_ARTIFACT_NAMES) {
       verifiedArtifacts[name] = await stableArtifact(
-        root,
+        artifactRoot,
         proofArtifacts[name],
         `PF10 ${name}`,
         name === 'verificationKey',
@@ -1616,7 +1798,7 @@ async function buildDirectV2Pf10Runtime({
     const verifiedLibauthEvidence = libauthEvidence === undefined
       ? undefined
       : await stableArtifact(
-        root,
+        artifactRoot,
         libauthEvidence,
         'PF10 Libauth evidence',
         true,
@@ -1763,7 +1945,7 @@ async function buildDirectV2Pf10Runtime({
       bytecode: terminalRaw,
       label: 'terminal',
       optimizerRoot,
-      workDirectory,
+      workDirectory: workDirectory.path,
       onStage: onOptimizeStage,
     });
     const terminal = immutableProgram({
@@ -1789,7 +1971,7 @@ async function buildDirectV2Pf10Runtime({
       bytecode: executorRaw,
       label: 'executor',
       optimizerRoot,
-      workDirectory,
+      workDirectory: workDirectory.path,
       onStage: onOptimizeStage,
     });
     const executor = immutableProgram({
@@ -1832,7 +2014,7 @@ async function buildDirectV2Pf10Runtime({
       bytecode: exactFinalRaw,
       label: 'exact-final',
       optimizerRoot,
-      workDirectory,
+      workDirectory: workDirectory.path,
       onStage: onOptimizeStage,
     });
     const millerSource =
@@ -1852,7 +2034,7 @@ async function buildDirectV2Pf10Runtime({
       bytecode: millerRaw,
       label: 'miller',
       optimizerRoot,
-      workDirectory,
+      workDirectory: workDirectory.path,
       onStage: onOptimizeStage,
     });
     const [exactFinalRedeem, millerRedeem] = await Promise.all([
@@ -1902,7 +2084,7 @@ async function buildDirectV2Pf10Runtime({
         bytecode: raw,
         label: `exact-${windowIndex}`,
         optimizerRoot,
-        workDirectory,
+        workDirectory: workDirectory.path,
         onStage: onOptimizeStage,
       });
       const program = immutableProgram({ source, raw, redeem });
@@ -2112,7 +2294,7 @@ async function buildDirectV2Pf10Runtime({
       }),
     });
   } finally {
-    await rm(workDirectory, { recursive: true, force: false });
+    await cleanupPrivateTemporaryDirectory(workDirectory);
   }
 }
 
@@ -2135,6 +2317,12 @@ export async function buildDirectV2Pf10DevelopmentRuntime(value = {}) {
  */
 export async function buildDirectV2Pf10BetaRuntime(value = {}) {
   recordV2BetaRuntimeWork({ type: 'cold-runtime-build' });
+  if (value.artifactRoot === undefined) {
+    fail(
+      'PF10_BUILD_PATH_INVALID',
+      'beta PF10 runtime requires an explicit artifactRoot',
+    );
+  }
   if (value.libauthEvidence !== undefined) {
     fail(
       'PF10_BETA_LIBAUTH_FORBIDDEN',
@@ -2148,5 +2336,6 @@ export async function buildDirectV2Pf10BetaRuntime(value = {}) {
     runtimeBuildSchema: DIRECT_V2_PF10_BETA_RUNTIME_BUILD_SCHEMA,
     validateRuntimeMaterial: validateDirectV2Pf10BetaRuntimeMaterial,
     includeLibauthEvidence: false,
+    requirePrivateArtifactRoot: true,
   });
 }

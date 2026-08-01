@@ -55,7 +55,7 @@ export async function runV2Pf10InstanceSpecializationEvidence({ repositoryRoot, 
     const file = path.join(proofDirectory, filename);
     return [name, Object.freeze({ path: file, sha256: await hashFile(file) })];
   })));
-  const build = (instanceId) => buildDirectV2Pf10BetaRuntime({ repositoryRoot, temporaryRoot, profileId: deriveProfileId(profile), instanceId, proofArtifacts });
+  const build = (instanceId) => buildDirectV2Pf10BetaRuntime({ repositoryRoot, artifactRoot: runtimeSource, temporaryRoot, profileId: deriveProfileId(profile), instanceId, proofArtifacts });
   const templateStarted = performance.now();
   const template = await build(templateInstanceId);
   const templateFullBuildWallMs = elapsed(templateStarted);

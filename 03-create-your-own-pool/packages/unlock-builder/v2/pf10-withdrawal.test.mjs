@@ -154,6 +154,9 @@ import {
 const repoRoot = path.resolve(import.meta.dirname, '../../../..');
 const buildRoot = path.join(repoRoot, '.codex-build');
 const betaLocal = process.env.SHIELDKIT_PF10_BETA_LOCAL === '1';
+const betaArtifactRoot = process.env.SHIELDKIT_PF10_ARTIFACT_ROOT === undefined
+  ? buildRoot
+  : process.env.SHIELDKIT_PF10_ARTIFACT_ROOT;
 assert.equal(
   process.env.SHIELDKIT_PF10_BETA_LOCAL === undefined || betaLocal,
   true,
@@ -1485,6 +1488,7 @@ test(
     const runtimeMaterial = validateRuntimeMaterial(runtimeMaterialInput);
     const extractedRuntime = await buildRuntime({
       repositoryRoot: repoRoot,
+      artifactRoot: betaLocal ? betaArtifactRoot : repoRoot,
       temporaryRoot: path.join(
         buildRoot,
         'v2-pf10-runtime-builder-test-tmp',

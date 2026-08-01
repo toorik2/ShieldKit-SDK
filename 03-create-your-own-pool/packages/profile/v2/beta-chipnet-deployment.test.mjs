@@ -65,12 +65,12 @@ async function fixture() {
   await mkdir(TEST_ROOT, { recursive: true, mode: 0o700 }); await chmod(TEST_ROOT, 0o700);
   const root = await mkdtemp(path.join(TEST_ROOT, 'runtime-')); await chmod(root, 0o700);
   const temporaryRoot = path.join(root, 'runtime-tmp'); await mkdir(temporaryRoot, { mode: 0o700 });
-  const verificationKey = path.join(ROOT, '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json');
-  const artifacts = { provingKey: path.join(root, 'beta.zkey'), r1cs: path.join(root, 'main.r1cs'), wasm: path.join(root, 'main.wasm'), verificationKey };
-  await Promise.all([writeFile(artifacts.provingKey, 'beta-key-fixture', { mode: 0o600 }), writeFile(artifacts.r1cs, 'r1cs-fixture', { mode: 0o600 }), writeFile(artifacts.wasm, 'wasm-fixture', { mode: 0o600 })]);
+  const verificationKeyFixture = path.join(ROOT, '03-create-your-own-pool/packages/prove/test-fixtures/two-public/verification_key.json');
+  const artifacts = { provingKey: path.join(root, 'beta.zkey'), r1cs: path.join(root, 'main.r1cs'), wasm: path.join(root, 'main.wasm'), verificationKey: path.join(root, 'verification_key.json') };
+  await Promise.all([writeFile(artifacts.provingKey, 'beta-key-fixture', { mode: 0o600 }), writeFile(artifacts.r1cs, 'r1cs-fixture', { mode: 0o600 }), writeFile(artifacts.wasm, 'wasm-fixture', { mode: 0o600 }), writeFile(artifacts.verificationKey, await readFile(verificationKeyFixture), { mode: 0o600 })]);
   const proofArtifacts = Object.freeze(Object.fromEntries(await Promise.all(Object.entries(artifacts).map(async ([name, filename]) => [name, Object.freeze({ path: filename, sha256: hash(await readFile(filename)) })]))));
   const sourceHex = sourceTransaction(); const sourceTxid = transactionIdFromHex(sourceHex); const instanceId = Buffer.from(sourceTxid, 'hex').reverse().toString('hex'); const core = profileCore(proofArtifacts);
-  const runtime = await createV2BetaChipnetGenesisRuntime({ repositoryRoot: ROOT, temporaryRoot, profileCore: core, proofArtifacts, instanceId });
+  const runtime = await createV2BetaChipnetGenesisRuntime({ repositoryRoot: ROOT, artifactRoot: root, temporaryRoot, profileCore: core, proofArtifacts, instanceId });
   const intent = { schema: V2_GENESIS_INTENT_SCHEMA, profileCore: core, maximumLiveNotes: '32', fundingPublicKeyHex: hex(publicKey), changeLockingBytecodeHex: hex(p2pkhLock()), feeRateSatsPerByte: V2_GENESIS_FEE_RATE_SATS_PER_BYTE, sourceTransactionHex: sourceHex };
   const prepared = prepareV2Genesis(intent, runtime); const signature = secp256k1.signMessageHashSchnorr(privateKey, Buffer.from(prepared.signingRequest.digestHex, 'hex')); assert.notEqual(typeof signature, 'string'); const finalized = finalizeV2Genesis(prepared, Buffer.from(signature), runtime); const packagePins = deriveV2FinalizedGenesisPackagePins(finalized, runtime);
   const packagedGenesis = { descriptor: { profileId: packagePins.profileId, instanceId: packagePins.instanceId, genesis: { transactionId: packagePins.genesis.transactionId, outpointIndex: packagePins.genesis.outputIndex }, initialState: Buffer.from(packagePins.initialStateHex, 'hex') }, rawGenesisTransaction: Buffer.from(finalized.genesis.rawTransactionHex, 'hex'), rawSourceTransaction: Buffer.from(sourceHex, 'hex'), settlementPins: settlementPins(packagePins) };

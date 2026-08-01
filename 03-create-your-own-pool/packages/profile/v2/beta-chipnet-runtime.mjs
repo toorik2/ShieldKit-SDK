@@ -403,6 +403,7 @@ export async function loadV2BetaChipnetRuntime(value = {}) {
   ])));
   const build = await buildDirectV2Pf10BetaRuntime({
     repositoryRoot: path.resolve(import.meta.dirname, '../../../..'),
+    artifactRoot: runtimeDirectory,
     temporaryRoot: path.resolve(value.temporaryRoot),
     profileId,
     instanceId: manifest.identity.instanceId,
