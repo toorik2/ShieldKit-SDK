@@ -301,6 +301,16 @@ async function persistWallet(filename, wallet) {
   return wallet;
 }
 
+/**
+ * Persist one already-validated wallet in ShieldKit's private canonical
+ * wallet format. This is intentionally an exclusive create: callers that
+ * resume an operation must load and compare the existing custody record
+ * rather than overwrite it.
+ */
+export async function persistV2ChipnetFundingWallet({ filename, wallet } = {}) {
+  return persistWallet(filename, validateV2ChipnetFundingWallet(wallet));
+}
+
 export async function createV2ChipnetFundingWallet(
   { filename } = {},
   { randomBytes = systemRandomBytes } = {},

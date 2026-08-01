@@ -106,6 +106,14 @@ Product tree: 03-create-your-own-pool/  (kit · profile · CLI)
 Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Create and operate your pool
+  pool create --funding-wallet <absolute-canonical-private-wallet-path> --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]
+  deposit [--data-home <absolute-directory>] [--operation-id <id>] [--human|--json]
+  withdraw --to <bchtest-p2pkh-address> [--data-home <absolute-directory>] [--note <id>] [--operation-id <id>] [--human|--json]
+  recovery inspect --operation-id <id> [--data-home <absolute-directory>] [--human|--json]
+  recovery rebroadcast --operation-id <id> --attempt-token <current-token> --acknowledge-exact-rebroadcast [--data-home <absolute-directory>] [--human|--json]
+  (V2 beta Chipnet: one user-funded invocation; wallet must be a canonical owner-private 0600 JSON file and the exact UTXO must be unspent, tokenless P2PKH. No sponsor or faucet. Completion is BCHN zero-conf only—never confirmed or mined; capacity 100000; explicitly unqualified.)
+
+  # Legacy tools
   init  # V1 legacy creation is quarantined; use the attested V2 pipeline
   request-template --kind deposit --bundle <profile-dir>
   genesis-plan --bundle <dir> --category-input <json>
@@ -144,7 +152,7 @@ Flags:
   --mode development-only|local-contribution-simulation
   --pool <pool-dir>   (full act / doctor preflight)
   --bundle <profile-dir>
-  --wallets / --broadcast / --scan-fees / --funding-txid / --state-txid
+  --wallets / --broadcast / --scan-fees / --state-txid
   --config / --request / --history / --seed-hex / --kind / --category-input / --signature
   --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
   --i-understand-mainnet
@@ -949,6 +957,23 @@ const protocolIndex = protocolOptionIndexes[0];
 const explicitProtocol = protocolIndex === undefined
   ? undefined
   : cliArguments[protocolIndex + 1];
+const betaProductOptionNames = new Set([
+  '--acknowledge-exact-rebroadcast', '--attempt-token', '--data-home',
+  '--funding-utxo', '--funding-wallet', '--human', '--json', '--note',
+  '--operation-id', '--to',
+]);
+const hasOnlyBetaProductOptions = cliArguments.slice(1).every((value) => (
+  !value.startsWith('--') || betaProductOptionNames.has(value)
+));
+const betaProductInvocation = (
+  (cmd === 'pool' && process.argv[3] === 'create')
+  || (cmd === 'recovery' && ['inspect', 'rebroadcast'].includes(process.argv[3]))
+  || (
+    ['deposit', 'withdraw'].includes(cmd)
+    && explicitProtocol === undefined
+    && hasOnlyBetaProductOptions
+  )
+);
 if (
   protocolIndex !== undefined
   && (
@@ -962,7 +987,7 @@ const directMutation = ['deposit', 'transfer', 'withdraw'].includes(cmd);
 const playgroundMutation = cmd === 'playground'
   && ['deposit', 'transfer', 'withdraw'].includes(process.argv[3]);
 const legacyMutation = directMutation || playgroundMutation;
-if (legacyMutation && explicitProtocol === undefined) {
+if (legacyMutation && explicitProtocol === undefined && !betaProductInvocation) {
   failJson(
     'PROTOCOL_REQUIRED',
     'mutation commands require --protocol v1-legacy or explicit --protocol v2-direct; V2 is not the default until qualification',
@@ -975,6 +1000,7 @@ if (legacyMutation && explicitProtocol === undefined) {
 }
 if (
   legacyMutation
+  && !betaProductInvocation
   && !['v1-legacy', 'v2-direct'].includes(explicitProtocol)
 ) {
   failJson(
@@ -1016,13 +1042,46 @@ async function dispatchV2Cli() {
   }
 }
 
+async function dispatchV2BetaProductCli() {
+  const {
+    executeV2BetaProductCli,
+    renderV2BetaProductCliHuman,
+    v2BetaProductCliErrorResult,
+  } = await import('../packages/kit/v2/beta-product-cli.mjs');
+  try {
+    const envelope = await executeV2BetaProductCli(cliArguments);
+    if (envelope.format === 'human') {
+      console.log(renderV2BetaProductCliHuman(envelope));
+    } else {
+      console.log(JSON.stringify({
+        ok: true,
+        toolkitVersion: TOOLKIT_VERSION,
+        product: 'shieldkit-v2-beta-chipnet',
+        productionQualified: false,
+        confirmed: false,
+        mined: false,
+        ...envelope,
+      }, null, 2));
+    }
+    process.exit(0);
+  } catch (error) {
+    const rendered = v2BetaProductCliErrorResult(error);
+    console.log(JSON.stringify({ toolkitVersion: TOOLKIT_VERSION, ...rendered.body }, null, 2));
+    process.exit(rendered.exitCode);
+  }
+}
+
 const v2Dispatch = (
   ['wallet', 'pool', 'sync', 'status', 'operation'].includes(cmd)
   || explicitProtocol === 'v2-direct'
 );
 
 // playground <sub>  →  bind official Chipnet instance, run sub-verb
-if (v2Dispatch) {
+if (betaProductInvocation) {
+  Promise.resolve(dispatchV2BetaProductCli()).catch((e) => {
+    failJson(e.code || e.name || 'V2_BETA_PRODUCT_CLI_UNCAUGHT', e.message || String(e), 1);
+  });
+} else if (v2Dispatch) {
   Promise.resolve(dispatchV2Cli()).catch((e) => {
     failJson(e.code || e.name || 'V2_CLI_UNCAUGHT', e.message || String(e), 1);
   });

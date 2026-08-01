@@ -13,8 +13,12 @@
  * Providers are untrusted. No network-query privacy claim.
  */
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  chmodSync, lstatSync, mkdirSync, realpathSync,
+} from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
 import tls from 'node:tls';
 
 export const CHIPNET_GENESIS_HASH =
@@ -45,7 +49,49 @@ function publicElectrumFor(network) {
   return network === 'mainnet' ? PUBLIC_MAINNET_ELECTRUM : PUBLIC_CHIPNET_ELECTRUM;
 }
 
-const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', '-o', 'ConnectTimeout=12'];
+function privateSshControlOptions() {
+  if (typeof process.getuid !== 'function') return [];
+  const uid = process.getuid();
+  const candidates = [
+    process.env.XDG_RUNTIME_DIR,
+    `/run/user/${uid}`,
+  ].filter((value, index, values) => typeof value === 'string'
+    && path.isAbsolute(value) && values.indexOf(value) === index);
+  for (const runtimeDirectory of candidates) {
+    try {
+      const root = lstatSync(runtimeDirectory);
+      if (!root.isDirectory() || root.isSymbolicLink() || root.uid !== uid
+        || (root.mode & 0o077) !== 0 || realpathSync(runtimeDirectory) !== runtimeDirectory) continue;
+      const shieldkitDirectory = path.join(runtimeDirectory, 'shieldkit');
+      const directory = path.join(shieldkitDirectory, 'ssh');
+      for (const candidate of [shieldkitDirectory, directory]) {
+        try { mkdirSync(candidate, { mode: 0o700 }); }
+        catch (error) { if (error?.code !== 'EEXIST') throw error; }
+        const beforeModeFix = lstatSync(candidate);
+        if (!beforeModeFix.isDirectory() || beforeModeFix.isSymbolicLink()
+          || beforeModeFix.uid !== uid || realpathSync(candidate) !== candidate) throw new Error('unsafe SSH control directory');
+        if ((beforeModeFix.mode & 0o777) !== 0o700) chmodSync(candidate, 0o700);
+        const inspected = lstatSync(candidate);
+        if (!inspected.isDirectory() || inspected.isSymbolicLink()
+          || inspected.uid !== uid || (inspected.mode & 0o077) !== 0
+          || realpathSync(candidate) !== candidate) throw new Error('unsafe SSH control directory');
+      }
+      return [
+        '-o', 'ControlMaster=auto',
+        '-o', 'ControlPersist=120',
+        '-o', `ControlPath=${path.join(directory, 'layer1-%C')}`,
+      ];
+    } catch { /* fall back to independent SSH connections */ }
+  }
+  return [];
+}
+
+const SSH_OPTS = [
+  '-o', 'BatchMode=yes',
+  '-o', 'LogLevel=ERROR',
+  '-o', 'ConnectTimeout=12',
+  ...privateSshControlOptions(),
+];
 
 function electrumScriptHash(lockingBytecode) {
   const bytes = lockingBytecode instanceof Uint8Array
@@ -159,6 +205,9 @@ function layer1Available() {
 }
 
 const LAYER1_METHODS = new Set([
+  'getblockhash',
+  // Generic createChainRpc compatibility only. The authenticated V2 product
+  // capability below deliberately does not expose or call this method.
   'getblockcount',
   'getrawtransaction',
   'gettxout',
@@ -166,9 +215,17 @@ const LAYER1_METHODS = new Set([
   'sendrawtransaction',
   'testmempoolaccept',
 ]);
+const PRODUCT_RPC_METHODS = Object.freeze([
+  'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
+  'sendrawtransaction', 'testmempoolaccept',
+]);
 const TXID = /^[0-9a-f]{64}$/;
 const HEX = /^(?:[0-9a-f]{2})+$/;
 const ADDRESS = /^(?:bitcoincash|bchtest):[a-z0-9]{20,120}$/;
+const layer1BchnChipnetCapabilities = new WeakSet();
+
+/** Exact backend label for the BCHN-only Chipnet capability. */
+export const LAYER1_BCHN_CHIPNET_BACKEND = 'layer1-bchn-chipnet';
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
@@ -176,6 +233,12 @@ function shellQuote(value) {
 
 function validateLayer1Arguments(method, args) {
   if (!LAYER1_METHODS.has(method)) throw new Error(`layer1 method refused: ${method}`);
+  if (method === 'getblockhash') {
+    if (args.length !== 1 || args[0] !== 0) {
+      throw new Error('getblockhash accepts only Chipnet genesis height 0');
+    }
+    return;
+  }
   if (method === 'getblockcount') {
     if (args.length !== 0) throw new Error('getblockcount accepts no arguments');
     return;
@@ -209,26 +272,71 @@ function validateLayer1Arguments(method, args) {
   }
 }
 
-function layer1Cli(method, args = []) {
+async function layer1Cli(method, args = []) {
   validateLayer1Arguments(method, args);
   const rpcArgs = method === 'scantxoutset'
     ? ['start', JSON.stringify([`addr(${args[1]})`])]
     : method === 'testmempoolaccept'
       ? [JSON.stringify([args[0]])]
       : args.map(String);
+  // Linux limits each argv element to roughly 128 KiB. A standard V2 action
+  // is almost 100 KiB, so its hex is almost 200 KiB and cannot safely be
+  // embedded in the single SSH remote-command argument. bitcoin-cli -stdin
+  // accepts one RPC argument per line and keeps those bytes out of argv.
+  const streamRpcArgs = method === 'testmempoolaccept'
+    || method === 'sendrawtransaction';
   const command = [
     'sudo', '-n', '-u', 'bchn',
     '/usr/local/bin/bitcoin-cli',
     '-conf=/etc/bchn/bitcoin.conf',
+    ...(streamRpcArgs ? ['-stdin'] : []),
     method,
-    ...rpcArgs,
+    ...(streamRpcArgs ? [] : rpcArgs),
   ].map(shellQuote).join(' ');
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node', command], {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
+  const maximumOutputBytes = 64 * 1024 * 1024;
+  const child = spawn('ssh', [...SSH_OPTS, 'layer1-node', command], {
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
-  if (r.status !== 0) throw new Error(`layer1 ${method}: ${r.stderr || r.stdout}`);
-  return (r.stdout || '').trim();
+  const stdout = [];
+  const stderr = [];
+  let stdoutBytes = 0;
+  let stderrBytes = 0;
+  let outputExceeded = false;
+  const collect = (target, chunk, kind) => {
+    if (outputExceeded) return;
+    if (kind === 'stdout') stdoutBytes += chunk.length;
+    else stderrBytes += chunk.length;
+    if (stdoutBytes > maximumOutputBytes || stderrBytes > maximumOutputBytes) {
+      outputExceeded = true;
+      child.kill('SIGKILL');
+      return;
+    }
+    target.push(Buffer.from(chunk));
+  };
+  child.stdout.on('data', (chunk) => collect(stdout, chunk, 'stdout'));
+  child.stderr.on('data', (chunk) => collect(stderr, chunk, 'stderr'));
+  const timeout = setTimeout(() => child.kill('SIGKILL'), 30_000);
+  if (streamRpcArgs) child.stdin.end(`${rpcArgs.join('\n')}\n`);
+  else child.stdin.end();
+  let terminal;
+  try {
+    terminal = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve({ code, signal }));
+    });
+  } catch (error) {
+    throw new Error(`layer1 ${method} transport: ${error.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+  const output = Buffer.concat(stdout).toString('utf8');
+  const errorOutput = Buffer.concat(stderr).toString('utf8');
+  if (outputExceeded) throw new Error(`layer1 ${method}: RPC output exceeded the 64 MiB limit`);
+  if (terminal.code !== 0 || terminal.signal !== null) {
+    throw new Error(`layer1 ${method}: ${String(errorOutput || output || `remote command failed (${terminal.signal ?? `exit ${terminal.code}`})`).slice(0, 2000)}`);
+  }
+  return output.trim();
 }
 
 function parseFirstJsonObject(raw) {
@@ -243,6 +351,168 @@ function parseFirstJsonObject(raw) {
     }
   }
   throw new Error('unterminated JSON object');
+}
+
+function parseLayer1ChipnetGenesis(value) {
+  const genesis = String(value).trim().toLowerCase();
+  if (!TXID.test(genesis)) {
+    throw new Error('layer1 BCHN getblockhash(0) returned a malformed hash');
+  }
+  if (genesis !== CHIPNET_GENESIS_HASH) {
+    throw new Error(
+      `layer1-node BCHN is not Chipnet: genesis ${genesis} differs from ${CHIPNET_GENESIS_HASH}`,
+    );
+  }
+  return genesis;
+}
+
+function layer1BchnCall(executeLayer1Cli, method, args = []) {
+  validateLayer1Arguments(method, args);
+  return executeLayer1Cli(method, args);
+}
+
+async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
+  if (typeof executeLayer1Cli !== 'function') {
+    throw new Error('layer1 BCHN executor is required');
+  }
+
+  const methodCounts = Object.fromEntries(PRODUCT_RPC_METHODS.map((method) => [method, 0]));
+  const call = async (method, args = []) => {
+    if (!Object.hasOwn(methodCounts, method)) {
+      throw new Error(`layer1 product method refused: ${method}`);
+    }
+    validateLayer1Arguments(method, args);
+    methodCounts[method] += 1;
+    return executeLayer1Cli(method, args);
+  };
+
+  // This is intentionally a direct BCHN network proof, rather than an SSH
+  // availability probe. A reachable mainnet/regtest node must never acquire
+  // this Chipnet capability.
+  const genesis = parseLayer1ChipnetGenesis(
+    await call('getblockhash', [0]),
+  );
+  const rpc = {
+    backend: LAYER1_BCHN_CHIPNET_BACKEND,
+    label: 'layer1-node BCHN Chipnet',
+    network: 'chipnet',
+    genesis,
+    async getrawtransaction(txid, verbose = false) {
+      const result = await call(
+        'getrawtransaction',
+        [String(txid).toLowerCase(), Boolean(verbose)],
+      );
+      return verbose ? JSON.parse(result) : String(result).trim();
+    },
+    async gettxout(txid, vout) {
+      let result;
+      try {
+        result = await call(
+          'gettxout',
+          [String(txid).toLowerCase(), Number(vout), true],
+        );
+      } catch (error) {
+        // BCHN returns null for a spent/missing output. Transport/RPC errors
+        // remain errors so callers do not mistake an unavailable node for a
+        // safely spent UTXO.
+        throw error;
+      }
+      const text = String(result).trim();
+      return text === 'null' ? null : JSON.parse(text);
+    },
+    async scanAddress(address) {
+      const raw = await call(
+        'scantxoutset',
+        ['start', String(address)],
+      );
+      const result = parseFirstJsonObject(String(raw));
+      if (!Array.isArray(result.unspents)) {
+        throw new Error('layer1 BCHN scantxoutset returned no unspents array');
+      }
+      return result.unspents.map((entry, index) => {
+        if (
+          entry === null
+          || typeof entry !== 'object'
+          || !TXID.test(entry.txid)
+          || !Number.isSafeInteger(entry.vout)
+          || entry.vout < 0
+          || typeof entry.amount !== 'number'
+          || !Number.isFinite(entry.amount)
+          || entry.amount < 0
+        ) {
+          throw new Error(`layer1 BCHN scantxoutset unspent ${index} is malformed`);
+        }
+        const sats = Math.round(entry.amount * 1e8);
+        if (!Number.isSafeInteger(sats)) {
+          throw new Error(`layer1 BCHN scantxoutset unspent ${index} amount is unsafe`);
+        }
+        return { txid: entry.txid, vout: entry.vout, sats };
+      });
+    },
+    async testmempoolaccept(hex) {
+      // This calls BCHN directly. Unlike the generic Electrum compatibility
+      // handle, it never synthesizes an optimistic acceptance response.
+      return JSON.parse(await call(
+        'testmempoolaccept',
+        [String(hex).toLowerCase()],
+      ));
+    },
+    async sendrawtransaction(hex) {
+      return String(await call(
+        'sendrawtransaction',
+        [String(hex).toLowerCase(), true],
+      )).trim();
+    },
+    observation() {
+      return Object.freeze({
+        backend: LAYER1_BCHN_CHIPNET_BACKEND,
+        genesis,
+        methodCounts: Object.freeze({ ...methodCounts }),
+      });
+    },
+  };
+  Object.freeze(rpc);
+  layer1BchnChipnetCapabilities.add(rpc);
+  return rpc;
+}
+
+/**
+ * Create the real BCHN-only Chipnet capability over the fixed `layer1-node`
+ * SSH route. It neither reads SHIELDKIT_RPC_URL nor tries Electrum, and it
+ * verifies BCHN's actual genesis hash before returning any send capability.
+ */
+export async function createLayer1BchnChipnetRpc() {
+  return createLayer1BchnChipnetRpcInternal({
+    executeLayer1Cli: layer1Cli,
+  });
+}
+
+/**
+ * Test-only seam for the BCHN-only capability. Production callers must use
+ * createLayer1BchnChipnetRpc(), which fixes the transport to layer1-node.
+ */
+export async function createLayer1BchnChipnetRpcForTest({
+  executeLayer1Cli,
+} = {}) {
+  return createLayer1BchnChipnetRpcInternal({ executeLayer1Cli });
+}
+
+/** Require a capability created by the fixed layer1-node BCHN constructor. */
+export function assertLayer1BchnChipnetRpc(value) {
+  if (value === null || typeof value !== 'object'
+    || !layer1BchnChipnetCapabilities.has(value)) {
+    throw new Error('a real layer1-node BCHN Chipnet RPC capability is required');
+  }
+  return value;
+}
+
+/** Return a frozen, secret-free exact transport observation for the branded product RPC. */
+export function observeLayer1BchnChipnetRpc(value) {
+  const rpc = assertLayer1BchnChipnetRpc(value);
+  if (typeof rpc.observation !== 'function') {
+    throw new Error('layer1 BCHN Chipnet observation capability is unavailable');
+  }
+  return rpc.observation();
 }
 
 /**
@@ -404,7 +674,7 @@ export async function createChainRpc(opts = {}) {
       label: 'layer1-node',
       network: 'chipnet',
       async getrawtransaction(txid, verbose = false) {
-        const result = layer1Cli(
+        const result = await layer1Cli(
           'getrawtransaction',
           [String(txid).toLowerCase(), Boolean(verbose)],
         );
@@ -412,7 +682,7 @@ export async function createChainRpc(opts = {}) {
       },
       async gettxout(txid, vout) {
         try {
-          const t = layer1Cli('gettxout', [String(txid).toLowerCase(), Number(vout), true]);
+          const t = await layer1Cli('gettxout', [String(txid).toLowerCase(), Number(vout), true]);
           if (!t || t === 'null') return null;
           return JSON.parse(t);
         } catch {
@@ -420,7 +690,7 @@ export async function createChainRpc(opts = {}) {
         }
       },
       async scanAddress(address) {
-        const raw = layer1Cli('scantxoutset', ['start', address]);
+        const raw = await layer1Cli('scantxoutset', ['start', address]);
         const res = parseFirstJsonObject(raw);
         return (res.unspents || []).map((u) => ({
           txid: u.txid,
@@ -429,13 +699,13 @@ export async function createChainRpc(opts = {}) {
         }));
       },
       async testmempoolaccept(hex) {
-        return JSON.parse(layer1Cli('testmempoolaccept', [String(hex).toLowerCase()]));
+        return JSON.parse(await layer1Cli('testmempoolaccept', [String(hex).toLowerCase()]));
       },
       async sendrawtransaction(hex) {
         return layer1Cli('sendrawtransaction', [String(hex).toLowerCase(), true]);
       },
       async getblockcount() {
-        return Number(layer1Cli('getblockcount', []));
+        return Number(await layer1Cli('getblockcount', []));
       },
     };
   }

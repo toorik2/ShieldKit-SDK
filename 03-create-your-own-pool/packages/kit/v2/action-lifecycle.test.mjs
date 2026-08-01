@@ -21,9 +21,12 @@ import {
   deriveV2Pf10StoreRuntimeMaterialsSha256,
 } from '../../profile/v2/instance-descriptor.mjs';
 import {
+  createV2BetaChipnetActionLifecycle,
   createV2DirectActionLifecycle,
+  inspectV2BetaChipnetOperationProofRecord,
   inspectV2OperationProofRecord,
   V2ActionLifecycleError,
+  V2_BETA_CHIPNET_ACTION_ACKNOWLEDGEMENT,
 } from '@shieldkit/kit/v2';
 import {
   V2_ACTION_LIFECYCLE_CRASH_STAGES as lifecycleCrashStages,
@@ -162,6 +165,46 @@ test('action lifecycle factory rejects non-exact public option shapes before int
   );
 });
 
+test('beta lifecycle is a distinct acknowledged capability lane and cannot widen normal admission', async () => {
+  await assert.rejects(
+    createV2BetaChipnetActionLifecycle(undefined),
+    rejectsLifecycleInput,
+  );
+  await assert.rejects(
+    createV2BetaChipnetActionLifecycle({
+      acknowledgement: V2_BETA_CHIPNET_ACTION_ACKNOWLEDGEMENT,
+      betaDeployment: {},
+      fundingWallet: {},
+      loadRawTransaction: async () => '',
+      profileCore: {},
+      privateActionStore: {},
+      proofWorkspaceDirectory: '/tmp',
+      runtimeResolution: {},
+      store: {},
+      synchronizeCanonicalTip: async () => ({}),
+      normalDescriptor: {},
+    }),
+    rejectsLifecycleInput,
+  );
+  const source = await readFile(new URL('./action-lifecycle.mjs', import.meta.url), 'utf8');
+  const normal = source.slice(
+    source.indexOf('export async function createV2DirectActionLifecycle'),
+    source.indexOf('\nfunction assertBetaChipnetRuntimeBinding'),
+  );
+  const beta = source.slice(
+    source.indexOf('export async function createV2BetaChipnetActionLifecycle'),
+    source.indexOf('\nexport function inspectV2OperationProofRecord'),
+  );
+  assert.match(normal, /buildActionWitness: buildDirectV2Pf10ActionWitness/);
+  assert.match(normal, /deriveV2Pf10RuntimeFromValidatedDescriptor/);
+  assert.doesNotMatch(normal, /BetaActionWitness|BetaChipnetRuntime/);
+  assert.match(beta, /buildActionWitness: buildDirectV2Pf10BetaActionWitness/);
+  assert.match(beta, /assertV2BetaChipnetRuntimeResolution\(value\.runtimeResolution\)/);
+  assert.match(beta, /assertV2BetaChipnetDeploymentCapability\(value\.betaDeployment\)/);
+  assert.match(beta, /deriveV2BetaChipnetSettlementPins\(value\.runtimeResolution\)/);
+  assert.match(beta, /BETA_ACKNOWLEDGEMENT_REQUIRED/);
+});
+
 test('descriptor and runtime admission reject lookalikes by validation identity', async () => {
   const lookalikeDescriptor = Object.freeze({
     schema: 'shieldkit-v2-instance-descriptor-v1',
@@ -197,6 +240,26 @@ test('proof-record inspector rejects non-exact public option shapes before decod
     }),
     rejectsLifecycleInput,
   );
+});
+
+test('beta proof-record inspector is separate and rejects normal runtime lookalikes', () => {
+  assert.throws(
+    () => inspectV2BetaChipnetOperationProofRecord(Buffer.alloc(0), {
+      profileCore: null,
+      runtimeResolution: null,
+      normalRuntime: {},
+    }),
+    rejectsLifecycleInput,
+  );
+  const source = readFile(new URL('./action-lifecycle.mjs', import.meta.url), 'utf8');
+  return source.then((text) => {
+    const betaInspector = text.slice(
+      text.indexOf('export function inspectV2BetaChipnetOperationProofRecord'),
+    );
+    assert.match(betaInspector, /assertV2BetaChipnetRuntimeResolution/);
+    assert.match(betaInspector, /inspectBetaProofRecord/);
+    assert.doesNotMatch(betaInspector, /inspectProofRecord\(bytesValue/);
+  });
 });
 
 test('private action durability survives reload and rejects stale V12 record or sequence bindings', async (t) => {

@@ -2,6 +2,8 @@ import { TextDecoder } from 'node:util';
 import { createRequire } from 'node:module';
 import {
   ConsensusBch2025,
+  createInstructionSetBch2026,
+  createVirtualMachine,
   createVirtualMachineBch2026,
   decodeTransaction,
   maximumSignatureCheckCount,
@@ -39,6 +41,7 @@ const METRIC_FIELDS = Object.freeze([
   'signatureCheckCount',
   'stackPushedBytes',
 ]);
+const verifiedEvidenceCapabilities = new WeakMap();
 
 export class V2VmEvidenceError extends Error {
   constructor(code, message) {
@@ -482,7 +485,37 @@ function evaluateExactStandardTransaction({ transaction, inputs }) {
     }
     return output;
   });
-  const vm = createFreshStandardVm();
+  const evaluatedStates = Array(inputs.length);
+  const instructionSet = createInstructionSetBch2026(true);
+  const baseVerify = instructionSet.verify;
+  if (typeof baseVerify !== 'function') {
+    fail(
+      'VM_TOOL_FAILURE',
+      'installed BCH_2026_STANDARD instruction set has no transaction verifier',
+    );
+  }
+  const vm = createVirtualMachine({
+    ...instructionSet,
+    verify: (resolvedTransaction, tools) => baseVerify(
+      resolvedTransaction,
+      {
+        ...tools,
+        evaluate: (program) => {
+          const index = program?.inputIndex;
+          if (!Number.isSafeInteger(index) || index < 0 || index >= inputs.length
+            || evaluatedStates[index] !== undefined) {
+            fail(
+              'VM_TOOL_FAILURE',
+              'installed BCH_2026_STANDARD verifier evaluated an invalid or duplicate input index',
+            );
+          }
+          const state = tools.evaluate(program);
+          evaluatedStates[index] = state;
+          return state;
+        },
+      },
+    ),
+  });
   const verdict = vm.verify({
     sourceOutputs,
     transaction: decodedTransaction,
@@ -493,13 +526,15 @@ function evaluateExactStandardTransaction({ transaction, inputs }) {
       `installed BCH_2026_STANDARD Libauth rejected the exact resolved transaction: ${verdict}`,
     );
   }
+  if (evaluatedStates.some((state) => state === undefined)) {
+    fail(
+      'VM_TOOL_FAILURE',
+      'installed BCH_2026_STANDARD verifier did not evaluate every transaction input',
+    );
+  }
   return Object.freeze(
     inputs.map((input, index) => {
-      const state = vm.evaluate({
-        inputIndex: index,
-        sourceOutputs,
-        transaction: decodedTransaction,
-      });
+      const state = evaluatedStates[index];
       const success = vm.stateSuccess(state);
       if (success !== true) {
         fail(
@@ -1019,7 +1054,12 @@ export function createV2LocalVmEvidence(value) {
     ...core,
     evidenceHash: sha256Hex(canonicalizeV2Evidence(core)),
   });
-  return Buffer.from(canonicalizeV2Evidence(evidence), 'utf8');
+  const bytes = Buffer.from(canonicalizeV2Evidence(evidence), 'utf8');
+  verifiedEvidenceCapabilities.set(bytes, Object.freeze({
+    bytesSha256: sha256Hex(bytes),
+    evidence,
+  }));
+  return bytes;
 }
 
 export function inspectV2LocalVmEvidence(bytes) {
@@ -1029,6 +1069,11 @@ export function inspectV2LocalVmEvidence(bytes) {
       'local VM evidence must be nonempty bytes',
     );
   }
+  const cached = verifiedEvidenceCapabilities.get(bytes);
+  if (cached !== undefined && cached.bytesSha256 === sha256Hex(bytes)) {
+    return cached.evidence;
+  }
+  if (cached !== undefined) verifiedEvidenceCapabilities.delete(bytes);
   let text;
   try {
     text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -1047,5 +1092,24 @@ export function inspectV2LocalVmEvidence(bytes) {
       'VM evidence must use exact canonical JSON bytes',
     );
   }
-  return evidenceCore(value, { allowHash: true });
+  const evidence = evidenceCore(value, { allowHash: true });
+  verifiedEvidenceCapabilities.set(bytes, Object.freeze({
+    bytesSha256: sha256Hex(bytes),
+    evidence,
+  }));
+  return evidence;
+}
+
+/** Secret-free public projection of an exact local VM evaluation. */
+export function projectV2LocalVmEvidenceTelemetry(bytes) {
+  const evidence = inspectV2LocalVmEvidence(bytes);
+  return Object.freeze({
+    schema: 'shieldkit-v2-local-vm-telemetry-v1',
+    allInputsAccepted: evidence.allInputsAccepted,
+    inputs: Object.freeze(evidence.inputs.map((input) => Object.freeze({
+      index: input.index,
+      accepted: input.accepted,
+      metrics: Object.freeze({ ...input.metrics }),
+    }))),
+  });
 }

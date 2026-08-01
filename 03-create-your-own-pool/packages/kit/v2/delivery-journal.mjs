@@ -94,6 +94,12 @@ CREATE TABLE IF NOT EXISTS delivery_records (
     (state!='indeterminate' AND reason IS NULL)
   )
 ) STRICT;
+CREATE TABLE IF NOT EXISTS safe_pre_send_abort_markers (
+  operation_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN ('deposit','withdrawal')),
+  reason TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL
+) STRICT;
 `;
 
 export class V2DeliveryJournalError extends Error {
@@ -486,9 +492,37 @@ export class V2DeliveryJournal {
     );
   }
 
+  markSafePreSendAbort(value) {
+    exact(value, ['kind', 'operationId', 'reason'], 'markSafePreSendAbort');
+    const id = operationId(value.operationId);
+    if (!['deposit', 'withdrawal'].includes(value.kind)) fail('INVALID_DELIVERY_RECORD', 'safe pre-send abort kind is invalid');
+    const why = reason(value.reason);
+    return this.#transaction((db) => {
+      if (db.prepare('SELECT 1 FROM delivery_records WHERE operation_id=?').get(id)) {
+        fail('DELIVERY_STATE_MISMATCH', 'an operation with a delivery claim cannot become a safe pre-send abort');
+      }
+      const prior = db.prepare('SELECT * FROM safe_pre_send_abort_markers WHERE operation_id=?').get(id);
+      if (prior) {
+        if (prior.kind !== value.kind || prior.reason !== why) fail('DIVERGENT_DELIVERY_RECORD', 'safe pre-send abort marker differs from its prior value');
+        return Object.freeze({ operationId: id, kind: prior.kind, reason: prior.reason });
+      }
+      db.prepare('INSERT INTO safe_pre_send_abort_markers VALUES(?,?,?,?)').run(id, value.kind, why, Date.now());
+      return Object.freeze({ operationId: id, kind: value.kind, reason: why });
+    });
+  }
+
+  safePreSendAbortMarker(requestedOperationId) {
+    const id = operationId(requestedOperationId);
+    const row = this.#open().prepare('SELECT * FROM safe_pre_send_abort_markers WHERE operation_id=?').get(id);
+    return row === undefined ? null : Object.freeze({ operationId: id, kind: row.kind, reason: row.reason });
+  }
+
   claimOrCreate(value) {
     const identity = normalizeIdentity(value, 'claimOrCreate');
     return this.#transaction((db) => {
+      if (db.prepare('SELECT 1 FROM safe_pre_send_abort_markers WHERE operation_id=?').get(identity.operationId)) {
+        fail('DELIVERY_STATE_MISMATCH', 'a safe pre-send abort marker permanently forbids a send claim');
+      }
       const byOperation = db
         .prepare(
           'SELECT * FROM delivery_records WHERE operation_id=?',
@@ -885,6 +919,8 @@ export function assertV2DeliveryJournal(value) {
     typeof value.claimOrCreate !== 'function' ||
     typeof value.claimExactResubmission !== 'function' ||
     typeof value.record !== 'function' ||
+    typeof value.markSafePreSendAbort !== 'function' ||
+    typeof value.safePreSendAbortMarker !== 'function' ||
     typeof value.markSubmitted !== 'function' ||
     typeof value.markIndeterminate !== 'function' ||
     typeof value.reconcileObserved !== 'function' ||

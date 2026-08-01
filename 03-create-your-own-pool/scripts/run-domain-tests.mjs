@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import {
   chmodSync,
@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { chmod, mkdtemp, open, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
@@ -105,6 +105,47 @@ const Q07_PORTABLE_SUPPORT_TESTS = new Map([
   ['scripts/v2-q07-local-blocked-evidence.test.mjs', 'Q-07 honest blocked-evidence adapter support test'],
   ['scripts/v2-q07-performance-harness.test.mjs', 'Q-07 small-fixture harness boundary support test'],
   ['scripts/v2-q07-store-worker.test.mjs', 'Q-07 store-worker boundary support test'],
+]);
+// Product CLI, receipt, offline-installer, and native-prover tests use only
+// generated private fixtures. They are explicitly listed so a new product
+// security test cannot silently fall through a future suite change: it must
+// be registered here and remains mandatory in both `npm test` and the focused
+// immutable CI job.
+const BETA_PRODUCT_PORTABLE_SECURITY_TESTS = new Map([
+  ['packages/kit/v2/beta-product-action-lifecycle.test.mjs', 'product action lifecycle security test'],
+  ['packages/kit/v2/beta-product-cli.test.mjs', 'product CLI boundary test'],
+  ['packages/kit/v2/beta-product-commands.test.mjs', 'product command boundary test'],
+  ['packages/kit/v2/beta-product-config.test.mjs', 'product private configuration test'],
+  ['packages/kit/v2/beta-product-context.test.mjs', 'product receipt-bound context test'],
+  ['packages/kit/v2/beta-product-pool-create-action-store.test.mjs', 'product pool-create action-store test'],
+  ['packages/kit/v2/beta-product-pool-create-journal.test.mjs', 'product pool-create journal test'],
+  ['packages/kit/v2/beta-product-pool-create.test.mjs', 'product pool-create test'],
+  ['packages/kit/v2/beta-product-pool-funding.test.mjs', 'product pool funding test'],
+  ['packages/kit/v2/beta-product-session.test.mjs', 'product session lifecycle test'],
+  ['packages/kit/v2/beta-product-wallet.test.mjs', 'product wallet test'],
+  ['packages/kit/v2/beta-qualification-evidence.test.mjs', 'product evidence redaction/schema test'],
+  ['packages/kit/v2/beta-zero-conf-admission.test.mjs', 'product zero-conf admission test'],
+  ['packages/profile/v2/beta-chipnet-runtime-cache.test.mjs', 'product runtime-cache receipt test'],
+  ['packages/profile/v2/beta-product-artifact-installation.test.mjs', 'product artifact-install receipt test'],
+  ['packages/profile/v2/beta-product-offline-bootstrap.test.mjs', 'product offline-installer restart/security test'],
+  ['packages/profile/v2/beta-product-offline-bundle-packer.test.mjs', 'product offline-bundle packing/security test'],
+  ['packages/prove/v2/native-groth16-proof-child.test.mjs', 'product native proof child boundary test'],
+  ['packages/prove/v2/native-groth16-proof-worker.test.mjs', 'product native proof workspace security test'],
+  ['packages/prove/v2/native-groth16-prover-installation.test.mjs', 'product native prover receipt/cache test'],
+  ['scripts/v2-beta-live-action-evidence.test.mjs', 'product live-action evidence validator test'],
+  ['scripts/v2-beta-live-evidence-bundle-verify.test.mjs', 'product independent live evidence-bundle verifier test'],
+  ['scripts/v2-beta-live-pool-create-performance.test.mjs', 'product fresh pool-create performance evidence test'],
+]);
+const BETA_RUNTIME_QUALIFICATION_TESTS = new Map([
+  ['packages/profile/v2/beta-chipnet-runtime.test.mjs', 'requires an explicitly supplied private beta runtime fixture and fails closed when it is absent'],
+  ['packages/unlock-builder/v2/pf10-beta-runtime-qualification.test.mjs', 'requires an explicitly supplied private PF10 beta runtime artifact closure and fails closed when it is absent'],
+]);
+// `/proc/<pid>` sampling in this exact native-child contract intentionally
+// measures a short-lived subprocess. It is therefore not independent of a
+// saturated process table. Keep its measurement semantics strict and run it
+// alone; every other selected file still uses the all-core worker pool.
+const EXCLUSIVE_DOMAIN_TEST_FILES = new Set([
+  'packages/prove/v2/native-groth16-proof-child.test.mjs',
 ]);
 // `node:test` gives the full production depth-4 state-space check five minutes.
 // The process supervisor must permit that declared test timeout plus TAP/SQLite
@@ -314,6 +355,8 @@ const SUITES = new Set([
   'local-depth4-campaign',
   'q03-portable-support',
   'q07-portable-support',
+  'beta-product-security',
+  'beta-runtime-qualification',
 ]);
 const SKIP_OR_TODO_SOURCE = /(?:\b(?:test|it|describe|suite|t)\s*\.\s*(?:skip|todo)\s*\(|\b(?:skip|todo)\s*:)/;
 const NODE_TEST_DECLARATION = /\b(?:test|it|describe|suite)\s*\(/;
@@ -2233,6 +2276,26 @@ export async function assertLocalVerifierRuntimeCoherence(options = {}) {
 }
 
 function classify(relativePath) {
+  const betaRuntimeQualificationReason = BETA_RUNTIME_QUALIFICATION_TESTS.get(relativePath);
+  if (betaRuntimeQualificationReason !== undefined) {
+    return Object.freeze({
+      classification: 'beta-runtime-qualification',
+      reason: `${betaRuntimeQualificationReason}; run only via test:qualification:beta-runtime with the fixture environment required by that test`,
+    });
+  }
+  const betaProductReason = BETA_PRODUCT_PORTABLE_SECURITY_TESTS.get(relativePath);
+  if (betaProductReason !== undefined) {
+    return Object.freeze({
+      classification: 'beta-product-portable-security',
+      reason: `${betaProductReason}; mandatory via npm test and test:beta-product:security`,
+    });
+  }
+  if ((relativePath.startsWith('packages/kit/v2/beta-product-')
+    || relativePath.startsWith('packages/profile/v2/beta-product-')
+    || relativePath.startsWith('packages/prove/v2/native-groth16-'))
+    && relativePath.endsWith('.test.mjs')) {
+    fail(`${relativePath} must be explicitly registered as mandatory beta-product portable security coverage`);
+  }
   const externalReason = EXTERNAL_FIXTURE_TESTS.get(relativePath);
   if (externalReason !== undefined) {
     return Object.freeze({
@@ -2836,7 +2899,7 @@ export function discoverDomainTests({ projectRoot = project } = {}) {
 export function selectDomainTests(discovery, suite = 'portable') {
   if (!SUITES.has(suite)) fail(`unknown test suite: ${suite}`);
   const classifications = {
-    portable: new Set(['portable', 'q03-portable-support', 'q07-portable-support']),
+    portable: new Set(['portable', 'q03-portable-support', 'q07-portable-support', 'beta-product-portable-security']),
     'external-fixtures': new Set(['external-fixture']),
     'external-verifier-source': new Set(['external-verifier-source-qualification']),
     'local-covenants': new Set(['local-covenant-qualification']),
@@ -2845,6 +2908,8 @@ export function selectDomainTests(discovery, suite = 'portable') {
     'local-depth4-campaign': new Set(['local-depth4-campaign']),
     'q03-portable-support': new Set(['q03-portable-support']),
     'q07-portable-support': new Set(['q07-portable-support']),
+    'beta-product-security': new Set(['beta-product-portable-security']),
+    'beta-runtime-qualification': new Set(['beta-runtime-qualification']),
   }[suite];
   const selected = discovery.tests.filter((record) => classifications.has(record.classification));
   if (selected.length === 0) fail(`test suite ${suite} selected no files`);
@@ -2989,23 +3054,169 @@ export function fileTimeoutForDomainTest(record, { defaultTimeoutMs = 180_000 } 
     ?? defaultTimeoutMs;
 }
 
-export function runSelectedDomainTests(
+/**
+ * Determine a bounded worker count for independent test files. The override
+ * exists only on this exported test seam; the CLI always consumes every core
+ * reported by Node's scheduler-aware availableParallelism().
+ */
+export function domainTestParallelism(selectedCount, { testParallelism = undefined } = {}) {
+  if (!Number.isSafeInteger(selectedCount) || selectedCount <= 0) {
+    fail(`invalid selected test count: ${selectedCount}`);
+  }
+  const available = availableParallelism();
+  if (!Number.isSafeInteger(available) || available <= 0) {
+    fail(`invalid available parallelism: ${available}`);
+  }
+  if (testParallelism !== undefined
+    && (!Number.isSafeInteger(testParallelism) || testParallelism <= 0)) {
+    fail(`invalid test-only parallelism override: ${testParallelism}`);
+  }
+  return Math.min(selectedCount, testParallelism ?? available);
+}
+
+export function isExclusiveDomainTestFile(record) {
+  return record !== null
+    && typeof record === 'object'
+    && EXCLUSIVE_DOMAIN_TEST_FILES.has(record.relativePath);
+}
+
+function startDomainTestFile(record, {
+  cwd,
+  environment,
+  timeoutMs,
+}) {
+  const temporary = createDomainTestTemporaryDirectory(cwd);
+  const childEnvironment = { ...environment };
+  delete childEnvironment.NODE_TEST_CONTEXT;
+  childEnvironment.TMPDIR = temporary.directory;
+  childEnvironment.TMP = temporary.directory;
+  childEnvironment.TEMP = temporary.directory;
+  let child;
+  let timeout = undefined;
+  let cancellationRequested = false;
+  let timedOut = false;
+  let settled = false;
+  const promise = new Promise((resolve) => {
+    const finish = (outcome) => {
+      if (settled) return;
+      settled = true;
+      if (timeout !== undefined) clearTimeout(timeout);
+      let cleanupError;
+      try {
+        removeDomainTestTemporaryDirectory(temporary);
+      } catch (error) {
+        cleanupError = error;
+      }
+      resolve(Object.freeze({
+        record,
+        temporaryDirectory: temporary.directory,
+        ...outcome,
+        cancellationRequested,
+        timedOut,
+        cleanupError,
+      }));
+    };
+    try {
+      child = spawn(process.execPath, [
+        '--test',
+        '--test-reporter=tap',
+        '--test-concurrency=1',
+        record.path,
+      ], {
+        cwd,
+        env: childEnvironment,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      finish({ error, signal: null, status: null, stderr: '', stdout: '' });
+      return;
+    }
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.once('error', (error) => {
+      finish({ error, signal: null, status: null, stderr, stdout });
+    });
+    child.once('close', (status, signal) => {
+      finish({ error: undefined, signal, status, stderr, stdout });
+    });
+    timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
+  });
+  return Object.freeze({
+    promise,
+    cancel() {
+      cancellationRequested = true;
+      if (child !== undefined && !settled) child.kill('SIGKILL');
+    },
+  });
+}
+
+function domainTestResultError(result) {
+  const { record, timeoutMs } = result;
+  if (result.cleanupError !== undefined) {
+    return `${record.relativePath}: domain test temporary cleanup failed: ${result.cleanupError.message}`;
+  }
+  if (result.timedOut) {
+    return `${record.relativePath}: node test runner timed out after ${timeoutMs}ms`;
+  }
+  if (result.error !== undefined) {
+    return `${record.relativePath}: node test runner could not start: ${result.error.message}`;
+  }
+  if (result.cancellationRequested) {
+    return `${record.relativePath}: node test runner cancelled after another test-file failure`;
+  }
+  const summary = tapSummary(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
+  if (result.status !== 0 || result.signal !== null) {
+    return `${record.relativePath}: node test runner failed: exit=${result.status ?? 'none'} signal=${result.signal ?? 'none'}`;
+  }
+  for (const field of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
+    if (!Number.isSafeInteger(summary[field])) {
+      return `${record.relativePath}: node test runner omitted TAP summary field ${field}`;
+    }
+  }
+  if (summary.fail !== 0 || summary.cancelled !== 0 || summary.skipped !== 0 || summary.todo !== 0) {
+    return `${record.relativePath}: node test runner was not fully executed: ${JSON.stringify(summary)}`;
+  }
+  if (summary.tests === 0 || summary.pass === 0) {
+    return `${record.relativePath}: node test runner reported an empty suite`;
+  }
+  return undefined;
+}
+
+export async function runSelectedDomainTests(
   selected,
   {
     cwd = project,
     environment = process.env,
     fileTimeoutMs = 180_000,
+    // This is deliberately unavailable from CLI/environment configuration.
+    // Tests use it to assert bounded scheduling deterministically.
+    testParallelism = undefined,
   } = {},
 ) {
   if (!Number.isSafeInteger(fileTimeoutMs) || fileTimeoutMs <= 0) {
     fail(`invalid per-file timeout: ${fileTimeoutMs}`);
   }
-  const childEnvironment = { ...environment };
-  delete childEnvironment.NODE_TEST_CONTEXT;
-  const temporary = createDomainTestTemporaryDirectory(cwd);
-  childEnvironment.TMPDIR = temporary.directory;
-  childEnvironment.TMP = temporary.directory;
-  childEnvironment.TEMP = temporary.directory;
+  if (!Array.isArray(selected) || selected.length === 0) {
+    fail('selected domain tests must be a nonempty array');
+  }
+  const parallelIndices = selected
+    .map((record, index) => ({ record, index }))
+    .filter(({ record }) => !isExclusiveDomainTestFile(record))
+    .map(({ index }) => index);
+  const exclusiveIndices = selected
+    .map((record, index) => ({ record, index }))
+    .filter(({ record }) => isExclusiveDomainTestFile(record))
+    .map(({ index }) => index);
+  const parallelism = parallelIndices.length === 0
+    ? 1
+    : domainTestParallelism(parallelIndices.length, { testParallelism });
   const aggregate = {
     files: selected.length,
     tests: 0,
@@ -3015,62 +3226,91 @@ export function runSelectedDomainTests(
     skipped: 0,
     todo: 0,
   };
-  try {
-    for (const [index, record] of selected.entries()) {
+  const results = Array(selected.length);
+  const active = new Map();
+  let nextParallel = 0;
+  let cancellationStarted = false;
+  const launch = (index) => {
+    const record = selected[index];
       const timeoutMs = fileTimeoutForDomainTest(record, {
         defaultTimeoutMs: fileTimeoutMs,
       });
-      process.stderr.write(`${JSON.stringify({
-        phase: 'test-file',
-        index: index + 1,
-        total: selected.length,
-        file: record.relativePath,
-        timeoutMs,
-      })}\n`);
-      const result = spawnSync(process.execPath, [
-        '--test',
-        '--test-reporter=tap',
-        '--test-concurrency=1',
-        record.path,
-      ], {
-        cwd,
-        env: childEnvironment,
-        encoding: 'utf8',
-        maxBuffer: 128 * 1024 * 1024,
-        timeout: timeoutMs,
-        killSignal: 'SIGKILL',
+    const worker = startDomainTestFile(record, { cwd, environment, timeoutMs });
+    const outcome = worker.promise.then((result) => Object.freeze({ index, result: Object.freeze({ ...result, timeoutMs }) }));
+    active.set(index, Object.freeze({ worker, outcome }));
+  };
+  while (nextParallel < parallelIndices.length && active.size < parallelism) {
+    launch(parallelIndices[nextParallel++]);
+  }
+  while (active.size > 0) {
+    const { index, result } = await Promise.race([...active.values()].map(({ outcome }) => outcome));
+    active.delete(index);
+    results[index] = result;
+    if (domainTestResultError(result) !== undefined && !cancellationStarted) {
+      cancellationStarted = true;
+      for (const { worker } of active.values()) worker.cancel();
+    }
+    if (!cancellationStarted && nextParallel < parallelIndices.length) {
+      launch(parallelIndices[nextParallel++]);
+    }
+  }
+  if (!cancellationStarted) {
+    for (const index of exclusiveIndices) {
+      const record = selected[index];
+      const timeoutMs = fileTimeoutForDomainTest(record, {
+        defaultTimeoutMs: fileTimeoutMs,
       });
-      if (result.stdout) process.stdout.write(result.stdout);
-      if (result.stderr) process.stderr.write(result.stderr);
-      if (result.error) {
-        const detail = result.error.code === 'ETIMEDOUT'
-          ? `timed out after ${timeoutMs}ms`
-          : `could not start: ${result.error.message}`;
-        fail(`${record.relativePath}: node test runner ${detail}`);
-      }
-      const summary = tapSummary(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
-      if (result.status !== 0 || result.signal !== null) {
-        fail(`${record.relativePath}: node test runner failed: exit=${result.status ?? 'none'} signal=${result.signal ?? 'none'}`);
-      }
-      for (const field of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
-        if (!Number.isSafeInteger(summary[field])) {
-          fail(`${record.relativePath}: node test runner omitted TAP summary field ${field}`);
-        }
-      }
-      if (summary.fail !== 0 || summary.cancelled !== 0 || summary.skipped !== 0 || summary.todo !== 0) {
-        fail(`${record.relativePath}: node test runner was not fully executed: ${JSON.stringify(summary)}`);
-      }
-      if (summary.tests === 0 || summary.pass === 0) {
-        fail(`${record.relativePath}: node test runner reported an empty suite`);
-      }
-      for (const field of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
-        aggregate[field] += summary[field];
+      const worker = startDomainTestFile(record, { cwd, environment, timeoutMs });
+      const result = await worker.promise;
+      results[index] = Object.freeze({ ...result, timeoutMs });
+      if (domainTestResultError(results[index]) !== undefined) {
+        cancellationStarted = true;
+        break;
       }
     }
-  } finally {
-    removeDomainTestTemporaryDirectory(temporary);
   }
-  process.stderr.write(`${JSON.stringify({ phase: 'test-complete', ...aggregate })}\n`);
+  const failed = results.find((result) => result !== undefined
+    && !result.cancellationRequested
+    && domainTestResultError(result) !== undefined);
+  const completed = results.filter((result) => result !== undefined);
+  for (const result of completed) {
+    const index = selected.indexOf(result.record);
+    process.stderr.write(`${JSON.stringify({
+      phase: 'test-file',
+      index: index + 1,
+      total: selected.length,
+      file: result.record.relativePath,
+      timeoutMs: result.timeoutMs,
+      parallelism,
+    })}\n`);
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+  }
+  if (failed !== undefined) {
+    const notStarted = selected
+      .filter((_, index) => results[index] === undefined)
+      .map((record) => record.relativePath);
+    if (notStarted.length > 0) {
+      process.stderr.write(`${JSON.stringify({
+        phase: 'test-cancelled-before-start',
+        files: notStarted,
+        cause: failed.record.relativePath,
+      })}\n`);
+    }
+    fail(domainTestResultError(failed));
+  }
+  for (const result of completed) {
+    const summary = tapSummary(`${result.stdout}\n${result.stderr}`);
+    for (const field of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
+      aggregate[field] += summary[field];
+    }
+  }
+  process.stderr.write(`${JSON.stringify({
+    phase: 'test-complete',
+    parallelism,
+    exclusiveFiles: exclusiveIndices.length,
+    ...aggregate,
+  })}\n`);
   return Object.freeze(aggregate);
 }
 
@@ -3082,7 +3322,7 @@ function parse(argv) {
   if (argv.length === 2 && argv[0] === '--suite' && SUITES.has(argv[1])) {
     return Object.freeze({ suite: argv[1], provisionOnly: false });
   }
-  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q03-portable-support|q07-portable-support] | --provision-local-verifier-artifacts');
+  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q03-portable-support|q07-portable-support|beta-product-security|beta-runtime-qualification] | --provision-local-verifier-artifacts');
 }
 
 export async function runDomainTests({ suite = 'portable', projectRoot = project, provisionOnly = false } = {}) {
@@ -3121,7 +3361,7 @@ export async function runDomainTests({ suite = 'portable', projectRoot = project
   return Object.freeze({
     discovery,
     selected,
-    summary: runSelectedDomainTests(selected, { cwd: projectRoot }),
+    summary: await runSelectedDomainTests(selected, { cwd: projectRoot }),
   });
 }
 

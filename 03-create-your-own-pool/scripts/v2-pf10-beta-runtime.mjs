@@ -160,12 +160,34 @@ async function safeRead(filename, label, { canonicalJson = false, local = false 
   } finally { await handle.close(); }
 }
 
-async function outputStage(outputDirectory) {
-  const output = path.resolve(outputDirectory); repoRelative(output, 'output directory');
+async function privateOutputRoot(value, label) {
+  const root = path.resolve(value);
+  const metadata = await lstat(root);
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()
+    || (metadata.mode & 0o077) !== 0 || await realpath(root) !== root) {
+    fail(`${label} must be a private canonical directory`);
+  }
+  return root;
+}
+
+function relativeWithin(root, candidate, label, { allowEqual = false } = {}) {
+  const relative = path.relative(root, candidate);
+  if ((!allowEqual && relative === '') || relative === '..'
+    || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    fail(`${label} escapes its allowed private root`);
+  }
+  return relative;
+}
+
+async function outputStage(outputDirectory, allowedOutputRoot) {
+  const root = await privateOutputRoot(allowedOutputRoot, 'allowed output root');
+  const output = path.resolve(outputDirectory);
+  relativeWithin(root, output, 'output directory');
   try { await lstat(output); fail('output directory must not already exist'); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
-  const parent = path.dirname(output); repoRelative(parent, 'output parent');
-  const relative = repoRelative(parent, 'output parent'); let current = ROOT;
-  for (const component of relative.split('/')) {
+  const parent = path.dirname(output);
+  const relative = relativeWithin(root, parent, 'output parent', { allowEqual: true });
+  let current = root;
+  for (const component of relative === '' ? [] : relative.split(path.sep)) {
     current = path.join(current, component);
     let metadata;
     try { metadata = await lstat(current); } catch (error) {
@@ -207,7 +229,18 @@ async function evidenceArtifact(record, label) {
 }
 function cloneLocalEvidence(evidence, finalOutput) {
   const copy = structuredClone(evidence);
-  const local = (record, relative) => ({ bytes: record.bytes, path: repoRelative(path.join(finalOutput, relative), 'beta runtime evidence'), sha256: record.sha256 });
+  const local = (record, relative) => {
+    const filename = path.join(finalOutput, relative);
+    const repositoryRelative = path.relative(ROOT, filename);
+    const external = repositoryRelative === '' || repositoryRelative === '..'
+      || repositoryRelative.startsWith(`..${path.sep}`) || path.isAbsolute(repositoryRelative);
+    return {
+      bytes: record.bytes,
+      path: external ? filename : repositoryRelative.split(path.sep).join('/'),
+      ...(external ? { pathScope: 'absolute' } : {}),
+      sha256: record.sha256,
+    };
+  };
   copy.sourceArtifacts.profileCore = local(evidence.sourceArtifacts.profileCore, 'profile/profile-core.json');
   copy.sourceArtifacts.r1cs = local(evidence.sourceArtifacts.r1cs, 'proof/main-chipnet.r1cs');
   copy.sourceArtifacts.wasm = local(evidence.sourceArtifacts.wasm, 'proof/main-chipnet.wasm');
@@ -277,13 +310,26 @@ async function emitBuild(stage, artifacts, refs, build) {
     refs.repro[name] = [];
     for (const [index, entry] of programs.entries()) {
       const suffix = Array.isArray(program) ? `-${index}` : '';
-      refs.repro[name].push(Object.freeze({ source: await put(`repro-${name}${suffix}-source`, `reproducibility/${name}${suffix}.cash`, Buffer.from(entry.source, 'utf8')), raw: await put(`repro-${name}${suffix}-raw`, `reproducibility/${name}${suffix}.raw.bin`, entry.raw) }));
+      const retained = {
+        source: await put(`repro-${name}${suffix}-source`, `reproducibility/${name}${suffix}.cash`, Buffer.from(entry.source, 'utf8')),
+        raw: await put(`repro-${name}${suffix}-raw`, `reproducibility/${name}${suffix}.raw.bin`, entry.raw),
+      };
+      // These optimized redeems are inputs to the fixed-layout linker. They
+      // are retained exactly from the full builder, never regenerated here.
+      if (name === 'exactFinal' || name === 'miller') {
+        retained.redeem = await put(`repro-${name}${suffix}-redeem`, `reproducibility/${name}${suffix}.redeem.bin`, entry.redeem);
+      }
+      refs.repro[name].push(Object.freeze(retained));
     }
   }
   return refs;
 }
 
-export async function runV2Pf10BetaRuntime(argv, { cwd = process.cwd(), repositoryRoot = ROOT } = {}) {
+export async function runV2Pf10BetaRuntime(argv, {
+  allowedOutputRoot = ROOT,
+  cwd = process.cwd(),
+  repositoryRoot = ROOT,
+} = {}) {
   assertSafeRuntime();
   if (path.resolve(repositoryRoot) !== ROOT || await realpath(repositoryRoot) !== ROOT) fail('beta runtime repository root must be the canonical ShieldKit checkout');
   const options = parseV2Pf10BetaRuntimeArguments(argv, cwd);
@@ -301,7 +347,7 @@ export async function runV2Pf10BetaRuntime(argv, { cwd = process.cwd(), reposito
   if (provenance.sha256 !== evidence.value.betaProvenance?.sha256 || provenance.bytes.length !== evidence.value.betaProvenance?.bytes) fail('beta provenance differs from beta proof evidence');
   const actionSources = {};
   for (const action of ACTIONS) { actionSources[action] = {}; for (const kind of Object.keys(actionFileNames)) actionSources[action][kind] = await evidenceArtifact(evidence.value.actions?.[action]?.files?.[kind], `${action}.${kind}`); }
-  const target = await outputStage(options.outputDirectory);
+  const target = await outputStage(options.outputDirectory, allowedOutputRoot);
   try {
     const artifacts = []; const refs = { proof: {}, actionEvidence: {}, repro: {}, structural: {} };
     refs.profileCore = await copyArtifact(target.stage, artifacts, 'profile-core', 'profile/profile-core.json', profile);
@@ -334,7 +380,7 @@ async function artifactByRef(output, ref, label) {
   exact(ref, ['bytes', 'id', 'path', 'sha256'], label); hash(ref.sha256, `${label}.sha256`);
   const filename = path.resolve(output, ref.path); const relative = path.relative(output, filename);
   if (relative === '' || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) fail(`${label} escapes bundle`);
-  const source = await safeRead(filename, label, { local: true }); if (source.bytes.length !== ref.bytes || source.sha256 !== ref.sha256) fail(`${label} differs from beta runtime manifest`); return source;
+  const source = await safeRead(filename, label); if (source.bytes.length !== ref.bytes || source.sha256 !== ref.sha256) fail(`${label} differs from beta runtime manifest`); return source;
 }
 function validateManifest(manifest) {
   exact(manifest, ['artifacts', 'assuranceClass', 'claims', 'eligibility', 'identity', 'profile', 'proofArtifacts', 'proofQualification', 'runtime', 'schema', 'status'], 'beta runtime manifest');
@@ -355,10 +401,19 @@ function assertManifestArtifactReferences(value, artifacts, label = 'manifest') 
   for (const [key, entry] of Object.entries(value)) assertManifestArtifactReferences(entry, artifacts, `${label}.${key}`);
 }
 
-export async function verifyV2Pf10BetaRuntime({ outputDirectory, temporaryRoot }) {
+export async function verifyV2Pf10BetaRuntime({
+  allowedOutputRoot = ROOT,
+  outputDirectory,
+  temporaryRoot,
+  onVerifiedRuntime = undefined,
+}) {
   assertSafeRuntime();
-  const output = path.resolve(outputDirectory); const rootMeta = await lstat(output); if (!rootMeta.isDirectory() || rootMeta.isSymbolicLink() || (rootMeta.mode & 0o077) !== 0 || await realpath(output) !== output) fail('beta runtime output must be a private canonical directory');
-  const manifestFile = await safeRead(path.join(output, V2_PF10_BETA_RUNTIME_MANIFEST), 'beta runtime manifest', { canonicalJson: true, local: true }); const manifest = validateManifest(manifestFile.value);
+  if (onVerifiedRuntime !== undefined && typeof onVerifiedRuntime !== 'function') {
+    fail('onVerifiedRuntime must be a function when provided');
+  }
+  const allowedRoot = await privateOutputRoot(allowedOutputRoot, 'allowed output root');
+  const output = path.resolve(outputDirectory); relativeWithin(allowedRoot, output, 'beta runtime output', { allowEqual: true }); const rootMeta = await lstat(output); if (!rootMeta.isDirectory() || rootMeta.isSymbolicLink() || (rootMeta.mode & 0o077) !== 0 || await realpath(output) !== output) fail('beta runtime output must be a private canonical directory');
+  const manifestFile = await safeRead(path.join(output, V2_PF10_BETA_RUNTIME_MANIFEST), 'beta runtime manifest', { canonicalJson: true }); const manifest = validateManifest(manifestFile.value);
   const expected = new Set([V2_PF10_BETA_RUNTIME_MANIFEST, ...manifest.artifacts.map((entry) => entry.path)]); const actual = new Set(await walk(output)); if (actual.size !== expected.size || [...actual].some((name) => !expected.has(name))) fail('beta runtime bundle has missing or unmanifested files');
   const artifactMap = new Map(); for (const entry of manifest.artifacts) artifactMap.set(entry.id, entry);
   assertManifestArtifactReferences(manifest, artifactMap);
@@ -400,9 +455,22 @@ export async function verifyV2Pf10BetaRuntime({ outputDirectory, temporaryRoot }
       const source = await artifactByRef(output, retained.source, `reproducibility ${name} source ${index}`);
       const raw = await artifactByRef(output, retained.raw, `reproducibility ${name} raw ${index}`);
       if (!source.bytes.equals(Buffer.from(expectedProgram.source, 'utf8')) || !raw.bytes.equals(Buffer.from(expectedProgram.raw))) fail(`reproducibility ${name} does not reproduce`);
+      if (name === 'exactFinal' || name === 'miller') {
+        const redeem = await artifactByRef(output, retained.redeem, `reproducibility ${name} redeem ${index}`);
+        if (!redeem.bytes.equals(Buffer.from(expectedProgram.redeem))) fail(`reproducibility ${name} retained redeem does not reproduce`);
+      } else if (Object.hasOwn(retained, 'redeem')) fail(`reproducibility ${name} unexpectedly retains a redeem`);
     }
   }
-  return Object.freeze({ schema: 'shieldkit-v2-direct-pf10-beta-local-runtime-verification-v1', status: 'beta-runtime-reverified-unqualified', eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: claims(), manifestSha256: manifestFile.sha256, runtimeMaterialSha256: build.runtimeMaterial.materialSha256 });
+  const result = Object.freeze({ schema: 'shieldkit-v2-direct-pf10-beta-local-runtime-verification-v1', status: 'beta-runtime-reverified-unqualified', eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: claims(), manifestSha256: manifestFile.sha256, runtimeMaterialSha256: build.runtimeMaterial.materialSha256 });
+  if (onVerifiedRuntime !== undefined) {
+    await onVerifiedRuntime(Object.freeze({
+      manifest,
+      manifestSha256: manifestFile.sha256,
+      runtimeMaterialInput: build.runtimeMaterialInput,
+      runtimeMaterialSha256: build.runtimeMaterial.materialSha256,
+    }));
+  }
+  return result;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

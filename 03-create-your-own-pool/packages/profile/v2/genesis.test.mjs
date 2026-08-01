@@ -43,8 +43,10 @@ import {
   V2_GENESIS_LOCKTIME,
   V2_GENESIS_PREPARED_SCHEMA,
   V2_GENESIS_RUNTIME_SCHEMA,
+  V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA,
   V2_GENESIS_TRANSACTION_VERSION,
   V2GenesisError,
+  createV2BetaChipnetGenesisRuntime,
   createV2GenesisRuntime,
   deriveV2FinalizedGenesisPackagePins,
   finalizeV2Genesis,
@@ -72,6 +74,7 @@ let core;
 let defaultSourceTransactionHex;
 let defaultInstanceId;
 let runtime;
+let betaRuntime;
 let tinySourceTransactionHex;
 let tinyRuntime;
 
@@ -344,6 +347,13 @@ before(async () => {
   defaultSourceTransactionHex = sourceTransaction();
   defaultInstanceId = instanceIdOf(defaultSourceTransactionHex);
   runtime = await createRuntime(defaultInstanceId);
+  betaRuntime = await createV2BetaChipnetGenesisRuntime({
+    repositoryRoot,
+    temporaryRoot,
+    profileCore: core,
+    proofArtifacts,
+    instanceId: defaultInstanceId,
+  });
 
   tinySourceTransactionHex = sourceTransaction({ valueSatoshis: 16_000n });
   tinyRuntime = await createRuntime(instanceIdOf(tinySourceTransactionHex));
@@ -487,6 +497,45 @@ test('V2 genesis derives exact PF10 locks internally and passes BCH_2026_STANDAR
     inputIndex: 0,
     unlockingBytecodeBytes: 100,
   });
+});
+
+test('single-contributor beta genesis uses a non-interchangeable runtime capability', () => {
+  assert.equal(
+    betaRuntime.schema,
+    V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA,
+  );
+  assert.equal(
+    betaRuntime.eligibility,
+    'beta-single-contributor-unqualified',
+  );
+  assert.equal(betaRuntime.instanceId, runtime.instanceId);
+  assert.equal(betaRuntime.profileId, runtime.profileId);
+  assert.equal(betaRuntime.finalLocksSha256, runtime.finalLocksSha256);
+
+  const prepared = prepareV2Genesis(fixture(), betaRuntime);
+  assert.equal(
+    prepared.runtime.schema,
+    V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA,
+  );
+  const finalized = finalizeV2Genesis(
+    prepared,
+    signature(prepared),
+    betaRuntime,
+  );
+  assert.equal(finalized.claims.productionQualified, false);
+  assert.equal(finalized.measurements.bch2026StandardVmAccepted, true);
+  assert.throws(
+    () => deriveV2FinalizedGenesisPackagePins(finalized, runtime),
+    (error) =>
+      error instanceof V2GenesisError
+      && error.code === 'GENESIS_RUNTIME_MISMATCH',
+  );
+  assert.throws(
+    () => prepareV2Genesis(fixture(), { ...betaRuntime }),
+    (error) =>
+      error instanceof V2GenesisError
+      && error.code === 'GENESIS_RUNTIME_INVALID',
+  );
 });
 
 test('packaged genesis binding independently replays the exact VM-accepted genesis and rejects every binding drift', async (t) => {

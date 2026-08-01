@@ -57,6 +57,12 @@ import {
   createPersistentNullifierSqliteAccess,
   PERSISTENT_NULLIFIER_SQLITE_PROFILES,
 } from "./persistent-indexed-nullifier-sqlite.mjs";
+import {
+  assemblePersistentProvingTransition,
+  derivePersistentNoteMembershipWitness,
+  derivePersistentPacketPostState,
+  PersistentTreeEngineError,
+} from "./persistent-tree-engine.mjs";
 
 export const V2_STORE_SCHEMA_VERSION = 12;
 export const V2_PROVING_TRANSITION_SCHEMA =
@@ -4066,69 +4072,23 @@ export class V2DirectStore {
       canonical.state,
       "canonical pre-state",
     );
-    const packet = {
-      kind,
-      preState,
-      publicNullifier: publicNullifier.toString("hex"),
-      outputNoteLeaf: outputNoteLeaf.toString("hex"),
-    };
-    const note = kind === "withdrawal"
-      ? {
-        root: Buffer.from(preState.noteRoot, "hex"),
-        witness: undefined,
-      }
-      : deriveNoteAppendMutation(db, packet, { verifyPostRoot: false });
-    const nullifier = kind === "deposit"
-      ? {
-        root: Buffer.from(preState.nullifierRoot, "hex"),
-        witness: undefined,
-      }
-      : deriveNullifierInsertionMutation(
-        db,
-        packet,
-        { verifyPostRoot: false },
-      );
-    const denomination = BigInt(binding.denominationSats);
-    const reserve = BigInt(preState.reserveSats) +
-      (kind === "deposit"
-        ? denomination
-        : kind === "withdrawal"
-        ? -denomination
-        : 0n);
-    if (reserve < 0n) fail("withdrawal exceeds the canonical pool reserve");
-    const postState = {
-      ...preState,
-      noteRoot: note.root.toString("hex"),
-      nullifierRoot: nullifier.root.toString("hex"),
-      noteCount:
-        (BigInt(preState.noteCount) + (kind === "withdrawal" ? 0n : 1n))
-          .toString(),
-      nullifierCount:
-        (BigInt(preState.nullifierCount) + (kind === "deposit" ? 0n : 1n))
-          .toString(),
-      reserveSats: reserve.toString(),
-      actionSequence: (BigInt(preState.actionSequence) + 1n).toString(),
-    };
-    let stateBytes;
+    let derived;
     try {
-      stateBytes = encodeStateNftCommitment(postState, {
-        denominationSats: binding.denominationSats,
+      derived = derivePersistentPacketPostState(db, {
+        binding,
+        preState,
+        kind,
+        publicNullifier,
+        outputNoteLeaf,
       });
     } catch (error) {
-      fail(
-        `derived packet post-state is invalid: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      if (error instanceof PersistentTreeEngineError) fail(error.message);
+      throw error;
     }
     return Object.freeze({
       binding,
       canonical,
-      preState,
-      postState: Object.freeze(postState),
-      stateBytes,
-      note,
-      nullifier,
+      ...derived,
     });
   }
   derivePacketPostState(value) {
@@ -4264,11 +4224,17 @@ export class V2DirectStore {
             "selected owned note does not match the requested persistent note leaf",
           );
         }
-        const membership = deriveNoteMembershipWitness(db, {
-          noteIndex: owned.note_index,
-          inputNoteLeaf: leaf.leaf_hash,
-          expectedRoot: Buffer.from(derived.preState.noteRoot, "hex"),
-        });
+        let membership;
+        try {
+          membership = derivePersistentNoteMembershipWitness(db, {
+            noteIndex: owned.note_index,
+            inputNoteLeaf: leaf.leaf_hash,
+            expectedRoot: Buffer.from(derived.preState.noteRoot, "hex"),
+          });
+        } catch (error) {
+          if (error instanceof PersistentTreeEngineError) fail(error.message);
+          throw error;
+        }
         spend = Object.freeze({
           inputNoteLeaf: Buffer.from(leaf.leaf_hash).toString("hex"),
           noteIndex: BigInt(owned.note_index),
@@ -4281,54 +4247,37 @@ export class V2DirectStore {
         operation.kind === "withdrawal"
           ? createHash("sha256").update(operation.target_bytes).digest("hex")
           : zero.toString("hex");
-      let packet;
+      let assembled;
       try {
-        packet = encodeActionPacket({
+        assembled = assemblePersistentProvingTransition({
           kind: operation.kind,
-          networkId: derived.binding.networkId,
-          instanceId: derived.binding.instanceId.toString("hex"),
-          preState: derived.preState,
-          postState: derived.postState,
-          publicNullifier: (publicNullifier ?? zero).toString("hex"),
-          outputNoteLeaf: (outputNoteLeaf ?? zero).toString("hex"),
-          encryptedRecord: encryptedRecord ?? Buffer.alloc(128),
+          binding: derived.binding,
+          derived,
+          publicNullifier,
+          outputNoteLeaf,
+          encryptedRecord,
           withdrawalLockingBytecodeHash,
-          transactionContextHash: transactionContextHash.toString("hex"),
-        }, {
-          denominationSats: derived.binding.denominationSats,
+          transactionContextHash,
+          spend,
+          expectedTip: Object.freeze({
+            state: copy(derived.canonical.state),
+            outpoint: Object.freeze({
+              txid: copy(derived.canonical.outpoint.txid),
+              vout: derived.canonical.outpoint.vout,
+            }),
+            actionSequence: derived.canonical.actionSequence,
+            height: derived.canonical.height,
+            blockHash: copy(derived.canonical.blockHash),
+          }),
         });
       } catch (error) {
-        fail(
-          `proving transition packet construction failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        if (error instanceof PersistentTreeEngineError) fail(error.message);
+        throw error;
       }
-      const packetContext = {
-        denominationSats: derived.binding.denominationSats,
-      };
-      const packetDigest = digestActionPacket(packet, packetContext);
       return Object.freeze({
         schema: V2_PROVING_TRANSITION_SCHEMA,
         state: derived.postState,
-        packet,
-        packetDigest: packetDigest.toString("hex"),
-        publicInputs: actionPacketPublicLimbs(packet, packetContext),
-        witness: Object.freeze({
-          note: derived.note.witness,
-          nullifier: derived.nullifier.witness,
-          spend,
-        }),
-        expectedTip: Object.freeze({
-          state: copy(derived.canonical.state),
-          outpoint: Object.freeze({
-            txid: copy(derived.canonical.outpoint.txid),
-            vout: derived.canonical.outpoint.vout,
-          }),
-          actionSequence: derived.canonical.actionSequence,
-          height: derived.canonical.height,
-          blockHash: copy(derived.canonical.blockHash),
-        }),
+        ...assembled,
       });
     });
   }

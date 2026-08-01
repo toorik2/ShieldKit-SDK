@@ -14,6 +14,7 @@ import {
   canonicalizeV2Evidence,
   evaluateV2RawTransactionInputs,
   inspectV2LocalVmEvidence,
+  projectV2LocalVmEvidenceTelemetry,
 } from './vm-evidence.mjs';
 import {
   createV2InputRoleLayout,
@@ -429,6 +430,21 @@ test('state category uses frozen token-prefix byte order and carries all 128 sta
     inspected.inputs[carrierCount + 1].sourceOutput.token;
   assert.equal(token.categoryWire, instanceId);
   assert.equal(token.nft.commitmentHex.length, 256);
+});
+
+test('public VM telemetry projects every exact verdict and metric without source bytes', () => {
+  const bytes = createFixtureEvidence({ rawTransactionHex: buildRawTransaction() });
+  const telemetry = projectV2LocalVmEvidenceTelemetry(bytes);
+  assert.equal(telemetry.schema, 'shieldkit-v2-local-vm-telemetry-v1');
+  assert.equal(telemetry.allInputsAccepted, true);
+  assert.ok(telemetry.inputs.length > 0);
+  for (const input of telemetry.inputs) {
+    assert.deepEqual(Object.keys(input).sort(), ['accepted', 'index', 'metrics']);
+    assert.equal(input.accepted, true);
+    assert.match(input.metrics.operationCost, DECIMAL);
+    assert.equal(Object.hasOwn(input, 'sourceTransaction'), false);
+    assert.equal(Object.hasOwn(input, 'unlockingBytecode'), false);
+  }
 });
 
 test('VM evidence is canonical and fails closed on forged hash or partial acceptance', () => {

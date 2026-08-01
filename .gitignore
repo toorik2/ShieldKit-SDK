@@ -1,12 +1,14 @@
 node_modules/
 .codex-artifacts/
 .codex-build/
+**/.codex-beta-*/
 .tmp/
 .cache/
 coverage/
 dist/
 target/
 **/.shieldkit-v2-recovery-target-*/
+**/.browser-test-bundle.mjs
 *.log
 
 # Project-local worktrees only — never create worktrees outside this repo

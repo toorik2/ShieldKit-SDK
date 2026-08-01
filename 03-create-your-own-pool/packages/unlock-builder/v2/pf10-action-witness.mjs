@@ -25,6 +25,9 @@ import {
   V2_GROTH16_PROOF_RESULT_SCHEMA,
 } from '../../prove/v2/groth16-proof-child.mjs';
 import {
+  V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA,
+} from '../../prove/v2/native-groth16-proof-child.mjs';
+import {
   parseStrictJson,
 } from '../../prove/groth16.mjs';
 import {
@@ -548,11 +551,27 @@ function proofResult(value, pins) {
   ) {
     fail('PF10_PROOF_RESULT_INVALID', 'proofResult must be an object');
   }
+  const legacyResult =
+    value.schema === V2_GROTH16_PROOF_RESULT_SCHEMA
+    && value.claims?.witnessValid === true
+    && value.claims?.proofVerified === true
+    && typeof value.claims?.singleThread === 'boolean';
+  const nativeResult =
+    value.schema === V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA
+    && value.claims?.witnessCalculated === true
+    && value.claims?.witnessR1csChecked === false
+    && value.claims?.proofVerified === true
+    && value.nativeProver?.backend === 'rapidsnark'
+    && typeof value.nativeProver?.sha256 === 'string'
+    && HASH.test(value.nativeProver.sha256)
+    && Number.isSafeInteger(value.nativeProver?.ompThreads)
+    && value.nativeProver.ompThreads >= 1
+    && ['threads', 'peakRssKiB', 'userTicks', 'systemTicks'].every(
+      (name) => Number.isSafeInteger(value.nativeProver?.[name])
+        && value.nativeProver[name] >= 0,
+    );
   if (
-    value.schema !== V2_GROTH16_PROOF_RESULT_SCHEMA
-    || value.claims?.witnessValid !== true
-    || value.claims?.proofVerified !== true
-    || typeof value.claims?.singleThread !== 'boolean'
+    (!legacyResult && !nativeResult)
     || value.proof === null
     || Array.isArray(value.proof)
     || typeof value.proof !== 'object'

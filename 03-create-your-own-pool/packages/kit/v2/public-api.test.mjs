@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  createV2BetaChipnetActionLifecycle,
   createV2DirectActionLifecycle,
   recoverPool,
   V2ActionLifecycleError,
@@ -15,6 +16,7 @@ test('@shieldkit/kit/v2 exposes the validated durable lifecycle factory', async 
       && error.code === 'INVALID_LIFECYCLE_INPUT',
   );
   assert.equal(typeof createV2DirectActionLifecycle, 'function');
+  assert.equal(typeof createV2BetaChipnetActionLifecycle, 'function');
 });
 
 test('@shieldkit/kit/v2 recovery cannot accept caller-authenticated history', async () => {

@@ -40,6 +40,7 @@ import {
   V2_FUNDING_SIGHASH_TYPE,
 } from '../../action/v2/settlement.mjs';
 import {
+  buildDirectV2Pf10BetaRuntime,
   buildDirectV2Pf10DevelopmentRuntime,
 } from '../../unlock-builder/v2/pf10-development-runtime-builder.mjs';
 import {
@@ -55,6 +56,10 @@ import {
   deriveProfileId,
   validateProfileCore,
 } from './profile-core.mjs';
+import {
+  assertV2BetaChipnetRuntimeResolution,
+  deriveV2BetaChipnetSettlementPins,
+} from './beta-chipnet-runtime.mjs';
 
 export const V2_GENESIS_INTENT_SCHEMA =
   'shieldkit-v2-direct-genesis-intent-v1';
@@ -64,6 +69,8 @@ export const V2_GENESIS_FINALIZED_SCHEMA =
   'shieldkit-v2-direct-genesis-finalized-v1';
 export const V2_GENESIS_RUNTIME_SCHEMA =
   'shieldkit-v2-direct-authenticated-genesis-runtime-v1';
+export const V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA =
+  'shieldkit-v2-direct-beta-chipnet-authenticated-genesis-runtime-v1';
 export const V2_GENESIS_TRANSACTION_VERSION = 2;
 export const V2_GENESIS_INPUT_SEQUENCE = 0;
 export const V2_GENESIS_LOCKTIME = 0;
@@ -327,63 +334,8 @@ function copyFinalLocks(value) {
   });
 }
 
-/**
- * Deterministically build and authenticate all instance-specific genesis
- * locks. The returned handle is intentionally opaque: only a handle created
- * by this function is accepted by prepare/finalize.
- */
-export async function createV2GenesisRuntime(options = {}) {
-  exactKeys(options, 'genesis runtime options', [
-    'instanceId',
-    'profileCore',
-    'proofArtifacts',
-    'repositoryRoot',
-    'temporaryRoot',
-  ]);
-  const {
-    instanceId,
-    profileCore,
-    proofArtifacts,
-    repositoryRoot,
-    temporaryRoot,
-  } = options;
-  try {
-    validateProfileCore(profileCore);
-  } catch (error) {
-    fail(
-      'GENESIS_RUNTIME_INVALID',
-      `profileCore is invalid: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error },
-    );
-  }
-  if (typeof instanceId !== 'string' || !HEX_32.test(instanceId)) {
-    fail(
-      'GENESIS_RUNTIME_INVALID',
-      'instanceId must be exactly 32 lowercase hexadecimal bytes',
-    );
-  }
+function issueGenesisRuntimeFromBuild({ build, instanceId, lane, profileCore }) {
   const profileId = deriveProfileId(profileCore);
-  const pins = proofArtifactPins(proofArtifacts, profileCore);
-  let build;
-  try {
-    build = await buildDirectV2Pf10DevelopmentRuntime({
-      repositoryRoot,
-      temporaryRoot,
-      profileId,
-      instanceId,
-      proofArtifacts: pins,
-    });
-  } catch (error) {
-    fail(
-      'GENESIS_RUNTIME_INVALID',
-      `PF10 runtime construction failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error },
-    );
-  }
   if (
     build.profileId !== profileId
     || build.instanceId !== instanceId
@@ -435,10 +387,7 @@ export async function createV2GenesisRuntime(options = {}) {
   const stateToken = {
     category: Buffer.from(instanceId, 'hex'),
     amount: 0n,
-    nft: {
-      capability: 'mutable',
-      commitment: Buffer.alloc(128),
-    },
+    nft: { capability: 'mutable', commitment: Buffer.alloc(128) },
   };
   const state = Object.freeze({
     baseSats: exactDustDerivedBase(
@@ -454,22 +403,22 @@ export async function createV2GenesisRuntime(options = {}) {
   const finalLocks = Object.freeze({ topology, verifiers, binding, state });
   const finalLocksSha256 = finalLocksCommitment(finalLocks);
   const handle = Object.freeze({
-    schema: V2_GENESIS_RUNTIME_SCHEMA,
-    eligibility: 'development-only',
+    schema: lane.schema,
+    eligibility: lane.eligibility,
     profileId,
     instanceId,
     topologyId: topology.id,
     runtimeMaterialSha256: build.runtimeMaterial.materialSha256,
     finalLocksSha256,
     baseValues: Object.freeze({
-      verifierSats: Object.freeze(
-        verifiers.map((entry) => entry.baseSats.toString()),
-      ),
+      verifierSats: Object.freeze(verifiers.map((entry) => entry.baseSats.toString())),
       bindingSats: binding.baseSats.toString(),
       stateSats: state.baseSats.toString(),
     }),
   });
   validatedGenesisRuntimePins.set(handle, Object.freeze({
+    schema: lane.schema,
+    eligibility: lane.eligibility,
     profileId,
     instanceId,
     runtimeMaterialSha256: build.runtimeMaterial.materialSha256,
@@ -477,6 +426,149 @@ export async function createV2GenesisRuntime(options = {}) {
     finalLocks,
   }));
   return handle;
+}
+
+/**
+ * Deterministically build and authenticate all instance-specific genesis
+ * locks. The returned handle is intentionally opaque: only a handle created
+ * by this function is accepted by prepare/finalize.
+ */
+async function createGenesisRuntimeForLane(options, lane) {
+  exactKeys(options, 'genesis runtime options', [
+    'instanceId',
+    'profileCore',
+    'proofArtifacts',
+    'repositoryRoot',
+    'temporaryRoot',
+  ]);
+  const {
+    instanceId,
+    profileCore,
+    proofArtifacts,
+    repositoryRoot,
+    temporaryRoot,
+  } = options;
+  try {
+    validateProfileCore(profileCore);
+  } catch (error) {
+    fail(
+      'GENESIS_RUNTIME_INVALID',
+      `profileCore is invalid: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    );
+  }
+  if (typeof instanceId !== 'string' || !HEX_32.test(instanceId)) {
+    fail(
+      'GENESIS_RUNTIME_INVALID',
+      'instanceId must be exactly 32 lowercase hexadecimal bytes',
+    );
+  }
+  const profileId = deriveProfileId(profileCore);
+  const pins = proofArtifactPins(proofArtifacts, profileCore);
+  let build;
+  try {
+    build = await lane.buildRuntime({
+      repositoryRoot,
+      temporaryRoot,
+      profileId,
+      instanceId,
+      proofArtifacts: pins,
+    });
+  } catch (error) {
+    fail(
+      'GENESIS_RUNTIME_INVALID',
+      `PF10 runtime construction failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    );
+  }
+  return issueGenesisRuntimeFromBuild({ build, instanceId, lane, profileCore });
+}
+
+/**
+ * Build the ordinary development-only authenticated V2 genesis runtime.
+ */
+export async function createV2GenesisRuntime(options = {}) {
+  return createGenesisRuntimeForLane(options, Object.freeze({
+    buildRuntime: buildDirectV2Pf10DevelopmentRuntime,
+    eligibility: 'development-only',
+    schema: V2_GENESIS_RUNTIME_SCHEMA,
+  }));
+}
+
+/**
+ * Build a separately branded single-contributor beta Chipnet genesis runtime.
+ * This capability is intentionally not accepted by the normal descriptor or
+ * action-runtime lanes.
+ */
+export async function createV2BetaChipnetGenesisRuntime(options = {}) {
+  return createGenesisRuntimeForLane(options, Object.freeze({
+    buildRuntime: buildDirectV2Pf10BetaRuntime,
+    eligibility: 'beta-single-contributor-unqualified',
+    schema: V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA,
+  }));
+}
+
+/**
+ * Issue the same opaque beta genesis capability from an already verified,
+ * branded runtime resolution. This avoids compiling the identical PF10
+ * instance a second time during pool creation; every lock, base value, helper,
+ * topology role, and material hash was validator-authenticated by the cold
+ * runtime verification and is copied from its branded resolution here.
+ */
+export function createV2BetaChipnetGenesisRuntimeFromResolution(options = {}) {
+  exactKeys(options, 'beta genesis runtime resolution options', [
+    'profileCore',
+    'runtimeResolution',
+  ]);
+  try { validateProfileCore(options.profileCore); }
+  catch (error) {
+    fail('GENESIS_RUNTIME_INVALID', `profileCore is invalid: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
+  let runtime;
+  try { runtime = assertV2BetaChipnetRuntimeResolution(options.runtimeResolution); }
+  catch (error) {
+    fail('GENESIS_RUNTIME_INVALID', 'a branded verified beta runtime resolution is required', { cause: error });
+  }
+  const profileId = deriveProfileId(options.profileCore);
+  if (runtime.identity.profileId !== profileId
+    || runtime.identity.denominationSats !== options.profileCore.denominationSats) {
+    fail('GENESIS_RUNTIME_INVALID', 'verified runtime resolution differs from the supplied profile core');
+  }
+  const pins = deriveV2BetaChipnetSettlementPins(runtime);
+  const build = Object.freeze({
+    profileId,
+    instanceId: runtime.identity.instanceId,
+    denominationSats: runtime.identity.denominationSats,
+    topologyId: pins.topologyId,
+    verifierRoles: pins.verifierRoles,
+    baseValues: Object.freeze({
+      verifierSats: Object.freeze(pins.verifierCarriers.map((entry) => entry.baseValueSats)),
+      bindingSats: pins.bindingBaseSats,
+      stateSats: pins.stateBaseSats,
+    }),
+    structural: Object.freeze({
+      verifierLocks: Object.freeze(pins.verifierCarriers.map((entry) => Buffer.from(entry.lockingBytecode))),
+      bindingLock: Buffer.from(pins.bindingLockingBytecode),
+      bindingRedeem: Buffer.from(pins.bindingRedeemBytecode),
+      stateLock: Buffer.from(pins.stateLockingBytecode),
+      stateHelper: Buffer.from(pins.stateHelperBytecode),
+      stateUnlock: Buffer.from(pins.stateUnlockingBytecode),
+    }),
+    runtimeMaterial: runtime.runtimeMaterial,
+  });
+  return issueGenesisRuntimeFromBuild({
+    build,
+    instanceId: runtime.identity.instanceId,
+    lane: Object.freeze({
+      eligibility: 'beta-single-contributor-unqualified',
+      schema: V2_BETA_CHIPNET_GENESIS_RUNTIME_SCHEMA,
+    }),
+    profileCore: options.profileCore,
+  });
 }
 
 function genesisRuntimePins(value) {
@@ -631,6 +723,7 @@ function normalizeIntent(value, runtimeValue) {
     sourceOutput,
     instanceId,
     runtimeMaterialSha256: runtime.runtimeMaterialSha256,
+    runtimeSchema: runtime.schema,
     finalLocksSha256: runtime.finalLocksSha256,
     finalLocks,
     initialState,
@@ -780,7 +873,7 @@ function preparedEnvelope(payload, built) {
     profileId: built.intent.profileId,
     instanceId: built.intent.instanceId,
     runtime: Object.freeze({
-      schema: V2_GENESIS_RUNTIME_SCHEMA,
+      schema: built.intent.runtimeSchema,
       runtimeMaterialSha256: built.intent.runtimeMaterialSha256,
       finalLocksSha256: built.intent.finalLocksSha256,
       topologyId: built.intent.finalLocks.topology.id,

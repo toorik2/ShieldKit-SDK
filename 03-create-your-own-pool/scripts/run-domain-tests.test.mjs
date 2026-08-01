@@ -13,6 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import os from 'node:os';
+import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -23,10 +24,12 @@ import {
   assertQualificationPrerequisites,
   createDomainTestTemporaryDirectory,
   developmentProofQualificationArguments,
+  domainTestParallelism,
   discoverDomainTests,
   DomainTestRunnerError,
   ensureLocalVerifierQualificationArtifacts,
   fileTimeoutForDomainTest,
+  isExclusiveDomainTestFile,
   pf10DevelopmentRuntimeArguments,
   pf10LibauthQualificationArguments,
   preflightTestSources,
@@ -888,6 +891,47 @@ test('new nested V2 tests are mandatory and selection omissions fail closed', as
   );
 });
 
+test('product receipt/offline security tests are explicitly portable and cannot be silently unregistered', async () => {
+  const productCli = 'packages/kit/v2/beta-product-cli.test.mjs';
+  const offline = 'packages/profile/v2/beta-product-offline-bootstrap.test.mjs';
+  const native = 'packages/prove/v2/native-groth16-prover-installation.test.mjs';
+  const root = await fixture({
+    'packages/action/base.test.mjs': passingTest,
+    [productCli]: passingTest,
+    [offline]: passingTest,
+    [native]: passingTest,
+  });
+  const discovery = discoverDomainTests({ projectRoot: root });
+  assert.deepEqual(selectDomainTests(discovery, 'beta-product-security').map((entry) => entry.relativePath), [
+    productCli, offline, native,
+  ]);
+  assert.deepEqual(selectDomainTests(discovery, 'portable').map((entry) => entry.relativePath), [
+    'packages/action/base.test.mjs', productCli, offline, native,
+  ]);
+  assert.throws(
+    () => assertCompleteSelection(discovery, selectDomainTests(discovery, 'beta-product-security').slice(0, 2), 'beta-product-security'),
+    /omitted=.*native-groth16/,
+  );
+  const unregistered = await fixture({
+    'packages/kit/v2/beta-product-unregistered-security.test.mjs': passingTest,
+  });
+  assert.throws(() => discoverDomainTests({ projectRoot: unregistered }), /must be explicitly registered as mandatory beta-product portable security coverage/);
+});
+
+test('beta runtime fixture qualification is explicit and non-portable rather than skip-gated', async () => {
+  const runtime = 'packages/profile/v2/beta-chipnet-runtime.test.mjs';
+  const pf10Runtime = 'packages/unlock-builder/v2/pf10-beta-runtime-qualification.test.mjs';
+  const root = await fixture({
+    'packages/action/base.test.mjs': passingTest,
+    [runtime]: passingTest,
+    [pf10Runtime]: passingTest,
+  });
+  const discovery = discoverDomainTests({ projectRoot: root });
+  assert.deepEqual(selectDomainTests(discovery, 'portable').map((entry) => entry.relativePath), ['packages/action/base.test.mjs']);
+  assert.deepEqual(selectDomainTests(discovery, 'beta-runtime-qualification').map((entry) => entry.relativePath), [runtime, pf10Runtime]);
+  assert.doesNotThrow(() => preflightTestSources(selectDomainTests(discovery, 'beta-runtime-qualification')));
+});
+
 test('heavy local V2 mutation campaigns are explicit, complete, and never silently portable', async () => {
   const strictCodec = 'packages/action/v2/strict-codec-qualification.test.mjs';
   const typescriptParity = 'packages/action/v2/typescript/parity.test.mjs';
@@ -1205,6 +1249,22 @@ test('CI runs both V2 campaigns as mandatory immutable jobs', async () => {
   }
 });
 
+test('CI runs generated-fixture product receipt and offline-installer security coverage without live qualification', async () => {
+  const workflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const marker = '  beta-product-security:\n';
+  const start = workflow.indexOf(marker);
+  assert.notEqual(start, -1, 'workflow must define beta-product-security');
+  const remainder = workflow.slice(start + marker.length);
+  const nextJob = /^  [a-z0-9-]+:\n/m.exec(remainder);
+  const block = remainder.slice(0, nextJob?.index ?? remainder.length);
+  const install = block.indexOf('run: npm ci');
+  const security = block.indexOf('run: npm run test:beta-product:security');
+  assert.notEqual(install, -1, 'product security job must install from the immutable lockfile');
+  assert.notEqual(security, -1, 'product security job must run its explicit generated-fixture suite');
+  assert.ok(install < security, 'product security job must install before testing');
+  assert.doesNotMatch(block, /qualification:v2:beta:(?:live|performance)|test:qualification:beta-runtime/u);
+});
+
 test('empty files and explicit fixture gating fail before execution', async () => {
   const emptyRoot = await fixture({ 'packages/action/empty.test.mjs': "import test from 'node:test';\n" });
   const empty = selectDomainTests(discoverDomainTests({ projectRoot: emptyRoot }));
@@ -1235,8 +1295,8 @@ test('only explicitly classified external fixtures may contain source gates', as
   assert.doesNotThrow(() => preflightTestSources(selected, {
     allowClassifiedFixtureGates: true,
   }));
-  assert.throws(
-    () => runSelectedDomainTests(selected, { cwd: root }),
+  await assert.rejects(
+    runSelectedDomainTests(selected, { cwd: root }),
     /was not fully executed/,
   );
 });
@@ -1252,8 +1312,8 @@ test('runtime skips and todos fail even if hidden from source preflight', async 
   });
   const selected = selectDomainTests(discoverDomainTests({ projectRoot: root }));
   assert.doesNotThrow(() => preflightTestSources(selected));
-  assert.throws(
-    () => runSelectedDomainTests(selected, { cwd: root }),
+  await assert.rejects(
+    runSelectedDomainTests(selected, { cwd: root }),
     DomainTestRunnerError,
   );
 });
@@ -1303,7 +1363,7 @@ test('domain-test runner propagates only a private child temp root and cleans it
     TMP: '/shared-tmp',
     TEMP: '/shared-tmp',
   };
-  runSelectedDomainTests(successSelected, {
+  await runSelectedDomainTests(successSelected, {
     cwd: successRoot,
     environment: inherited,
   });
@@ -1328,8 +1388,8 @@ test('domain-test runner propagates only a private child temp root and cleans it
   const errorSelected = selectDomainTests(
     discoverDomainTests({ projectRoot: errorRoot }),
   );
-  assert.throws(
-    () => runSelectedDomainTests(errorSelected, {
+  await assert.rejects(
+    runSelectedDomainTests(errorSelected, {
       cwd: errorRoot,
       environment: { ...process.env, DOMAIN_TEST_MARKER: errorMarker },
     }),
@@ -1337,4 +1397,140 @@ test('domain-test runner propagates only a private child temp root and cleans it
   );
   const errorTemporary = await readFile(errorMarker, 'utf8');
   await assert.rejects(lstat(errorTemporary), /ENOENT/);
+});
+
+test('domain-test runner uses every available core by default and bounds an explicit test-only worker pool', async () => {
+  assert.equal(domainTestParallelism(1), 1);
+  assert.equal(domainTestParallelism(availableParallelism() + 3), availableParallelism());
+  assert.equal(domainTestParallelism(3, { testParallelism: 2 }), 2);
+  assert.equal(isExclusiveDomainTestFile({ relativePath: 'packages/prove/v2/native-groth16-proof-child.test.mjs' }), true);
+  assert.equal(isExclusiveDomainTestFile({ relativePath: 'packages/action/base.test.mjs' }), false);
+  assert.throws(() => domainTestParallelism(1, { testParallelism: 0 }), /test-only parallelism override/);
+  const root = await fixture({
+    'packages/action/parallel-a.test.mjs': [
+      "import { appendFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('a', async () => {",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `start:${process.env.TMPDIR}\\n`);",
+      "  await new Promise((resolve) => setTimeout(resolve, 120));",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `end:${process.env.TMPDIR}\\n`);",
+      "});",
+      '',
+    ].join('\n'),
+    'packages/action/parallel-b.test.mjs': [
+      "import { appendFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('b', async () => {",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `start:${process.env.TMPDIR}\\n`);",
+      "  await new Promise((resolve) => setTimeout(resolve, 120));",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `end:${process.env.TMPDIR}\\n`);",
+      "});",
+      '',
+    ].join('\n'),
+    'packages/action/parallel-c.test.mjs': [
+      "import { appendFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('c', async () => {",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `start:${process.env.TMPDIR}\\n`);",
+      "  await new Promise((resolve) => setTimeout(resolve, 120));",
+      "  appendFileSync(process.env.DOMAIN_TEST_MARKER, `end:${process.env.TMPDIR}\\n`);",
+      "});",
+      '',
+    ].join('\n'),
+  });
+  const marker = path.join(path.dirname(root), 'parallel-marker');
+  const selected = selectDomainTests(discoverDomainTests({ projectRoot: root }));
+  assert.throws(() => assertCompleteSelection(
+    discoverDomainTests({ projectRoot: root }),
+    selected.slice(0, 2),
+  ), /omitted=.*parallel-c/);
+  const summary = await runSelectedDomainTests(selected, {
+    cwd: root,
+    environment: { ...process.env, DOMAIN_TEST_MARKER: marker },
+    testParallelism: 2,
+  });
+  assert.deepEqual(summary, Object.freeze({
+    files: 3, tests: 3, pass: 3, fail: 0, cancelled: 0, skipped: 0,
+    ['to' + 'do']: 0,
+  }));
+  const events = (await readFile(marker, 'utf8')).trim().split('\n');
+  assert.equal(events.filter((entry) => entry.startsWith('start:')).length, 3);
+  assert.equal(events.filter((entry) => entry.startsWith('end:')).length, 3);
+  assert.equal(events.indexOf(events.find((entry) => entry.startsWith('end:'))), 2);
+  for (const temporary of events.map((entry) => entry.slice(entry.indexOf(':') + 1))) {
+    await assert.rejects(lstat(temporary), /ENOENT/);
+  }
+});
+
+test('domain-test runner kills deadline-exceeded children and removes their private roots', async () => {
+  const root = await fixture({
+    'packages/action/timeout.test.mjs': [
+      "import { writeFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('deadline', async () => {",
+      "  writeFileSync(process.env.DOMAIN_TEST_MARKER, process.env.TMPDIR);",
+      "  await new Promise((resolve) => setTimeout(resolve, 3000));",
+      "});",
+      '',
+    ].join('\n'),
+  });
+  const marker = path.join(path.dirname(root), 'timeout-marker');
+  const selected = selectDomainTests(discoverDomainTests({ projectRoot: root }));
+  await assert.rejects(
+    runSelectedDomainTests(selected, {
+      cwd: root,
+      environment: { ...process.env, DOMAIN_TEST_MARKER: marker },
+      fileTimeoutMs: 1_000,
+      testParallelism: 1,
+    }),
+    /timed out after 1000ms/,
+  );
+  const temporary = await readFile(marker, 'utf8');
+  await assert.rejects(lstat(temporary), /ENOENT/);
+});
+
+test('domain-test runner cancels active siblings, never starts queued files, and cleans every root after a failure', async () => {
+  const root = await fixture({
+    'packages/action/cancel-a-fail.test.mjs': [
+      "import test from 'node:test';",
+      "test('fail', async () => {",
+      "  await new Promise((resolve) => setTimeout(resolve, 500));",
+      "  throw new Error('injected concurrent failure');",
+      "});",
+      '',
+    ].join('\n'),
+    'packages/action/cancel-b-running.test.mjs': [
+      "import { writeFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('running', async () => {",
+      "  writeFileSync(process.env.DOMAIN_TEST_RUNNING_MARKER, process.env.TMPDIR);",
+      "  await new Promise((resolve) => setTimeout(resolve, 10000));",
+      "});",
+      '',
+    ].join('\n'),
+    'packages/action/cancel-c-queued.test.mjs': [
+      "import { writeFileSync } from 'node:fs';",
+      "import test from 'node:test';",
+      "test('queued', () => writeFileSync(process.env.DOMAIN_TEST_QUEUED_MARKER, 'started'));",
+      '',
+    ].join('\n'),
+  });
+  const runningMarker = path.join(path.dirname(root), 'running-marker');
+  const queuedMarker = path.join(path.dirname(root), 'queued-marker');
+  const selected = selectDomainTests(discoverDomainTests({ projectRoot: root }));
+  await assert.rejects(
+    runSelectedDomainTests(selected, {
+      cwd: root,
+      environment: {
+        ...process.env,
+        DOMAIN_TEST_RUNNING_MARKER: runningMarker,
+        DOMAIN_TEST_QUEUED_MARKER: queuedMarker,
+      },
+      testParallelism: 2,
+    }),
+    /cancel-a-fail.*node test runner failed/,
+  );
+  const temporary = await readFile(runningMarker, 'utf8');
+  await assert.rejects(lstat(temporary), /ENOENT/);
+  await assert.rejects(lstat(queuedMarker), /ENOENT/);
 });

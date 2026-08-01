@@ -72,6 +72,10 @@ test('beta runtime source uses a private beta manifest and never imports a norma
   );
   assert.match(source, /buildDirectV2Pf10BetaRuntime/u);
   assert.match(source, /verifyBetaProofQualification/u);
+  assert.match(source, /onVerifiedRuntime/u);
+  assert.match(source, /privateOutputRoot/u);
+  assert.match(source, /relativeWithin\(allowedRoot, output/u);
+  assert.match(source, /pathScope: 'absolute'/u);
   assert.match(source, /0o700/u);
   assert.match(source, /0o600/u);
   assert.match(source, /assertSafeRuntime/u);
@@ -79,6 +83,8 @@ test('beta runtime source uses a private beta manifest and never imports a norma
   assert.match(source, /initial\.nlink !== 1n/u);
   assert.match(source, /initial\.mode & 0o077n/u);
   assert.match(source, /beta-runtime-manifest\.json/u);
+  assert.match(source, /retained\.redeem = await put/u);
+  assert.match(source, /retained redeem does not reproduce/u);
   assert.doesNotMatch(source, /instance-descriptor\.mjs/u);
   assert.doesNotMatch(source, /buildDirectV2Pf10DevelopmentRuntime/u);
   assert.doesNotMatch(source, /libauthEvidence/u);

@@ -27,6 +27,9 @@ export {
 export {
   createChainRpc,
   createChipnetRpc,
+  createLayer1BchnChipnetRpc,
+  assertLayer1BchnChipnetRpc,
+  LAYER1_BCHN_CHIPNET_BACKEND,
   PUBLIC_CHIPNET_ELECTRUM,
   PUBLIC_MAINNET_ELECTRUM,
   CHIPNET_GENESIS_HASH,

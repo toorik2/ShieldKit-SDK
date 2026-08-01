@@ -4,9 +4,13 @@
   "version": "0.2.0",
   "description": "ShieldKit toolkit 0.2.0 — Unaudited WIP. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
+  "bin": {
+    "shieldkit": "03-create-your-own-pool/scripts/shieldkit.mjs"
+  },
   "engines": {
     "node": ">=22.5.0"
   },
+  "packageManager": "npm@10.9.8",
   "workspaces": [
     "03-create-your-own-pool/packages/action",
     "03-create-your-own-pool/packages/kit",
@@ -20,6 +24,8 @@
     "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
     "install:deps": "npm ci --include-workspace-root",
     "test": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite portable",
+    "test:beta-product:security": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite beta-product-security",
+    "test:qualification:beta-runtime": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite beta-runtime-qualification",
     "test:v2:circuit-model": "node --test 03-create-your-own-pool/packages/action/v2/circuit-model.test.mjs",
     "test:v2:campaign:strict-codec": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign",
     "test:v2:campaign:depth4": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite local-depth4-campaign",
@@ -50,6 +56,13 @@
     "qualification:v2:pf10-beta-runtime": "node 03-create-your-own-pool/scripts/v2-pf10-beta-runtime.mjs",
     "qualification:v2:pf10-beta-libauth": "node 03-create-your-own-pool/scripts/v2-pf10-beta-libauth-qualification.mjs",
     "qualification:v2:beta-local-integration": "node 03-create-your-own-pool/scripts/v2-beta-local-integration.mjs",
+    "beta:offline:pack": "node 03-create-your-own-pool/scripts/pack-v2-beta-offline-bundle.mjs",
+    "beta:offline:install": "node 03-create-your-own-pool/scripts/install-v2-beta-offline-bundle.mjs",
+    "qualification:v2:beta:live": "node 03-create-your-own-pool/scripts/v2-beta-live-qualification.mjs",
+    "qualification:v2:beta:performance": "node 03-create-your-own-pool/scripts/v2-beta-live-performance.mjs",
+    "qualification:v2:beta:pool-create-performance": "node 03-create-your-own-pool/scripts/v2-beta-live-pool-create-performance.mjs",
+    "qualification:v2:beta:evidence-manifest:create": "node 03-create-your-own-pool/scripts/v2-beta-live-evidence-bundle-verify.mjs --create",
+    "qualification:v2:beta:evidence-manifest:verify": "node 03-create-your-own-pool/scripts/v2-beta-live-evidence-bundle-verify.mjs --verify",
     "qualification:v2:q07:indexed-microbenchmark": "node 03-create-your-own-pool/scripts/v2-q07-indexed-microbenchmark.mjs",
     "q07:lifecycle-corpus:generate": "node 03-create-your-own-pool/scripts/v2-q07-lifecycle-corpus.mjs --output-directory",
     "q07:lifecycle-corpus:verify": "node 03-create-your-own-pool/scripts/v2-q07-lifecycle-corpus.mjs --verify",

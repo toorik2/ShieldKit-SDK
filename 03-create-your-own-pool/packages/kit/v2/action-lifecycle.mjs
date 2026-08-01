@@ -25,6 +25,12 @@ import {
   decodeStateNftCommitment,
 } from '../../action/v2/state.mjs';
 import {
+  applyDirectV2Transition,
+} from '../../action/v2/transition.mjs';
+import {
+  restoreV2BetaZeroConfTreeMaterial,
+} from '../../profile/v2/beta-zero-conf-material.mjs';
+import {
   DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
 } from '../../action/v2/topology.mjs';
 import {
@@ -48,9 +54,18 @@ import {
 } from '../../prove/v2/linux-cgroup-v2-worker.mjs';
 import {
   buildDirectV2Pf10ActionWitness,
+  buildDirectV2Pf10BetaActionWitness,
   DIRECT_V2_PF10_STATE_UNLOCK_BYTES,
   DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES,
 } from '../../unlock-builder/v2/pf10-action-witness.mjs';
+import {
+  assertV2BetaChipnetRuntimeResolution,
+  deriveV2BetaChipnetSettlementPins,
+  deriveV2BetaChipnetStoreRuntimeMaterialsSha256,
+} from '../../profile/v2/beta-chipnet-runtime.mjs';
+import {
+  assertV2BetaChipnetDeploymentCapability,
+} from '../../profile/v2/beta-chipnet-deployment.mjs';
 import {
   broadcastAction as mandatoryBroadcastAction,
   createV2SignedBroadcastMetadata,
@@ -91,6 +106,10 @@ export const V2_ACTION_LIFECYCLE_SCHEMA =
   'shieldkit-v2-direct-action-lifecycle-v1';
 export const V2_OPERATION_PROOF_RECORD_SCHEMA =
   'shieldkit-v2-direct-operation-proof-v1';
+export const V2_BETA_OPERATION_PROOF_RECORD_SCHEMA =
+  'shieldkit-v2-direct-beta-chipnet-operation-proof-v1';
+export const V2_BETA_CHIPNET_ACTION_ACKNOWLEDGEMENT =
+  'acknowledge-beta-single-contributor-unqualified-chipnet-action';
 export const V2_ACTION_PREFLIGHT_SCHEMA =
   'shieldkit-v2-direct-action-preflight-v1';
 export const V2_HIGH_FEE_SIGNING_CONFIRMATION_SCHEMA =
@@ -840,6 +859,76 @@ function inspectProofRecord(bytesValue, {
   });
 }
 
+// This is intentionally a separate wire format and inspection boundary. Beta
+// records have a beta runtime-manifest binding rather than the normal
+// descriptor lane's qualification/runtime-artifact evidence. Never add this
+// format to inspectProofRecord: doing so would widen normal acceptance.
+function createBetaProofRecord({
+  containment,
+  prepared,
+  profileSha256,
+  proofResult,
+  runtimeResolution,
+}) {
+  const storedProof = proofResultCore({
+    schema: proofResult.schema,
+    proof: proofResult.proof,
+    publicInputs: [...proofResult.publicInputs],
+    claims: { ...proofResult.claims },
+    sourceHashes: { ...proofResult.sourceHashes },
+    inputSha256: proofResult.inputSha256,
+    resultSha256: proofResult.resultSha256,
+    timingsMs: { ...proofResult.timingsMs },
+  }, runtimeResolution.runtimeMaterial);
+  const core = {
+    schema: V2_BETA_OPERATION_PROOF_RECORD_SCHEMA,
+    descriptorSha256: runtimeResolution.descriptorSha256,
+    manifestSha256: runtimeResolution.manifestSha256,
+    runtimeManifestSha256: runtimeResolution.runtimeManifestSha256,
+    profileSha256,
+    runtimeMaterialsSha256: runtimeResolution.runtimeMaterial.materialSha256,
+    prepared,
+    proofResult: storedProof,
+    containment: normalizeContainment(containment),
+  };
+  return canonicalBytes({ ...core, recordSha256: sha256(canonicalBytes(core)) });
+}
+
+function inspectBetaProofRecord(bytesValue, { profileSha256, runtimeResolution }) {
+  if (!(bytesValue instanceof Uint8Array) || bytesValue.length === 0) {
+    fail('PROOF_RECORD_REQUIRED', 'beta operation proof record is missing');
+  }
+  const bytesCopy = Buffer.from(bytesValue);
+  let parsed;
+  try { parsed = JSON.parse(bytesCopy.toString('utf8')); }
+  catch { fail('INVALID_BETA_PROOF_RECORD', 'beta operation proof record is not JSON'); }
+  if (!bytesCopy.equals(canonicalBytes(parsed))) {
+    fail('INVALID_BETA_PROOF_RECORD', 'beta operation proof record is not exact RFC8785/JCS bytes');
+  }
+  exact(parsed, [
+    'containment', 'descriptorSha256', 'manifestSha256', 'prepared',
+    'profileSha256', 'proofResult', 'recordSha256', 'runtimeManifestSha256',
+    'runtimeMaterialsSha256', 'schema',
+  ], 'beta operation proof record');
+  const { recordSha256, ...core } = parsed;
+  if (
+    parsed.schema !== V2_BETA_OPERATION_PROOF_RECORD_SCHEMA
+    || !HASH.test(recordSha256)
+    || sha256(canonicalBytes(core)) !== recordSha256
+    || parsed.descriptorSha256 !== runtimeResolution.descriptorSha256
+    || parsed.manifestSha256 !== runtimeResolution.manifestSha256
+    || parsed.runtimeManifestSha256 !== runtimeResolution.runtimeManifestSha256
+    || parsed.profileSha256 !== profileSha256
+    || parsed.runtimeMaterialsSha256 !== runtimeResolution.runtimeMaterial.materialSha256
+  ) fail('INVALID_BETA_PROOF_RECORD', 'beta proof record identity or canonical commitment is invalid');
+  return Object.freeze({
+    prepared: freezeJson(parsed.prepared),
+    proofResult: proofResultCore(parsed.proofResult, runtimeResolution.runtimeMaterial),
+    containment: normalizeContainment(parsed.containment),
+    recordSha256,
+  });
+}
+
 function proofPublicValues(kind, output, publicNullifier) {
   const outputActive = kind === 'deposit' || kind === 'transfer';
   const spendActive = kind === 'transfer' || kind === 'withdrawal';
@@ -1133,6 +1222,8 @@ function assertHighFeeSigningConfirmation(
 }
 
 class V2DirectActionLifecycle {
+  #buildActionWitness;
+  #createProofRecord;
   #descriptor;
   #fundingPrivateKey;
   #fundingPublicKeyHex;
@@ -1143,6 +1234,7 @@ class V2DirectActionLifecycle {
   #profileId;
   #profileSha256;
   #privateActionStore;
+  #inspectProofRecord;
   #proofWorkspaceDirectory;
   #proveGroth16;
   #runtimeMaterialsSha256;
@@ -1151,6 +1243,8 @@ class V2DirectActionLifecycle {
   #synchronizeCanonicalTip;
 
   constructor(value) {
+    this.#buildActionWitness = value.buildActionWitness;
+    this.#createProofRecord = value.createProofRecord;
     this.#descriptor = value.descriptor;
     this.#fundingPrivateKey = Buffer.from(
       value.fundingWallet.privateKeyHex,
@@ -1165,6 +1259,7 @@ class V2DirectActionLifecycle {
     this.#profileId = value.profileId;
     this.#profileSha256 = value.profileSha256;
     this.#privateActionStore = value.privateActionStore;
+    this.#inspectProofRecord = value.inspectProofRecord;
     this.#proofWorkspaceDirectory = value.proofWorkspaceDirectory;
     this.#proveGroth16 = value.proveGroth16;
     this.#runtimeMaterialsSha256 = value.runtimeMaterialsSha256;
@@ -1212,10 +1307,7 @@ class V2DirectActionLifecycle {
         'high-fee signing confirmation requires the complete unsigned proved artifact set',
       );
     }
-    const record = inspectProofRecord(operation.proof, {
-      profileSha256: this.#profileSha256,
-      runtimeResolution: this.#runtimeResolution,
-    });
+    const record = this.#inspectProofRecord(operation.proof);
     this.#rebuildAssembled(operation, record);
     return highFeeSigningConfirmation(
       selectedId,
@@ -1372,7 +1464,7 @@ class V2DirectActionLifecycle {
   }
 
   #rebuildAssembled(operation, record) {
-    const witness = buildDirectV2Pf10ActionWitness({
+    const witness = this.#buildActionWitness({
       actionPacket: operation.packet,
       denominationSats: this.#profileCore.denominationSats,
       proofResult: record.proofResult,
@@ -1399,10 +1491,7 @@ class V2DirectActionLifecycle {
   }
 
   #inspectDurableSignedArtifacts(operation, record = undefined) {
-    const inspectedRecord = record ?? inspectProofRecord(operation.proof, {
-      profileSha256: this.#profileSha256,
-      runtimeResolution: this.#runtimeResolution,
-    });
+    const inspectedRecord = record ?? this.#inspectProofRecord(operation.proof);
     this.#rebuildAssembled(operation, inspectedRecord);
     let transaction;
     let evidence;
@@ -1651,10 +1740,7 @@ class V2DirectActionLifecycle {
           'proved operation does not contain the exact immutable proof artifact set',
         );
       }
-      const record = inspectProofRecord(operation.proof, {
-        profileSha256: this.#profileSha256,
-        runtimeResolution: this.#runtimeResolution,
-      });
+      const record = this.#inspectProofRecord(operation.proof);
       this.#rebuildAssembled(operation, record);
       return operation;
     }
@@ -1703,10 +1789,7 @@ class V2DirectActionLifecycle {
     }
     const artifactState = exactArtifactSet(operation);
     if (artifactState.proved) {
-      const record = inspectProofRecord(operation.proof, {
-        profileSha256: this.#profileSha256,
-        runtimeResolution: this.#runtimeResolution,
-      });
+      const record = this.#inspectProofRecord(operation.proof);
       this.#rebuildAssembled(operation, record);
       return this.#store.transitionOperation({
         operationId: selectedId,
@@ -1776,7 +1859,7 @@ class V2DirectActionLifecycle {
       );
     }
     crash(selectedCrash, 'prove.after_proof');
-    const witness = buildDirectV2Pf10ActionWitness({
+    const witness = this.#buildActionWitness({
       actionPacket: transition.packet,
       denominationSats: this.#profileCore.denominationSats,
       proofResult,
@@ -1788,7 +1871,7 @@ class V2DirectActionLifecycle {
         witness.verifierUnlockingBytecodes,
       stateUnlockingBytecode: witness.stateUnlockingBytecode,
     });
-    const proofRecord = createProofRecord({
+    const proofRecord = this.#createProofRecord({
       containment: proofResult.containment,
       prepared,
       profileSha256: this.#profileSha256,
@@ -1905,10 +1988,7 @@ class V2DirectActionLifecycle {
       );
     }
     crash(selectedCrash, 'sign.after_refresh');
-    const record = inspectProofRecord(operation.proof, {
-      profileSha256: this.#profileSha256,
-      runtimeResolution: this.#runtimeResolution,
-    });
+    const record = this.#inspectProofRecord(operation.proof);
     const { assembled } = this.#rebuildAssembled(operation, record);
     assertHighFeeSigningConfirmation(
       highFeeConfirmation,
@@ -2223,10 +2303,7 @@ class V2DirectActionLifecycle {
     let operation = this.#operation(selectedId);
     const artifacts = exactArtifactSet(operation);
     if (operation.journalState === 'proving' && artifacts.proved) {
-      const record = inspectProofRecord(operation.proof, {
-        profileSha256: this.#profileSha256,
-        runtimeResolution: this.#runtimeResolution,
-      });
+      const record = this.#inspectProofRecord(operation.proof);
       this.#rebuildAssembled(operation, record);
       operation = this.#store.transitionOperation({
         operationId: selectedId,
@@ -2565,17 +2642,224 @@ export async function createV2DirectActionLifecycle(value) {
   });
   const profileSha256 = sha256(canonicalBytes(value.profileCore));
   return new V2DirectActionLifecycle({
+    buildActionWitness: buildDirectV2Pf10ActionWitness,
+    createProofRecord: (record) => createProofRecord(record),
     descriptor: value.descriptor,
+    fundingWallet,
     loadRawTransaction: value.loadRawTransaction,
     pins: deriveV2SettlementPinsFromValidatedDescriptor(value.descriptor),
     profileCore: value.profileCore,
     profileId,
     profileSha256,
     privateActionStore,
+    inspectProofRecord: (bytesValue) => inspectProofRecord(bytesValue, {
+      profileSha256,
+      runtimeResolution,
+    }),
     proofWorkspaceDirectory: value.proofWorkspaceDirectory,
     proveGroth16: proveV2DirectGroth16Default,
     runtimeMaterialsSha256,
     runtimeResolution,
+    store,
+    synchronizeCanonicalTip: value.synchronizeCanonicalTip,
+  });
+}
+
+function assertBetaChipnetRuntimeBinding({
+  betaDeployment,
+  profileCore,
+  runtimeResolution,
+  runtimeMaterialsSha256,
+  store,
+}) {
+  const deployment = assertV2BetaChipnetDeploymentCapability(betaDeployment);
+  const profileId = deriveProfileId(profileCore);
+  if (
+    profileCore.network.id !== 2
+    || profileCore.network.name !== 'chipnet'
+    || runtimeResolution.eligibility !== 'beta-single-contributor-unqualified'
+    || runtimeResolution.identity.profileId !== profileId
+    || runtimeResolution.identity.instanceId !== deployment.instanceId
+    || runtimeResolution.runtimeMaterial.profileId !== profileId
+    || runtimeResolution.runtimeMaterial.instanceId !== deployment.instanceId
+    || runtimeResolution.runtimeMaterial.topologyId !== DIRECT_V2_PF10_FUSED_TOPOLOGY_ID
+    || runtimeResolution.runtimeMaterial.materialSha256
+      !== runtimeMaterialsSha256.toString('hex')
+    || deployment.eligibility !== 'beta-single-contributor-unqualified'
+    || deployment.profileId !== profileId
+    || typeof runtimeResolution.descriptorSha256 !== 'string'
+    || !HASH.test(runtimeResolution.descriptorSha256)
+    || typeof runtimeResolution.manifestSha256 !== 'string'
+    || !HASH.test(runtimeResolution.manifestSha256)
+  ) {
+    fail(
+      'BETA_RUNTIME_DEPLOYMENT_MISMATCH',
+      'beta runtime, zero-conf deployment, profile, and store must have one exact Chipnet identity',
+    );
+  }
+  store.assertBinding({
+    profileId: Buffer.from(profileId, 'hex'),
+    instanceId: Buffer.from(deployment.instanceId, 'hex'),
+    networkId: profileCore.network.id,
+    denominationSats: profileCore.denominationSats,
+    carrierCount: runtimeResolution.runtimeMaterial.verifierRoles.length,
+    runtimeMaterialsSha256,
+  });
+  return Object.freeze({ deployment, profileId });
+}
+
+/**
+ * Rebuild the two authenticated trees from the beta overlay's durable active
+ * material. The overlay never supplies a trusted in-memory tree: every
+ * transition starts from its append-prefix note leaves and ordered normal
+ * nullifier keys, then applyDirectV2Transition rechecks the resulting roots
+ * against the committed optimistic state.
+ */
+function rebuildBetaTransitionTrees({ material, preState, profileCore }) {
+  if (
+    material === null
+    || typeof material !== 'object'
+    || material.treeMaterial === undefined
+  ) fail('BETA_OVERLAY_MATERIAL_REQUIRED', 'beta overlay must provide authenticated note and nullifier material');
+  try {
+    return restoreV2BetaZeroConfTreeMaterial({
+      material: material.treeMaterial,
+      profileId: decodeStateNftCommitment(preState, {
+        denominationSats: profileCore.denominationSats,
+      }).profileId,
+      state: preState,
+    });
+  } catch (error) {
+    fail('BETA_OVERLAY_MATERIAL_INVALID', `beta tree material cannot be authenticated: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
+}
+
+function applyBetaOptimisticTransition({
+  kind,
+  material,
+  preState,
+  profileCore,
+  profileId,
+  instanceId,
+  transactionContextHash,
+  output = undefined,
+  spend = undefined,
+  withdrawalLockingBytecodeHash = undefined,
+}) {
+  const trees = rebuildBetaTransitionTrees({ material, preState, profileCore });
+  const transition = {
+    kind,
+    networkId: profileCore.network.id,
+    profileId,
+    instanceId,
+    denominationSats: profileCore.denominationSats,
+    preState: trees.state,
+    noteTree: trees.noteTree,
+    nullifierTree: trees.nullifierTree,
+    transactionContextHash,
+    ...(output === undefined ? {} : { output }),
+    ...(spend === undefined ? {} : { spend }),
+    ...(withdrawalLockingBytecodeHash === undefined
+      ? {}
+      : { withdrawalLockingBytecodeHash }),
+  };
+  try {
+    return applyDirectV2Transition(transition);
+  } catch (error) {
+    fail(
+      'BETA_OPTIMISTIC_TRANSITION_REJECTED',
+      `beta optimistic transition is invalid: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Create the separately branded, explicitly unqualified Chipnet beta action
+ * coordinator. This factory cannot receive normal descriptors or runtimes.
+ * The beta deployment capability establishes a zero-conf local anchor; normal
+ * descriptor acceptance is neither called nor widened by this path.
+ */
+export async function createV2BetaChipnetActionLifecycle(value) {
+  exact(value, [
+    'acknowledgement',
+    'betaDeployment',
+    'fundingWallet',
+    'loadRawTransaction',
+    'profileCore',
+    'privateActionStore',
+    'proofWorkspaceDirectory',
+    'runtimeResolution',
+    'store',
+    'synchronizeCanonicalTip',
+  ], 'V2 beta Chipnet action lifecycle options');
+  if (value.acknowledgement !== V2_BETA_CHIPNET_ACTION_ACKNOWLEDGEMENT) {
+    fail(
+      'BETA_ACKNOWLEDGEMENT_REQUIRED',
+      'explicit beta-single-contributor-unqualified Chipnet action acknowledgement is required',
+    );
+  }
+  validateProfileCore(value.profileCore);
+  if (value.profileCore.network.id !== 2 || value.profileCore.network.name !== 'chipnet') {
+    fail('BETA_PROFILE_REJECTED', 'the beta action lane accepts only the exact Chipnet profile');
+  }
+  const fundingWallet = validatedFundingWallet(value.fundingWallet);
+  if (fundingWallet.networkId !== 2) {
+    fail('FUNDING_WALLET_NETWORK_MISMATCH', 'beta action funding wallet must be a Chipnet wallet');
+  }
+  const store = requireStore(value.store);
+  const privateActionStore = assertV2PrivateActionStore(value.privateActionStore);
+  if (typeof value.loadRawTransaction !== 'function') {
+    fail('CHAIN_READER_REQUIRED', 'loadRawTransaction must be an injected read-only chain callback');
+  }
+  if (typeof value.synchronizeCanonicalTip !== 'function') {
+    fail('TIP_SYNCHRONIZER_REQUIRED', 'synchronizeCanonicalTip must be an injected authenticated chain callback');
+  }
+  if (
+    typeof value.proofWorkspaceDirectory !== 'string'
+    || !path.isAbsolute(value.proofWorkspaceDirectory)
+    || path.normalize(value.proofWorkspaceDirectory) !== value.proofWorkspaceDirectory
+  ) fail('PROOF_WORKSPACE_REQUIRED', 'proofWorkspaceDirectory must be an absolute private directory');
+  await assertPrivateProofWorkspace(value.proofWorkspaceDirectory);
+  // Both opaque capabilities reject caller-created copies before any member is
+  // inspected. The runtime must also have consumed its one descriptor binding.
+  assertV2BetaChipnetRuntimeResolution(value.runtimeResolution);
+  assertV2BetaChipnetDeploymentCapability(value.betaDeployment);
+  const runtimeMaterialsSha256 =
+    deriveV2BetaChipnetStoreRuntimeMaterialsSha256(value.runtimeResolution);
+  const { deployment, profileId } = assertBetaChipnetRuntimeBinding({
+    betaDeployment: value.betaDeployment,
+    profileCore: value.profileCore,
+    runtimeResolution: value.runtimeResolution,
+    runtimeMaterialsSha256,
+    store,
+  });
+  fail(
+    'BETA_OPTIMISTIC_LIFECYCLE_REQUIRED',
+    'the beta factory requires the dedicated zero-conf lifecycle; it must not adapt the confirmed V2DirectActionLifecycle',
+  );
+  const profileSha256 = sha256(canonicalBytes(value.profileCore));
+  return new V2DirectActionLifecycle({
+    buildActionWitness: buildDirectV2Pf10BetaActionWitness,
+    createProofRecord: (record) => createBetaProofRecord(record),
+    // The shared implementation only needs the instance identifier. This is
+    // intentionally not a normal V2 instance descriptor.
+    descriptor: Object.freeze({ instanceId: deployment.instanceId }),
+    fundingWallet,
+    loadRawTransaction: value.loadRawTransaction,
+    pins: deriveV2BetaChipnetSettlementPins(value.runtimeResolution),
+    profileCore: value.profileCore,
+    profileId,
+    profileSha256,
+    privateActionStore,
+    inspectProofRecord: (bytesValue) => inspectBetaProofRecord(bytesValue, {
+      profileSha256,
+      runtimeResolution: value.runtimeResolution,
+    }),
+    proofWorkspaceDirectory: value.proofWorkspaceDirectory,
+    proveGroth16: proveV2DirectGroth16Default,
+    runtimeMaterialsSha256,
+    runtimeResolution: value.runtimeResolution,
     store,
     synchronizeCanonicalTip: value.synchronizeCanonicalTip,
   });
@@ -2606,6 +2890,37 @@ export function inspectV2OperationProofRecord(
     );
   }
   return inspectProofRecord(bytesValue, {
+    profileSha256: sha256(canonicalBytes(profileCore)),
+    runtimeResolution,
+  });
+}
+
+/**
+ * Inspect only the separately encoded beta proof record. This is deliberately
+ * not an overload of inspectV2OperationProofRecord: beta records remain
+ * unqualified and cannot be introduced into the normal descriptor lane.
+ */
+export function inspectV2BetaChipnetOperationProofRecord(bytesValue, options) {
+  exact(options, ['profileCore', 'runtimeResolution'], 'beta proof record inspection options');
+  const { profileCore, runtimeResolution } = options;
+  validateProfileCore(profileCore);
+  if (profileCore.network.id !== 2 || profileCore.network.name !== 'chipnet') {
+    fail('BETA_PROFILE_REJECTED', 'beta proof record inspection accepts only the exact Chipnet profile');
+  }
+  assertV2BetaChipnetRuntimeResolution(runtimeResolution);
+  const runtimeMaterialsSha256 =
+    deriveV2BetaChipnetStoreRuntimeMaterialsSha256(runtimeResolution);
+  const profileId = deriveProfileId(profileCore);
+  if (
+    runtimeResolution.eligibility !== 'beta-single-contributor-unqualified'
+    || runtimeResolution.identity.profileId !== profileId
+    || runtimeResolution.runtimeMaterial.profileId !== profileId
+    || runtimeResolution.runtimeMaterial.materialSha256
+      !== runtimeMaterialsSha256.toString('hex')
+    || !HASH.test(runtimeResolution.descriptorSha256)
+    || !HASH.test(runtimeResolution.manifestSha256)
+  ) fail('BETA_RUNTIME_DEPLOYMENT_MISMATCH', 'beta proof record runtime is not one bound beta Chipnet resolution');
+  return inspectBetaProofRecord(bytesValue, {
     profileSha256: sha256(canonicalBytes(profileCore)),
     runtimeResolution,
   });

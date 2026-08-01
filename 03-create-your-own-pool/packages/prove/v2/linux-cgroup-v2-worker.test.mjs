@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import test from 'node:test';
 
 import {
@@ -11,6 +12,7 @@ import {
   runLinuxCgroupV2ProofWorker,
   systemdRunProofWorkerArgv,
 } from './linux-cgroup-v2-worker.mjs';
+import { runLinuxCgroupV2ProofChild } from './linux-cgroup-v2-child.mjs';
 
 const limits = ({ oom = 0, oomKill = 0, memoryPeak = '65536' } = {}) => ({
   cgroup: '/user.slice/user-1000.slice/app.slice/proof.scope',
@@ -69,6 +71,32 @@ test('reads the current cgroup limits through an injectable probe seam', async (
     },
   });
   assert.deepEqual(evidence, limits());
+});
+
+test('child fails closed when final cgroup readback is unavailable', async () => {
+  const records = [];
+  const errors = [];
+  let reads = 0;
+  const child = new EventEmitter();
+  child.stderr = { pipe() {} };
+  const terminal = await runLinuxCgroupV2ProofChild({
+    argv: ['node', 'linux-cgroup-v2-child.mjs', '--', '/usr/bin/true'],
+    spawnChild: () => {
+      queueMicrotask(() => child.emit('close', 0, null));
+      return child;
+    },
+    readEvidence: async () => {
+      reads += 1;
+      if (reads === 1) return limits();
+      throw new Error('final cgroup readback unavailable');
+    },
+    writeRecord: value => records.push(value),
+    writeError: value => errors.push(value),
+    pipeStderr: () => {},
+  });
+  assert.deepEqual(terminal, { exitCode: 70, signal: null });
+  assert.deepEqual(records, [{ phase: 'limits', evidence: limits() }]);
+  assert.deepEqual(errors, ['final cgroup readback unavailable']);
 });
 
 test('returns verified containment evidence only after exact cgroup readback', async () => {

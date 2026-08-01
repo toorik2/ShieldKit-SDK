@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmod,
@@ -13,6 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   binToHex,
@@ -33,6 +34,7 @@ import {
 import {
   deriveV2RollingBaseSats,
 } from '../../action/v2/dust-policy.mjs';
+import { recordV2BetaRuntimeWork } from '../../profile/v2/beta-runtime-work-observer.mjs';
 import {
   parseStrictJson,
 } from '../../prove/groth16.mjs';
@@ -178,6 +180,8 @@ const fail = (code, message, cause) => {
 
 const sha256 = (value) =>
   createHash('sha256').update(value).digest('hex');
+
+const execFileAsync = promisify(execFile);
 
 const concat = (...parts) =>
   Buffer.concat(parts.map((part) => Buffer.from(part)));
@@ -1180,7 +1184,9 @@ async function optimize({
   label,
   optimizerRoot,
   workDirectory,
+  onStage = undefined,
 }) {
+  const stageStarted = performance.now();
   const directory = await mkdtemp(path.join(workDirectory, `${label}-`));
   const input = path.join(directory, 'input.hex');
   const optimized = path.join(directory, 'optimized.hex');
@@ -1190,34 +1196,32 @@ async function optimize({
     flag: 'wx',
     mode: 0o600,
   });
-  const run = (program, args, step) => {
-    const result = spawnSync(program, args, {
-      cwd: optimizerRoot,
-      encoding: 'utf8',
-      timeout: 120_000,
-      maxBuffer: 16 * 1024 * 1024,
-      windowsHide: true,
-    });
-    if (
-      result.error !== undefined
-      || result.signal !== null
-      || result.status !== 0
-    ) {
+  const run = async (program, args, step) => {
+    try {
+      await execFileAsync(program, args, {
+        cwd: optimizerRoot,
+        encoding: 'utf8',
+        timeout: 120_000,
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      });
+    } catch (error) {
+      const detail = error === null || typeof error !== 'object'
+        ? error
+        : error.stderr || error.stdout || error.signal || error.message;
       fail(
         'PF10_BUILD_OPTIMIZER_FAILED',
-        `${label} ${step} failed: ${
-          result.stderr || result.stdout || result.error || result.signal
-        }`,
-        result.error,
+        `${label} ${step} failed: ${detail}`,
+        error,
       );
     }
   };
-  run(
+  await run(
     process.execPath,
     [path.join(optimizerRoot, 'optimize.mjs'), input, optimized],
     'optimizer',
   );
-  run(
+  await run(
     process.execPath,
     [path.join(optimizerRoot, 'minpush_canon.mjs'), optimized, canonical],
     'minimal-push canonicalizer',
@@ -1238,7 +1242,14 @@ async function optimize({
       `${label} optimizer emitted noncanonical hexadecimal bytecode`,
     );
   }
-  return Buffer.from(hexToBin(encoded));
+  const result = Buffer.from(hexToBin(encoded));
+  if (onStage !== undefined) {
+    onStage(Object.freeze({
+      label,
+      elapsedMs: performance.now() - stageStarted,
+    }));
+  }
+  return result;
 }
 
 const exactReproducibilityBytes = (value, label) => {
@@ -1571,11 +1582,20 @@ async function buildDirectV2Pf10Runtime({
   runtimeBuildSchema,
   validateRuntimeMaterial,
   includeLibauthEvidence,
+  onOptimizeStage: suppliedOptimizeStage = undefined,
 } = {}) {
   const root = await canonicalRepository(repositoryRoot);
   const profileId = exactIdentity(profileIdentity, 'profileId');
   const instanceId = exactIdentity(instanceIdentity, 'instanceId');
   const proofArtifacts = exactArtifactRecord(proofArtifactRecords);
+  if (suppliedOptimizeStage !== undefined
+    && typeof suppliedOptimizeStage !== 'function') {
+    fail(
+      'PF10_BUILD_INPUT_INVALID',
+      'onOptimizeStage must be a function when supplied',
+    );
+  }
+  const onOptimizeStage = suppliedOptimizeStage;
   const libauthEvidence = libauthEvidenceRecord === undefined
     ? undefined
     : exactPinnedArtifactRecord(
@@ -1744,6 +1764,7 @@ async function buildDirectV2Pf10Runtime({
       label: 'terminal',
       optimizerRoot,
       workDirectory,
+      onStage: onOptimizeStage,
     });
     const terminal = immutableProgram({
       source: terminalSource,
@@ -1769,6 +1790,7 @@ async function buildDirectV2Pf10Runtime({
       label: 'executor',
       optimizerRoot,
       workDirectory,
+      onStage: onOptimizeStage,
     });
     const executor = immutableProgram({
       source: executorSource,
@@ -1806,16 +1828,12 @@ async function buildDirectV2Pf10Runtime({
       zeroPaddingBytes: DIRECT_V2_PF10_EXACT_MSM_ZERO_PADDING_BYTES,
     });
     const exactFinalRaw = compile(exactFinalSource);
-    const exactFinalRedeem = await optimize({
+    const exactFinalOptimization = optimize({
       bytecode: exactFinalRaw,
       label: 'exact-final',
       optimizerRoot,
       workDirectory,
-    });
-    const exactFinal = immutableProgram({
-      source: exactFinalSource,
-      raw: exactFinalRaw,
-      redeem: exactFinalRedeem,
+      onStage: onOptimizeStage,
     });
     const millerSource =
       renderDirectV2Pf10FusedQGenesisMillerComponent({
@@ -1830,11 +1848,21 @@ async function buildDirectV2Pf10Runtime({
     const millerRaw = compile(millerSource, {
       'Bn254LazyAff.cash': lazyAffineLibrary,
     });
-    const millerRedeem = await optimize({
+    const millerOptimization = optimize({
       bytecode: millerRaw,
       label: 'miller',
       optimizerRoot,
       workDirectory,
+      onStage: onOptimizeStage,
+    });
+    const [exactFinalRedeem, millerRedeem] = await Promise.all([
+      exactFinalOptimization,
+      millerOptimization,
+    ]);
+    const exactFinal = immutableProgram({
+      source: exactFinalSource,
+      raw: exactFinalRaw,
+      redeem: exactFinalRedeem,
     });
     const miller = immutableProgram({
       source: millerSource,
@@ -1875,6 +1903,7 @@ async function buildDirectV2Pf10Runtime({
         label: `exact-${windowIndex}`,
         optimizerRoot,
         workDirectory,
+        onStage: onOptimizeStage,
       });
       const program = immutableProgram({ source, raw, redeem });
       exactPrograms[windowIndex] = program;
@@ -2105,6 +2134,7 @@ export async function buildDirectV2Pf10DevelopmentRuntime(value = {}) {
  * runtime validator.
  */
 export async function buildDirectV2Pf10BetaRuntime(value = {}) {
+  recordV2BetaRuntimeWork({ type: 'cold-runtime-build' });
   if (value.libauthEvidence !== undefined) {
     fail(
       'PF10_BETA_LIBAUTH_FORBIDDEN',

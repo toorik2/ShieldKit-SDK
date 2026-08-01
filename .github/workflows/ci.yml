@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   source-policy:
-    name: Source policy (Node 22)
+    name: Source policy (Node 22.23.1)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["22", "24"]
+        node: ["22.23.1", "24"]
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -65,6 +65,28 @@ jobs:
         # 100,000-action measurements remain outside portable CI.
         run: npm test
 
+  beta-product-security:
+    name: Mandatory clean-clone product receipt and offline-installer security (Node 22.23.1)
+    # Uses only deterministic generated private fixtures. This independently
+    # exercises clean-install receipt binding, offline installation/restart,
+    # native-prover cache identity, and crash-workspace cleanup. It never
+    # fetches proof artifacts or contacts BCHN/Chipnet.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22.23.1"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install immutable workspace
+        run: npm ci
+      - name: Run generated-fixture product and offline-installer security tests
+        run: npm run test:beta-product:security
+
   typescript:
     name: Strict V2 TypeScript
     runs-on: ubuntu-latest
@@ -75,7 +97,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -93,7 +115,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -111,7 +133,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -129,7 +151,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -149,7 +171,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -173,7 +195,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
@@ -195,7 +217,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "22"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace

@@ -17,6 +17,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import * as snarkjs from 'snarkjs';
+import { getCurveFromName } from 'ffjavascript';
 
 import {
   createDevelopmentEvidenceManifest,
@@ -682,38 +683,50 @@ export async function verifyBetaProofQualification({ evidencePath }) {
   } catch (error) {
     fail(`verification key is not JSON: ${error.message}`);
   }
-  for (const name of ACTIONS) {
-    const action = evidence.actions[name];
-    if (action?.witnessValid !== true || action?.proofVerified !== true) {
-      fail(`${name} is not a fully verified beta proof`);
+  let verificationCurveStarted = false;
+  try {
+    for (const name of ACTIONS) {
+      const action = evidence.actions[name];
+      if (action?.witnessValid !== true || action?.proofVerified !== true) {
+        fail(`${name} is not a fully verified beta proof`);
+      }
+      const files = {};
+      for (const kind of [
+        'packet', 'input', 'witness', 'proof', 'publicSignals',
+        'v2DirectGroth16Adapter',
+      ]) files[kind] = await rehashEvidenceFile(action.files?.[kind], `${name}.${kind}`);
+      if (
+        files.packet.bytes.length !== 552
+        || sha256(files.packet.bytes) !== action.packetDigest
+        || files.packet.bytes.length !== action.files.packet.bytes
+      ) fail(`${name} packet differs from evidence`);
+      let proof;
+      let publicSignals;
+      try {
+        proof = JSON.parse(files.proof.bytes.toString('utf8'));
+        publicSignals = JSON.parse(files.publicSignals.bytes.toString('utf8'));
+      } catch (error) {
+        fail(`${name} proof or public signals are not JSON: ${error.message}`);
+      }
+      if (
+        !Array.isArray(publicSignals)
+        || publicSignals.length !== 2
+        || publicSignals.some((entry, index) => String(entry) !== action.publicInputs[index])
+        || action.publicInputs.length !== 2
+        || action.publicInputs.some((entry) => !DECIMAL.test(entry) || BigInt(entry) > MAX_U128)
+      ) fail(`${name} public inputs are invalid or differ from evidence`);
+      verificationCurveStarted = true;
+      if (!(await snarkjs.groth16.verify(verificationKey, publicSignals, proof))) {
+        fail(`${name} Groth16 verification returned false`);
+      }
     }
-    const files = {};
-    for (const kind of [
-      'packet', 'input', 'witness', 'proof', 'publicSignals',
-      'v2DirectGroth16Adapter',
-    ]) files[kind] = await rehashEvidenceFile(action.files?.[kind], `${name}.${kind}`);
-    if (
-      files.packet.bytes.length !== 552
-      || sha256(files.packet.bytes) !== action.packetDigest
-      || files.packet.bytes.length !== action.files.packet.bytes
-    ) fail(`${name} packet differs from evidence`);
-    let proof;
-    let publicSignals;
-    try {
-      proof = JSON.parse(files.proof.bytes.toString('utf8'));
-      publicSignals = JSON.parse(files.publicSignals.bytes.toString('utf8'));
-    } catch (error) {
-      fail(`${name} proof or public signals are not JSON: ${error.message}`);
-    }
-    if (
-      !Array.isArray(publicSignals)
-      || publicSignals.length !== 2
-      || publicSignals.some((entry, index) => String(entry) !== action.publicInputs[index])
-      || action.publicInputs.length !== 2
-      || action.publicInputs.some((entry) => !DECIMAL.test(entry) || BigInt(entry) > MAX_U128)
-    ) fail(`${name} public inputs are invalid or differ from evidence`);
-    if (!(await snarkjs.groth16.verify(verificationKey, publicSignals, proof))) {
-      fail(`${name} Groth16 verification returned false`);
+  } finally {
+    // snarkjs 0.7.6 leaves ffjavascript's shared curve worker pool alive.
+    // Library callers (including the cache installer) must release it or an
+    // otherwise-complete install command hangs indefinitely with ~20 threads.
+    if (verificationCurveStarted) {
+      const curve = await getCurveFromName(verificationKey.curve);
+      await curve.terminate();
     }
   }
   return Object.freeze({
