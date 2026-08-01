@@ -85,4 +85,13 @@ test('beta integration source has no network, broadcaster, or descriptor admissi
   ]) assert.equal(source.includes(forbidden), false, `forbidden beta integration dependency: ${forbidden}`);
   assert.match(source, /maximumLiveNotes: MAXIMUM_LIVE_NOTES/u);
   assert.match(source, /const CARRIER_COUNT = 10/u);
+  assert.match(
+    source,
+    /mkdir\(path\.join\(output, 'custody\/b01'\), \{ mode: PRIVATE_DIR_MODE \}\)/u,
+  );
+  assert.ok(
+    source.indexOf("mkdir(path.join(output, 'custody/b01')")
+      < source.indexOf('copyCeremony(input.ceremonyDirectory'),
+    'private custody parents must exist before ceremony/artifact copies',
+  );
 });

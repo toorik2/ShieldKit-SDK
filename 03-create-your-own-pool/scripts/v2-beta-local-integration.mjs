@@ -483,6 +483,10 @@ export async function buildV2BetaLocalIntegration(options) {
   await writeJson(path.join(output, 'build-start.json'), Object.freeze({ schema: SCHEMA, status: 'incomplete', eligibility: V2_BETA_LOCAL_ELIGIBILITY, claims: V2_BETA_LOCAL_FALSE_CLAIMS, git }));
   const original = await resolveV2BetaSingleContributorHistoricalCeremony({ ceremonyDirectory: input.ceremonyDirectory });
   ceremonyClaims(original.claims, 'original ceremony claims');
+  await mkdir(path.join(output, 'custody'), { mode: PRIVATE_DIR_MODE });
+  await mkdir(path.join(output, 'custody/b01'), { mode: PRIVATE_DIR_MODE });
+  await assertPrivateDirectory(path.join(output, 'custody'), 'beta custody directory');
+  await assertPrivateDirectory(path.join(output, 'custody/b01'), 'B01 custody directory');
   await copyCeremony(input.ceremonyDirectory, path.join(output, 'custody/ceremony'));
   const copied = await resolveV2BetaSingleContributorHistoricalCeremony({ ceremonyDirectory: path.join(output, 'custody/ceremony') });
   const { artifacts: _originalArtifacts, ...originalResolution } = original;
