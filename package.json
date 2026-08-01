@@ -23,7 +23,8 @@
     "03-create-your-own-pool/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc"
   ],
   "scripts": {
-    "postinstall": "node 03-create-your-own-pool/scripts/install-deps.mjs",
+    "postinstall": "npm run build:vendored-cashc && node 03-create-your-own-pool/scripts/install-deps.mjs",
+    "build:vendored-cashc": "npm run build --workspace @cashscript/utils && npm run build --workspace cashc",
     "install:deps": "npm ci --include-workspace-root",
     "test": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite portable",
     "test:beta-product:security": "node 03-create-your-own-pool/scripts/run-domain-tests.mjs --suite beta-product-security",

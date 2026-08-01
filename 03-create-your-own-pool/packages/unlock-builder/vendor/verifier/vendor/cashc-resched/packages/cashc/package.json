@@ -42,7 +42,6 @@
     "clean": "rm -rf ./dist",
     "compile": "tsc -p tsconfig.build.json",
     "lint": "eslint . --ext .ts --ignore-path ../../.eslintignore",
-    "prepare": "npm run build",
     "prepublishOnly": "yarn test && yarn lint",
     "test": "vitest run"
   },
