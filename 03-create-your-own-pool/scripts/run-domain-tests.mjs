@@ -140,11 +140,16 @@ const BETA_RUNTIME_QUALIFICATION_TESTS = new Map([
   ['packages/profile/v2/beta-chipnet-runtime.test.mjs', 'requires an explicitly supplied private beta runtime fixture and fails closed when it is absent'],
   ['packages/unlock-builder/v2/pf10-beta-runtime-qualification.test.mjs', 'requires an explicitly supplied private PF10 beta runtime artifact closure and fails closed when it is absent'],
 ]);
-// `/proc/<pid>` sampling in this exact native-child contract intentionally
-// measures a short-lived subprocess. It is therefore not independent of a
-// saturated process table. Keep its measurement semantics strict and run it
-// alone; every other selected file still uses the all-core worker pool.
+// These tests have correctness-sensitive local resource boundaries which are
+// not independent of a saturated process table. The native-child contract
+// samples a short-lived subprocess via `/proc/<pid>`. The circuit-model test
+// compiles the full pinned circuit and calculates its complete witness corpus
+// under its own unchanged 120-second semantic timeout; it completes in about
+// 42 seconds alone on the reference host but demonstrably exceeds that timeout
+// when competing with nineteen other CPU-heavy files. Run each after the
+// all-core pool rather than weakening either test or its timeout.
 const EXCLUSIVE_DOMAIN_TEST_FILES = new Set([
+  'packages/action/v2/circuit-model.test.mjs',
   'packages/prove/v2/native-groth16-proof-child.test.mjs',
 ]);
 // `node:test` gives the full production depth-4 state-space check five minutes.

@@ -1403,6 +1403,7 @@ test('domain-test runner uses every available core by default and bounds an expl
   assert.equal(domainTestParallelism(1), 1);
   assert.equal(domainTestParallelism(availableParallelism() + 3), availableParallelism());
   assert.equal(domainTestParallelism(3, { testParallelism: 2 }), 2);
+  assert.equal(isExclusiveDomainTestFile({ relativePath: 'packages/action/v2/circuit-model.test.mjs' }), true);
   assert.equal(isExclusiveDomainTestFile({ relativePath: 'packages/prove/v2/native-groth16-proof-child.test.mjs' }), true);
   assert.equal(isExclusiveDomainTestFile({ relativePath: 'packages/action/base.test.mjs' }), false);
   assert.throws(() => domainTestParallelism(1, { testParallelism: 0 }), /test-only parallelism override/);
