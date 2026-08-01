@@ -126,6 +126,8 @@ test('beta runtime source uses a private beta manifest and never imports a norma
   assert.match(source, /onVerifiedRuntime/u);
   assert.match(source, /privateOutputRoot/u);
   assert.match(source, /relativeWithin\(allowedRoot, output/u);
+  assert.match(source, /allowedOutputRoot: path\.dirname\(options\.outputDirectory\)/u);
+  assert.match(source, /allowedOutputRoot: options\.outputDirectory/u);
   assert.match(source, /pathScope: V2_BETA_RUNTIME_BUNDLE_PATH_SCOPE/u);
   assert.match(source, /0o700/u);
   assert.match(source, /0o600/u);

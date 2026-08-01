@@ -472,11 +472,22 @@ export async function verifyV2Pf10BetaRuntime({
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
-    const result = process.argv[2] === '--verify'
-      ? await verifyV2Pf10BetaRuntime(
-        parseV2Pf10BetaRuntimeVerifyArguments(process.argv.slice(2)),
-      )
-      : await runV2Pf10BetaRuntime(process.argv.slice(2));
+    let result;
+    if (process.argv[2] === '--verify') {
+      const options = parseV2Pf10BetaRuntimeVerifyArguments(
+        process.argv.slice(2),
+      );
+      result = await verifyV2Pf10BetaRuntime({
+        ...options,
+        allowedOutputRoot: options.outputDirectory,
+      });
+    } else {
+      const argv = process.argv.slice(2);
+      const options = parseV2Pf10BetaRuntimeArguments(argv);
+      result = await runV2Pf10BetaRuntime(argv, {
+        allowedOutputRoot: path.dirname(options.outputDirectory),
+      });
+    }
     process.stdout.write(
       `${canonicalizeJcs(result)}\n`,
       () => process.exit(0),
