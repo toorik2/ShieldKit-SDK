@@ -24,6 +24,7 @@ import {
   V2_FINAL_ZKEY_VERIFICATION_SCHEMA,
   verifyV2FinalZkeyCryptographically,
   verifyV2FinalZkeyToolchainManifest,
+  verifyV2HistoricalFinalZkeyToolchainManifest,
 } from './final-zkey-verification.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -48,8 +49,67 @@ test('collects and re-verifies the installed hash-pinned snarkjs toolchain', asy
   assert.match(manifest.snarkjs.cliSha256, /^sha256:[0-9a-f]{64}$/);
   assert.match(manifest.snarkjs.packageJsonSha256, /^sha256:[0-9a-f]{64}$/);
   const resolved = await verifyV2FinalZkeyToolchainManifest(manifest);
+  const historical = await verifyV2HistoricalFinalZkeyToolchainManifest(manifest);
   assert.match(resolved.nodeExecutable, /node/);
   assert.match(resolved.snarkjsCli, /snarkjs\/build\/cli\.cjs$/);
+  assert.deepEqual(historical.manifest, manifest);
+});
+
+test('historical toolchain verification ignores only the enclosing lockfile byte envelope', async () => {
+  const manifest = await collectV2FinalZkeyToolchainManifest();
+  const withLockfile = (mutate) => {
+    const value = structuredClone(manifest);
+    mutate(value);
+    return value;
+  };
+  for (const drifted of [
+    withLockfile((value) => { value.npmClosure.lockfile.bytes += 1; }),
+    withLockfile((value) => { value.npmClosure.lockfile.sha256 = '0'.repeat(64); }),
+    withLockfile((value) => {
+      value.npmClosure.lockfile.bytes += 1;
+      value.npmClosure.lockfile.sha256 = '0'.repeat(64);
+    }),
+  ]) {
+    await assert.rejects(
+      () => verifyV2FinalZkeyToolchainManifest(drifted),
+      { code: 'FINAL_ZKEY_TOOLCHAIN_MISMATCH' },
+    );
+    const resolved = await verifyV2HistoricalFinalZkeyToolchainManifest(drifted);
+    assert.deepEqual(
+      resolved.manifest,
+      parseV2FinalZkeyToolchainManifest(drifted),
+    );
+  }
+
+  const rejectedMutations = [
+    (value) => { value.npmClosure.schema = 'wrong-schema'; },
+    (value) => { value.npmClosure.roots.push('node_modules/not-installed'); },
+    (value) => { value.npmClosure.lockfile.path = 'other-lock.json'; },
+    (value) => { value.npmClosure.lockfile.lockfileVersion = 2; },
+    (value) => { value.npmClosure.lockfile.extra = true; },
+    (value) => { value.npmClosure.lockClosureSha256 = '0'.repeat(64); },
+    (value) => { value.npmClosure.installedClosureSha256 = '0'.repeat(64); },
+    (value) => { value.npmClosure.packages[0].lock.version = '999.0.0'; },
+    (value) => { value.npmClosure.packages[0].lock.resolved = 'https://registry.npmjs.org/wrong/-/wrong-1.0.0.tgz'; },
+    (value) => { value.npmClosure.packages[0].lock.integrity = 'sha512-wrong'; },
+    (value) => { value.npmClosure.packages[0].lock.sha256 = '0'.repeat(64); },
+    (value) => { value.npmClosure.packages[0].installed.files[0].path = 'wrong-file'; },
+    (value) => { value.npmClosure.packages[0].installed.files[0].bytes += 1; },
+    (value) => { value.npmClosure.packages[0].installed.files[0].sha256 = '0'.repeat(64); },
+    (value) => { value.npmClosure.packages[0].installed.sha256 = '0'.repeat(64); },
+    (value) => { value.node.version = 'v22.23.0'; },
+    (value) => { value.node.executableSha256 = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.snarkjs.version = '0.0.0'; },
+    (value) => { value.snarkjs.cliSha256 = `sha256:${'0'.repeat(64)}`; },
+    (value) => { value.snarkjs.packageJsonSha256 = `sha256:${'0'.repeat(64)}`; },
+  ];
+  for (const mutate of rejectedMutations) {
+    await assert.rejects(
+      () => verifyV2HistoricalFinalZkeyToolchainManifest(
+        withLockfile(mutate),
+      ),
+    );
+  }
 });
 
 test('fails closed on non-exact final-key toolchain metadata', async () => {

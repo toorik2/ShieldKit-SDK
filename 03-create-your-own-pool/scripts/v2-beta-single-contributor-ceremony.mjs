@@ -47,6 +47,7 @@ import {
 import {
   collectV2FinalZkeyToolchainManifest,
   verifyV2FinalZkeyToolchainManifest,
+  verifyV2HistoricalFinalZkeyToolchainManifest,
 } from '../packages/profile/v2/final-zkey-verification.mjs';
 import {
   verifyV2B01PreFreezeBundle,
@@ -404,6 +405,40 @@ async function verifyHistoricalImplementationManifest(expected) {
     }
   }
   return expected;
+}
+
+function assertHistoricalToolchainLockBinding(preparation) {
+  const lockfile = preparation.toolchain?.npmClosure?.lockfile;
+  if (lockfile === null || Array.isArray(lockfile)
+      || typeof lockfile !== 'object') {
+    fail(
+      'BETA_IMPLEMENTATION_INVALID',
+      'historic beta toolchain lacks root lockfile evidence',
+    );
+  }
+  exactKeys(lockfile, 'historic beta toolchain root lockfile', [
+    'bytes',
+    'lockfileVersion',
+    'path',
+    'sha256',
+  ]);
+  const implementationLockfiles = preparation.implementation.files.filter(
+    (file) => file.path === 'package-lock.json',
+  );
+  if (lockfile.path !== 'package-lock.json'
+      || lockfile.lockfileVersion !== 3
+      || !Number.isSafeInteger(lockfile.bytes)
+      || lockfile.bytes <= 0
+      || !RAW_HASH.test(lockfile.sha256)
+      || implementationLockfiles.length !== 1
+      || implementationLockfiles[0].mode !== '0644'
+      || implementationLockfiles[0].bytes !== String(lockfile.bytes)
+      || implementationLockfiles[0].sha256 !== `sha256:${lockfile.sha256}`) {
+    fail(
+      'BETA_IMPLEMENTATION_INVALID',
+      'historic beta toolchain root lockfile is not bound to the Git-authenticated implementation',
+    );
+  }
 }
 
 function assertNodeVersion() {
@@ -1296,6 +1331,7 @@ async function loadPreparation(ceremonyDirectory, {
     await verifyImplementationManifest(preparation.implementation);
   } else {
     await verifyHistoricalImplementationManifest(preparation.implementation);
+    assertHistoricalToolchainLockBinding(preparation);
   }
   return Object.freeze({
     directory,
@@ -1660,6 +1696,9 @@ async function verifyV2BetaSingleContributorCeremonyInternal({
   const loaded = await loadPreparation(ceremonyDirectory, {
     implementationSource,
   });
+  const verifyToolchain = implementationSource === 'historic-git-objects'
+    ? verifyV2HistoricalFinalZkeyToolchainManifest
+    : verifyV2FinalZkeyToolchainManifest;
   await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
   const resultDirectory = await directPrivateDirectory(
     path.join(loaded.directory, 'result'),
@@ -1717,7 +1756,7 @@ async function verifyV2BetaSingleContributorCeremonyInternal({
     || verificationKey.bytes !== result.artifacts.verificationKey.bytes) {
     fail('BETA_HASH_MISMATCH', 'beta proving or verification key size changed');
   }
-  const toolchain = await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
+  const toolchain = await verifyToolchain(loaded.preparation.toolchain);
   await runPinnedSnarkjs(toolchain, [
     'zkey', 'verify',
     path.join(loaded.directory, loaded.preparation.artifacts.r1cs.file),
@@ -1753,7 +1792,7 @@ async function verifyV2BetaSingleContributorCeremonyInternal({
   } finally {
     if (temporary !== undefined) await rm(temporary, { recursive: true, force: true });
   }
-  await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
+  await verifyToolchain(loaded.preparation.toolchain);
   await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
   if (implementationSource === 'working-tree') {
     await verifyImplementationManifest(loaded.preparation.implementation);
@@ -1761,6 +1800,7 @@ async function verifyV2BetaSingleContributorCeremonyInternal({
     await verifyHistoricalImplementationManifest(
       loaded.preparation.implementation,
     );
+    assertHistoricalToolchainLockBinding(loaded.preparation);
   }
   return Object.freeze({
     schema: V2_BETA_SINGLE_CONTRIBUTOR_VERIFICATION_SCHEMA,

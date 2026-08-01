@@ -265,10 +265,28 @@ export async function collectV2FinalZkeyToolchainManifest() {
 }
 
 /** Verify that the exact local CLI and package named by a pinned manifest exist. */
-export async function verifyV2FinalZkeyToolchainManifest(value) {
+async function verifyToolchainManifest(value, {
+  historicalRootLockfile,
+}) {
   const expected = parseV2FinalZkeyToolchainManifest(value);
   try {
-    await verifyNpmBuildClosure(expected.npmClosure, {
+    let closure = expected.npmClosure;
+    if (historicalRootLockfile) {
+      const current = await collectNpmBuildClosure({
+        repositoryRoot: installedRepositoryRoot,
+        lockfilePath: expected.npmClosure.lockfile.path,
+        roots: expected.npmClosure.roots,
+      });
+      closure = deepFreeze({
+        ...structuredClone(expected.npmClosure),
+        lockfile: {
+          ...structuredClone(expected.npmClosure.lockfile),
+          bytes: current.lockfile.bytes,
+          sha256: current.lockfile.sha256,
+        },
+      });
+    }
+    await verifyNpmBuildClosure(closure, {
       repositoryRoot: installedRepositoryRoot,
     });
   } catch (error) {
@@ -297,6 +315,23 @@ export async function verifyV2FinalZkeyToolchainManifest(value) {
     );
   }
   return Object.freeze({ nodeExecutable: nodeExecutable.filename, snarkjsCli: cli.filename, manifest: expected });
+}
+
+/** Verify the normal final-key toolchain, including the exact current root lockfile. */
+export async function verifyV2FinalZkeyToolchainManifest(value) {
+  return verifyToolchainManifest(value, { historicalRootLockfile: false });
+}
+
+/**
+ * Reverify a historic ceremony toolchain after unrelated workspace additions
+ * changed the enclosing root lockfile. Only that lockfile's whole-file byte
+ * envelope is adapted to the current checkout: every relevant lock identity,
+ * installed package byte, Node byte, and snarkjs byte remains exact. Callers
+ * must separately authenticate the historic root lockfile from immutable
+ * source provenance and bind it to `value.npmClosure.lockfile`.
+ */
+export async function verifyV2HistoricalFinalZkeyToolchainManifest(value) {
+  return verifyToolchainManifest(value, { historicalRootLockfile: true });
 }
 
 function artifact(value, label) {
