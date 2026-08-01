@@ -52,8 +52,12 @@ import {
 
 export const DIRECT_V2_PF10_RUNTIME_SCHEMA =
   'shieldkit-v2-direct-pf10-runtime-material-v1';
+export const DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-runtime-material-v1';
 export const DIRECT_V2_PF10_ACTION_WITNESS_SCHEMA =
   'shieldkit-v2-direct-pf10-action-witness-v1';
+export const DIRECT_V2_PF10_BETA_ACTION_WITNESS_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-action-witness-v1';
 export const DIRECT_V2_PF10_BQ_SHARD_BYTES =
   Object.freeze([1_216, 1_216, 1_216, 1_216, 1_216]);
 export const DIRECT_V2_PF10_EXACT_MSM_ZERO_PADDING_BYTES = 256;
@@ -81,6 +85,8 @@ const HEX_32 = /^[0-9a-f]{64}$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const MAX_U128 = (1n << 128n) - 1n;
 const ELIGIBILITY = new Set(['development-only', 'final-qualified']);
+export const DIRECT_V2_PF10_BETA_ELIGIBILITY =
+  'beta-single-contributor-unqualified';
 const PROOF_ARTIFACT_NAMES = Object.freeze([
   'provingKey',
   'r1cs',
@@ -88,6 +94,7 @@ const PROOF_ARTIFACT_NAMES = Object.freeze([
   'wasm',
 ]);
 const validatedRuntimeMaterials = new WeakMap();
+const validatedBetaRuntimeMaterials = new WeakMap();
 
 export class DirectV2Pf10ActionWitnessError extends Error {
   constructor(code, message, cause = undefined) {
@@ -308,7 +315,7 @@ function materialCommitment(material) {
       material.verifierLockingBytecodes.map(sha256Hex),
   };
   return sha256Hex(Buffer.from(canonicalizeJcs({
-    schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
+    schema: material.schema,
     eligibility: material.eligibility,
     profileId: material.profileId,
     instanceId: material.instanceId,
@@ -344,7 +351,11 @@ function materialCommitment(material) {
  * at the caller; only the small VK and exact precompiled unlock materials are
  * accepted here.
  */
-export function validateDirectV2Pf10RuntimeMaterial(value) {
+function validateDirectV2Pf10RuntimeMaterialForLane(value, {
+  eligibility,
+  schema,
+  validatedMaterials,
+}) {
   exactKeys(value, [
     'bindingLockingBytecode',
     'bindingRedeemBytecode',
@@ -364,12 +375,12 @@ export function validateDirectV2Pf10RuntimeMaterial(value) {
     'verifierLockingBytecodes',
     'verifierRoles',
   ], 'PF10 runtime material');
-  if (value.schema !== DIRECT_V2_PF10_RUNTIME_SCHEMA) {
+  if (value.schema !== schema) {
     fail('PF10_RUNTIME_INVALID', 'PF10 runtime material schema is unsupported');
   }
   if (
     value.topologyId !== DIRECT_V2_PF10_FUSED_TOPOLOGY_ID
-    || !ELIGIBILITY.has(value.eligibility)
+    || value.eligibility !== eligibility
   ) {
     fail(
       'PF10_RUNTIME_INVALID',
@@ -471,7 +482,7 @@ export function validateDirectV2Pf10RuntimeMaterial(value) {
     );
   }
   const pins = Object.freeze({
-    schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
+    schema,
     eligibility: value.eligibility,
     profileId: exactIdentity(value.profileId, 'profileId'),
     instanceId: exactIdentity(value.instanceId, 'instanceId'),
@@ -501,8 +512,32 @@ export function validateDirectV2Pf10RuntimeMaterial(value) {
     proofArtifactHashes: pins.proofArtifactHashes,
     materialSha256: materialCommitment(pins),
   });
-  validatedRuntimeMaterials.set(validated, pins);
+  validatedMaterials.set(validated, pins);
   return validated;
+}
+
+/** Validate normal development/final PF10 material only. */
+export function validateDirectV2Pf10RuntimeMaterial(value) {
+  if (!ELIGIBILITY.has(value?.eligibility)) {
+    fail('PF10_RUNTIME_INVALID', 'PF10 runtime topology or qualification eligibility is invalid');
+  }
+  return validateDirectV2Pf10RuntimeMaterialForLane(value, {
+    eligibility: value?.eligibility,
+    schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
+    validatedMaterials: validatedRuntimeMaterials,
+  });
+}
+
+/**
+ * Validate beta-only PF10 material. Its schema and capability are intentionally
+ * separate from the descriptor/final runtime lane.
+ */
+export function validateDirectV2Pf10BetaRuntimeMaterial(value) {
+  return validateDirectV2Pf10RuntimeMaterialForLane(value, {
+    eligibility: DIRECT_V2_PF10_BETA_ELIGIBILITY,
+    schema: DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA,
+    validatedMaterials: validatedBetaRuntimeMaterials,
+  });
 }
 
 function proofResult(value, pins) {
@@ -517,7 +552,7 @@ function proofResult(value, pins) {
     value.schema !== V2_GROTH16_PROOF_RESULT_SCHEMA
     || value.claims?.witnessValid !== true
     || value.claims?.proofVerified !== true
-    || value.claims?.singleThread !== true
+    || typeof value.claims?.singleThread !== 'boolean'
     || value.proof === null
     || Array.isArray(value.proof)
     || typeof value.proof !== 'object'
@@ -530,7 +565,7 @@ function proofResult(value, pins) {
   ) {
     fail(
       'PF10_PROOF_RESULT_INVALID',
-      'proofResult is not one verified single-thread result from the pinned artifacts',
+      'proofResult is not one verified result from the pinned artifacts',
     );
   }
   const publicInputs = value.publicInputs.map((entry, index) => {
@@ -675,17 +710,21 @@ function assertUnlockLengths(unlocks, stateUnlock) {
  * Convert exactly one packet-bound, locally verified proof into the immutable
  * PF10 action witness consumed by `assembleV2DirectSettlement`.
  */
-export function buildDirectV2Pf10ActionWitness({
+function buildDirectV2Pf10ActionWitnessForLane({
   actionPacket,
   denominationSats,
   proofResult: proofResultValue,
   runtimeMaterial,
-} = {}) {
-  const pins = validatedRuntimeMaterials.get(runtimeMaterial);
+} = {}, {
+  actionWitnessSchema,
+  validatedMaterials,
+  validatorName,
+}) {
+  const pins = validatedMaterials.get(runtimeMaterial);
   if (pins === undefined) {
     fail(
       'PF10_RUNTIME_UNVALIDATED',
-      'runtimeMaterial must be returned by validateDirectV2Pf10RuntimeMaterial',
+      `runtimeMaterial must be returned by ${validatorName}`,
     );
   }
   if (
@@ -837,7 +876,7 @@ export function buildDirectV2Pf10ActionWitness({
     }),
   );
   const witness = Object.freeze({
-    schema: DIRECT_V2_PF10_ACTION_WITNESS_SCHEMA,
+    schema: actionWitnessSchema,
     topologyId: pins.topologyId,
     verifierRoles: pins.verifierRoles,
     eligibility: pins.eligibility,
@@ -869,4 +908,22 @@ export function buildDirectV2Pf10ActionWitness({
     }),
   });
   return witness;
+}
+
+/** Convert normal development/final PF10 material into an action witness. */
+export function buildDirectV2Pf10ActionWitness(value = {}) {
+  return buildDirectV2Pf10ActionWitnessForLane(value, {
+    actionWitnessSchema: DIRECT_V2_PF10_ACTION_WITNESS_SCHEMA,
+    validatedMaterials: validatedRuntimeMaterials,
+    validatorName: 'validateDirectV2Pf10RuntimeMaterial',
+  });
+}
+
+/** Convert beta-only PF10 material into a beta-only action witness. */
+export function buildDirectV2Pf10BetaActionWitness(value = {}) {
+  return buildDirectV2Pf10ActionWitnessForLane(value, {
+    actionWitnessSchema: DIRECT_V2_PF10_BETA_ACTION_WITNESS_SCHEMA,
+    validatedMaterials: validatedBetaRuntimeMaterials,
+    validatorName: 'validateDirectV2Pf10BetaRuntimeMaterial',
+  });
 }

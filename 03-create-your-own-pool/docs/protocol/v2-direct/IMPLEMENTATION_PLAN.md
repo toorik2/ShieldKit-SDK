@@ -737,8 +737,11 @@ After the Phase-B relation/packet/ABI/topology freeze and Q-01-pre:
   independent transcript-verification and artifact-reproduction records.
 - A separately authorized one-contributor beta setup is documented in
   [BETA_SINGLE_CONTRIBUTOR_CEREMONY.md](BETA_SINGLE_CONTRIBUTOR_CEREMONY.md).
-  It is local/non-qualifying only, has no D-01 key lineage or promotion path,
-  and does not alter this Phase-D five-party requirement.
+  Its optional private integration handoff is documented in
+  [BETA_LOCAL_INTEGRATION.md](BETA_LOCAL_INTEGRATION.md). It is
+  local/non-qualifying only, has no network/broadcast interface, no D-01 key
+  lineage or promotion path, and does not alter this Phase-D five-party
+  requirement.
 - Preserve the exact clean source commit/tree and immutable Q-01-pre bundle
   consumed by D-01. The post-ceremony replay accepts no regenerated,
   semantically equivalent, test-only, or source-shifted substitute.

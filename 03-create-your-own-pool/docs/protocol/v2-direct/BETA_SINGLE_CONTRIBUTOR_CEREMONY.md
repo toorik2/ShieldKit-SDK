@@ -174,6 +174,23 @@ damaged after an uncatchable `SIGKILL`, power loss, or host failure, run
 `stty sane` from a trusted local terminal before continuing; such failures
 cannot provide a secret-erasure guarantee.
 
+## Optional beta-local integration handoff
+
+After a successful ceremony re-verification, the result may be consumed only
+by the separate private beta-local integration runner. That runner requires the
+ceremony-bound exact B-01-pre manifest and runtime, a clean checkout for its
+build-time commit/tree binding, and a new private output below `.codex-build/`.
+It copies and re-inventories its custody inputs, then produces and re-verifies
+only an unqualified local evidence root. It has no network or broadcast
+interface. Follow [BETA_LOCAL_INTEGRATION.md](BETA_LOCAL_INTEGRATION.md) for
+the exact build and re-verification commands.
+
+This handoff does not change the ceremony's trust statement. In particular, it
+does not demonstrate unknown toxic waste, add a participant, create a final
+key, establish a D-01 lineage, or permit production/release/qualification
+claims. The generated completion and inventory records, rather than this
+document, contain any actual run-specific hashes and verifier results.
+
 ## Later finalization is separate
 
 A public beacon is a later, separate step in a real final D-01 ceremony after

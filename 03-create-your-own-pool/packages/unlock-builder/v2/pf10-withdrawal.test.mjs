@@ -14,6 +14,13 @@ import test from 'node:test';
 import {
   assertLocalVerifierArtifactCoherence,
 } from '../../../scripts/run-domain-tests.mjs';
+import {
+  V2_BETA_PROOF_QUALIFICATION_SCHEMA,
+  verifyBetaProofQualification,
+} from '../../../scripts/v2-beta-proof-qualification.mjs';
+import {
+  V2_BETA_LOCAL_ELIGIBILITY,
+} from '../../profile/v2/beta-local-profile.mjs';
 
 import {
   binToHex,
@@ -66,6 +73,7 @@ import {
   inspectV2LocalVmEvidence,
 } from '../../kit/v2/vm-evidence.mjs';
 import {
+  canonicalizeJcs,
   deriveProfileId,
 } from '../../profile/v2/profile-core.mjs';
 import {
@@ -119,12 +127,17 @@ import {
 import {
   DirectV2Pf10ActionWitnessError,
   DIRECT_V2_PF10_RUNTIME_SCHEMA,
+  DIRECT_V2_PF10_BETA_ELIGIBILITY,
+  DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA,
   DIRECT_V2_PF10_STATE_UNLOCK_BYTES,
   DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES,
+  buildDirectV2Pf10BetaActionWitness,
   buildDirectV2Pf10ActionWitness,
+  validateDirectV2Pf10BetaRuntimeMaterial,
   validateDirectV2Pf10RuntimeMaterial,
 } from './pf10-action-witness.mjs';
 import {
+  buildDirectV2Pf10BetaRuntime,
   buildDirectV2Pf10DevelopmentRuntime,
 } from './pf10-development-runtime-builder.mjs';
 import {
@@ -140,13 +153,21 @@ import {
 
 const repoRoot = path.resolve(import.meta.dirname, '../../../..');
 const buildRoot = path.join(repoRoot, '.codex-build');
+const betaLocal = process.env.SHIELDKIT_PF10_BETA_LOCAL === '1';
+assert.equal(
+  process.env.SHIELDKIT_PF10_BETA_LOCAL === undefined || betaLocal,
+  true,
+  'SHIELDKIT_PF10_BETA_LOCAL must be absent or exactly "1"',
+);
 const explicitArtifactEnvironment = Object.freeze({
   evidenceRoot: process.env.SHIELDKIT_PF10_QUALIFICATION_ROOT,
   r1cs: process.env.SHIELDKIT_PF10_R1CS,
-  setupMetadata: process.env.SHIELDKIT_PF10_SETUP_METADATA,
   verificationKey: process.env.SHIELDKIT_PF10_VERIFICATION_KEY,
   wasm: process.env.SHIELDKIT_PF10_WASM,
   zkey: process.env.SHIELDKIT_PF10_ZKEY,
+  ...(betaLocal ? {} : {
+    setupMetadata: process.env.SHIELDKIT_PF10_SETUP_METADATA,
+  }),
 });
 const explicitProfileCorePath = process.env.SHIELDKIT_PF10_PROFILE_CORE;
 const explicitArtifactValues = Object.values(explicitArtifactEnvironment);
@@ -652,6 +673,9 @@ try {
     input,
     wasmPath,
     zkeyPath,
+    undefined,
+    undefined,
+    { singleThread: false },
   );
   const verified = await snarkjs.groth16.verify(
     verificationKey,
@@ -1038,9 +1062,33 @@ test(
   'PF10-FusedQGenesis exact 13-input actions are standard with VK-only fixed-line density carriers',
   { timeout: 600_000 },
   async () => {
-    await assertLocalVerifierArtifactCoherence({
-      artifactPaths: coherenceArtifactPaths,
-    });
+    let betaProofQualification;
+    if (betaLocal) {
+      const evidencePath = path.join(
+        qualificationRoot,
+        'qualification-evidence.json',
+      );
+      const verified = await verifyBetaProofQualification({
+        evidencePath,
+      });
+      assert.equal(
+        verified.status,
+        'beta-proof-qualification-reverified-unqualified',
+      );
+      assert.equal(verified.eligibility, V2_BETA_LOCAL_ELIGIBILITY);
+      betaProofQualification = Object.freeze({
+        eligibility: verified.eligibility,
+        instanceId: verified.instanceId,
+        profileId: verified.profileId,
+        schema: V2_BETA_PROOF_QUALIFICATION_SCHEMA,
+        sha256: sha256(readFileSync(evidencePath)).toString('hex'),
+        status: verified.status,
+      });
+    } else {
+      await assertLocalVerifierArtifactCoherence({
+        artifactPaths: coherenceArtifactPaths,
+      });
+    }
     const verificationKeyJson = JSON.parse(readFileSync(
       verificationKeyPath,
       'utf8',
@@ -1134,6 +1182,13 @@ test(
     );
     const profileId = seedDecoded.preState.profileId;
     const stateCategoryProtocolHex = seedDecoded.instanceId;
+    if (betaLocal) {
+      assert.equal(betaProofQualification.profileId, profileId);
+      assert.equal(
+        betaProofQualification.instanceId,
+        stateCategoryProtocolHex,
+      );
+    }
     const stateCategory = Uint8Array.from(
       Buffer.from(stateCategoryProtocolHex, 'hex').reverse(),
     );
@@ -1385,8 +1440,12 @@ test(
     );
     const profileCoreSha256 = sha256(profileCoreBytes).toString('hex');
     const runtimeMaterialInput = {
-      schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
-      eligibility: 'development-only',
+      schema: betaLocal
+        ? DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA
+        : DIRECT_V2_PF10_RUNTIME_SCHEMA,
+      eligibility: betaLocal
+        ? DIRECT_V2_PF10_BETA_ELIGIBILITY
+        : 'development-only',
       profileId,
       instanceId: stateCategoryProtocolHex,
       topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
@@ -1403,10 +1462,17 @@ test(
       bindingLockingBytecode: bindingLock,
       verifierLockingBytecodes: verifierLocks,
     };
-    const runtimeMaterial = validateDirectV2Pf10RuntimeMaterial(
-      runtimeMaterialInput,
-    );
-    const extractedRuntime = await buildDirectV2Pf10DevelopmentRuntime({
+    const validateRuntimeMaterial = betaLocal
+      ? validateDirectV2Pf10BetaRuntimeMaterial
+      : validateDirectV2Pf10RuntimeMaterial;
+    const buildRuntime = betaLocal
+      ? buildDirectV2Pf10BetaRuntime
+      : buildDirectV2Pf10DevelopmentRuntime;
+    const buildActionWitness = betaLocal
+      ? buildDirectV2Pf10BetaActionWitness
+      : buildDirectV2Pf10ActionWitness;
+    const runtimeMaterial = validateRuntimeMaterial(runtimeMaterialInput);
+    const extractedRuntime = await buildRuntime({
       repositoryRoot: repoRoot,
       temporaryRoot: path.join(
         buildRoot,
@@ -1759,14 +1825,14 @@ test(
         [...DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES],
         'reference PF10 verifier unlocks differ from the frozen topology lengths',
       );
-      const productionWitness = buildDirectV2Pf10ActionWitness({
+      const productionWitness = buildActionWitness({
         actionPacket: packet,
         denominationSats: denominationSats.toString(),
         proofResult: {
           schema: V2_GROTH16_PROOF_RESULT_SCHEMA,
           claims: {
             proofVerified: true,
-            singleThread: true,
+            singleThread: false,
             witnessValid: true,
           },
           sourceHashes: proofArtifactHashes,
@@ -1791,7 +1857,7 @@ test(
           schema: V2_GROTH16_PROOF_RESULT_SCHEMA,
           claims: Object.freeze({
             proofVerified: true,
-            singleThread: true,
+            singleThread: false,
             witnessValid: true,
           }),
           sourceHashes: proofArtifactHashes,
@@ -1805,7 +1871,7 @@ test(
           actionPacket = packet,
           proofResult = proofResultForAdapter,
           material = runtimeMaterial,
-        } = {}) => buildDirectV2Pf10ActionWitness({
+        } = {}) => buildActionWitness({
           actionPacket,
           denominationSats: denominationSats.toString(),
           proofResult,
@@ -2281,6 +2347,19 @@ test(
       const feeSats = sourceValue - outputValue;
       assert.equal(feeSats, BigInt(rawTransaction.length));
       assert.equal(feeSats.toString(), signed.measurements.feeSats);
+      const betaTransactionProof = betaLocal
+        ? Object.freeze(JSON.parse(JSON.stringify(generated.proof)))
+        : undefined;
+      const betaPublicInputs = betaLocal
+        ? Object.freeze([...generated.publicSignals])
+        : undefined;
+      const betaProofBindingSha256 = betaLocal
+        ? sha256(Buffer.from(canonicalizeJcs({
+          packetSha256: packetDigest.toString('hex'),
+          proof: betaTransactionProof,
+          publicInputs: betaPublicInputs,
+        }), 'utf8')).toString('hex')
+        : undefined;
       actionResults.push(Object.freeze({
         kind: actionKind,
         inputCount: transaction.inputs.length,
@@ -2345,6 +2424,12 @@ test(
         }),
         packetSha256: packetDigest.toString('hex'),
         contextHash: contextHash.toString('hex'),
+        ...(betaLocal ? {
+          packetHex: binToHex(packet),
+          publicInputs: betaPublicInputs,
+          proof: betaTransactionProof,
+          proofBindingSha256: betaProofBindingSha256,
+        } : {}),
         rows: Object.freeze(rows),
         mutationChecks: Object.freeze(mutationChecks),
       }));
@@ -2454,8 +2539,12 @@ test(
       (program) => program.redeem.length,
     );
     const qualificationEvidence = Object.freeze({
-      schema: 'shieldkit-v2-direct-pf10-local-libauth-evidence-v2',
-      eligibility: 'development-only',
+      schema: betaLocal
+        ? 'shieldkit-v2-direct-pf10-beta-local-libauth-evidence-v1'
+        : 'shieldkit-v2-direct-pf10-local-libauth-evidence-v2',
+      eligibility: betaLocal
+        ? V2_BETA_LOCAL_ELIGIBILITY
+        : 'development-only',
       generatedAt: new Date().toISOString(),
       claims: Object.freeze({
         finalKey: false,
@@ -2469,6 +2558,25 @@ test(
         productionSettlementBuilderPath: true,
         authenticatedSerializedParentOutputs: true,
         liveChainParentProvenance: false,
+        ...(betaLocal ? {
+          b02Qualified: false,
+          betaSingleContributor: true,
+          developmentKey: false,
+          ceremonyQualified: false,
+          d01Qualified: false,
+          d02Qualified: false,
+          participantIndependenceEstablished: false,
+          q01FinalReplayQualified: false,
+          q01Qualified: false,
+          q02Qualified: false,
+          q03Qualified: false,
+          q04Qualified: false,
+          q05Qualified: false,
+          q06Qualified: false,
+          q07Qualified: false,
+          q08Qualified: false,
+          q09Qualified: false,
+        } : {}),
       }),
       qualificationScope: Object.freeze({
         parentTransactions:
@@ -2490,6 +2598,9 @@ test(
         runtimeMaterialSha256: runtimeMaterial.materialSha256,
         proofArtifactHashes,
       }),
+      ...(betaLocal ? {
+        betaProofQualification,
+      } : {}),
       hardLimits: Object.freeze({
         transactionBytes: 100_000,
         unlockingBytecodeBytes: 10_000,
@@ -2504,8 +2615,9 @@ test(
         minimumChangeSats: minimumChange.toString(),
       }),
       pf10FusedQGenesisActions: Object.freeze({
-        verdict:
-          'production-builder-local-standard-pass-all-actions-precomputed-fixed-lines',
+        verdict: betaLocal
+          ? 'beta-local-production-builder-standard-pass-all-actions-precomputed-fixed-lines'
+          : 'production-builder-local-standard-pass-all-actions-precomputed-fixed-lines',
         topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
         actionCount: actionResults.length,
         fixedLineDerivation: {

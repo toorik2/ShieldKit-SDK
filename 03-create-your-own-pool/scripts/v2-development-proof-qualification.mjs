@@ -230,26 +230,37 @@ async function sha256File(filename) {
   }
 }
 
-async function fileEvidence(filename) {
+export async function fileEvidence(
+  filename,
+  { allowExternal = false } = {},
+) {
   const metadata = await stat(filename);
   const relative = path.relative(PROJECT_ROOT, path.resolve(filename));
-  if (
+  const external = (
     relative.length === 0
     || relative === '..'
     || relative.startsWith(`..${path.sep}`)
     || path.isAbsolute(relative)
-  ) {
+  );
+  if (external && !allowExternal) {
     fail(`evidence file is outside the repository: ${filename}`);
   }
   return Object.freeze({
-    path: relative.split(path.sep).join('/'),
+    path: external
+      ? path.resolve(filename)
+      : relative.split(path.sep).join('/'),
+    ...(external ? { pathScope: 'absolute' } : {}),
     bytes: metadata.size,
     sha256: await sha256File(filename),
   });
 }
 
-async function writeJson(filename, value) {
-  await writeFile(filename, stringifyJsonWithBigInts(value), {
+async function writeJson(
+  filename,
+  value,
+  serialize = stringifyJsonWithBigInts,
+) {
+  await writeFile(filename, serialize(value), {
     encoding: 'utf8',
     flag: 'wx',
     mode: 0o600,
@@ -435,6 +446,8 @@ async function qualifyAction({
   verificationKeyPath,
   verificationKeyEvidence,
   singleThread,
+  serialize,
+  artifactFileEvidence = fileEvidence,
 }) {
   const actionStarted = performance.now();
   const directory = path.join(outputDirectory, name);
@@ -447,7 +460,7 @@ async function qualifyAction({
   const publicSignalsFile = path.join(directory, 'public.json');
   const adapterFile = path.join(directory, 'v2-direct-groth16-adapter.json');
   await writeFile(packet, action.transition.packet, { flag: 'wx', mode: 0o600 });
-  await writeJson(input, action.circuitInput);
+  await writeJson(input, action.circuitInput, serialize);
 
   const witnessStarted = performance.now();
   await snarkjs.wtns.calculate(action.circuitInput, wasm, witness);
@@ -465,8 +478,8 @@ async function qualifyAction({
   );
   const proofGenerationMs = performance.now() - proofStarted;
   exactPublicSignals(action, generated.publicSignals);
-  await writeJson(proof, generated.proof);
-  await writeJson(publicSignalsFile, generated.publicSignals);
+  await writeJson(proof, generated.proof, serialize);
+  await writeJson(publicSignalsFile, generated.publicSignals, serialize);
 
   const verifyStarted = performance.now();
   const proofVerified = await snarkjs.groth16.verify(
@@ -477,8 +490,8 @@ async function qualifyAction({
   const proofVerificationMs = performance.now() - verifyStarted;
   if (!proofVerified) fail(`${name} Groth16 verification returned false`);
 
-  const proofEvidence = await fileEvidence(proof);
-  const publicSignalsEvidence = await fileEvidence(publicSignalsFile);
+  const proofEvidence = await artifactFileEvidence(proof);
+  const publicSignalsEvidence = await artifactFileEvidence(publicSignalsFile);
   const adapter = await adaptV2DirectGroth16({
     verificationKey: {
       path: verificationKeyPath,
@@ -495,8 +508,8 @@ async function qualifyAction({
   // contains only its enumerable transport fields; the pinned verifier loader
   // below revalidates the exact emitted bytes and complete public schema.
   const adapterDocument = JSON.parse(JSON.stringify(adapter));
-  await writeJson(adapterFile, adapterDocument);
-  const adapterEvidence = await fileEvidence(adapterFile);
+  await writeJson(adapterFile, adapterDocument, serialize);
+  const adapterEvidence = await artifactFileEvidence(adapterFile);
   const loadedAdapter = await loadPinnedV2DirectGroth16AdapterResult({
     path: adapterFile,
     sha256: adapterEvidence.sha256,
@@ -524,9 +537,9 @@ async function qualifyAction({
       total: performance.now() - actionStarted,
     }),
     files: Object.freeze({
-      packet: await fileEvidence(packet),
-      input: await fileEvidence(input),
-      witness: await fileEvidence(witness),
+      packet: await artifactFileEvidence(packet),
+      input: await artifactFileEvidence(input),
+      witness: await artifactFileEvidence(witness),
       proof: proofEvidence,
       publicSignals: publicSignalsEvidence,
       v2DirectGroth16Adapter: adapterEvidence,
@@ -534,7 +547,21 @@ async function qualifyAction({
   });
 }
 
-export async function runDevelopmentProofQualification(configuration) {
+/**
+ * Shared execution path for separately-labelled proof evidence lanes. The
+ * default is the historical development lane; callers which select another
+ * evidence class must supply their own manifest factory and serializer.
+ */
+export async function runProofQualification(
+  configuration,
+  {
+    beforeEvidenceWrite = undefined,
+    createEvidenceManifest = createDevelopmentEvidenceManifest,
+    serialize = stringifyJsonWithBigInts,
+    artifactFileEvidence = fileEvidence,
+    sourceFileEvidence = fileEvidence,
+  } = {},
+) {
   const totalStarted = performance.now();
   const {
     r1cs,
@@ -596,11 +623,11 @@ export async function runDevelopmentProofQualification(configuration) {
   }
 
   const sourceArtifacts = Object.freeze({
-    profileCore: await fileEvidence(profileCorePath),
-    r1cs: await fileEvidence(r1cs),
-    wasm: await fileEvidence(wasm),
-    developmentZkey: await fileEvidence(zkey),
-    verificationKey: await fileEvidence(verificationKeyPath),
+    profileCore: await sourceFileEvidence(profileCorePath),
+    r1cs: await sourceFileEvidence(r1cs),
+    wasm: await sourceFileEvidence(wasm),
+    developmentZkey: await sourceFileEvidence(zkey),
+    verificationKey: await sourceFileEvidence(verificationKeyPath),
   });
   if (
     sourceArtifacts.r1cs.sha256 !== profileCore.proof.r1csSha256
@@ -641,9 +668,11 @@ export async function runDevelopmentProofQualification(configuration) {
       verificationKeyPath,
       verificationKeyEvidence: sourceArtifacts.verificationKey,
       singleThread,
+      serialize,
+      artifactFileEvidence,
     });
   }
-  const manifest = createDevelopmentEvidenceManifest({
+  const manifest = createEvidenceManifest({
     identity,
     sourceArtifacts,
     actions: Object.freeze(actions),
@@ -659,11 +688,21 @@ export async function runDevelopmentProofQualification(configuration) {
     outputDirectory,
     'qualification-evidence.json',
   );
-  await writeJson(evidencePath, manifest);
+  if (beforeEvidenceWrite !== undefined) {
+    if (typeof beforeEvidenceWrite !== 'function') {
+      fail('beforeEvidenceWrite must be a function when supplied');
+    }
+    await beforeEvidenceWrite({ manifest, outputDirectory });
+  }
+  await writeJson(evidencePath, manifest, serialize);
   return Object.freeze({
     evidencePath,
     evidence: manifest,
   });
+}
+
+export async function runDevelopmentProofQualification(configuration) {
+  return runProofQualification(configuration);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

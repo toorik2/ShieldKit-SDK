@@ -205,15 +205,19 @@ function trustedGit(args, {
   binary = false,
   repositoryRoot = REPOSITORY_ROOT,
 } = {}) {
-  const result = spawnSync('/usr/bin/git', args, {
+  const literalObjectArguments = ['--no-replace-objects', ...args];
+  const result = spawnSync('/usr/bin/git', literalObjectArguments, {
     cwd: repositoryRoot,
     encoding: binary ? null : 'utf8',
     env: GIT_ENVIRONMENT,
-    maxBuffer: 16 * 1024 * 1024,
+    maxBuffer: 64 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (result.error || result.status !== 0 || result.signal !== null) {
-    fail('BETA_IMPLEMENTATION_INVALID', `trusted Git failed: ${args.join(' ')}`);
+    fail(
+      'BETA_IMPLEMENTATION_INVALID',
+      `trusted Git failed: ${literalObjectArguments.join(' ')}`,
+    );
   }
   return result.stdout;
 }
@@ -333,6 +337,72 @@ async function verifyImplementationManifest(expected) {
     fail('BETA_IMPLEMENTATION_CHANGED', 'beta implementation source or entropy policy changed');
   }
   return current;
+}
+
+/**
+ * Revalidate the preparation-time implementation against its immutable Git
+ * objects without requiring the caller's checkout to remain at that historic
+ * commit. This is exclusively a post-ceremony beta handoff boundary: the
+ * interactive prepare/contribute/verify CLI continues to require the exact
+ * clean working tree.
+ */
+async function verifyHistoricalImplementationManifest(expected) {
+  validateImplementationManifest(expected);
+  if (canonicalJson(expected.entropyPolicy)
+      !== canonicalJson(BETA_SINGLE_CONTRIBUTOR_ENTROPY_POLICY)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'historic beta entropy policy is unsupported');
+  }
+  const commit = String(trustedGit([
+    'rev-parse', '--verify', `${expected.source.gitCommit}^{commit}`,
+  ])).trim();
+  const tree = String(trustedGit([
+    'rev-parse', '--verify', `${expected.source.gitCommit}^{tree}`,
+  ])).trim();
+  if (commit !== expected.source.gitCommit || tree !== expected.source.gitTree) {
+    fail('BETA_IMPLEMENTATION_CHANGED', 'historic beta Git commit/tree no longer resolves to the preparation source');
+  }
+  const rawTree = Buffer.from(trustedGit([
+    'ls-tree', '-r', '-z', '--full-tree', expected.source.gitCommit,
+  ], { binary: true }));
+  const entries = new Map();
+  const records = rawTree.subarray(
+    0,
+    rawTree.length - (rawTree.at(-1) === 0 ? 1 : 0),
+  ).toString('utf8').split('\0');
+  for (const record of records) {
+    const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u.exec(record);
+    if (match === null
+      || path.posix.normalize(match[3]) !== match[3]
+      || path.posix.isAbsolute(match[3])
+      || match[3].startsWith('../')
+      || entries.has(match[3])) {
+      fail('BETA_IMPLEMENTATION_INVALID', 'historic beta Git tree inventory is invalid');
+    }
+    entries.set(match[3], Object.freeze({
+      blob: match[2],
+      mode: match[1] === '100755' ? '0755' : '0644',
+    }));
+  }
+  if (entries.size !== expected.files.length
+    || expected.files.some((file) => !entries.has(file.path))) {
+    fail('BETA_IMPLEMENTATION_CHANGED', 'historic beta Git inventory differs from the preparation manifest');
+  }
+  for (const file of expected.files) {
+    const entry = entries.get(file.path);
+    const blob = Buffer.from(trustedGit([
+      'cat-file', 'blob', `${expected.source.gitCommit}:${file.path}`,
+    ], { binary: true }));
+    const blobId = String(trustedGit([
+      'rev-parse', '--verify', `${expected.source.gitCommit}:${file.path}`,
+    ])).trim();
+    if (blobId !== entry.blob
+      || entry.mode !== file.mode
+      || String(blob.length) !== file.bytes
+      || sha256(blob) !== file.sha256) {
+      fail('BETA_IMPLEMENTATION_CHANGED', `historic beta implementation file differs: ${file.path}`);
+    }
+  }
+  return expected;
 }
 
 function assertNodeVersion() {
@@ -1194,7 +1264,12 @@ export async function readV2BetaDiceFromControllingTerminal() {
   }
 }
 
-async function loadPreparation(ceremonyDirectory) {
+async function loadPreparation(ceremonyDirectory, {
+  implementationSource = 'working-tree',
+} = {}) {
+  if (!['working-tree', 'historic-git-objects'].includes(implementationSource)) {
+    fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation source policy is unsupported');
+  }
   const directory = await directPrivateDirectory(ceremonyDirectory, 'beta ceremony directory');
   const entries = await readdir(directory, { withFileTypes: true });
   const names = entries.map((entry) => entry.name).sort();
@@ -1216,7 +1291,11 @@ async function loadPreparation(ceremonyDirectory) {
     'beta preparation',
   );
   const preparation = validatePreparation(preparationRecord.value);
-  await verifyImplementationManifest(preparation.implementation);
+  if (implementationSource === 'working-tree') {
+    await verifyImplementationManifest(preparation.implementation);
+  } else {
+    await verifyHistoricalImplementationManifest(preparation.implementation);
+  }
   return Object.freeze({
     directory,
     preparation,
@@ -1572,9 +1651,14 @@ function validateResult(value, preparationSha256) {
 }
 
 /** Independently re-read, re-hash, and cryptographically verify a beta result. */
-export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory }) {
+async function verifyV2BetaSingleContributorCeremonyInternal({
+  ceremonyDirectory,
+  implementationSource = 'working-tree',
+}) {
   assertNodeVersion();
-  const loaded = await loadPreparation(ceremonyDirectory);
+  const loaded = await loadPreparation(ceremonyDirectory, {
+    implementationSource,
+  });
   await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
   const resultDirectory = await directPrivateDirectory(
     path.join(loaded.directory, 'result'),
@@ -1670,7 +1754,13 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
   }
   await verifyV2FinalZkeyToolchainManifest(loaded.preparation.toolchain);
   await remeasurePreparationArtifacts(loaded.directory, loaded.preparation);
-  await verifyImplementationManifest(loaded.preparation.implementation);
+  if (implementationSource === 'working-tree') {
+    await verifyImplementationManifest(loaded.preparation.implementation);
+  } else {
+    await verifyHistoricalImplementationManifest(
+      loaded.preparation.implementation,
+    );
+  }
   return Object.freeze({
     schema: V2_BETA_SINGLE_CONTRIBUTOR_VERIFICATION_SCHEMA,
     status: 'beta-single-contributor-reverified-unqualified',
@@ -1684,6 +1774,115 @@ export async function verifyV2BetaSingleContributorCeremony({ ceremonyDirectory 
     verificationKeySha256: verificationKey.sha256,
     transcriptFileSha256: transcriptRecord.sha256,
     transcriptSha256: transcript.transcriptSha256,
+    __resolved: Object.freeze({
+      directory: loaded.directory,
+      preparation: loaded.preparation,
+      result,
+      resultDirectory,
+      paths: Object.freeze({
+        initialZkey: path.join(
+          loaded.directory,
+          loaded.preparation.artifacts.initialZkey.file,
+        ),
+        powersOfTau: path.join(
+          loaded.directory,
+          loaded.preparation.artifacts.ptau.file,
+        ),
+        r1cs: path.join(
+          loaded.directory,
+          loaded.preparation.artifacts.r1cs.file,
+        ),
+        betaProvingKey: path.join(
+          resultDirectory,
+          result.artifacts.betaProvingKey.file,
+        ),
+        verificationKey: path.join(
+          resultDirectory,
+          result.artifacts.verificationKey.file,
+        ),
+        receipt: path.join(resultDirectory, 'receipt.json'),
+        result: path.join(resultDirectory, 'result.json'),
+        transcript: path.join(resultDirectory, 'transcript.json'),
+      }),
+    }),
+  });
+}
+
+export async function verifyV2BetaSingleContributorCeremony({
+  ceremonyDirectory,
+}) {
+  const verified = await verifyV2BetaSingleContributorCeremonyInternal({
+    ceremonyDirectory,
+    implementationSource: 'working-tree',
+  });
+  const { __resolved: _resolved, ...publicResult } = verified;
+  return Object.freeze(publicResult);
+}
+
+/**
+ * Resolve a completed beta ceremony after its source commit has become
+ * historic. The returned paths are local custody references for beta-only
+ * integration; this API is intentionally unavailable from the CLI and never
+ * changes any qualification claim.
+ */
+export async function resolveV2BetaSingleContributorHistoricalCeremony({
+  ceremonyDirectory,
+}) {
+  const verified = await verifyV2BetaSingleContributorCeremonyInternal({
+    ceremonyDirectory,
+    implementationSource: 'historic-git-objects',
+  });
+  return Object.freeze({
+    schema: 'shieldkit-v2-beta-single-contributor-historical-resolution-v1',
+    status: 'beta-single-contributor-historical-source-reverified-unqualified',
+    assuranceClass: 'beta-single-contributor',
+    claims: FALSE_CLAIMS,
+    ceremonyId: verified.ceremonyId,
+    preparationSha256: verified.preparationSha256,
+    resultSha256: verified.resultSha256,
+    betaProvingKeySha256: verified.betaProvingKeySha256,
+    entropyPolicySha256: verified.entropyPolicySha256,
+    implementationSha256: verified.implementationSha256,
+    verificationKeySha256: verified.verificationKeySha256,
+    transcriptFileSha256: verified.transcriptFileSha256,
+    transcriptSha256: verified.transcriptSha256,
+    source: verified.__resolved.preparation.source,
+    b01ManifestSha256:
+      verified.__resolved.preparation.b01.manifestSha256,
+    artifacts: Object.freeze({
+      initialZkey: Object.freeze({
+        ...verified.__resolved.preparation.artifacts.initialZkey,
+        path: verified.__resolved.paths.initialZkey,
+      }),
+      powersOfTau: Object.freeze({
+        ...verified.__resolved.preparation.artifacts.ptau,
+        path: verified.__resolved.paths.powersOfTau,
+      }),
+      r1cs: Object.freeze({
+        ...verified.__resolved.preparation.artifacts.r1cs,
+        path: verified.__resolved.paths.r1cs,
+      }),
+      betaProvingKey: Object.freeze({
+        ...verified.__resolved.result.artifacts.betaProvingKey,
+        path: verified.__resolved.paths.betaProvingKey,
+      }),
+      verificationKey: Object.freeze({
+        ...verified.__resolved.result.artifacts.verificationKey,
+        path: verified.__resolved.paths.verificationKey,
+      }),
+      receipt: Object.freeze({
+        path: verified.__resolved.paths.receipt,
+        sha256: verified.__resolved.result.receiptSha256,
+      }),
+      result: Object.freeze({
+        path: verified.__resolved.paths.result,
+        sha256: verified.resultSha256,
+      }),
+      transcript: Object.freeze({
+        path: verified.__resolved.paths.transcript,
+        sha256: verified.transcriptFileSha256,
+      }),
+    }),
   });
 }
 

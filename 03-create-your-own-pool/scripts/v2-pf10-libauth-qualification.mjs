@@ -24,6 +24,19 @@ import {
   canonicalizeJcs,
 } from '../packages/profile/v2/profile-core.mjs';
 import {
+  V2_BETA_LOCAL_ELIGIBILITY,
+} from '../packages/profile/v2/beta-local-profile.mjs';
+import {
+  V2_BETA_PROOF_QUALIFICATION_SCHEMA,
+} from './v2-beta-proof-qualification.mjs';
+import {
+  actionPacketPublicLimbs,
+  decodeActionPacket,
+} from '../packages/action/v2/packet.mjs';
+import {
+  decodeDirectV2BindingUnlock,
+} from '../packages/action/v2/binding-unlock.mjs';
+import {
   parseSerializedSourceOutput,
   parseV2RawTransaction,
 } from '../packages/kit/v2/transaction-policy.mjs';
@@ -35,6 +48,12 @@ const SCRIPT_SCHEMA =
   'shieldkit-v2-direct-pf10-local-libauth-qualification-v2';
 const EVIDENCE_SCHEMA =
   'shieldkit-v2-direct-pf10-local-libauth-evidence-v2';
+export const PF10_BETA_LIBAUTH_EVIDENCE_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-local-libauth-evidence-v1';
+export const PF10_BETA_LIBAUTH_QUALIFICATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-local-libauth-qualification-v1';
+export const PF10_BETA_LIBAUTH_PUBLICATION_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-libauth-publication-v1';
 export const PF10_LIBAUTH_PUBLICATION_SCHEMA =
   'shieldkit-v2-direct-pf10-libauth-publication-v1';
 export const PF10_LIBAUTH_PUBLICATION_FILE =
@@ -75,6 +94,7 @@ const fail = (message) => {
 
 const sha256 = (bytes) =>
   createHash('sha256').update(bytes).digest('hex');
+const MAX_U128 = (1n << 128n) - 1n;
 
 const hash256 = (bytes) => {
   const first = createHash('sha256').update(bytes).digest();
@@ -168,6 +188,54 @@ export const parseOptions = (argv) => {
         repositoryRoot,
         '.codex-build/v2-pf10-libauth-tmp',
       ),
+    ),
+    verificationKey: path.resolve(options.verificationKey),
+    wasm: path.resolve(options.wasm),
+    zkey: path.resolve(options.zkey),
+  });
+};
+
+/** Parse the beta-only variant. It deliberately has no final/setup metadata. */
+export const parseBetaOptions = (argv) => {
+  const optionNames = Object.freeze({
+    '--output': 'output',
+    '--profile-core': 'profileCore',
+    '--qualification-root': 'qualificationRoot',
+    '--r1cs': 'r1cs',
+    '--temporary-root': 'temporaryRoot',
+    '--verification-key': 'verificationKey',
+    '--wasm': 'wasm',
+    '--beta-zkey': 'zkey',
+  });
+  const options = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const option = argv[index];
+    const key = optionNames[option];
+    if (key === undefined) fail(`unknown option: ${option}`);
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith('--')) {
+      fail(`${option} requires a value`);
+    }
+    if (options[key] !== undefined) fail(`${option} may appear only once`);
+    options[key] = value;
+    index += 1;
+  }
+  for (const option of [
+    '--output', '--profile-core', '--qualification-root', '--r1cs',
+    '--verification-key', '--wasm', '--beta-zkey',
+  ]) {
+    if (options[optionNames[option]] === undefined) {
+      fail(`${option} is required`);
+    }
+  }
+  return Object.freeze({
+    output: path.resolve(options.output),
+    profileCore: path.resolve(options.profileCore),
+    qualificationRoot: path.resolve(options.qualificationRoot),
+    r1cs: path.resolve(options.r1cs),
+    temporaryRoot: path.resolve(
+      options.temporaryRoot
+      ?? path.join(repositoryRoot, '.codex-build/v2-pf10-beta-libauth-tmp'),
     ),
     verificationKey: path.resolve(options.verificationKey),
     wasm: path.resolve(options.wasm),
@@ -425,10 +493,17 @@ export const publishStage = async ({
   output,
   outputParent,
   files = PF10_LIBAUTH_PUBLICATION_FILES,
+  publicationSchema = PF10_LIBAUTH_PUBLICATION_SCHEMA,
   beforeReserve = undefined,
   beforeCommit = undefined,
   afterCommit = undefined,
 }) => {
+  if (
+    publicationSchema !== PF10_LIBAUTH_PUBLICATION_SCHEMA
+    && publicationSchema !== PF10_BETA_LIBAUTH_PUBLICATION_SCHEMA
+  ) {
+    fail('publication schema is not an approved PF10 evidence schema');
+  }
   if (
     !Array.isArray(files)
     || files.length === 0
@@ -450,7 +525,7 @@ export const publishStage = async ({
     records.push(await publicationFileRecord(stage, filename));
   }
   const completion = Object.freeze({
-    schema: PF10_LIBAUTH_PUBLICATION_SCHEMA,
+    schema: publicationSchema,
     files: Object.freeze(records),
   });
   await writePrivateFile(
@@ -528,7 +603,12 @@ export const publishStage = async ({
   }
 };
 
-const runChild = ({ evidencePath, options, temporaryDirectory }) =>
+const runChild = ({
+  evidencePath,
+  options,
+  temporaryDirectory,
+  betaLocal = false,
+}) =>
   new Promise((resolve, reject) => {
     const temporaryFiles = path.join(temporaryDirectory, 'tmp');
     const child = spawn(
@@ -542,10 +622,14 @@ const runChild = ({ evidencePath, options, temporaryDirectory }) =>
           SHIELDKIT_PF10_PROFILE_CORE: options.profileCore,
           SHIELDKIT_PF10_QUALIFICATION_ROOT: options.qualificationRoot,
           SHIELDKIT_PF10_R1CS: options.r1cs,
-          SHIELDKIT_PF10_SETUP_METADATA: options.setupMetadata,
           SHIELDKIT_PF10_VERIFICATION_KEY: options.verificationKey,
           SHIELDKIT_PF10_WASM: options.wasm,
           SHIELDKIT_PF10_ZKEY: options.zkey,
+          ...(betaLocal ? {
+            SHIELDKIT_PF10_BETA_LOCAL: '1',
+          } : {
+            SHIELDKIT_PF10_SETUP_METADATA: options.setupMetadata,
+          }),
           TMPDIR: temporaryFiles,
           TMP: temporaryFiles,
           TEMP: temporaryFiles,
@@ -576,6 +660,90 @@ const canonicalHex = (value, label, { allowEmpty = false } = {}) => {
     fail(`${label} must be canonical lowercase hexadecimal`);
   }
   return value;
+};
+
+/**
+ * Validate the beta transaction-specific packet/proof lineage. This helper is
+ * intentionally not used by the development evidence path.
+ */
+export const validatePf10BetaActionProofBinding = ({
+  action,
+  expectedKind,
+  instanceId,
+  profileId,
+}) => {
+  exactObject(action, `beta action ${expectedKind}`);
+  const expectedFields = [
+    'construction', 'contextHash', 'feeRateSatsPerByte', 'feeSats',
+    'inputCount', 'inputSources', 'kind', 'localVmEvidence',
+    'mutationChecks', 'outputCount', 'packetHex', 'packetSha256', 'proof',
+    'proofBindingSha256', 'proofGenerationMs', 'proofVerified',
+    'publicInputs', 'rawTransactionHex', 'rawTransactionSha256', 'rows',
+    'sourceOutputs', 'sourceParents', 'transactionBytes',
+    'transactionHeadroomBytes', 'transactionId', 'transactionLimitBytes',
+  ].sort();
+  const actualFields = Object.keys(action).sort();
+  if (
+    actualFields.length !== expectedFields.length
+    || actualFields.some((field, index) => field !== expectedFields[index])
+  ) fail(`${expectedKind} beta action has missing or unknown properties`);
+  if (
+    typeof action.packetHex !== 'string'
+    || action.packetHex.length !== 1104
+    || !/^[0-9a-f]{1104}$/u.test(action.packetHex)
+  ) fail(`${expectedKind}.packetHex must be exactly 552 canonical bytes`);
+  const packet = Buffer.from(action.packetHex, 'hex');
+  const packetSha256 = sha256(packet);
+  exactString(action.packetSha256, packetSha256, `${expectedKind}.packetSha256`);
+  const publicInputs = exactArray(action.publicInputs, `${expectedKind}.publicInputs`);
+  if (
+    publicInputs.length !== 2
+    || publicInputs.some((entry) =>
+      typeof entry !== 'string'
+      || !/^(?:0|[1-9][0-9]*)$/u.test(entry)
+      || BigInt(entry) > MAX_U128)
+  ) fail(`${expectedKind}.publicInputs must be two canonical u128 decimals`);
+  const decoded = decodeActionPacket(packet, {
+    denominationSats: '10000000',
+  });
+  exactString(decoded.kind, expectedKind, `${expectedKind}.packet.kind`);
+  exactString(decoded.instanceId, instanceId, `${expectedKind}.packet.instanceId`);
+  exactString(decoded.preState.profileId, profileId, `${expectedKind}.packet.profileId`);
+  exactString(decoded.postState.profileId, profileId, `${expectedKind}.packet.postProfileId`);
+  exactString(
+    decoded.transactionContextHash,
+    action.contextHash,
+    `${expectedKind}.packet.transactionContextHash`,
+  );
+  const calculatedPublicInputs = actionPacketPublicLimbs(packet, {
+    denominationSats: '10000000',
+  });
+  if (calculatedPublicInputs.some((entry, index) => entry !== publicInputs[index])) {
+    fail(`${expectedKind}.publicInputs differ from the exact packet digest`);
+  }
+  exactObject(action.proof, `${expectedKind}.proof`);
+  let proofBindingSha256;
+  try {
+    proofBindingSha256 = sha256(Buffer.from(canonicalizeJcs({
+      packetSha256,
+      proof: action.proof,
+      publicInputs,
+    }), 'utf8'));
+  } catch (error) {
+    fail(`${expectedKind}.proof is not canonical JSON data: ${error.message}`);
+  }
+  exactString(
+    action.proofBindingSha256,
+    proofBindingSha256,
+    `${expectedKind}.proofBindingSha256`,
+  );
+  return Object.freeze({
+    decoded,
+    packet,
+    packetSha256,
+    proofBindingSha256,
+    publicInputs: Object.freeze([...publicInputs]),
+  });
 };
 
 const validateSourceParent = (value, label) => {
@@ -1030,9 +1198,192 @@ const validateEvidence = (value) => {
   return Object.freeze({ evidence, summaries });
 };
 
+/**
+ * Validate the beta lane without treating it as development or final evidence.
+ * The transaction and VM rows have the exact same independently parsable shape
+ * as the development lane, but the outer identity and every qualification claim
+ * are beta-specific and fail closed.
+ */
+export const validatePf10BetaLibauthEvidence = (value) => {
+  const evidence = exactObject(value, 'beta evidence');
+  exactString(
+    evidence.schema,
+    PF10_BETA_LIBAUTH_EVIDENCE_SCHEMA,
+    'beta evidence.schema',
+  );
+  exactString(
+    evidence.eligibility,
+    V2_BETA_LOCAL_ELIGIBILITY,
+    'beta evidence.eligibility',
+  );
+  const expectedEvidenceFields = [
+    'betaProofQualification', 'claims', 'eligibility', 'environment',
+    'exactDustBases', 'generatedAt', 'hardLimits', 'identity',
+    'pf10FusedQGenesisActions', 'qualificationScope', 'schema',
+  ].sort();
+  const actualEvidenceFields = Object.keys(evidence).sort();
+  if (
+    actualEvidenceFields.length !== expectedEvidenceFields.length
+    || actualEvidenceFields.some(
+      (field, index) => field !== expectedEvidenceFields[index],
+    )
+  ) fail('beta evidence has missing or unknown properties');
+  const claims = exactObject(evidence.claims, 'beta evidence.claims');
+  const expectedClaims = {
+    authenticatedSerializedParentOutputs: true,
+    b02Qualified: false,
+    bchnMempool: false,
+    bchnMined: false,
+    betaSingleContributor: true,
+    ceremonyQualified: false,
+    d01Qualified: false,
+    d02Qualified: false,
+    developmentKey: false,
+    finalKey: false,
+    leanBch: false,
+    libauthBch2026: true,
+    liveChainParentProvenance: false,
+    participantIndependenceEstablished: false,
+    production: false,
+    productionSettlementBuilderPath: true,
+    q01FinalReplayQualified: false,
+    q01Qualified: false,
+    q02Qualified: false,
+    q03Qualified: false,
+    q04Qualified: false,
+    q05Qualified: false,
+    q06Qualified: false,
+    q07Qualified: false,
+    q08Qualified: false,
+    q09Qualified: false,
+    releaseQualified: false,
+    unmodifiedMaintainerBenchmark: false,
+  };
+  const actualClaimNames = Object.keys(claims).sort();
+  const expectedClaimNames = Object.keys(expectedClaims).sort();
+  if (
+    actualClaimNames.length !== expectedClaimNames.length
+    || actualClaimNames.some((name, index) => name !== expectedClaimNames[index])
+  ) fail('beta evidence.claims has missing or unknown properties');
+  for (const [name, expected] of Object.entries(expectedClaims)) {
+    exactBoolean(claims[name], expected, `beta evidence.claims.${name}`);
+  }
+  const actions = exactObject(
+    evidence.pf10FusedQGenesisActions,
+    'beta evidence.pf10FusedQGenesisActions',
+  );
+  const expectedActionSetFields = [
+    'actionCount', 'actions', 'fixedLineDerivation', 'fixedPrograms',
+    'identityExecutorRows', 'topologyId', 'verdict',
+  ].sort();
+  const actualActionSetFields = Object.keys(actions).sort();
+  if (
+    actualActionSetFields.length !== expectedActionSetFields.length
+    || actualActionSetFields.some(
+      (field, index) => field !== expectedActionSetFields[index],
+    )
+  ) fail('beta evidence action set has missing or unknown properties');
+  exactString(
+    actions.verdict,
+    'beta-local-production-builder-standard-pass-all-actions-precomputed-fixed-lines',
+    'beta evidence.pf10FusedQGenesisActions.verdict',
+  );
+  const proofQualification = exactObject(
+    evidence.betaProofQualification,
+    'beta evidence.betaProofQualification',
+  );
+  const proofQualificationFields = Object.keys(proofQualification).sort();
+  const expectedProofQualificationFields = [
+    'eligibility', 'instanceId', 'profileId', 'schema', 'sha256', 'status',
+  ];
+  if (
+    proofQualificationFields.length !== expectedProofQualificationFields.length
+    || proofQualificationFields.some(
+      (field, index) => field !== expectedProofQualificationFields[index],
+    )
+  ) fail('beta evidence.betaProofQualification has missing or unknown properties');
+  exactString(
+    proofQualification.schema,
+    V2_BETA_PROOF_QUALIFICATION_SCHEMA,
+    'beta evidence.betaProofQualification.schema',
+  );
+  exactString(
+    proofQualification.eligibility,
+    V2_BETA_LOCAL_ELIGIBILITY,
+    'beta evidence.betaProofQualification.eligibility',
+  );
+  exactString(
+    proofQualification.status,
+    'beta-proof-qualification-reverified-unqualified',
+    'beta evidence.betaProofQualification.status',
+  );
+  canonicalHex(
+    proofQualification.sha256,
+    'beta evidence.betaProofQualification.sha256',
+  );
+  if (proofQualification.sha256.length !== 64) {
+    fail('beta evidence.betaProofQualification.sha256 must be 32 bytes');
+  }
+  exactString(
+    proofQualification.profileId,
+    evidence.identity.profileId,
+    'beta evidence.betaProofQualification.profileId',
+  );
+  exactString(
+    proofQualification.instanceId,
+    evidence.identity.instanceId,
+    'beta evidence.betaProofQualification.instanceId',
+  );
+  // Reuse the byte, parent, fee, policy, and VM validation by translating only
+  // the deliberately non-interchangeable outer beta labels.
+  const translated = {
+    ...evidence,
+    schema: EVIDENCE_SCHEMA,
+    eligibility: 'development-only',
+    pf10FusedQGenesisActions: {
+      ...actions,
+      verdict:
+        'production-builder-local-standard-pass-all-actions-precomputed-fixed-lines',
+    },
+  };
+  const checked = validateEvidence(translated);
+  const expectedKinds = ['deposit', 'transfer', 'withdrawal'];
+  const actionBindings = expectedKinds.map((expectedKind, index) => {
+    const action = actions.actions[index];
+    const binding = validatePf10BetaActionProofBinding({
+      action,
+      expectedKind,
+      instanceId: evidence.identity.instanceId,
+      profileId: evidence.identity.profileId,
+    });
+    const parsed = parseV2RawTransaction(action.rawTransactionHex);
+    decodeDirectV2BindingUnlock({
+      expectedPacket: binding.packet,
+      sourceLockingBytecode: Buffer.from(
+        action.sourceOutputs[10].lockingBytecodeHex,
+        'hex',
+      ),
+      unlockingBytecode: parsed.inputs[10].unlockingBytecode,
+    });
+    return Object.freeze({
+      kind: expectedKind,
+      packetSha256: binding.packetSha256,
+      proofBindingSha256: binding.proofBindingSha256,
+    });
+  });
+  return Object.freeze({
+    evidence,
+    summaries: checked.summaries,
+    actionBindings: Object.freeze(actionBindings),
+  });
+};
+
 export const runPf10LibauthQualification = async (
   options,
-  { childRunner = runChild } = {},
+  {
+    betaLocal = false,
+    childRunner = runChild,
+  } = {},
 ) => {
   const publication = await preparePublicationPaths(options);
   const stage = await mkdtemp(path.join(
@@ -1055,6 +1406,7 @@ export const runPf10LibauthQualification = async (
     const evidencePath = path.join(stage, 'libauth.json');
     const executed = await childRunner({
       evidencePath: childEvidencePath,
+      betaLocal,
       options: Object.freeze({
         ...options,
         output: publication.output,
@@ -1079,12 +1431,18 @@ export const runPf10LibauthQualification = async (
     }
     await canonicalSingleLinkFile(childEvidencePath, 'child Libauth evidence');
     const parsed = JSON.parse(await readFile(childEvidencePath, 'utf8'));
-    const validated = validateEvidence(parsed);
+    const validated = betaLocal
+      ? validatePf10BetaLibauthEvidence(parsed)
+      : validateEvidence(parsed);
     const evidenceBytes = canonicalBytes(validated.evidence);
     await writePrivateFile(evidencePath, evidenceBytes, 'canonical Libauth evidence');
     const summary = Object.freeze({
-      schema: SCRIPT_SCHEMA,
-      eligibility: 'development-only',
+      schema: betaLocal
+        ? PF10_BETA_LIBAUTH_QUALIFICATION_SCHEMA
+        : SCRIPT_SCHEMA,
+      eligibility: betaLocal
+        ? V2_BETA_LOCAL_ELIGIBILITY
+        : 'development-only',
       claims: validated.evidence.claims,
       identity: validated.evidence.identity,
       hardLimits: validated.evidence.hardLimits,
@@ -1115,6 +1473,9 @@ export const runPf10LibauthQualification = async (
       stage,
       output: publication.output,
       outputParent: publication.outputParent,
+      ...(betaLocal ? {
+        publicationSchema: PF10_BETA_LIBAUTH_PUBLICATION_SCHEMA,
+      } : {}),
     });
     published = true;
     return Object.freeze({

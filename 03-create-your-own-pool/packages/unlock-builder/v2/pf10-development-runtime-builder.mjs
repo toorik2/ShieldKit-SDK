@@ -63,7 +63,10 @@ import {
   DIRECT_V2_PF10_EXACT_MSM_ZERO_PADDING_BYTES,
   DIRECT_V2_PF10_MILLER_ZERO_PADDING_BYTES,
   DIRECT_V2_PF10_NONFINAL_MSM_PADDING_BYTES,
+  DIRECT_V2_PF10_BETA_ELIGIBILITY,
+  DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA,
   DIRECT_V2_PF10_RUNTIME_SCHEMA,
+  validateDirectV2Pf10BetaRuntimeMaterial,
   validateDirectV2Pf10RuntimeMaterial,
 } from './pf10-action-witness.mjs';
 import {
@@ -85,6 +88,8 @@ import {
 
 export const DIRECT_V2_PF10_DEVELOPMENT_RUNTIME_BUILD_SCHEMA =
   'shieldkit-v2-direct-pf10-development-runtime-build-v1';
+export const DIRECT_V2_PF10_BETA_RUNTIME_BUILD_SCHEMA =
+  'shieldkit-v2-direct-pf10-beta-runtime-build-v1';
 export const DIRECT_V2_PF10_LIBAUTH_EVIDENCE_SCHEMA =
   'shieldkit-v2-direct-pf10-local-libauth-evidence-v2';
 
@@ -1554,13 +1559,18 @@ function immutableProgram({ source, raw, redeem }) {
  * Compile the exact PF10 instance-specific verifier programs from descriptor
  * identities and already content-pinned proof artifacts.
  */
-export async function buildDirectV2Pf10DevelopmentRuntime({
+async function buildDirectV2Pf10Runtime({
   repositoryRoot,
   temporaryRoot,
   profileId: profileIdentity,
   instanceId: instanceIdentity,
   proofArtifacts: proofArtifactRecords,
   libauthEvidence: libauthEvidenceRecord = undefined,
+  runtimeMaterialSchema,
+  eligibility,
+  runtimeBuildSchema,
+  validateRuntimeMaterial,
+  includeLibauthEvidence,
 } = {}) {
   const root = await canonicalRepository(repositoryRoot);
   const profileId = exactIdentity(profileIdentity, 'profileId');
@@ -1945,8 +1955,8 @@ export async function buildDirectV2Pf10DevelopmentRuntime({
       ]),
     ));
     const runtimeMaterialInput = {
-      schema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
-      eligibility: 'development-only',
+      schema: runtimeMaterialSchema,
+      eligibility,
       profileId,
       instanceId,
       topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
@@ -1963,8 +1973,7 @@ export async function buildDirectV2Pf10DevelopmentRuntime({
       bindingLockingBytecode: bindingLock,
       verifierLockingBytecodes: verifierLocks,
     };
-    const runtimeMaterial =
-      validateDirectV2Pf10RuntimeMaterial(runtimeMaterialInput);
+    const runtimeMaterial = validateRuntimeMaterial(runtimeMaterialInput);
     const parsedLibauthEvidence = verifiedLibauthEvidence === undefined
       ? undefined
       : validateDirectV2Pf10LibauthEvidence({
@@ -1975,8 +1984,8 @@ export async function buildDirectV2Pf10DevelopmentRuntime({
         runtimeMaterialSha256: runtimeMaterial.materialSha256,
       });
     return Object.freeze({
-      schema: DIRECT_V2_PF10_DEVELOPMENT_RUNTIME_BUILD_SCHEMA,
-      eligibility: 'development-only',
+      schema: runtimeBuildSchema,
+      eligibility,
       profileId,
       instanceId,
       topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
@@ -2000,15 +2009,17 @@ export async function buildDirectV2Pf10DevelopmentRuntime({
           }),
         ]),
       )),
-      libauthEvidence: verifiedLibauthEvidence === undefined
-        ? undefined
-        : Object.freeze({
-          bytes: verifiedLibauthEvidence.bytes,
-          data: Buffer.from(verifiedLibauthEvidence.data),
-          path: verifiedLibauthEvidence.path,
-          schema: parsedLibauthEvidence.schema,
-          sha256: verifiedLibauthEvidence.sha256,
-        }),
+      ...(includeLibauthEvidence ? {
+        libauthEvidence: verifiedLibauthEvidence === undefined
+          ? undefined
+          : Object.freeze({
+            bytes: verifiedLibauthEvidence.bytes,
+            data: Buffer.from(verifiedLibauthEvidence.data),
+            path: verifiedLibauthEvidence.path,
+            schema: parsedLibauthEvidence.schema,
+            sha256: verifiedLibauthEvidence.sha256,
+          }),
+      } : {}),
       runtimeMaterial,
       runtimeMaterialInput: Object.freeze(runtimeMaterialInput),
       fixedTables: Object.freeze({
@@ -2074,4 +2085,38 @@ export async function buildDirectV2Pf10DevelopmentRuntime({
   } finally {
     await rm(workDirectory, { recursive: true, force: false });
   }
+}
+
+/** Compile the descriptor-compatible development PF10 runtime. */
+export async function buildDirectV2Pf10DevelopmentRuntime(value = {}) {
+  return buildDirectV2Pf10Runtime({
+    ...value,
+    runtimeMaterialSchema: DIRECT_V2_PF10_RUNTIME_SCHEMA,
+    eligibility: 'development-only',
+    runtimeBuildSchema: DIRECT_V2_PF10_DEVELOPMENT_RUNTIME_BUILD_SCHEMA,
+    validateRuntimeMaterial: validateDirectV2Pf10RuntimeMaterial,
+    includeLibauthEvidence: true,
+  });
+}
+
+/**
+ * Compile beta-only PF10 runtime material. This lane intentionally accepts no
+ * Libauth evidence and emits material rejected by the normal descriptor/final
+ * runtime validator.
+ */
+export async function buildDirectV2Pf10BetaRuntime(value = {}) {
+  if (value.libauthEvidence !== undefined) {
+    fail(
+      'PF10_BETA_LIBAUTH_FORBIDDEN',
+      'beta PF10 runtime does not accept Libauth evidence',
+    );
+  }
+  return buildDirectV2Pf10Runtime({
+    ...value,
+    runtimeMaterialSchema: DIRECT_V2_PF10_BETA_RUNTIME_SCHEMA,
+    eligibility: DIRECT_V2_PF10_BETA_ELIGIBILITY,
+    runtimeBuildSchema: DIRECT_V2_PF10_BETA_RUNTIME_BUILD_SCHEMA,
+    validateRuntimeMaterial: validateDirectV2Pf10BetaRuntimeMaterial,
+    includeLibauthEvidence: false,
+  });
 }

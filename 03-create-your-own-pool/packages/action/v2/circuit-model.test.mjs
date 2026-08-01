@@ -21,6 +21,9 @@ import {
   parseV2RelationSourceManifest,
   verifyV2RelationSourceManifest,
 } from '../../profile/v2/relation-source-manifest.mjs';
+import {
+  decodeActionPacket,
+} from './packet.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..');
 const temporaryRoot = path.join(repositoryRoot, '.codex-build/test-tmp');
@@ -30,6 +33,28 @@ const sha256 = (bytes) =>
 test('constructs the exact deterministic deposit-transfer-withdrawal model chain', () => {
   const chain = buildDeterministicDirectV2Chain();
   assert.equal(chain.fixtureClass, 'deterministic-circuit-model-test-evidence');
+  const packets = Object.fromEntries(Object.entries(chain.actions).map(
+    ([kind, action]) => [kind, decodeActionPacket(action.transition.packet, {
+      denominationSats: '10000000',
+    })],
+  ));
+  assert.equal(
+    chain.preparedActions.deposit.output.public.outputNoteLeaf,
+    packets.deposit.outputNoteLeaf,
+  );
+  assert.equal(
+    chain.preparedActions.transfer.output.public.outputNoteLeaf,
+    packets.transfer.outputNoteLeaf,
+  );
+  assert.equal(
+    chain.preparedActions.transfer.publicNullifier,
+    packets.transfer.publicNullifier,
+  );
+  assert.equal(
+    chain.preparedActions.withdrawal.publicNullifier,
+    packets.withdrawal.publicNullifier,
+  );
+  assert.equal(chain.preparedActions.withdrawal.output, null);
   assert.deepEqual(
     Object.fromEntries(Object.entries(chain.actions).map(([name, action]) => [
       name,

@@ -243,6 +243,24 @@ export function buildDeterministicDirectV2Chain({
     profileId,
     instanceId,
     maximumLiveNotes,
+    // These are the exact private materials used by the three circuit inputs.
+    // They are deterministic test-fixture secrets, not wallet material. The
+    // beta-local integration persists them privately so recovery is exercised
+    // against the same outputs/nullifiers proven by the transaction lane.
+    preparedActions: Object.freeze({
+      deposit: Object.freeze({
+        output: firstOutput,
+        publicNullifier: null,
+      }),
+      transfer: Object.freeze({
+        output: secondOutput,
+        publicNullifier: firstNote.nullifier,
+      }),
+      withdrawal: Object.freeze({
+        output: null,
+        publicNullifier: secondNote.nullifier,
+      }),
+    }),
     actions: Object.freeze({
       deposit: Object.freeze({ transition: deposit, circuitInput: depositInput }),
       transfer: Object.freeze({ transition: transfer, circuitInput: transferInput }),

@@ -72,6 +72,14 @@ const FALSE_CLAIMS = Object.freeze({
   releaseQualified: false,
 });
 
+test('historical ceremony Git reads disable local replace objects', async () => {
+  const source = await readFile(
+    new URL('./v2-beta-single-contributor-ceremony.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /\['--no-replace-objects', \.\.\.args\]/u);
+});
+
 async function writeCanonical(filename, value) {
   await writeFile(filename, canonicalJson(value), { mode: 0o600, flag: 'wx' });
 }
