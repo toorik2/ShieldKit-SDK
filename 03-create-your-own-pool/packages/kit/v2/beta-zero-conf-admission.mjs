@@ -38,6 +38,8 @@ export class V2BetaZeroConfAdmissionError extends Error {
     super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'V2BetaZeroConfAdmissionError';
     this.code = code;
+    if (options?.operationId !== undefined) this.operationId = options.operationId;
+    if (options?.transactionId !== undefined) this.transactionId = options.transactionId;
   }
 }
 
@@ -285,7 +287,11 @@ export async function submitV2BetaZeroConfAdmission(value, dependencies = undefi
         'fresh-reconciled-after-indeterminate-send',
       );
       if (recovered !== null) return recovered;
-      fail('ADMISSION_SEND_INDETERMINATE', 'Chipnet send outcome is indeterminate; reconcile read-only before any explicit recovery action', { cause: error });
+      fail(
+        'ADMISSION_SEND_INDETERMINATE',
+        'Chipnet send outcome is indeterminate; reconcile read-only before any explicit recovery action',
+        { cause: error, operationId: input.operationId, transactionId: identity.txid },
+      );
     }
     if (error?.code === 'EXACT_BROADCAST_DURABILITY_FAILED') {
       fail('ADMISSION_BEFORE_SEND_FAILED', 'the durable pre-send callback failed before the Chipnet broadcast', { cause: error });

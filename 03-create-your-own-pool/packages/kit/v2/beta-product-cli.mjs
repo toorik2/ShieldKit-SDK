@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 
 import { createPublicChipnetFulcrumRpc } from '../chipnet-rpc.mjs';
 import {
@@ -202,6 +203,7 @@ function dependenciesForTest(value) {
 }
 
 async function execute(tokens, dependencies) {
+  const commandStarted = performance.now();
   const request = parse(tokens);
   const dataHome = request.options['data-home'];
   let result;
@@ -226,37 +228,70 @@ async function execute(tokens, dependencies) {
     // including error and explicit recovery routes.
     const loaded = await dependencies.loadConfig(dataHome === undefined ? {} : { dataHome });
     const config = dependencies.toContextConfig(loaded.config);
-    const rpc = await dependencies.createRpc();
-    try {
-      result = request.command === 'deposit'
-        ? await dependencies.deposit({
+    let rpc = await dependencies.createRpc();
+    const executeNetworkCommand = async (operationIdOverride = undefined) => request.command === 'deposit'
+      ? dependencies.deposit({
+        config,
+        rpc,
+        ...((operationIdOverride ?? request.options['operation-id']) === undefined
+          ? {} : { operationId: operationIdOverride ?? request.options['operation-id'] }),
+      })
+      : request.command === 'withdraw'
+        ? dependencies.withdrawal({
           config,
           rpc,
-          ...(request.options['operation-id'] === undefined
-            ? {} : { operationId: request.options['operation-id'] }),
+          toCashAddress: request.options.to,
+          ...(request.options.note === undefined ? {} : { noteId: request.options.note }),
+          ...((operationIdOverride ?? request.options['operation-id']) === undefined
+            ? {} : { operationId: operationIdOverride ?? request.options['operation-id'] }),
         })
-        : request.command === 'withdraw'
-          ? await dependencies.withdrawal({
+        : request.command === 'recovery-inspect'
+          ? dependencies.inspectRecovery({
             config,
+            operationId: request.options['operation-id'],
             rpc,
-            toCashAddress: request.options.to,
-            ...(request.options.note === undefined ? {} : { noteId: request.options.note }),
-            ...(request.options['operation-id'] === undefined
-              ? {} : { operationId: request.options['operation-id'] }),
           })
-          : request.command === 'recovery-inspect'
-            ? await dependencies.inspectRecovery({
-              config,
-              operationId: request.options['operation-id'],
-              rpc,
-            })
-            : await dependencies.recovery({
-              acknowledgedExactRebroadcast: true,
-              config,
-              operationId: request.options['operation-id'],
-              priorAttemptToken: request.options['attempt-token'],
-              rpc,
-            });
+          : dependencies.recovery({
+            acknowledgedExactRebroadcast: true,
+            config,
+            operationId: request.options['operation-id'],
+            priorAttemptToken: request.options['attempt-token'],
+            rpc,
+          });
+    try {
+      try {
+        result = await executeNetworkCommand();
+      } catch (error) {
+        const recoverableAction = ['deposit', 'withdraw'].includes(request.command)
+          && error?.code === 'ADMISSION_SEND_INDETERMINATE'
+          && typeof error?.operationId === 'string';
+        if (!recoverableAction) throw error;
+        // The original lifecycle already durably recorded its one send. Close
+        // every first-pass socket, open a fresh pair of the same pinned public
+        // providers, and resume the exact operation. Resume is read-only for
+        // an indeterminate delivery record and can never broadcast again.
+        try { await rpc?.close?.(); } catch { /* recovery opens an independent capability */ }
+        rpc = await dependencies.createRpc();
+        try {
+          const recovered = await executeNetworkCommand(error.operationId);
+          result = Object.freeze({
+            ...recovered,
+            timingsMs: Object.freeze({
+              ...recovered.timingsMs,
+              commandTotal: performance.now() - commandStarted,
+            }),
+          });
+        } catch (recoveryError) {
+          if (recoveryError !== null && typeof recoveryError === 'object') {
+            if (recoveryError.operationId === undefined) recoveryError.operationId = error.operationId;
+            if (recoveryError.transactionId === undefined
+              && typeof error.transactionId === 'string') {
+              recoveryError.transactionId = error.transactionId;
+            }
+          }
+          throw recoveryError;
+        }
+      }
     } finally {
       try { await rpc?.close?.(); } catch { /* preserve the command result/error */ }
     }
@@ -289,6 +324,14 @@ export function v2BetaProductCliErrorResult(error) {
         code: typeof error?.code === 'string'
           ? error.code : known ? 'BETA_CLI_ERROR' : 'BETA_CLI_UNCAUGHT',
         message: error instanceof Error ? error.message : String(error),
+        ...(typeof error?.operationId === 'string'
+          ? {
+            operationId: error.operationId,
+            ...(typeof error?.transactionId === 'string'
+              ? { transactionId: error.transactionId } : {}),
+            recovery: 'rerun the same action with --operation-id; it reconciles read-only and never automatically resends',
+          }
+          : {}),
       }),
     }),
   });

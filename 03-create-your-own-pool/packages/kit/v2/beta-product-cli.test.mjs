@@ -6,6 +6,7 @@ import {
   executeV2BetaProductCliForTest,
   isV2BetaProductCliInvocation,
   renderV2BetaProductCliHuman,
+  v2BetaProductCliErrorResult,
   V2BetaProductCliError,
 } from './beta-product-cli.mjs';
 
@@ -64,6 +65,59 @@ test('every networked CLI command closes its one persistent public RPC capabilit
     /action failed/u,
   );
   assert.equal(closes, 2);
+});
+
+test('an indeterminate action automatically reopens public reads and resumes the exact operation without another send', async () => {
+  const events = [];
+  const calls = [];
+  let rpcIndex = 0;
+  const base = dependencies(events);
+  const subject = Object.freeze({
+    ...base,
+    createRpc: async () => {
+      rpcIndex += 1;
+      const index = rpcIndex;
+      return { index, close: async () => { calls.push(`close:${index}`); } };
+    },
+    deposit: async (value) => {
+      calls.push({ operationId: value.operationId, rpc: value.rpc.index });
+      if (value.rpc.index === 1) {
+        const error = new Error('indeterminate');
+        error.code = 'ADMISSION_SEND_INDETERMINATE';
+        error.operationId = 'deposit.persisted';
+        error.transactionId = 'ab'.repeat(32);
+        throw error;
+      }
+      return {
+        status: 'accepted-zero-conf-beta-unqualified',
+        transactionId: 'ab'.repeat(32),
+        timingsMs: { commandTotal: 1 },
+        input: value,
+      };
+    },
+  });
+  const envelope = await executeV2BetaProductCliForTest(['deposit'], subject);
+  assert.equal(envelope.result.input.operationId, 'deposit.persisted');
+  assert.equal(envelope.result.input.rpc.index, 2);
+  assert.equal(envelope.result.timingsMs.commandTotal >= 0, true);
+  assert.deepEqual(calls, [
+    { operationId: undefined, rpc: 1 },
+    'close:1',
+    { operationId: 'deposit.persisted', rpc: 2 },
+    'close:2',
+  ]);
+});
+
+test('a still-indeterminate fresh readback reports the durable operation and transaction identity', async () => {
+  const error = new Error('still not visible');
+  error.code = 'ADMISSION_SEND_INDETERMINATE';
+  error.operationId = 'deposit.persisted';
+  error.transactionId = 'cd'.repeat(32);
+  const result = v2BetaProductCliErrorResult(error);
+  assert.equal(result.body.error.operationId, 'deposit.persisted');
+  assert.equal(result.body.error.transactionId, 'cd'.repeat(32));
+  assert.match(result.body.error.recovery, /read-only/u);
+  assert.doesNotMatch(result.body.error.recovery, /rebroadcast/u);
 });
 
 test('recognizes only the new exact product invocations', () => {
