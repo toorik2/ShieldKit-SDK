@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
+  loadV2BetaLiveQualificationInputsForTest,
   parseV2BetaLiveQualificationArguments,
   runV2BetaLiveQualification,
   V2_BETA_CAPACITY,
@@ -158,6 +159,34 @@ test('public live-runner argv parses to the plain object required by input valid
     ]),
     /usage: node v2-beta-live-qualification\.mjs/u,
   );
+});
+
+test('production CLI inputs remain valid across the validation-to-run boundary', async (t) => {
+  const root = mkdtempSync(path.join(process.cwd(), '.shieldkit-live-cli-inputs-'));
+  chmodSync(root, 0o700);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dataHome = path.join(root, 'data-home');
+  const evidenceDirectory = path.join(root, 'evidence');
+  const fundingWallet = path.join(root, 'funding-wallet.json');
+  mkdirSync(dataHome, { mode: 0o700 });
+  mkdirSync(evidenceDirectory, { mode: 0o700 });
+  writeFileSync(fundingWallet, '{}', { mode: 0o600 });
+  const validated = await loadV2BetaLiveQualificationInputsForTest(
+    parseV2BetaLiveQualificationArguments([
+      '--execute-live',
+      '--data-home', dataHome,
+      '--evidence-dir', evidenceDirectory,
+      '--funding-wallet', fundingWallet,
+      '--funding-utxo', `${fundingTxid}:0`,
+      '--withdraw-to', address,
+    ]),
+  );
+  const subject = fixture();
+  const result = await runV2BetaLiveQualification(validated, subject.deps);
+  assert.equal(result.evidence.capacity, V2_BETA_CAPACITY);
+  assert.equal(result.evidence.deposits.length, 5);
+  assert.equal(result.evidence.withdrawals.length, 5);
+  assert.equal(subject.calls.commands.length, 11);
 });
 
 test('private wallet and journal helper rejects symlinks and unsafe ancestors', async () => {

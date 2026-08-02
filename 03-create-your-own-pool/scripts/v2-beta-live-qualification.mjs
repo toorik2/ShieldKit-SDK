@@ -33,6 +33,7 @@ const RUN_SCHEMA = 'shieldkit-v2-beta-live-qualification-run-v1';
 const RUN_FILE = 'live-qualification-run.json';
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
+const VALIDATED_INPUTS = new WeakSet();
 
 export class V2BetaLiveQualificationError extends Error {
   constructor(code, message, options = undefined) { super(message, options?.cause === undefined ? undefined : { cause: options.cause }); this.name = 'V2BetaLiveQualificationError'; this.code = code; }
@@ -58,8 +59,13 @@ async function privatePath(filename, label, kind) {
 async function loadInputs(options) {
   exact(options, ['dataHome', 'evidenceDirectory', 'fundingUtxo', 'fundingWallet', 'withdrawalAddress'], 'live qualification options');
   await Promise.all([privatePath(options.dataHome, 'data home', 'directory'), privatePath(options.evidenceDirectory, 'evidence directory', 'directory'), privatePath(options.fundingWallet, 'funding wallet', 'file')]);
-  return Object.freeze({ ...options, fundingUtxo: parseFundingOutpoint(options.fundingUtxo), withdrawalAddress: chipnetAddress(options.withdrawalAddress) });
+  const inputs = Object.freeze({ ...options, fundingUtxo: parseFundingOutpoint(options.fundingUtxo), withdrawalAddress: chipnetAddress(options.withdrawalAddress) });
+  VALIDATED_INPUTS.add(inputs);
+  return inputs;
 }
+
+/** Unit-test seam for the exact production argv-to-validated-input boundary. */
+export async function loadV2BetaLiveQualificationInputsForTest(options) { return loadInputs(options); }
 
 function chipnetAddress(value) { if (typeof value !== 'string' || !value.startsWith('bchtest:') || value.length < 10) fail('LIVE_QUALIFICATION_WALLET_REJECTED', 'withdrawal address must be a Chipnet cash address'); return value; }
 export function parseFundingOutpoint(value) {
@@ -141,7 +147,7 @@ function summaryEvidence(record, install, elapsedMs) { return Object.freeze({ sc
 
 /** Testable core. Production passes only real CLI/RPC/install/journal dependencies. */
 export async function runV2BetaLiveQualification(options, dependencies) {
-  const inputs = options.wallet === undefined ? await loadInputs(options) : options; const deps = assertDeps(dependencies); const started = deps.now(); const install = await deps.validateInstall({ dataHome: inputs.dataHome }); if (!HASH.test(install?.receiptSha256) || typeof install.dataDirectory !== 'string') fail('LIVE_QUALIFICATION_INSTALL_REQUIRED', 'pinned installation receipt validation failed'); const journal = await deps.openRunJournal({ dataDirectory: install.dataDirectory });
+  const inputs = options.wallet !== undefined || VALIDATED_INPUTS.has(options) ? options : await loadInputs(options); const deps = assertDeps(dependencies); const started = deps.now(); const install = await deps.validateInstall({ dataHome: inputs.dataHome }); if (!HASH.test(install?.receiptSha256) || typeof install.dataDirectory !== 'string') fail('LIVE_QUALIFICATION_INSTALL_REQUIRED', 'pinned installation receipt validation failed'); const journal = await deps.openRunJournal({ dataDirectory: install.dataDirectory });
   const callCli = async (tokens, label) => parseCli(await deps.runCommand(cliRequest(tokens)), label);
   try {
     let record = journal.load();
