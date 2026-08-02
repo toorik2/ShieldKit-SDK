@@ -511,6 +511,10 @@ async function writeCanonicalPf10RuntimeBundle(authenticated, runtimeRoot, descr
   const evidenceBytes = Buffer.from(canonicalizeJcs(evidence));
   assert.equal(validateDirectV2Pf10LibauthEvidence({
     bytes: evidenceBytes,
+    expectedTerminalProgramBytes: Object.freeze({
+      raw: 9_359,
+      redeem: 6_740,
+    }),
     profileId: authenticated.runtime.profileId,
     instanceId: authenticated.runtime.instanceId,
     proofArtifactHashes,

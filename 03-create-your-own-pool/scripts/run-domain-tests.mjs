@@ -2210,6 +2210,12 @@ async function inspectLocalVerifierRuntimeCoherence({
   try {
     validatedLibauth = validateDirectV2Pf10LibauthEvidence({
       bytes: bundledLibauthBytes,
+      expectedTerminalProgramBytes: Object.freeze({
+        raw: artifacts.get('repro-terminal-raw').bytes,
+        redeem: artifacts.get(
+          runtimeReferences.references.unlockArtifacts.terminalRedeem,
+        ).bytes,
+      }),
       profileId: manifest.profileId,
       instanceId: manifest.instanceId,
       proofArtifactHashes: Object.freeze({

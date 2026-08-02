@@ -760,7 +760,7 @@ const pf10LibauthEvidenceForFixture = ({
         rawExecutorBytes: 10_937,
         rawTerminalBytes: 9_359,
         stateHelperBytes: 2_674,
-        terminalRedeemBytes: 6_740,
+        terminalRedeemBytes: pf10RuntimePrograms.terminal.length,
       },
       identityExecutorRows: Array.from({ length: 5 }, (_, index) => ({
         index,
@@ -896,6 +896,10 @@ const addPf10QualificationEnvelope = async (
   assert.equal(
     validateDirectV2Pf10LibauthEvidence({
       bytes: libauthEvidenceBytes,
+      expectedTerminalProgramBytes: Object.freeze({
+        raw: 9_359,
+        redeem: pf10RuntimePrograms.terminal.length,
+      }),
       profileId: subject.descriptor.profileId,
       instanceId: subject.descriptor.instanceId,
       proofArtifactHashes: libauthEvidence.identity.proofArtifactHashes,

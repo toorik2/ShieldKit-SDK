@@ -148,10 +148,13 @@ const EXPECTED_FIXED_PROGRAM_BYTES = Object.freeze({
   millerRawBytes: 5_430,
   millerRedeemBytes: 4_620,
   rawExecutorBytes: 10_937,
-  rawTerminalBytes: 9_359,
   stateHelperBytes: 2_674,
-  terminalRedeemBytes: 6_740,
 });
+// The terminal embeds alpha/beta-derived fAB coefficients from the selected
+// verification key. CashScript's canonical Script-number encoding can change
+// their aggregate byte width between independently contributed keys, so those
+// two measurements are verified against the exact compiled runtime below,
+// never against one ceremony's accidental byte count.
 const EXPECTED_SCOPE_SETTLEMENT_PATH =
   'prepareV2DirectSettlement -> assembleV2DirectSettlement -> signV2DirectSettlement -> createV2LocalVmEvidence';
 const EXPECTED_SCOPE_PARENT_TRANSACTIONS =
@@ -698,7 +701,32 @@ function validateLibauthAction(action, expected) {
   validateLibauthRows(action.rows, expected.kind);
 }
 
-function validateLibauthFixedEvidence(value) {
+function validateLibauthFixedEvidence(value, expectedTerminalProgramBytes) {
+  if (
+    expectedTerminalProgramBytes === null
+    || Array.isArray(expectedTerminalProgramBytes)
+    || typeof expectedTerminalProgramBytes !== 'object'
+    || ![
+      'raw,redeem',
+      'redeem',
+    ].includes(Object.keys(expectedTerminalProgramBytes).sort().join(','))
+  ) {
+    fail(
+      'PF10_BUILD_LIBAUTH_INVALID',
+      'expected PF10 terminal program bytes must contain redeem and optional raw counts',
+    );
+  }
+  for (const [field, bytes] of Object.entries(
+    expectedTerminalProgramBytes,
+  )) {
+    const maximum = field === 'redeem' ? 10_000 : 100_000;
+    if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > maximum) {
+      fail(
+        'PF10_BUILD_LIBAUTH_INVALID',
+        `expected PF10 terminal ${field} byte count is invalid`,
+      );
+    }
+  }
   exactKeys(
     value.fixedLineDerivation,
     'PF10 Libauth fixed-line derivation',
@@ -792,7 +820,11 @@ function validateLibauthFixedEvidence(value) {
   exactKeys(
     value.fixedPrograms,
     'PF10 Libauth fixed programs',
-    Object.keys(EXPECTED_FIXED_PROGRAM_BYTES),
+    [
+      ...Object.keys(EXPECTED_FIXED_PROGRAM_BYTES),
+      'rawTerminalBytes',
+      'terminalRedeemBytes',
+    ],
   );
   for (const [field, expected] of
     Object.entries(EXPECTED_FIXED_PROGRAM_BYTES)) {
@@ -811,6 +843,23 @@ function validateLibauthFixedEvidence(value) {
         `PF10 Libauth fixedPrograms.${field} is invalid`,
       );
     }
+  }
+  if (
+    value.fixedPrograms.terminalRedeemBytes
+      !== expectedTerminalProgramBytes.redeem
+    || (
+      expectedTerminalProgramBytes.raw !== undefined
+      && value.fixedPrograms.rawTerminalBytes
+        !== expectedTerminalProgramBytes.raw
+    )
+    || !Number.isSafeInteger(value.fixedPrograms.rawTerminalBytes)
+    || value.fixedPrograms.rawTerminalBytes < 1
+    || value.fixedPrograms.rawTerminalBytes > 100_000
+  ) {
+    fail(
+      'PF10_BUILD_LIBAUTH_INVALID',
+      'PF10 Libauth terminal program bytes do not match the pinned verification-key runtime',
+    );
   }
   if (
     !Array.isArray(value.identityExecutorRows)
@@ -849,6 +898,7 @@ function validateLibauthFixedEvidence(value) {
 
 function parseLibauthEvidence({
   bytes,
+  expectedTerminalProgramBytes,
   profileId,
   instanceId,
   proofArtifactHashes,
@@ -993,7 +1043,10 @@ function parseLibauthEvidence({
   ) {
     fail('PF10_BUILD_LIBAUTH_INVALID', 'PF10 Libauth action topology is invalid');
   }
-  validateLibauthFixedEvidence(value.pf10FusedQGenesisActions);
+  validateLibauthFixedEvidence(
+    value.pf10FusedQGenesisActions,
+    expectedTerminalProgramBytes,
+  );
   for (const [index, expected] of EXPECTED_ACTIONS.entries()) {
     validateLibauthAction(
       value.pf10FusedQGenesisActions.actions[index],
@@ -1009,12 +1062,17 @@ function parseLibauthEvidence({
  * The caller pins the file bytes separately. This validator binds the
  * canonical evidence to the profile, funding-derived instance, proof
  * artifacts, topology, hard-limit verdicts, and the runtime material derived
- * from those same bytes. It deliberately has no global instance/hash pin:
+ * from those same bytes. expectedTerminalProgramBytes must include the exact
+ * optimized runtime artifact size. Qualification callers also supply the
+ * independently compiled raw size; package consumers need not make raw,
+ * non-runtime reproducibility artifacts part of the settlement boundary.
+ * It deliberately has no global instance/hash pin:
  * every new genesis necessarily has a new instance-specific runtime.
  */
 export function validateDirectV2Pf10LibauthEvidence(value) {
   exactKeys(value, 'PF10 Libauth validation options', [
     'bytes',
+    'expectedTerminalProgramBytes',
     'instanceId',
     'profileId',
     'proofArtifactHashes',
@@ -1032,6 +1090,7 @@ export function validateDirectV2Pf10LibauthEvidence(value) {
   );
   const parsed = parseLibauthEvidence({
     bytes: Buffer.from(value.bytes),
+    expectedTerminalProgramBytes: value.expectedTerminalProgramBytes,
     profileId: exactIdentity(value.profileId, 'PF10 Libauth profileId'),
     instanceId: exactIdentity(value.instanceId, 'PF10 Libauth instanceId'),
     proofArtifactHashes: value.proofArtifactHashes,
@@ -2189,6 +2248,10 @@ async function buildDirectV2Pf10Runtime({
       ? undefined
       : validateDirectV2Pf10LibauthEvidence({
         bytes: verifiedLibauthEvidence.data,
+        expectedTerminalProgramBytes: Object.freeze({
+          raw: terminal.raw.length,
+          redeem: terminal.redeem.length,
+        }),
         profileId,
         instanceId,
         proofArtifactHashes,

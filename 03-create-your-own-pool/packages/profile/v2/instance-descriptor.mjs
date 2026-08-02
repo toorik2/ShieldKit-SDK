@@ -2617,9 +2617,16 @@ async function derivePf10RuntimeFromValidatedPins({
       runtime.libauthEvidenceArtifactId,
       'PF10 per-instance Libauth evidence',
     );
+    const terminalRedeem = await readRuntimeBytes(
+      runtime.unlockArtifacts.terminalRedeem,
+      'PF10 terminal redeem for Libauth evidence',
+    );
     try {
       validateDirectV2Pf10LibauthEvidence({
         bytes: libauthEvidence,
+        expectedTerminalProgramBytes: Object.freeze({
+          redeem: terminalRedeem.length,
+        }),
         profileId: identity.profileId,
         instanceId: identity.instanceId,
         proofArtifactHashes: Object.fromEntries(
