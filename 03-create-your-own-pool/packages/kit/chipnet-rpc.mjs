@@ -1070,25 +1070,29 @@ async function createPublicBchnChipnetRpcInternal({
       throw error;
     }
   };
-  // Establish and genesis-check all pinned candidates concurrently. This is
-  // entirely before any durable send boundary and removes serial TLS latency
-  // from every CLI invocation without permitting send-side failover.
-  const connected = await Promise.allSettled(endpoints.map(connect));
-  const sessions = connected
-    .filter((result) => result.status === 'fulfilled')
-    .map((result) => result.value)
-    .filter((entry, index, entries) => entries.findIndex((candidate) =>
-      candidate.endpoint.host === entry.endpoint.host) === index)
-    .slice(0, 2);
-  for (const result of connected) {
-    if (result.status === 'fulfilled' && !sessions.includes(result.value)) {
-      try { result.value.session.close?.(); } catch {}
+  const connectPair = async () => {
+    // Establish and genesis-check all pinned candidates concurrently. This is
+    // entirely before any send, or is read-only recovery after the sole send.
+    // It removes serial TLS latency without permitting send-side failover.
+    const connected = await Promise.allSettled(endpoints.map(connect));
+    const pair = connected
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value)
+      .filter((entry, index, entries) => entries.findIndex((candidate) =>
+        candidate.endpoint.host === entry.endpoint.host) === index)
+      .slice(0, 2);
+    for (const result of connected) {
+      if (result.status === 'fulfilled' && !pair.includes(result.value)) {
+        try { result.value.session.close?.(); } catch {}
+      }
     }
-  }
-  if (sessions.length < 2 || sessions[0].endpoint.host === sessions[1].endpoint.host) {
-    for (const entry of sessions) entry.session.close?.();
-    throw new Error('two distinct public Chipnet Fulcrum TLS endpoints with Chipnet genesis are required');
-  }
+    if (pair.length < 2 || pair[0].endpoint.host === pair[1].endpoint.host) {
+      for (const entry of pair) entry.session.close?.();
+      throw new Error('two distinct public Chipnet Fulcrum TLS endpoints with Chipnet genesis are required');
+    }
+    return pair;
+  };
+  const sessions = await connectPair();
   const [broadcast, attestation] = sessions;
   let closed = false;
   const requireOpen = () => {
@@ -1111,15 +1115,38 @@ async function createPublicBchnChipnetRpcInternal({
   };
   const resolvePostBroadcast = async (readback) => {
     let lastError;
-    for (let attempt = 0; attempt < postBroadcastReadbackAttempts; attempt += 1) {
-      try { return await readback(); }
-      catch (error) { lastError = error; }
-      if (attempt + 1 < postBroadcastReadbackAttempts
-        && postBroadcastReadbackDelayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, postBroadcastReadbackDelayMs));
+    let readbackSessions = sessions;
+    let replacementSessions;
+    try {
+      for (let attempt = 0; attempt < postBroadcastReadbackAttempts; attempt += 1) {
+        try { return await readback(readbackSessions); }
+        catch (error) { lastError = error; }
+        if (attempt + 1 >= postBroadcastReadbackAttempts) break;
+        // A Fulcrum connection which returned the ambiguous broadcast error
+        // can retain a stale backend view. Reconnect both pinned providers
+        // once, read-only, then continue polling those fresh sessions. This
+        // never changes the primary endpoint and can never send a second copy.
+        if (attempt === 0) {
+          try {
+            replacementSessions = await connectPair();
+            readbackSessions = replacementSessions;
+            continue;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (postBroadcastReadbackDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, postBroadcastReadbackDelayMs));
+        }
+      }
+      throw lastError;
+    } finally {
+      if (replacementSessions !== undefined) {
+        for (const entry of replacementSessions) {
+          try { entry.session.close?.(); } catch {}
+        }
       }
     }
-    throw lastError;
   };
   const rpc = {
     backend: 'public-chipnet-fulcrum-tls', label: 'public Chipnet Fulcrum TLS', network: 'chipnet', genesis: CHIPNET_GENESIS_HASH,
@@ -1164,8 +1191,8 @@ async function createPublicBchnChipnetRpcInternal({
         // provider and remain indeterminate on any missing/divergent readback.
         methodCounts.getrawtransaction += 1;
         try {
-          const raw = await resolvePostBroadcast(() =>
-            publicElectrumRawReadback(sessions, expectedTransactionId));
+          const raw = await resolvePostBroadcast((readbackSessions) =>
+            publicElectrumRawReadback(readbackSessions, expectedTransactionId));
           if (raw === rawTransactionHex) {
             return Object.freeze({
               transactionId: expectedTransactionId,
@@ -1207,18 +1234,18 @@ async function createPublicBchnChipnetRpcInternal({
         methodCounts.getrawtransaction += 1;
         methodCounts.gettxout += 1;
         try {
-          const readback = await resolvePostBroadcast(async () => {
+          const readback = await resolvePostBroadcast(async (readbackSessions) => {
             // Preserve two-provider exact-raw consensus, then use the distinct
             // non-broadcasting provider for the output attestation. This is
             // the same trust split as the ordinary successful-response path;
             // requiring the broadcasting provider's UTXO index as well only
             // adds lag without adding an independent party.
             const raw = await publicElectrumRawReadback(
-              sessions,
+              readbackSessions,
               expectedTransactionId,
             );
             return publicElectrumOutputReadback(
-              attestation,
+              readbackSessions[1],
               expectedTransactionId,
               outputIndex,
               raw,

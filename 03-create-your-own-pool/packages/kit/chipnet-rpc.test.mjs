@@ -736,6 +736,68 @@ test('public product transport absorbs bounded independent-provider indexing lag
   }
 });
 
+test('public product transport replaces stale post-send sessions once and only polls the fresh pair', async () => {
+  const fixture = publicElectrumFixture();
+  const opens = new Map();
+  const calls = [];
+  const closes = [];
+  const openSession = async (endpoint) => {
+    const generation = (opens.get(endpoint.host) ?? 0) + 1;
+    opens.set(endpoint.host, generation);
+    return Object.freeze({
+      async request(method, params) {
+        calls.push({ generation, host: endpoint.host, method, params });
+        if (method === 'server.features') return { genesis_hash: CHIPNET_GENESIS_HASH };
+        if (method === 'server.version') return ['Fulcrum', '1.6'];
+        if (method === 'blockchain.transaction.broadcast') throw new Error('ambiguous send');
+        if (method === 'blockchain.transaction.get') {
+          if (generation === 1) throw new Error('stale original session');
+          return fixture.transaction.raw;
+        }
+        if (method === 'blockchain.utxo.get_info') {
+          return {
+            value: 546,
+            scripthash: fixture.transaction.scripthash,
+            token_data: {
+              amount: '0', category: fixture.transaction.category,
+              nft: { capability: 'mutable', commitment: fixture.transaction.commitment },
+            },
+          };
+        }
+        throw new Error(`unexpected public Electrum method ${method}`);
+      },
+      close() { closes.push(`${endpoint.host}:${generation}`); },
+    });
+  };
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints: fixture.endpoints,
+    openSession,
+    postBroadcastReadbackAttempts: 2,
+    postBroadcastReadbackDelayMs: 0,
+  });
+  const result = await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
+  );
+  assert.equal(result.transactionId, fixture.transaction.transactionId);
+  assert.deepEqual(Object.fromEntries(opens), {
+    'one.example': 2,
+    'two.example': 2,
+  });
+  assert.equal(calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  assert.equal(calls.some((call) => call.generation === 1
+    && call.method === 'blockchain.transaction.get'), true);
+  assert.equal(calls.some((call) => call.generation === 2
+    && call.method === 'blockchain.transaction.get'), true);
+  assert.deepEqual(closes.sort(), ['one.example:2', 'two.example:2']);
+  rpc.close();
+  assert.deepEqual(closes.sort(), [
+    'one.example:1', 'one.example:2', 'two.example:1', 'two.example:2',
+  ]);
+});
+
 test('public exact-send bootstrap resolves a broadcast error only from dual exact raw readback', async () => {
   const fixture = publicElectrumFixture({ broadcastError: new Error('transport lost') });
   const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
