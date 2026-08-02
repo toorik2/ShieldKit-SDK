@@ -217,6 +217,20 @@ function claims() {
   });
 }
 
+function acceptedZeroConfClaims() {
+  return Object.freeze({
+    broadcasted: true,
+    confirmed: false,
+    mined: false,
+    productionQualified: false,
+  });
+}
+
+/** Test seam for the final accepted-result claim contract. */
+export function deriveV2BetaAcceptedZeroConfClaimsForTest() {
+  return acceptedZeroConfClaims();
+}
+
 const OBSERVED_RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
@@ -1773,7 +1787,7 @@ export class V2BetaProductActionLifecycle {
       operationId: id,
       kind: artifact.kind,
       transactionId: artifact.transactionId,
-      claims: claims(),
+      claims: acceptedZeroConfClaims(),
       cache: Object.freeze({
         runtimeManifestSha256: this.#runtime.runtimeManifestSha256,
         runtimeMaterialSha256: this.#runtime.runtimeMaterialSha256,

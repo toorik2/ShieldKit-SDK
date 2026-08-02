@@ -48,6 +48,7 @@ import { openV2BetaProductWallet } from './beta-product-wallet.mjs';
 import {
   createV2BetaProductActionLifecycle,
   createV2BetaProductActionLifecycleForTest,
+  deriveV2BetaAcceptedZeroConfClaimsForTest,
   deriveV2BetaOneShotAdmissionRpcObservationForTest,
   validateV2BetaPersistedProofContainment,
   V2BetaProductActionLifecycleError,
@@ -556,6 +557,15 @@ test('action RPC evidence projects only the exact admission delta', () => {
     }),
     { code: 'BETA_RPC_OBSERVATION_REJECTED' },
   );
+});
+
+test('accepted lifecycle results claim broadcast only after zero-conf reconciliation', () => {
+  assert.deepEqual(deriveV2BetaAcceptedZeroConfClaimsForTest(), {
+    broadcasted: true,
+    confirmed: false,
+    mined: false,
+    productionQualified: false,
+  });
 });
 
 test('production construction rejects an unbranded native prover installation outside the explicit unit-test seam', async (t) => {
