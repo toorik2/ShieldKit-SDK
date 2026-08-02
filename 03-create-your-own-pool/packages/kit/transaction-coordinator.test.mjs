@@ -548,6 +548,73 @@ test('a post-send callback crash restarts by exact read-only reconciliation with
   assert.equal(reconciliationReads, 2);
 });
 
+test('two-transaction restart reconciles the first exact send and continues only the untouched second send', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-public-partial-resume-'));
+  t.after(async () => import('node:fs/promises').then(({ rm }) => rm(root, { recursive: true, force: true })));
+  const txs = [
+    transaction('source-funding', '01000000000000000000'),
+    transaction('beta-genesis', '02000000000000000000'),
+  ];
+  const { journalPath } = stageOperation({
+    poolDirectory: root,
+    kind: 'v2-beta-chipnet-genesis',
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: txs,
+    nextState: {},
+    ledgerRecord: {},
+  });
+  const sends = [];
+  const firstRpc = {
+    async submitExactTransaction(rawTransactionHex, expectedTransactionId) {
+      sends.push(expectedTransactionId);
+      return {
+        transactionId: expectedTransactionId,
+        rawTransaction: { txid: expectedTransactionId, hex: rawTransactionHex },
+      };
+    },
+  };
+  await assert.rejects(
+    broadcastStagedOperation({
+      journalPath,
+      rpc: firstRpc,
+      async afterTransactionBroadcast({ transaction }) {
+        if (transaction.txid === txs[0].txid) throw new Error('crash after source readback');
+      },
+    }),
+    /crash after source readback/u,
+  );
+  assert.deepEqual(sends, [txs[0].txid]);
+  assert.deepEqual(
+    loadPendingOperation(root).journal.transactions.map((tx) => tx.status),
+    ['indeterminate', 'prepared'],
+  );
+
+  let reconciliationReads = 0;
+  const resumedRpc = {
+    async getrawtransaction(txid, verbose) {
+      reconciliationReads += 1;
+      assert.equal(txid, txs[0].txid);
+      assert.equal(verbose, true);
+      return { txid, hex: txs[0].hex };
+    },
+    async submitExactTransaction(rawTransactionHex, expectedTransactionId) {
+      sends.push(expectedTransactionId);
+      return {
+        transactionId: expectedTransactionId,
+        rawTransaction: { txid: expectedTransactionId, hex: rawTransactionHex },
+      };
+    },
+  };
+  await broadcastStagedOperation({ journalPath, rpc: resumedRpc });
+  assert.equal(reconciliationReads, 1);
+  assert.deepEqual(sends, [txs[0].txid, txs[1].txid]);
+  assert.deepEqual(
+    loadPendingOperation(root).journal.transactions.map(({ status, attempts }) => ({ status, attempts })),
+    [{ status: 'broadcast', attempts: 1 }, { status: 'broadcast', attempts: 1 }],
+  );
+});
+
 test('an unresolved post-send failure never resends on restart and requires explicit exact-rebroadcast acknowledgement', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-exact-rebroadcast-'));
   t.after(async () => import('node:fs/promises').then(({ rm }) => rm(root, { recursive: true, force: true })));

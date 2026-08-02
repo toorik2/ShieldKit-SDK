@@ -612,7 +612,7 @@ async function exactObservedTransaction(rpc, transaction) {
  */
 async function reconcileStagedOperationLocked({ journalPath, rpc }) {
   assertTrustedOperationDirectory(journalPath); assertPrivateOperationJournal(journalPath);
-  const journal = validateJournal(readJsonFile(journalPath));
+  let journal = validateJournal(readJsonFile(journalPath));
   if (!hasAmbiguousDelivery(journal)) return journal;
   for (const transaction of journal.transactions) {
     if (!['sending', 'indeterminate'].includes(transaction.status)) continue;
@@ -662,20 +662,23 @@ async function broadcastStagedOperationLocked({
   exactRebroadcast = undefined,
 }) {
   assertTrustedOperationDirectory(journalPath); assertPrivateOperationJournal(journalPath);
-  const journal = validateJournal(readJsonFile(journalPath));
+  let journal = validateJournal(readJsonFile(journalPath));
   if (journal.status === 'committed' || journal.status === 'broadcast') return journal;
   if (hasAmbiguousDelivery(journal)) {
     if (exactRebroadcast === undefined) {
-      const reconciled = await reconcileStagedOperationLocked({ journalPath, rpc });
-      if (reconciled.status === 'broadcast') return reconciled;
-      fail('RECONCILIATION_REQUIRED', 'an ambiguous send remains unresolved; use explicit acknowledged exact rebroadcast only after read-only reconciliation');
-    }
-    const unresolved = journal.transactions.filter((transaction) =>
-      ['sending', 'indeterminate'].includes(transaction.status),
-    );
-    if (unresolved.length !== 1 || unresolved[0].txid !== exactRebroadcast.txid
-      || unresolved[0].attemptToken !== exactRebroadcast.priorAttemptToken) {
-      fail('RECOVERY_TOKEN_MISMATCH', 'exact rebroadcast requires the current unresolved transaction attempt token');
+      journal = await reconcileStagedOperationLocked({ journalPath, rpc });
+      if (journal.status === 'broadcast') return journal;
+      if (hasAmbiguousDelivery(journal)) {
+        fail('RECONCILIATION_REQUIRED', 'an ambiguous send remains unresolved; use explicit acknowledged exact rebroadcast only after read-only reconciliation');
+      }
+    } else {
+      const unresolved = journal.transactions.filter((transaction) =>
+        ['sending', 'indeterminate'].includes(transaction.status),
+      );
+      if (unresolved.length !== 1 || unresolved[0].txid !== exactRebroadcast.txid
+        || unresolved[0].attemptToken !== exactRebroadcast.priorAttemptToken) {
+        fail('RECOVERY_TOKEN_MISMATCH', 'exact rebroadcast requires the current unresolved transaction attempt token');
+      }
     }
   }
   if (!['prepared', 'broadcasting', 'failed', 'ambiguous'].includes(journal.status)) {
