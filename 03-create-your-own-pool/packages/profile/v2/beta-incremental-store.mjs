@@ -487,9 +487,33 @@ export class V2BetaIncrementalStore {
       db.prepare("UPDATE accepted_zero_conf_tip SET state_bytes=?,txid=?,vout=?,action_sequence=?,acceptance_id=? WHERE singleton=1").run(postBytes, txid, vout, Number(packet.postState.actionSequence), acceptanceId); db.prepare("UPDATE operations SET state='accepted_zero_conf',local_wallet_commit_complete=0,accepted_txid=?,accepted_vout=?,accepted_acceptance_id=? WHERE operation_id=?").run(txid, vout, acceptanceId, operationId); return this.optimisticTip();
     });
   }
-  markSafePreSendAbort({ operationId, kind, reason }) { return this.#tx((db) => { const id = text(operationId, "operationId"); const actionKind = text(kind, "kind"); const why = text(reason, "reason"); const op = db.prepare("SELECT * FROM operations WHERE operation_id=?").get(id); if (!op || !["reserved", "staged"].includes(op.state) || op.kind !== actionKind) fail("safe pre-send abort does not match an active exact operation"); if (op.safe_pre_send_abort_reason !== null && op.safe_pre_send_abort_reason !== why) fail("safe pre-send abort reason differs from the durable operation marker"); if (op.safe_pre_send_abort_reason === null) db.prepare("UPDATE operations SET safe_pre_send_abort_reason=? WHERE operation_id=? AND safe_pre_send_abort_reason IS NULL").run(why, id); return this.safePreSendAbortMarker(id); }); }
-  safePreSendAbortMarker(operationId) { const id = text(operationId, "operationId"); const op = this.#open().prepare("SELECT operation_id,kind,state,safe_pre_send_abort_reason FROM operations WHERE operation_id=?").get(id); if (!op || !["reserved", "staged"].includes(op.state) || op.safe_pre_send_abort_reason === null) return null; return Object.freeze({ operationId: op.operation_id, kind: op.kind, reason: op.safe_pre_send_abort_reason }); }
-  finalizeSafePreSendAbort({ operationId, kind, reason }) { return this.#tx((db) => { const id = text(operationId, "operationId"); const actionKind = text(kind, "kind"); const why = text(reason, "reason"); const op = db.prepare("SELECT * FROM operations WHERE operation_id=?").get(id); if (!op || !["reserved", "staged"].includes(op.state) || op.kind !== actionKind || op.safe_pre_send_abort_reason !== why) fail("safe pre-send abort marker does not match the active exact operation"); if (op.selected_note_id) db.prepare("UPDATE owned_notes SET reservation_operation_id=NULL WHERE note_id=? AND reservation_operation_id=?").run(op.selected_note_id, id); if (op.funding_txid) db.prepare("UPDATE funding_utxos SET reservation_operation_id=NULL WHERE txid=? AND vout=? AND reservation_operation_id=?").run(op.funding_txid, op.funding_vout, id); db.prepare("UPDATE operations SET state='rejected' WHERE operation_id=?").run(id); return this.operation(id); }); }
+  markSafePreSendAbort({ operationId, kind, reason }) {
+    return this.#tx((db) => {
+      const id = text(operationId, "operationId"); const actionKind = text(kind, "kind"); const why = text(reason, "reason");
+      const op = db.prepare("SELECT * FROM operations WHERE operation_id=?").get(id);
+      if (!op || !["reserved", "staged", "rejected"].includes(op.state) || op.kind !== actionKind) fail("safe pre-send abort does not match an active or exactly rejected operation");
+      if (op.safe_pre_send_abort_reason !== why && op.safe_pre_send_abort_reason !== null) fail("safe pre-send abort reason differs from the durable operation marker");
+      if (op.state === "rejected") {
+        if (op.safe_pre_send_abort_reason !== why) fail("safe pre-send abort does not match the exactly rejected operation");
+        return this.safePreSendAbortMarker(id);
+      }
+      if (op.safe_pre_send_abort_reason === null) db.prepare("UPDATE operations SET safe_pre_send_abort_reason=? WHERE operation_id=? AND safe_pre_send_abort_reason IS NULL").run(why, id);
+      return this.safePreSendAbortMarker(id);
+    });
+  }
+  safePreSendAbortMarker(operationId) { const id = text(operationId, "operationId"); const op = this.#open().prepare("SELECT operation_id,kind,state,safe_pre_send_abort_reason FROM operations WHERE operation_id=?").get(id); if (!op || !["reserved", "staged", "rejected"].includes(op.state) || op.safe_pre_send_abort_reason === null) return null; return Object.freeze({ operationId: op.operation_id, kind: op.kind, reason: op.safe_pre_send_abort_reason }); }
+  finalizeSafePreSendAbort({ operationId, kind, reason }) {
+    return this.#tx((db) => {
+      const id = text(operationId, "operationId"); const actionKind = text(kind, "kind"); const why = text(reason, "reason");
+      const op = db.prepare("SELECT * FROM operations WHERE operation_id=?").get(id);
+      if (!op || !["reserved", "staged", "rejected"].includes(op.state) || op.kind !== actionKind || op.safe_pre_send_abort_reason !== why) fail("safe pre-send abort marker does not match the active or exactly rejected operation");
+      if (op.state === "rejected") return this.operation(id);
+      if (op.selected_note_id) db.prepare("UPDATE owned_notes SET reservation_operation_id=NULL WHERE note_id=? AND reservation_operation_id=?").run(op.selected_note_id, id);
+      if (op.funding_txid) db.prepare("UPDATE funding_utxos SET reservation_operation_id=NULL WHERE txid=? AND vout=? AND reservation_operation_id=?").run(op.funding_txid, op.funding_vout, id);
+      db.prepare("UPDATE operations SET state='rejected' WHERE operation_id=?").run(id);
+      return this.operation(id);
+    });
+  }
   rollbackActiveSuffix({ operationId }) { return this.#tx((db) => { const id = text(operationId, "operationId"); const op = db.prepare("SELECT * FROM operations WHERE operation_id=?").get(id); if (!op || !["reserved", "staged"].includes(op.state) || op.safe_pre_send_abort_reason !== null) fail("only an unmarked active beta suffix may be rolled back"); if (op.selected_note_id) db.prepare("UPDATE owned_notes SET reservation_operation_id=NULL WHERE note_id=? AND reservation_operation_id=?").run(op.selected_note_id, id); if (op.funding_txid) db.prepare("UPDATE funding_utxos SET reservation_operation_id=NULL WHERE txid=? AND vout=? AND reservation_operation_id=?").run(op.funding_txid, op.funding_vout, id); db.prepare("UPDATE operations SET state='rejected' WHERE operation_id=?").run(id); return this.operation(id); }); }
 }
 export function openV2BetaIncrementalStore(value) { return new V2BetaIncrementalStore(value); }

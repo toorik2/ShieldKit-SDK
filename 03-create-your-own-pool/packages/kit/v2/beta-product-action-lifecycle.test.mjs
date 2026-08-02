@@ -699,6 +699,19 @@ test('a prover failure atomically rejects only the pre-send operation and releas
   assert.equal(subject.wallet.publicSummary().orphanRecoverableChangeCount, 1);
   assert.equal(subject.wallet.publicSummary().rejectedDepositNoteCount, 1);
   assert.equal(subject.journal.record('deposit.proof-failure'), null);
+
+  const walletAfterAbort = subject.wallet.publicSummary();
+  await assert.rejects(
+    lifecycle(subject).resume({
+      operationId: 'deposit.proof-failure',
+      expectedKind: 'deposit',
+    }),
+    error => error?.code === 'BETA_ACTION_ABORTED_PRE_SEND',
+  );
+  assert.equal(subject.store.activeOperation(), null);
+  assert.equal(subject.store.availableFundingUtxos().length, 1);
+  assert.deepEqual(subject.wallet.publicSummary(), walletAfterAbort);
+  assert.equal(subject.journal.record('deposit.proof-failure'), null);
 });
 
 test('the first deposit can reserve one of the ten pool-create action funding UTXOs', async (t) => {

@@ -377,6 +377,72 @@ test("beta store has one active operation and rollback releases its reservation"
   store.reserveOperation({ operationId: "two", kind: "deposit", selectedNoteId: null, funding: { txid: b(0x71), vout: 0 } });
 }));
 
+test("safe pre-send abort keeps the exact reserved and staged finalization semantics", () => {
+  for (const staged of [false, true]) withStore(({ store }) => {
+    initialize(store);
+    const operationId = staged ? "abort-staged" : "abort-reserved";
+    if (staged) deposit(store, operationId);
+    else {
+      store.putFundingUtxo({ txid: b(0xc1), vout: 0, valueSats: "20000000" });
+      store.reserveOperation({ operationId, kind: "deposit", selectedNoteId: null, funding: { txid: b(0xc1), vout: 0 } });
+    }
+    const marker = { operationId, kind: "deposit", reason: "action-failed-before-network-send" };
+    assert.equal(store.activeOperation().state, staged ? "staged" : "reserved");
+    assert.deepEqual(store.markSafePreSendAbort(marker), marker);
+    assert.deepEqual(store.safePreSendAbortMarker(operationId), marker);
+    assert.equal(store.finalizeSafePreSendAbort(marker).state, "rejected");
+    assert.equal(store.activeOperation(), null);
+    assert.equal(store.availableFundingUtxos().length, 1);
+  });
+});
+
+test("an exactly rejected safe pre-send abort replays without changing the tip or reservations", () => withStore(({ store }) => {
+  initialize(store);
+  const funding = { txid: b(0xc2), vout: 0 };
+  store.putFundingUtxo({ ...funding, valueSats: "20000000" });
+  store.reserveOperation({ operationId: "abort-replay", kind: "deposit", selectedNoteId: null, funding });
+  const marker = { operationId: "abort-replay", kind: "deposit", reason: "action-failed-before-network-send" };
+  store.markSafePreSendAbort(marker);
+  assert.equal(store.finalizeSafePreSendAbort(marker).state, "rejected");
+  assert.deepEqual(store.safePreSendAbortMarker(marker.operationId), marker);
+
+  store.reserveOperation({ operationId: "next-active", kind: "deposit", selectedNoteId: null, funding });
+  const before = {
+    tip: store.optimisticTip(),
+    active: store.activeOperation(),
+    availableFunding: store.availableFundingUtxos(),
+    rejected: store.operation(marker.operationId),
+  };
+  assert.deepEqual(store.markSafePreSendAbort(marker), marker);
+  assert.deepEqual(store.safePreSendAbortMarker(marker.operationId), marker);
+  assert.deepEqual(store.finalizeSafePreSendAbort(marker), before.rejected);
+  for (const mismatch of [
+    { ...marker, kind: "withdrawal" },
+    { ...marker, reason: "different-safe-pre-send-reason" },
+  ]) {
+    assert.throws(() => store.markSafePreSendAbort(mismatch), V2BetaIncrementalStoreError);
+    assert.throws(() => store.finalizeSafePreSendAbort(mismatch), V2BetaIncrementalStoreError);
+  }
+  assert.deepEqual(store.optimisticTip(), before.tip);
+  assert.deepEqual(store.activeOperation(), before.active);
+  assert.deepEqual(store.availableFundingUtxos(), before.availableFunding);
+  assert.deepEqual(store.operation(marker.operationId), before.rejected);
+  assert.equal(store.operation("next-active").state, "reserved");
+}));
+
+test("a rollback rejection cannot be relabeled as a safe pre-send abort", () => withStore(({ store }) => {
+  initialize(store);
+  store.putFundingUtxo({ txid: b(0xc3), vout: 0, valueSats: "20000000" });
+  store.reserveOperation({ operationId: "plain-rejection", kind: "deposit", selectedNoteId: null, funding: { txid: b(0xc3), vout: 0 } });
+  store.rollbackActiveSuffix({ operationId: "plain-rejection" });
+  const marker = { operationId: "plain-rejection", kind: "deposit", reason: "action-failed-before-network-send" };
+  assert.equal(store.safePreSendAbortMarker(marker.operationId), null);
+  assert.throws(() => store.markSafePreSendAbort(marker), V2BetaIncrementalStoreError);
+  assert.throws(() => store.finalizeSafePreSendAbort(marker), V2BetaIncrementalStoreError);
+  assert.equal(store.operation(marker.operationId).state, "rejected");
+  assert.equal(store.availableFundingUtxos().length, 1);
+}));
+
 test("beta read-only resume surfaces expose exact staged artifacts and only available resources", () => withStore(({ store }) => {
   initialize(store);
   store.putFundingUtxo({ txid: b(0x61), vout: 0, valueSats: "20000000" });
