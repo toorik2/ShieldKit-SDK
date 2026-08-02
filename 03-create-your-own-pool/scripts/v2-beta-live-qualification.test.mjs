@@ -5,7 +5,11 @@ import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { runV2BetaLiveQualification, V2_BETA_CAPACITY } from './v2-beta-live-qualification.mjs';
+import {
+  parseV2BetaLiveQualificationArguments,
+  runV2BetaLiveQualification,
+  V2_BETA_CAPACITY,
+} from './v2-beta-live-qualification.mjs';
 import { readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
 
 const H = (byte) => byte.repeat(64);
@@ -124,6 +128,37 @@ function fixture({ initialRecord = null, reject = false, badAction = undefined, 
   };
 }
 const inputs = Object.freeze({ dataHome: '/private/data', evidenceDirectory: '/private/evidence', fundingWallet: '/private/funding-wallet.json', fundingUtxo: Object.freeze({ txid: fundingTxid, vout: 0 }), withdrawalAddress: address, wallet: Object.freeze({}) });
+
+test('public live-runner argv parses to the plain object required by input validation', () => {
+  const parsed = parseV2BetaLiveQualificationArguments([
+    '--execute-live',
+    '--data-home', '/private/data',
+    '--evidence-dir', '/private/evidence',
+    '--funding-wallet', '/private/funding-wallet.json',
+    '--funding-utxo', `${fundingTxid}:0`,
+    '--withdraw-to', address,
+  ]);
+  assert.equal(Object.getPrototypeOf(parsed), Object.prototype);
+  assert.deepEqual(parsed, {
+    dataHome: '/private/data',
+    evidenceDirectory: '/private/evidence',
+    fundingWallet: '/private/funding-wallet.json',
+    fundingUtxo: `${fundingTxid}:0`,
+    withdrawalAddress: address,
+  });
+  assert.throws(
+    () => parseV2BetaLiveQualificationArguments([
+      '--execute-live',
+      '--data-home', '/private/data',
+      '--data-home', '/other/data',
+      '--evidence-dir', '/private/evidence',
+      '--funding-wallet', '/private/funding-wallet.json',
+      '--funding-utxo', `${fundingTxid}:0`,
+      '--withdraw-to', address,
+    ]),
+    /usage: node v2-beta-live-qualification\.mjs/u,
+  );
+});
 
 test('private wallet and journal helper rejects symlinks and unsafe ancestors', async () => {
   const root = mkdtempSync(path.join(process.cwd(), '.shieldkit-private-path-')); chmodSync(root, 0o700);

@@ -13,6 +13,10 @@ import { buildV2BetaChipnetBootstrapFunding } from '../../profile/v2/beta-chipne
 import { openV2BetaIncrementalStore } from '../../profile/v2/beta-incremental-store.mjs';
 import { deriveV2ChipnetFundingWallet } from './funding-wallet.mjs';
 import {
+  V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
+  V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
+} from './beta-product-pool-funding.mjs';
+import {
   initializeV2BetaProductActionStoreForTest,
   V2BetaProductPoolCreateError,
 } from './beta-product-pool-create.mjs';
@@ -25,7 +29,10 @@ const hashes = Object.freeze({ material: '46'.repeat(32), manifest: '47'.repeat(
 const rejectsStore = (error) => error instanceof V2BetaProductPoolCreateError
   && error.code === 'BETA_POOL_ACTION_STORE_REJECTED';
 
-function build({ privateKeyHex = '01'.padStart(64, '0'), depositReserveSats = '10000000' } = {}) {
+function build({
+  privateKeyHex = '01'.padStart(64, '0'),
+  depositReserveSats = V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
+} = {}) {
   const wallet = deriveV2ChipnetFundingWallet({ privateKeyHex });
   const transaction = buildV2BetaChipnetBootstrapFunding({
     fundingPrivateKeyHex: wallet.privateKeyHex,
@@ -40,7 +47,7 @@ function build({ privateKeyHex = '01'.padStart(64, '0'), depositReserveSats = '1
     },
     genesisSourceSats: '2000000',
     depositReserveSats,
-    withdrawalReserveSats: '1000000',
+    withdrawalReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
   });
   return Object.freeze({ transaction, wallet });
 }
@@ -124,8 +131,8 @@ test('accepted pool-create bootstrap seeds exactly ten idempotent tokenless acti
     try {
       assert.equal(store.assertBootstrapFundingComplete().setSha256.toString('hex'), first.actionFundingSetSha256);
       assert.deepEqual(store.availableFundingUtxos().map(({ vout, valueSats }) => [vout, valueSats]), [
-        [1, '10000000'], [2, '10000000'], [3, '10000000'], [4, '10000000'], [5, '10000000'],
-        [6, '1000000'], [7, '1000000'], [8, '1000000'], [9, '1000000'], [10, '1000000'],
+        [1, '10100546'], [2, '10100546'], [3, '10100546'], [4, '10100546'], [5, '10100546'],
+        [6, '100546'], [7, '100546'], [8, '100546'], [9, '100546'], [10, '100546'],
       ]);
     } finally { store.close(); }
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -138,7 +145,7 @@ test('action-store bootstrap rejects altered accepted output values, locks, toke
   const deps = Object.freeze({ loadCommittedGenesis: () => base.genesis, openStore: () => { throw new Error('must not open'); } });
   assert.throws(() => initializeV2BetaProductActionStoreForTest(storeInput(base), deps), rejectsStore);
 
-  const alteredValue = build({ depositReserveSats: '10000001' });
+  const alteredValue = build({ depositReserveSats: '10100547' });
   const valueInput = input({ rawTransaction: Buffer.from(alteredValue.transaction.rawTransactionHex, 'hex'), wallet: alteredValue.wallet });
   assert.throws(() => initializeV2BetaProductActionStoreForTest(storeInput(valueInput), { ...deps, loadCommittedGenesis: () => valueInput.genesis }), rejectsStore);
 

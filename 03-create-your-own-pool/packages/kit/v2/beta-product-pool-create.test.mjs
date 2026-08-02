@@ -111,15 +111,16 @@ function fixture({
     openCreateJournal: () => { calls.push('journal:open'); return createJournal; },
     observeRpc: () => {
       observationCalls += 1;
+      const admissionObserved = observationCalls > 1;
       return Object.freeze({
         backend: 'layer1-bchn-chipnet', genesis: H('f'),
         methodCounts: Object.freeze({
           getblockhash: 1,
-          getrawtransaction: observationCalls > 1 ? 2 : 0,
-          gettxout: observationCalls > 1 ? 1 : 0,
+          getrawtransaction: (funded ? 1 : 0) + (admissionObserved ? 2 : 0),
+          gettxout: (funded ? 1 : 0) + (admissionObserved ? 1 : 0),
           scantxoutset: 0,
-          sendrawtransaction: observationCalls > 1 ? 2 : 0,
-          testmempoolaccept: observationCalls > 1 ? 2 : 0,
+          sendrawtransaction: admissionObserved ? 2 : 0,
+          testmempoolaccept: admissionObserved ? 2 : 0,
         }),
       });
     },
@@ -208,7 +209,7 @@ test('warm create consumes one exact instance runtime and commits only after exa
   assert.deepEqual(result.rpcObservation, {
     backend: 'layer1-bchn-chipnet', genesis: H('f'),
     methodCounts: {
-      getblockhash: 1, getrawtransaction: 2, gettxout: 1, scantxoutset: 0,
+      getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0,
       sendrawtransaction: 2, testmempoolaccept: 2,
     },
   });

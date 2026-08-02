@@ -110,6 +110,17 @@ On a blank machine, keep the stages separate:
    installation is a blocker, not permission to rebuild, regenerate, or
    silently prepare material while handling an action.
 
+   The current beta funding layout is intentionally incompatible with earlier
+   beta pool homes that reserved only the denomination for a deposit. Each of
+   outputs 1 through 5 now reserves `10,100,546` satoshis: the 10,000,000-sat
+   denomination, the complete 100,000-byte transaction cap at one satoshi per
+   byte, and 546-satoshi dust-safe change. Outputs 6 through 10 each reserve
+   `100,546` satoshis for the same maximum fee and change. The funding and
+   bootstrap-binding schemas are version 2. Recovery rejects a pre-version-2
+   bootstrap with `POOL_FUNDING_LAYOUT_INCOMPATIBLE`; it must never reinterpret
+   or silently migrate those signed bytes. All live and performance evidence
+   must use a pool created after this boundary.
+
    If a process loses the RPC response after attempting a send, ordinary
    restart/reconciliation remains read-only. Inspect the secret-free durable
    status to obtain the current one-use attempt token:

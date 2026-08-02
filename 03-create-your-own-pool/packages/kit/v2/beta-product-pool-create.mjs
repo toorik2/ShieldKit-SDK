@@ -185,7 +185,11 @@ function oneShotAdmissionObservation(before, after) {
     || delta.testmempoolaccept !== 2 || delta.sendrawtransaction !== 2) {
     fail('BETA_POOL_RPC_OBSERVATION_REJECTED', 'the exact two-transaction pool-create package requires one testmempoolaccept/send per transaction, two raw readbacks, and one state-output readback');
   }
-  return current;
+  return Object.freeze({
+    backend: current.backend,
+    genesis: current.genesis,
+    methodCounts: Object.freeze(delta),
+  });
 }
 
 function assertBootstrapRuntime(binding, runtime) {

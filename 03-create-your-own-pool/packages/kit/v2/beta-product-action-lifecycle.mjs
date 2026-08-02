@@ -253,7 +253,16 @@ function assertOneShotAdmissionObservation(before, after) {
     || delta.testmempoolaccept !== 1 || delta.sendrawtransaction !== 1) {
     fail('BETA_RPC_OBSERVATION_REJECTED', 'one action admission requires exactly one testmempoolaccept/send and one raw/gettxout readback');
   }
-  return current;
+  return Object.freeze({
+    backend: current.backend,
+    genesis: current.genesis,
+    methodCounts: Object.freeze(delta),
+  });
+}
+
+/** Unit-test seam for the admission-only RPC evidence projection. */
+export function deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after) {
+  return assertOneShotAdmissionObservation(before, after);
 }
 
 function observedSatoshis(value, label) {

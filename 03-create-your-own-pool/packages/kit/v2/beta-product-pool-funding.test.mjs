@@ -26,11 +26,33 @@ import {
   createV2BetaProductPoolFundingForTest,
   createV2BetaProductPoolFundingWithPoolCreateRpcForTest,
   recoverV2BetaProductPoolFunding,
+  V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS,
+  V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS,
   V2_BETA_PRODUCT_BOOTSTRAP_BINDING_SCHEMA,
+  V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
+  V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
   V2_BETA_PRODUCT_FUNDING_WALLET_FILENAME,
 } from './beta-product-pool-funding.mjs';
 
 const TEST_KEY = '01'.padStart(64, '0');
+
+test('bootstrap action reserves cover the denomination, full transaction cap, and dust-safe change', () => {
+  assert.equal(V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS, '100000');
+  assert.equal(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS, '546');
+  assert.equal(V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS, '10100546');
+  assert.equal(V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS, '100546');
+  assert.equal(
+    BigInt(V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS)
+      - 10_000_000n
+      - BigInt(V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS),
+    BigInt(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS),
+  );
+  assert.equal(
+    BigInt(V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS)
+      - BigInt(V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS),
+    BigInt(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS),
+  );
+});
 
 const hash256Hex = (bytes) => createHash('sha256')
   .update(createHash('sha256').update(bytes).digest()).digest('hex');
@@ -371,7 +393,7 @@ test('ignores tokenized, spent, mismatched, and raw-tampered observations before
       (error) => error?.code === 'POOL_FUNDING_CAPABILITY_REQUIRED',
     );
     const expectedBootstrap = buildV2BetaChipnetBootstrapFunding({
-      depositReserveSats: '10000000',
+      depositReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
       fundingPrivateKeyHex: TEST_KEY,
       fundingPublicKeyHex: result.fundingWallet.compressedPublicKeyHex,
       genesisSourceSats: '2000000',
@@ -383,7 +405,7 @@ test('ignores tokenized, spent, mismatched, and raw-tampered observations before
         valueSats: '58000000',
       },
       walletLockingBytecodeHex: result.fundingWallet.lockingBytecodeHex,
-      withdrawalReserveSats: '1000000',
+      withdrawalReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
     });
     const expectedOutput0 = parseSerializedSourceOutput(
       parseV2RawTransaction(expectedBootstrap.rawTransactionHex).outputs[0].serializedHex,
@@ -425,6 +447,28 @@ test('ignores tokenized, spent, mismatched, and raw-tampered observations before
     assert.deepEqual(
       assertV2BetaProductPoolFundingCapability(recoveredFunding.capability).bootstrapBinding(),
       binding,
+    );
+    const incompatibleBootstrap = buildV2BetaChipnetBootstrapFunding({
+      depositReserveSats: '10000000',
+      fundingPrivateKeyHex: TEST_KEY,
+      fundingPublicKeyHex: result.fundingWallet.compressedPublicKeyHex,
+      genesisSourceSats: '2000000',
+      source: {
+        lockingBytecodeHex: result.fundingWallet.lockingBytecodeHex,
+        outputIndex: 0,
+        token: null,
+        transactionId: selected.txid,
+        valueSats: '58000000',
+      },
+      walletLockingBytecodeHex: result.fundingWallet.lockingBytecodeHex,
+      withdrawalReserveSats: '1000000',
+    });
+    await assert.rejects(
+      recoverV2BetaProductPoolFunding({
+        dataHome,
+        sourceFundingRawTxHex: incompatibleBootstrap.rawTransactionHex,
+      }),
+      (error) => error?.code === 'POOL_FUNDING_LAYOUT_INCOMPATIBLE',
     );
     const tamperedBootstrap = `${expectedBootstrap.rawTransactionHex.slice(0, -2)}${
       expectedBootstrap.rawTransactionHex.endsWith('00') ? '01' : '00'
@@ -507,7 +551,7 @@ test('returns funding-required when every authenticated UTXO is insufficient for
   const dataHome = temporaryDataHome();
   try {
     const lock = '76a914'.concat('751e76e8199196d454941c45d1b3a323f1433bd6', '88ac');
-    const insufficient = entryFor({ lock, valueSats: '57000000', marker: '07' });
+    const insufficient = entryFor({ lock, valueSats: '53006005', marker: '07' });
     const result = await createV2BetaProductPoolFundingForTest(
       { dataHome }, seamFor(rpcFor([insufficient])),
     );

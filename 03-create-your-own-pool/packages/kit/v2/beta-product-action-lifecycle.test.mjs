@@ -48,6 +48,7 @@ import { openV2BetaProductWallet } from './beta-product-wallet.mjs';
 import {
   createV2BetaProductActionLifecycle,
   createV2BetaProductActionLifecycleForTest,
+  deriveV2BetaOneShotAdmissionRpcObservationForTest,
   validateV2BetaPersistedProofContainment,
   V2BetaProductActionLifecycleError,
 } from './beta-product-action-lifecycle.mjs';
@@ -500,6 +501,55 @@ function reopenForRecovery(subject) {
     journal: openV2DeliveryJournal(path.join(subject.directory, 'journal', 'delivery.sqlite')),
   };
 }
+
+test('action RPC evidence projects only the exact admission delta', () => {
+  const before = Object.freeze({
+    backend: 'layer1-bchn-chipnet',
+    genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: Object.freeze({
+      getblockhash: 1,
+      getrawtransaction: 4,
+      gettxout: 3,
+      scantxoutset: 0,
+      sendrawtransaction: 0,
+      testmempoolaccept: 0,
+    }),
+  });
+  const after = Object.freeze({
+    backend: before.backend,
+    genesis: before.genesis,
+    methodCounts: Object.freeze({
+      getblockhash: 1,
+      getrawtransaction: 5,
+      gettxout: 4,
+      scantxoutset: 0,
+      sendrawtransaction: 1,
+      testmempoolaccept: 1,
+    }),
+  });
+  assert.deepEqual(
+    deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after),
+    {
+      backend: before.backend,
+      genesis: before.genesis,
+      methodCounts: {
+        getblockhash: 0,
+        getrawtransaction: 1,
+        gettxout: 1,
+        scantxoutset: 0,
+        sendrawtransaction: 1,
+        testmempoolaccept: 1,
+      },
+    },
+  );
+  assert.throws(
+    () => deriveV2BetaOneShotAdmissionRpcObservationForTest(before, {
+      ...after,
+      methodCounts: { ...after.methodCounts, sendrawtransaction: 2 },
+    }),
+    { code: 'BETA_RPC_OBSERVATION_REJECTED' },
+  );
+});
 
 test('production construction rejects an unbranded native prover installation outside the explicit unit-test seam', async (t) => {
   const subject = await context(t);

@@ -44,23 +44,34 @@ import { inspectV2FundingUtxos } from './funding-utxo-selector.mjs';
 import {
   parseSerializedSourceOutput,
   parseV2RawTransaction,
+  V2_MAX_TRANSACTION_BYTES,
 } from './transaction-policy.mjs';
 
 export const V2_BETA_PRODUCT_POOL_FUNDING_SCHEMA =
-  'shieldkit-v2-beta-product-pool-funding-v1';
+  'shieldkit-v2-beta-product-pool-funding-v2';
 export const V2_BETA_PRODUCT_BOOTSTRAP_BINDING_SCHEMA =
-  'shieldkit-v2-beta-product-bootstrap-binding-v1';
+  'shieldkit-v2-beta-product-bootstrap-binding-v2';
 export const V2_BETA_PRODUCT_FUNDING_DIRECTORYNAME = 'funding';
 export const V2_BETA_PRODUCT_FUNDING_WALLET_FILENAME = 'funding-wallet.json';
 export const V2_BETA_PRODUCT_BOOTSTRAP_GENESIS_SOURCE_SATS = '2000000';
-export const V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS = '10000000';
-export const V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS = '1000000';
+export const V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS =
+  String(V2_MAX_TRANSACTION_BYTES);
+export const V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS = '546';
+export const V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS = String(
+  10_000_000n
+  + BigInt(V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS)
+  + BigInt(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS),
+);
+export const V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS = String(
+  BigInt(V2_BETA_PRODUCT_ACTION_MAXIMUM_FEE_SATS)
+  + BigInt(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS),
+);
 
 const MINIMUM_BOOTSTRAP_VALUE_BEFORE_SIGNATURE =
   BigInt(V2_BETA_PRODUCT_BOOTSTRAP_GENESIS_SOURCE_SATS)
   + (BigInt(V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS) * 5n)
   + (BigInt(V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS) * 5n)
-  + 546n;
+  + BigInt(V2_BETA_PRODUCT_ACTION_MINIMUM_CHANGE_SATS);
 
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
@@ -538,6 +549,18 @@ function recoverExactBootstrap(wallet, rawTransactionHex) {
     || transaction.inputs.length !== 1 || transaction.outputs.length !== 12
     || transaction.inputs[0].sequence !== 0xffff_ffff) {
     fail('POOL_FUNDING_RECOVERY_REJECTED', 'persisted bootstrap transaction has an unexpected envelope');
+  }
+  const expectedActionValues = [
+    ...Array(5).fill(V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS),
+    ...Array(5).fill(V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS),
+  ];
+  if (transaction.outputs.slice(1, 11).some(
+    (output, index) => output.valueSatoshis.toString() !== expectedActionValues[index],
+  )) {
+    fail(
+      'POOL_FUNDING_LAYOUT_INCOMPATIBLE',
+      'persisted bootstrap predates the full-cap action funding layout; this unqualified beta pool cannot be resumed and must be recreated',
+    );
   }
   const outputSats = transaction.outputs.reduce(
     (total, output) => total + output.valueSatoshis,
