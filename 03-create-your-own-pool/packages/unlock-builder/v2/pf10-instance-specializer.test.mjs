@@ -5,6 +5,7 @@ import {
   assertV2Pf10AuthenticatedTemplateCapability,
   assertV2Pf10SpecializedRuntimeCapability,
   parseV2Pf10LinkBytecode,
+  relocateV2Pf10BetaRuntime,
   V2Pf10InstanceSpecializerError,
 } from './pf10-instance-specializer.mjs';
 
@@ -44,4 +45,12 @@ test('PF10 linker rejects structural capability lookalikes', () => {
         && /CAPABILITY_INVALID$/u.test(error.code),
     );
   }
+});
+
+test('production fixed-width relocation records its measured instance specialization', () => {
+  const source = Function.prototype.toString.call(relocateV2Pf10BetaRuntime);
+  const record = source.indexOf("recordV2BetaRuntimeWork({ type: 'instance-specialization' })");
+  const relocation = source.indexOf('templateInput(attestation.template)');
+  assert.ok(record > 0, 'production relocation must emit its runtime-work event');
+  assert.ok(record < relocation, 'runtime-work observation must begin before fixed-width relocation');
 });

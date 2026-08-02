@@ -702,6 +702,7 @@ export async function relocateV2Pf10BetaRuntime({ repositoryRoot, template = und
   const attestation = capabilityRecord(capability);
   if (attestation.repositoryRoot !== root) fail('PF10_LINK_TEMPLATE_CAPABILITY_INVALID', 'template capability was issued for a different repository root');
   if (template !== undefined && template !== attestation.template) fail('PF10_LINK_TEMPLATE_CAPABILITY_INVALID', 'template does not match the supplied opaque capability');
+  recordV2BetaRuntimeWork({ type: 'instance-specialization' });
   const { value: source, oldInstanceId, material } = templateInput(attestation.template);
   if (targetInstanceId === oldInstanceId) fail('PF10_LINK_INPUT_INVALID', 'instanceId must differ from the retained template instance');
   const lazyAffineLibrary = await readFile(path.join(root, '03-create-your-own-pool/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
