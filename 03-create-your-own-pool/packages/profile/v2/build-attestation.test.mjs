@@ -292,7 +292,8 @@ test('verifies optional domain-separated development Ed25519 evidence', () => {
   const wrongDomain = structuredClone(signed); wrongDomain.signer.domain = 'release-attestation';
   assert.throws(() => parseCircuitBuildAttestation(bytes(wrongDomain), { trustedDevelopmentSigners }), BuildAttestationError);
   const slashPrefixedSignature = structuredClone(signed);
-  slashPrefixedSignature.signer.signatureBase64 = `/${signed.signer.signatureBase64.slice(1)}`;
+  const alteredPrefix = signed.signer.signatureBase64[0] === '/' ? '+' : '/';
+  slashPrefixedSignature.signer.signatureBase64 = `${alteredPrefix}${signed.signer.signatureBase64.slice(1)}`;
   assert.throws(
     () => parseCircuitBuildAttestation(bytes(slashPrefixedSignature), { trustedDevelopmentSigners }),
     /signature or domain/u,
