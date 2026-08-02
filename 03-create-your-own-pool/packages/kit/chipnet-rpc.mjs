@@ -418,7 +418,7 @@ async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
         throw error;
       }
       const text = String(result).trim();
-      return text === 'null' ? null : JSON.parse(text);
+      return text === '' || text === 'null' ? null : JSON.parse(text);
     },
     async scanAddress(address) {
       const raw = await call(

@@ -14,6 +14,7 @@ const RAW_TRANSACTION = '01000000000000000000';
 
 function bchnFixture(calls, {
   genesis = CHIPNET_GENESIS_HASH,
+  gettxoutResult = JSON.stringify({ bestblock: 'cd'.repeat(32), value: 1.25 }),
 } = {}) {
   return async (method, args) => {
     calls.push({ method, args: [...args] });
@@ -22,7 +23,7 @@ function bchnFixture(calls, {
       return args[1] ? JSON.stringify({ txid: args[0] }) : RAW_TRANSACTION;
     }
     if (method === 'gettxout') {
-      return JSON.stringify({ bestblock: 'cd'.repeat(32), value: 1.25 });
+      return gettxoutResult;
     }
     if (method === 'scantxoutset') {
       return JSON.stringify({
@@ -61,6 +62,33 @@ test('creates a capability only after direct layer1 BCHN Chipnet proof without h
   assert.deepEqual(calls, [
     { method: 'getblockhash', args: [0] },
   ]);
+});
+
+test('BCHN gettxout maps empty trimmed output and JSON null to a spent/missing result', async () => {
+  for (const gettxoutResult of ['', ' \n\t ', 'null', '  null\n']) {
+    const calls = [];
+    const rpc = await createLayer1BchnChipnetRpcForTest({
+      executeLayer1Cli: bchnFixture(calls, { gettxoutResult }),
+    });
+    assert.equal(await rpc.gettxout(TXID, 2), null);
+  }
+});
+
+test('BCHN gettxout rejects nonempty malformed output and transport errors', async () => {
+  for (const gettxoutResult of ['NULL', 'not-json', '{']) {
+    const rpc = await createLayer1BchnChipnetRpcForTest({
+      executeLayer1Cli: bchnFixture([], { gettxoutResult }),
+    });
+    await assert.rejects(rpc.gettxout(TXID, 2), SyntaxError);
+  }
+  const rpc = await createLayer1BchnChipnetRpcForTest({
+    executeLayer1Cli: async (method, args) => {
+      if (method === 'getblockhash') return CHIPNET_GENESIS_HASH;
+      if (method === 'gettxout') throw new Error(`transport failed for ${args[0]}`);
+      throw new Error(`unexpected BCHN method ${method}`);
+    },
+  });
+  await assert.rejects(rpc.gettxout(TXID, 2), /transport failed/u);
 });
 
 test('refuses a reachable non-Chipnet layer1 BCHN before exposing methods', async () => {
