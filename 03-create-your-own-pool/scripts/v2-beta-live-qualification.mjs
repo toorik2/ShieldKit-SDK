@@ -16,7 +16,7 @@ import {
   parseV2RawTransaction,
 } from '../packages/kit/v2/transaction-policy.mjs';
 import { CHIPNET_GENESIS_HASH, createLayer1BchnChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
-import { loadV2BetaProductConfig } from '../packages/kit/v2/beta-product-config.mjs';
+import { deriveV2BetaProductDataLayout } from '../packages/kit/v2/beta-product-config.mjs';
 import { loadV2BetaProductArtifactInstallation } from '../packages/profile/v2/beta-product-artifact-installation.mjs';
 import {
   V2_BETA_OFFLINE_BOOTSTRAP_DIRECTORY,
@@ -274,13 +274,34 @@ async function openFileRunJournal({ dataDirectory }) {
 /** Unit-test seam for the real private first-run journal boundary. */
 export async function openV2BetaLiveQualificationRunJournalForTest(value) { return openFileRunJournal(value); }
 
-export async function validateV2BetaPinnedInstall({ dataHome }) {
-  const loaded = loadV2BetaProductConfig({ dataHome }); const installation = await loadV2BetaProductArtifactInstallation({ productDataDirectory: loaded.config.dataDirectory }); const pin = await loadV2BetaProductTrackedReleasePin();
-  const journalPath = path.join(loaded.config.dataDirectory, V2_BETA_OFFLINE_BOOTSTRAP_DIRECTORY, 'journal.json'); let journal;
-  try { journal = JSON.parse(await readPrivateUtf8(journalPath, 'offline install journal')); } catch (error) { fail('LIVE_QUALIFICATION_INSTALL_REQUIRED', 'a separately completed pinned offline install journal is required', { cause: error }); }
+async function validatePinnedInstall({ dataHome }, dependencies) {
+  exact(dependencies, ['deriveLayout', 'loadInstallation', 'loadPin', 'readJournal'], 'pinned install validation dependencies');
+  for (const name of ['deriveLayout', 'loadInstallation', 'loadPin', 'readJournal']) {
+    if (typeof dependencies[name] !== 'function') fail('LIVE_QUALIFICATION_INVALID', `pinned install validation dependency ${name} must be a function`);
+  }
+  // A pinned artifact installation exists before the first product session.
+  // Resolve its deterministic destination without requiring session.json;
+  // `shieldkit pool create` remains the sole creator of that private session.
+  const layout = dependencies.deriveLayout({ dataHome });
+  const installation = await dependencies.loadInstallation({ productDataDirectory: layout.config.dataDirectory });
+  const pin = await dependencies.loadPin();
+  const journalPath = path.join(layout.config.dataDirectory, V2_BETA_OFFLINE_BOOTSTRAP_DIRECTORY, 'journal.json'); let journal;
+  try { journal = await dependencies.readJournal(journalPath); } catch (error) { fail('LIVE_QUALIFICATION_INSTALL_REQUIRED', 'a separately completed pinned offline install journal is required', { cause: error }); }
   if (journal?.schema !== V2_BETA_OFFLINE_BOOTSTRAP_JOURNAL_SCHEMA || journal.status !== 'committed' || journal.releaseId !== pin.releaseId || journal.releaseManifestSha256 !== pin.releaseManifestSha256 || journal.receiptSha256 !== installation.receiptSha256) fail('LIVE_QUALIFICATION_INSTALL_REQUIRED', 'installed artifact receipt does not match the pinned offline-install journal');
-  return Object.freeze({ dataDirectory: loaded.config.dataDirectory, receiptSha256: installation.receiptSha256, releaseId: pin.releaseId, releaseManifestSha256: pin.releaseManifestSha256 });
+  return Object.freeze({ dataDirectory: layout.config.dataDirectory, receiptSha256: installation.receiptSha256, releaseId: pin.releaseId, releaseManifestSha256: pin.releaseManifestSha256 });
 }
+
+export async function validateV2BetaPinnedInstall({ dataHome }) {
+  return validatePinnedInstall({ dataHome }, Object.freeze({
+    deriveLayout: deriveV2BetaProductDataLayout,
+    loadInstallation: loadV2BetaProductArtifactInstallation,
+    loadPin: loadV2BetaProductTrackedReleasePin,
+    readJournal: async (filename) => JSON.parse(await readPrivateUtf8(filename, 'offline install journal')),
+  }));
+}
+
+/** Unit-test seam for the pre-session pinned-install validation boundary. */
+export async function validateV2BetaPinnedInstallForTest(options, dependencies) { return validatePinnedInstall(options, dependencies); }
 function assertDeps(value) { exact(value, ['now', 'openRunJournal', 'rpc', 'runCommand', 'validateInstall', 'writeEvidence'], 'live qualification dependencies'); for (const name of ['now', 'openRunJournal', 'runCommand', 'validateInstall', 'writeEvidence']) if (typeof value[name] !== 'function') fail('LIVE_QUALIFICATION_INVALID', `dependency ${name} must be a function`); if (typeof value.rpc?.getrawtransaction !== 'function' || typeof value.rpc?.gettxout !== 'function') fail('LIVE_QUALIFICATION_INVALID', 'rpc.getrawtransaction and rpc.gettxout must be functions'); return value; }
 function summaryEvidence(record, install, elapsedMs) { return Object.freeze({ schema: V2_BETA_LIVE_QUALIFICATION_SCHEMA, scope: 'semantic-five-by-five-only-not-performance-qualification', claims: Object.freeze({ confirmed: false, mined: false, productionQualified: false }), capacity: V2_BETA_CAPACITY, install: Object.freeze({ receiptSha256: install.receiptSha256, releaseId: install.releaseId, releaseManifestSha256: install.releaseManifestSha256 }), poolCreate: Object.freeze({ commandDurationMs: record.poolCreateCommandDurationMs, sourceOutpointProvenanceSha256: record.sourceOutpointProvenanceSha256 }), pool: record.pool, deposits: Object.freeze(record.actions.filter((entry) => entry.kind === 'deposit')), withdrawals: Object.freeze(record.actions.filter((entry) => entry.kind === 'withdraw')), timingMs: elapsedMs }); }
 

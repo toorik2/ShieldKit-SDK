@@ -14,8 +14,10 @@ import {
   parseV2BetaLiveQualificationCliResultForTest,
   runV2BetaLiveQualification,
   sourceOutpointProvenanceSha256,
+  validateV2BetaPinnedInstallForTest,
   V2_BETA_CAPACITY,
 } from './v2-beta-live-qualification.mjs';
+import { V2_BETA_OFFLINE_BOOTSTRAP_JOURNAL_SCHEMA } from '../packages/profile/v2/beta-product-offline-bootstrap.mjs';
 import { readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
 
 const H = (byte) => byte.repeat(64);
@@ -196,6 +198,48 @@ function fixture({ initialRecord = null, reject = false, badAction = undefined, 
   };
 }
 const inputs = Object.freeze({ dataHome: '/private/data', evidenceDirectory: '/private/evidence', fundingWallet: '/private/funding-wallet.json', fundingUtxo: Object.freeze({ txid: fundingTxid, vout: 0 }), withdrawalAddress: address, wallet: Object.freeze({}) });
+
+test('pinned install validation works before the first product session exists', async () => {
+  const dataHome = '/private/fresh-data-home';
+  const dataDirectory = `${dataHome}/shieldkit/v2-beta-product`;
+  const receiptSha256 = H('a');
+  const releaseManifestSha256 = H('b');
+  const releaseId = 'shieldkit-v2-beta-test';
+  const calls = [];
+  const result = await validateV2BetaPinnedInstallForTest({ dataHome }, {
+    deriveLayout(value) {
+      calls.push(['derive-layout', value]);
+      return { config: { dataDirectory } };
+    },
+    async loadInstallation(value) {
+      calls.push(['load-installation', value]);
+      return { receiptSha256 };
+    },
+    async loadPin() {
+      calls.push(['load-pin']);
+      return { releaseId, releaseManifestSha256 };
+    },
+    async readJournal(filename) {
+      calls.push(['read-journal', filename]);
+      return {
+        schema: V2_BETA_OFFLINE_BOOTSTRAP_JOURNAL_SCHEMA,
+        status: 'committed',
+        receiptSha256,
+        releaseId,
+        releaseManifestSha256,
+      };
+    },
+  });
+  assert.deepEqual(result, {
+    dataDirectory, receiptSha256, releaseId, releaseManifestSha256,
+  });
+  assert.deepEqual(calls, [
+    ['derive-layout', { dataHome }],
+    ['load-installation', { productDataDirectory: dataDirectory }],
+    ['load-pin'],
+    ['read-journal', `${dataDirectory}/.v2-beta-offline-bootstrap/journal.json`],
+  ]);
+});
 
 test('public live-runner argv parses to the plain object required by input validation', () => {
   const parsed = parseV2BetaLiveQualificationArguments([
