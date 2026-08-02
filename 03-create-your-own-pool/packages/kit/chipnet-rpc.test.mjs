@@ -72,6 +72,7 @@ function publicElectrumFixture({
   negotiatedVersion = '1.6',
   broadcastError = undefined,
   outputInfo = undefined,
+  rawReadbackError = undefined,
 } = {}) {
   const transaction = publicTransactionFixture();
   const calls = [];
@@ -89,7 +90,10 @@ function publicElectrumFixture({
         if (broadcastError !== undefined) throw broadcastError;
         return transaction.transactionId;
       }
-      if (method === 'blockchain.transaction.get') return transaction.raw;
+      if (method === 'blockchain.transaction.get') {
+        if (rawReadbackError !== undefined) throw rawReadbackError;
+        return transaction.raw;
+      }
       if (method === 'blockchain.utxo.get_info') {
         return outputInfo ?? {
           value: 546,
@@ -636,17 +640,17 @@ test('public product transport connects both providers concurrently and shares o
   rpc.close();
 });
 
-test('public product transport never failsover after a possibly-written broadcast and reconciles read-only through both providers', async () => {
+test('public product transport resolves a broadcast error only from dual exact readback and never failsover', async () => {
   const fixture = publicElectrumFixture({ broadcastError: new Error('transport lost') });
   const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
-  await assert.rejects(
-    rpc.submitV2SinglePassAdmission(
-      fixture.transaction.raw,
-      fixture.transaction.transactionId,
-      0,
-    ),
-    /outcome is indeterminate/u,
+  const result = await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
   );
+  assert.equal(result.transactionId, fixture.transaction.transactionId);
+  assert.equal(result.rawTransaction.hex, fixture.transaction.raw);
+  assert.equal(result.stateOutput.valueSatoshis, '546');
   assert.equal(fixture.calls.filter((call) =>
     call.method === 'blockchain.transaction.broadcast').length, 1);
   for (const host of ['one.example', 'two.example']) {
@@ -659,6 +663,46 @@ test('public product transport never failsover after a possibly-written broadcas
     getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
     sendrawtransaction: 1, testmempoolaccept: 0,
   });
+});
+
+test('public product transport keeps a broadcast error indeterminate when dual exact readback is unavailable', async () => {
+  const fixture = publicElectrumFixture({
+    broadcastError: new Error('transport lost'),
+    rawReadbackError: new Error('not indexed'),
+  });
+  const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
+  await assert.rejects(
+    rpc.submitV2SinglePassAdmission(
+      fixture.transaction.raw,
+      fixture.transaction.transactionId,
+      0,
+    ),
+    /outcome is indeterminate/u,
+  );
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.get').length, 2);
+});
+
+test('public exact-send bootstrap resolves a broadcast error only from dual exact raw readback', async () => {
+  const fixture = publicElectrumFixture({ broadcastError: new Error('transport lost') });
+  const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
+  const result = await rpc.submitExactTransaction(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+  );
+  assert.deepEqual(result, {
+    transactionId: fixture.transaction.transactionId,
+    rawTransaction: {
+      txid: fixture.transaction.transactionId,
+      hex: fixture.transaction.raw,
+    },
+  });
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.get').length, 2);
 });
 
 test('public product transport rejects an unverified genesis and non-distinct provider set before exposing send capability', async () => {

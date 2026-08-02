@@ -1129,7 +1129,22 @@ async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
           'blockchain.transaction.broadcast', [rawTransactionHex],
         );
       } catch (error) {
-        try { await publicElectrumRawReadback(sessions, expectedTransactionId); } catch {}
+        // Fulcrum can report a broadcast error even after its backing node has
+        // accepted and propagated the transaction. Two independent exact-byte
+        // readbacks are stronger evidence than that response: resolve the
+        // attempt as successful only when both pre-verified providers expose
+        // the identical expected transaction. Never send through the second
+        // provider and remain indeterminate on any missing/divergent readback.
+        methodCounts.getrawtransaction += 1;
+        try {
+          const raw = await publicElectrumRawReadback(sessions, expectedTransactionId);
+          if (raw === rawTransactionHex) {
+            return Object.freeze({
+              transactionId: expectedTransactionId,
+              rawTransaction: Object.freeze({ txid: expectedTransactionId, hex: raw }),
+            });
+          }
+        } catch { /* preserve the indeterminate send boundary below */ }
         throw new Error('public Chipnet broadcast outcome is indeterminate', { cause: error });
       }
       if (typeof transactionId !== 'string'
@@ -1163,7 +1178,23 @@ async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
         // explicit read-only route count.
         methodCounts.getrawtransaction += 1;
         methodCounts.gettxout += 1;
-        try { await publicElectrumStateReadback(sessions, expectedTransactionId, outputIndex); } catch {}
+        try {
+          const readback = await publicElectrumStateReadback(
+            sessions,
+            expectedTransactionId,
+            outputIndex,
+          );
+          if (readback.rawTransactionHex === rawTransactionHex) {
+            return Object.freeze({
+              transactionId: expectedTransactionId,
+              rawTransaction: Object.freeze({
+                txid: expectedTransactionId,
+                hex: readback.rawTransactionHex,
+              }),
+              stateOutput: readback.stateOutput,
+            });
+          }
+        } catch { /* preserve the indeterminate send boundary below */ }
         throw new Error('public Chipnet broadcast outcome is indeterminate', { cause: error });
       }
       if (typeof transactionId !== 'string' || transactionId.toLowerCase() !== expectedTransactionId) throw new Error('public Chipnet broadcast returned a mismatched transaction id');
