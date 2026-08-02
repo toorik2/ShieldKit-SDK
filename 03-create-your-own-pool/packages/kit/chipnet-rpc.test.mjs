@@ -38,10 +38,11 @@ const serializedOutput = (valueSats, contentsHex) =>
 const rawWithOneInput = (outputs) =>
   `0200000001${Buffer.from(H('f'), 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.join('')}00000000`;
 
-test('public Chipnet provider roles pin imaginary.cash for the sole send and bch.ninja for independent attestation', () => {
+test('public Chipnet roles pin one sender and two independent read-only witnesses', () => {
   assert.deepEqual(PUBLIC_CHIPNET_ELECTRUM.map(({ host, port, tls }) => ({ host, port, tls })), [
     { host: 'chipnet.imaginary.cash', port: 50002, tls: true },
     { host: 'chipnet.bch.ninja', port: 50002, tls: true },
+    { host: 'blackie.c3-soft.com', port: 64002, tls: true },
   ]);
 });
 
@@ -503,6 +504,100 @@ test('public product transport pre-verifies two TLS/genesis-pinned providers, br
     rpc.getrawtransaction(fixture.transaction.transactionId),
     /capability is closed/u,
   );
+});
+
+test('three-provider product admission resolves from two read-only witnesses without waiting for the broadcaster response', async () => {
+  const fixture = publicElectrumFixture();
+  const endpoints = Object.freeze([
+    ...fixture.endpoints,
+    Object.freeze({ host: 'three.example', port: 50002, tls: true }),
+  ]);
+  let releaseBroadcast;
+  let broadcastSettled = false;
+  let broadcastCalls = 0;
+  const openSession = async (endpoint) => {
+    const session = await fixture.openSession(endpoint);
+    return Object.freeze({
+      async request(method, params) {
+        if (method === 'blockchain.transaction.broadcast') {
+          broadcastCalls += 1;
+          return new Promise((resolve) => {
+            releaseBroadcast = () => {
+              broadcastSettled = true;
+              resolve(fixture.transaction.transactionId);
+            };
+          });
+        }
+        return session.request(method, params);
+      },
+      close: session.close,
+    });
+  };
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints,
+    openSession,
+    postBroadcastReadbackAttempts: 1,
+    postBroadcastReadbackDelayMs: 0,
+  });
+  let admissionTimeout;
+  const result = await Promise.race([
+    rpc.submitV2SinglePassAdmission(
+      fixture.transaction.raw,
+      fixture.transaction.transactionId,
+      0,
+    ),
+    new Promise((_, reject) => {
+      admissionTimeout = setTimeout(
+        () => reject(new Error('admission waited for the broadcaster response')),
+        1_000,
+      );
+    }),
+  ]);
+  clearTimeout(admissionTimeout);
+  assert.equal(broadcastSettled, false);
+  assert.equal(result.transactionId, fixture.transaction.transactionId);
+  assert.equal(result.rawTransaction.hex, fixture.transaction.raw);
+  assert.equal(result.stateOutput.valueSatoshis, '546');
+  for (const host of ['two.example', 'three.example']) {
+    assert.equal(fixture.calls.some((call) => call.host === host
+      && call.method === 'blockchain.transaction.get'), true);
+    assert.equal(fixture.calls.some((call) => call.host === host
+      && call.method === 'blockchain.utxo.get_info'), true);
+  }
+  assert.equal(fixture.calls.some((call) => call.host === 'one.example'
+    && call.method === 'blockchain.transaction.get'), false);
+  assert.equal(broadcastCalls, 1);
+  releaseBroadcast();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(broadcastSettled, true);
+  rpc.close();
+});
+
+test('three-provider admission stays indeterminate if either read-only witness lacks exact visibility after an ambiguous send', async () => {
+  const fixture = publicElectrumFixture({
+    broadcastError: new Error('transport lost'),
+    outputInfoByHost: { 'three.example': null },
+  });
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    ...fixture,
+    endpoints: Object.freeze([
+      ...fixture.endpoints,
+      Object.freeze({ host: 'three.example', port: 50002, tls: true }),
+    ]),
+    postBroadcastReadbackAttempts: 1,
+    postBroadcastReadbackDelayMs: 0,
+  });
+  await assert.rejects(
+    rpc.submitV2SinglePassAdmission(
+      fixture.transaction.raw,
+      fixture.transaction.transactionId,
+      0,
+    ),
+    /outcome is indeterminate/u,
+  );
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  rpc.close();
 });
 
 test('public product transport uses listunspent only for pre-1.5 negotiated providers and derives token state from raw bytes', async () => {

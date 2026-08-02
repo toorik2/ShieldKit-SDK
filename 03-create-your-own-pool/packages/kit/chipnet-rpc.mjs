@@ -1,8 +1,9 @@
 /**
  * Chain access transports.
  *
- * The V2 beta end-user product is fixed to two pinned public Chipnet Fulcrum
- * TLS providers. It accepts no provider URL, username, password, or SSH option.
+ * The V2 beta end-user product is fixed to three pinned public Chipnet Fulcrum
+ * TLS providers: one sender and two read-only witnesses. It accepts no provider
+ * URL, username, password, or SSH option.
  * Providers are untrusted, every relevant response is checked against exact
  * transaction bytes locally, and no network-query privacy claim is made.
  *
@@ -34,9 +35,13 @@ export const MAINNET_GENESIS_HASH =
 /** Public Fulcrum (Electrum) Chipnet endpoints — TLS, no auth. */
 export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
   // Ordered roles: the first provider receives the sole broadcast; the
-  // second independently attests exact raw bytes and the successor output.
+  // remaining two independently attest exact raw bytes and the successor
+  // output. Keeping both non-broadcasting witnesses off the mutation path
+  // lets an exact two-provider observation resolve an ambiguous or slow
+  // primary response without ever sending the transaction again.
   Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
   Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
+  Object.freeze({ host: 'blackie.c3-soft.com', port: 64002, tls: true, label: 'blackie.c3-soft.com' }),
 ]);
 
 const PUBLIC_ELECTRUM_CONNECT_TIMEOUT_MS = 12_000;
@@ -1079,8 +1084,7 @@ async function createPublicBchnChipnetRpcInternal({
       .filter((result) => result.status === 'fulfilled')
       .map((result) => result.value)
       .filter((entry, index, entries) => entries.findIndex((candidate) =>
-        candidate.endpoint.host === entry.endpoint.host) === index)
-      .slice(0, 2);
+        candidate.endpoint.host === entry.endpoint.host) === index);
     for (const result of connected) {
       if (result.status === 'fulfilled' && !pair.includes(result.value)) {
         try { result.value.session.close?.(); } catch {}
@@ -1100,10 +1104,14 @@ async function createPublicBchnChipnetRpcInternal({
   };
   const methodCounts = Object.fromEntries(PRODUCT_RPC_METHODS.map((method) => [method, 0]));
   const rawReadbacks = new Map();
+  // Ordinary pre-action state/funding reads retain the established two-party
+  // consensus. The third provider is a post-send witness, not an added
+  // dependency on every read in the hot path.
+  const consensusReaders = () => sessions.slice(0, 2);
   const exactRawFromBoth = (transactionId) => {
     const retained = rawReadbacks.get(transactionId);
     if (retained !== undefined) return retained;
-    const pending = publicElectrumRawReadback(sessions, transactionId).catch((error) => {
+    const pending = publicElectrumRawReadback(consensusReaders(), transactionId).catch((error) => {
       rawReadbacks.delete(transactionId);
       throw error;
     });
@@ -1123,7 +1131,7 @@ async function createPublicBchnChipnetRpcInternal({
         catch (error) { lastError = error; }
         if (attempt + 1 >= postBroadcastReadbackAttempts) break;
         // A Fulcrum connection which returned the ambiguous broadcast error
-        // can retain a stale backend view. Reconnect both pinned providers
+        // can retain a stale backend view. Reconnect all pinned providers
         // once, read-only, then continue polling those fresh sessions. This
         // never changes the primary endpoint and can never send a second copy.
         if (attempt === 0) {
@@ -1163,7 +1171,7 @@ async function createPublicBchnChipnetRpcInternal({
       methodCounts.gettxout += 1;
       const transactionId = String(txid).toLowerCase();
       return (await publicElectrumStateReadback(
-        sessions,
+        consensusReaders(),
         transactionId,
         vout,
         exactRawFromBoth(transactionId),
@@ -1222,6 +1230,87 @@ async function createPublicBchnChipnetRpcInternal({
         || !Number.isSafeInteger(outputIndex) || outputIndex < 0
         || transactionIdFromRawHex(rawTransactionHex) !== expectedTransactionId) throw new Error('invalid public single-pass admission request');
       methodCounts.sendrawtransaction += 1;
+
+      // Production pins three independently operated providers: one receives
+      // the sole mutation, while two read-only witnesses observe the exact
+      // transaction and output concurrently. The broadcast request is issued
+      // first (and writes synchronously to its established TLS session) before
+      // either witness is queried. If both witnesses see the exact bytes and
+      // successor output, zero-conf visibility is established even while the
+      // primary's response remains slow or ambiguous. No observer can send.
+      //
+      // The two-provider test seam retains the older sequential trust split:
+      // a successful primary response plus one independent readback, or dual
+      // exact raw readback after an ambiguous response.
+      if (sessions.length >= 3) {
+        const broadcastOutcome = broadcast.request(
+          'blockchain.transaction.broadcast', [rawTransactionHex],
+        ).then(
+          (transactionId) => Object.freeze({ kind: 'broadcast', transactionId }),
+          (error) => Object.freeze({ kind: 'broadcast-error', error }),
+        );
+        methodCounts.getrawtransaction += 1;
+        methodCounts.gettxout += 1;
+        const witnessOutcome = resolvePostBroadcast((readbackSessions) => {
+          if (readbackSessions.length < 3) {
+            throw new Error('two independent non-broadcasting Chipnet witnesses are required');
+          }
+          return publicElectrumStateReadback(
+            readbackSessions.slice(1),
+            expectedTransactionId,
+            outputIndex,
+          );
+        }).then(
+          (readback) => Object.freeze({ kind: 'witness', readback }),
+          (error) => Object.freeze({ kind: 'witness-error', error }),
+        );
+        const witnessedResult = (readback) => {
+          if (readback.rawTransactionHex !== rawTransactionHex) {
+            throw new Error('independent public Chipnet raw readback differs from broadcast bytes');
+          }
+          return Object.freeze({
+            transactionId: expectedTransactionId,
+            rawTransaction: Object.freeze({
+              txid: expectedTransactionId,
+              hex: readback.rawTransactionHex,
+            }),
+            stateOutput: readback.stateOutput,
+          });
+        };
+        const first = await Promise.race([broadcastOutcome, witnessOutcome]);
+        if (first.kind === 'witness') {
+          return witnessedResult(first.readback);
+        }
+        if (first.kind === 'broadcast') {
+          if (typeof first.transactionId !== 'string'
+            || first.transactionId.toLowerCase() !== expectedTransactionId) {
+            throw new Error('public Chipnet broadcast returned a mismatched transaction id');
+          }
+          const witnessed = await witnessOutcome;
+          if (witnessed.kind === 'witness') return witnessedResult(witnessed.readback);
+          throw new Error('independent public Chipnet witness readback is unavailable', {
+            cause: witnessed.error,
+          });
+        }
+        if (first.kind === 'broadcast-error') {
+          const witnessed = await witnessOutcome;
+          if (witnessed.kind === 'witness') return witnessedResult(witnessed.readback);
+          throw new Error('public Chipnet broadcast outcome is indeterminate', {
+            cause: first.error,
+          });
+        }
+        const sent = await broadcastOutcome;
+        if (sent.kind !== 'broadcast' || typeof sent.transactionId !== 'string'
+          || sent.transactionId.toLowerCase() !== expectedTransactionId) {
+          throw new Error('public Chipnet broadcast outcome is indeterminate', {
+            cause: sent.error ?? first.error,
+          });
+        }
+        throw new Error('independent public Chipnet witness readback is unavailable', {
+          cause: first.error,
+        });
+      }
+
       let transactionId;
       try { transactionId = await broadcast.request('blockchain.transaction.broadcast', [rawTransactionHex]); }
       catch (error) {
@@ -1291,7 +1380,7 @@ async function createPublicBchnChipnetRpcInternal({
   Object.freeze(rpc); bchnChipnetCapabilities.add(rpc); return rpc;
 }
 
-/** End-user product transport: two pinned, TLS-verified public Chipnet Fulcrum endpoints. */
+/** End-user product transport: one pinned sender and two TLS-verified read-only witnesses. */
 export async function createPublicChipnetFulcrumRpc() {
   return createPublicBchnChipnetRpcInternal({ endpoints: PUBLIC_CHIPNET_ELECTRUM, openSession: openPublicElectrumSession });
 }

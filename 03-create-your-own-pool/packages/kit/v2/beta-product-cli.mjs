@@ -285,7 +285,7 @@ async function execute(tokens, dependencies) {
           && typeof error?.operationId === 'string';
         if (!recoverableAction) throw error;
         // The original lifecycle already durably recorded its one send. Close
-        // every first-pass socket, open a fresh pair of the same pinned public
+        // every first-pass socket, open a fresh set of the same pinned public
         // providers, and resume the exact operation. Resume is read-only for
         // an indeterminate delivery record and can never broadcast again.
         let lastError = error;

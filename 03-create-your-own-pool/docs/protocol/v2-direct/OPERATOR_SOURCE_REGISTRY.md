@@ -3,7 +3,7 @@
 This is qualification infrastructure, not an end-user ShieldKit command. It
 remains explicitly unqualified beta software and never waits for a block
 confirmation: exact zero-conf raw-transaction and output readback through the
-two pinned public Chipnet Fulcrum providers is the only acceptance boundary.
+pinned public Chipnet Fulcrum providers is the only acceptance boundary.
 
 One owner has one canonical private registry at
 `<operator-root>/source-registry-v1/shieldkit-v2-beta-operator-source-registry.sqlite`.
@@ -71,10 +71,10 @@ npm run qualification:v2:beta:operator-fanout -- recover \
   --operator-root /private/shieldkit-v2-operator --run-id fanout-r1
 ```
 
-The operator workflows use the same two pinned, TLS-verified public Chipnet
-providers as the product. They accept no RPC URL, RPC credentials, or SSH
-option. A direct BCHN handle exists only as an explicit branded lab/test
-injection seam.
+The operator workflows use the same three pinned, TLS-verified public Chipnet
+providers as the product: one sender and two read-only witnesses. They accept
+no RPC URL, RPC credentials, or SSH option. A direct BCHN handle exists only as
+an explicit branded lab/test injection seam.
 
 Each output progresses through the canonical state machine:
 `available`, `semantic-claimed`, `performance-reserved`, `send-attempted`,
@@ -86,7 +86,7 @@ before the journal is written; an existing registry source or a previously
 reserved fanout input cannot be used to construct another fanout. A source that
 was once sent or indeterminate is never silently returned to the available set.
 
-Before spending the separate semantic source, authenticate it against the two
+Before spending the separate semantic source, authenticate it against the
 pinned public Chipnet providers with exact raw-transaction and live-UTXO
 readback, then claim it explicitly. Its `--data-home` must already exist as a
 canonical private `0700` directory, so aliases and nonexistent paths cannot
