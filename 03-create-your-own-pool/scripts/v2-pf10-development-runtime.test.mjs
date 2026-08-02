@@ -50,10 +50,6 @@ const libauthEvidencePath = path.join(
   repositoryRoot,
   '.codex-build/v2-pf10-libauth-qualification/libauth.json',
 );
-const qualifiedTerminalProgramBytes = Object.freeze({
-  raw: 9_359,
-  redeem: 6_740,
-});
 
 const hex = (value) => Buffer.from(value).toString('hex');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
@@ -80,11 +76,18 @@ const qualifiedRuntimeInputs = async () => {
         }),
       ]),
   ));
+  const fixedPrograms = JSON.parse(
+    libauthEvidence.toString('utf8'),
+  ).pf10FusedQGenesisActions.fixedPrograms;
   return Object.freeze({
     libauthEvidence,
     profileCore,
     profileId: profilePackage.profileId,
     proofArtifacts,
+    terminalProgramBytes: Object.freeze({
+      raw: fixedPrograms.rawTerminalBytes,
+      redeem: fixedPrograms.terminalRedeemBytes,
+    }),
   });
 };
 
@@ -179,7 +182,7 @@ test('PF10 Libauth evidence fails closed on per-instance and runtime-material id
   ));
   const validate = (overrides = {}) => validateDirectV2Pf10LibauthEvidence({
     bytes: inputs.libauthEvidence,
-    expectedTerminalProgramBytes: qualifiedTerminalProgramBytes,
+    expectedTerminalProgramBytes: inputs.terminalProgramBytes,
     profileId: inputs.profileId,
     instanceId: qualifiedInstanceId,
     proofArtifactHashes,
@@ -198,8 +201,8 @@ test('PF10 Libauth evidence fails closed on per-instance and runtime-material id
   assert.throws(
     () => validate({
       expectedTerminalProgramBytes: Object.freeze({
-        raw: qualifiedTerminalProgramBytes.raw - 1,
-        redeem: qualifiedTerminalProgramBytes.redeem,
+        raw: inputs.terminalProgramBytes.raw - 1,
+        redeem: inputs.terminalProgramBytes.redeem,
       }),
     }),
     /terminal program bytes do not match the pinned verification-key runtime/,
