@@ -39,6 +39,8 @@ export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
 
 const PUBLIC_ELECTRUM_CONNECT_TIMEOUT_MS = 12_000;
 const PUBLIC_ELECTRUM_MAX_INFLIGHT_REQUESTS = 32;
+const PUBLIC_ELECTRUM_POST_BROADCAST_READBACK_ATTEMPTS = 25;
+const PUBLIC_ELECTRUM_POST_BROADCAST_READBACK_DELAY_MS = 200;
 // A standard V2 transaction is at most 100,000 bytes (200,000 hexadecimal
 // characters). Keep ample JSON overhead without allowing an untrusted server
 // to grow an unterminated response line without bound.
@@ -1009,9 +1011,20 @@ async function publicElectrumStateReadback(
   return readbacks[0];
 }
 
-async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
+async function createPublicBchnChipnetRpcInternal({
+  endpoints,
+  openSession,
+  postBroadcastReadbackAttempts = PUBLIC_ELECTRUM_POST_BROADCAST_READBACK_ATTEMPTS,
+  postBroadcastReadbackDelayMs = PUBLIC_ELECTRUM_POST_BROADCAST_READBACK_DELAY_MS,
+}) {
   if (!Array.isArray(endpoints) || endpoints.length < 2 || typeof openSession !== 'function') {
     throw new Error('at least two public Chipnet Fulcrum TLS endpoints are required');
+  }
+  if (!Number.isSafeInteger(postBroadcastReadbackAttempts)
+    || postBroadcastReadbackAttempts < 1 || postBroadcastReadbackAttempts > 100
+    || !Number.isSafeInteger(postBroadcastReadbackDelayMs)
+    || postBroadcastReadbackDelayMs < 0 || postBroadcastReadbackDelayMs > 1_000) {
+    throw new Error('public Chipnet post-broadcast readback policy is invalid');
   }
   const endpointKeys = new Set(endpoints.map((endpoint) =>
     endpoint !== null && typeof endpoint === 'object'
@@ -1094,6 +1107,18 @@ async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
     rawReadbacks.set(transactionId, pending);
     return pending;
   };
+  const resolvePostBroadcast = async (readback) => {
+    let lastError;
+    for (let attempt = 0; attempt < postBroadcastReadbackAttempts; attempt += 1) {
+      try { return await readback(); }
+      catch (error) { lastError = error; }
+      if (attempt + 1 < postBroadcastReadbackAttempts
+        && postBroadcastReadbackDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, postBroadcastReadbackDelayMs));
+      }
+    }
+    throw lastError;
+  };
   const rpc = {
     backend: 'public-chipnet-fulcrum-tls', label: 'public Chipnet Fulcrum TLS', network: 'chipnet', genesis: CHIPNET_GENESIS_HASH,
     async getrawtransaction(txid, verbose = false) {
@@ -1137,7 +1162,8 @@ async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
         // provider and remain indeterminate on any missing/divergent readback.
         methodCounts.getrawtransaction += 1;
         try {
-          const raw = await publicElectrumRawReadback(sessions, expectedTransactionId);
+          const raw = await resolvePostBroadcast(() =>
+            publicElectrumRawReadback(sessions, expectedTransactionId));
           if (raw === rawTransactionHex) {
             return Object.freeze({
               transactionId: expectedTransactionId,
@@ -1179,11 +1205,12 @@ async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
         methodCounts.getrawtransaction += 1;
         methodCounts.gettxout += 1;
         try {
-          const readback = await publicElectrumStateReadback(
-            sessions,
-            expectedTransactionId,
-            outputIndex,
-          );
+          const readback = await resolvePostBroadcast(() =>
+            publicElectrumStateReadback(
+              sessions,
+              expectedTransactionId,
+              outputIndex,
+            ));
           if (readback.rawTransactionHex === rawTransactionHex) {
             return Object.freeze({
               transactionId: expectedTransactionId,
@@ -1230,8 +1257,18 @@ export async function createPublicChipnetFulcrumRpc() {
 }
 
 /** Test-only public-transport seam; production never accepts provider URLs or credentials. */
-export async function createPublicChipnetFulcrumRpcForTest({ endpoints, openSession } = {}) {
-  return createPublicBchnChipnetRpcInternal({ endpoints, openSession });
+export async function createPublicChipnetFulcrumRpcForTest({
+  endpoints,
+  openSession,
+  postBroadcastReadbackAttempts = 1,
+  postBroadcastReadbackDelayMs = 0,
+} = {}) {
+  return createPublicBchnChipnetRpcInternal({
+    endpoints,
+    openSession,
+    postBroadcastReadbackAttempts,
+    postBroadcastReadbackDelayMs,
+  });
 }
 
 /**

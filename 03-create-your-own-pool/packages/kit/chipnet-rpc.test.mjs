@@ -73,6 +73,7 @@ function publicElectrumFixture({
   broadcastError = undefined,
   outputInfo = undefined,
   rawReadbackError = undefined,
+  rawReadbackFailures = 0,
 } = {}) {
   const transaction = publicTransactionFixture();
   const calls = [];
@@ -81,6 +82,7 @@ function publicElectrumFixture({
     Object.freeze({ host: 'one.example', port: 50002, tls: true }),
     Object.freeze({ host: 'two.example', port: 50002, tls: true }),
   ]);
+  const rawReadbackAttempts = new Map();
   const openSession = async (endpoint) => Object.freeze({
     async request(method, params) {
       calls.push(Object.freeze({ host: endpoint.host, method, params: [...params] }));
@@ -91,6 +93,9 @@ function publicElectrumFixture({
         return transaction.transactionId;
       }
       if (method === 'blockchain.transaction.get') {
+        const attempts = (rawReadbackAttempts.get(endpoint.host) ?? 0) + 1;
+        rawReadbackAttempts.set(endpoint.host, attempts);
+        if (attempts <= rawReadbackFailures) throw new Error('not indexed yet');
         if (rawReadbackError !== undefined) throw rawReadbackError;
         return transaction.raw;
       }
@@ -683,6 +688,32 @@ test('public product transport keeps a broadcast error indeterminate when dual e
     call.method === 'blockchain.transaction.broadcast').length, 1);
   assert.equal(fixture.calls.filter((call) =>
     call.method === 'blockchain.transaction.get').length, 2);
+});
+
+test('public product transport absorbs bounded independent-provider indexing lag without another send', async () => {
+  const fixture = publicElectrumFixture({
+    broadcastError: new Error('transport lost'),
+    rawReadbackFailures: 2,
+  });
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    ...fixture,
+    postBroadcastReadbackAttempts: 3,
+    postBroadcastReadbackDelayMs: 0,
+  });
+  const result = await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
+  );
+  assert.equal(result.transactionId, fixture.transaction.transactionId);
+  assert.equal(result.rawTransaction.hex, fixture.transaction.raw);
+  assert.equal(result.stateOutput.valueSatoshis, '546');
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  for (const host of ['one.example', 'two.example']) {
+    assert.equal(fixture.calls.filter((call) => call.host === host
+      && call.method === 'blockchain.transaction.get').length, 3);
+  }
 });
 
 test('public exact-send bootstrap resolves a broadcast error only from dual exact raw readback', async () => {
