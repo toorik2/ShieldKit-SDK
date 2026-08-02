@@ -9,11 +9,29 @@ import {
   loadCachedV2BetaChipnetRuntime,
 } from './beta-chipnet-runtime.mjs';
 import {
+  classifyV2BetaLinkedRuntimeCacheCandidateForTest,
+  deriveV2BetaLinkedRuntimeCacheDirectoryNameForTest,
   deriveV2BetaRuntimeCacheDirectoryNameForTest,
   extractV2BetaRuntimeImportsForTest,
   V2_BETA_CHIPNET_RUNTIME_CACHE_FILE,
   V2_BETA_CHIPNET_RUNTIME_CACHE_SCHEMA,
 } from './beta-chipnet-runtime-cache.mjs';
+
+const H = (digit) => digit.repeat(64);
+
+function linkedCacheGeneration({
+  receipt = H('1'),
+  instanceId = H('2'),
+  material = H('3'),
+  source = H('4'),
+} = {}) {
+  return {
+    installationReceiptSha256: receipt,
+    identity: { instanceId },
+    runtimeMaterialSha256: material,
+    runtimeSourceSha256: source,
+  };
+}
 
 test('cache generations bind both the artifact manifest and runtime source', () => {
   const manifest = 'a'.repeat(64);
@@ -47,6 +65,43 @@ const alsoGenerated = [
 ];
 `);
   assert.deepEqual(imports, ['./first.mjs', './second.mjs', './third.mjs']);
+});
+
+test('linked cache source upgrades are misses while malformed generation names fail closed', () => {
+  const cache = linkedCacheGeneration();
+  const candidateName = deriveV2BetaLinkedRuntimeCacheDirectoryNameForTest(cache);
+  const expectation = {
+    cache,
+    candidateName,
+    installationReceiptSha256: cache.installationReceiptSha256,
+    instanceId: cache.identity.instanceId,
+    sourceSha256: cache.runtimeSourceSha256,
+  };
+  assert.equal(
+    classifyV2BetaLinkedRuntimeCacheCandidateForTest(expectation),
+    'current',
+  );
+  assert.equal(
+    classifyV2BetaLinkedRuntimeCacheCandidateForTest({
+      ...expectation,
+      sourceSha256: H('5'),
+    }),
+    'stale',
+  );
+  assert.equal(
+    classifyV2BetaLinkedRuntimeCacheCandidateForTest({
+      ...expectation,
+      instanceId: H('6'),
+    }),
+    'unrelated',
+  );
+  assert.throws(
+    () => classifyV2BetaLinkedRuntimeCacheCandidateForTest({
+      ...expectation,
+      candidateName: H('f'),
+    }),
+    /directory name differs/u,
+  );
 });
 
 test('beta runtime cache is a separate unqualified warm-load boundary', async () => {

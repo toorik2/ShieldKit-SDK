@@ -790,6 +790,37 @@ function linkedCacheName(cache) {
   }));
 }
 
+export function deriveV2BetaLinkedRuntimeCacheDirectoryNameForTest(cache) {
+  return linkedCacheName(cache);
+}
+
+function classifyLinkedCacheCandidate({
+  cache,
+  candidateName,
+  installationReceiptSha256,
+  instanceId,
+  sourceSha256,
+}) {
+  if (candidateName !== linkedCacheName(cache)) {
+    fail(
+      'BETA_LINKED_RUNTIME_CACHE_INVALID',
+      'linked runtime cache directory name differs from its authenticated generation',
+    );
+  }
+  if (cache.installationReceiptSha256 !== installationReceiptSha256
+    || cache.identity.instanceId !== instanceId) return 'unrelated';
+  // A source upgrade intentionally creates a new immutable cache generation.
+  // Retain the old private entry for auditability, but never let it prevent the
+  // cache-miss path from specializing and atomically installing the new one.
+  if (cache.runtimeSourceSha256 !== sourceSha256) return 'stale';
+  return 'current';
+}
+
+/** Test-only pure classification seam for immutable linked-cache generations. */
+export function classifyV2BetaLinkedRuntimeCacheCandidateForTest(value) {
+  return classifyLinkedCacheCandidate(value);
+}
+
 function linkedCacheValue({ template, specialized, sourceSha256 }) {
   const raw = specialized.runtimeMaterialInput;
   const material = validateDirectV2Pf10BetaRuntimeMaterial(raw);
@@ -913,7 +944,14 @@ export async function loadV2BetaLinkedRuntimeCache({ artifactInstallation, cache
     if (entries.length !== 1 || entries[0] !== V2_BETA_LINKED_RUNTIME_CACHE_FILE) continue;
     const record = await readPrivateCanonicalJson(path.join(directory, V2_BETA_LINKED_RUNTIME_CACHE_FILE), 'linked runtime cache');
     const cache = validateLinkedCache(record.value);
-    if (cache.installationReceiptSha256 === template.installationReceiptSha256 && cache.identity.instanceId === instanceId) matches.push({ cache, record });
+    const classification = classifyLinkedCacheCandidate({
+      cache,
+      candidateName: candidate.name,
+      installationReceiptSha256: template.installationReceiptSha256,
+      instanceId,
+      sourceSha256,
+    });
+    if (classification === 'current') matches.push({ cache, record });
   }
   if (matches.length !== 1) fail('BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE', 'exactly one linked runtime cache is required');
   const { cache, record } = matches[0];
