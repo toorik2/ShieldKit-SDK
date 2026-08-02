@@ -5,6 +5,8 @@ import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { encodeTokenPrefix } from '@bitauth/libauth';
+
 import {
   loadV2BetaLiveQualificationInputsForTest,
   openV2BetaLiveQualificationRunJournalForTest,
@@ -26,6 +28,7 @@ const fundingRaw = `0200000001${Buffer.from(source.txid, 'hex').reverse().toStri
 const fundingTxid = txidOf(fundingRaw);
 const rpcCounts = Object.freeze({ getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 1 });
 const poolRpcCounts = Object.freeze({ getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0, sendrawtransaction: 2, testmempoolaccept: 2 });
+const recoveredPoolRpcCounts = Object.freeze({ getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0, sendrawtransaction: 0, testmempoolaccept: 0 });
 const actionTimings = Object.freeze({ treeAndPreparation: 1, fundingRead: 1, witnessCalculation: 1, proofGeneration: 1, proofVerification: 1, proofTotal: 1, signingAndVm: 1, localVm: 1, admission: 1, commit: 1, total: 1 });
 const fullActionTimings = Object.freeze({ ...actionTimings, stateRead: 1, witnessAssembly: 1 });
 const cores = availableParallelism();
@@ -58,10 +61,31 @@ function actionTelemetry(kind, inputCount) {
     store: { pre, post, delta },
   };
 }
-const rawWithOneInput = (parentTxid, outputs) => `0200000001${Buffer.from(parentTxid, 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.map((value) => `${le64(value)}19${wallet.lockingBytecodeHex}`).join('')}00000000`;
-const bootstrapSourceRaw = rawWithOneInput(fundingTxid, Array.from({ length: 12 }, () => '546'));
+const serializedOutput = (valueSats, contentsHex) => {
+  const bytes = contentsHex.length / 2;
+  assert.ok(Number.isSafeInteger(bytes) && bytes < 0xfd);
+  return `${le64(valueSats)}${bytes.toString(16).padStart(2, '0')}${contentsHex}`;
+};
+const rawWithOneInput = (parentTxid, outputs) => `0200000001${Buffer.from(parentTxid, 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.join('')}00000000`;
+const bootstrapSourceRaw = rawWithOneInput(
+  fundingTxid,
+  Array.from({ length: 12 }, () => serializedOutput('546', wallet.lockingBytecodeHex)),
+);
 const bootstrapSourceTxid = txidOf(bootstrapSourceRaw);
-const genesisRaw = rawWithOneInput(bootstrapSourceTxid, ['546']);
+const instanceId = Buffer.from(bootstrapSourceTxid, 'hex').reverse().toString('hex');
+const stateCommitmentHex = 'ab'.repeat(128);
+function stateOutput(commitmentHex = stateCommitmentHex) {
+  const prefix = Buffer.from(encodeTokenPrefix({
+    category: Uint8Array.from(Buffer.from(bootstrapSourceTxid, 'hex')),
+    amount: 0n,
+    nft: {
+      capability: 'mutable',
+      commitment: Uint8Array.from(Buffer.from(commitmentHex, 'hex')),
+    },
+  })).toString('hex');
+  return serializedOutput('546', `${prefix}${wallet.lockingBytecodeHex}`);
+}
+const genesisRaw = rawWithOneInput(bootstrapSourceTxid, [stateOutput()]);
 const genesisTxid = txidOf(genesisRaw);
 const sha256 = (hex) => createHash('sha256').update(Buffer.from(hex, 'hex')).digest('hex');
 
@@ -89,18 +113,25 @@ function action(kind, operationId, bad = undefined) {
 }
 function pool(bad = undefined) {
   const result = {
-    schema: 'shieldkit-v2-beta-product-pool-create-result-v1', command: 'pool-create', profileId: 'v2-beta-chipnet-direct', operationId: 'pool-create-test', status: 'accepted-zero-conf-beta-unqualified', capacity: V2_BETA_CAPACITY, instanceId: H('8'), sourceTransactionId: bootstrapSourceTxid, genesisTransactionId: genesisTxid, zeroConfEvidenceSha256: H('a'), actionFundingOutputs: 10,
+    schema: 'shieldkit-v2-beta-product-pool-create-result-v1', command: 'pool-create', profileId: 'v2-beta-chipnet-direct', operationId: 'pool-create-test', status: 'accepted-zero-conf-beta-unqualified', capacity: V2_BETA_CAPACITY, instanceId, sourceTransactionId: bootstrapSourceTxid, genesisTransactionId: genesisTxid, zeroConfEvidenceSha256: H('a'), actionFundingOutputs: 10,
     claims: { broadcasted: true, confirmed: false, mined: false, productionQualified: false }, rpcBackend: 'layer1-bchn-chipnet', rpcObservation: { backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: poolRpcCounts },
     runtimeManifestSha256: H('b'), runtimeMaterialSha256: H('c'), runtimeLinkedDuringCommand: true, runtimeWork: { schema: 'shieldkit-v2-beta-runtime-work-observation-v1', counts: { 'linked-runtime-cache-load': 1, 'cold-runtime-build': 0, 'full-runtime-verification': 0, 'compiler-child-spawn': 0, 'instance-specialization': 1 }, events: [{ type: 'instance-specialization' }, { type: 'linked-runtime-cache-load' }] }, actionFundingSetSha256: H('d'),
     acceptance: { accepted: true, status: 'accepted-zero-conf', evidence: { status: 'accepted-zero-conf-beta-unqualified', claims: { broadcasted: true, confirmed: false, mined: false, productionQualified: false } } },
-    transactions: { source: { transactionId: bootstrapSourceTxid, serializedBytes: bootstrapSourceRaw.length / 2, rawTransactionSha256: sha256(bootstrapSourceRaw) }, genesis: { transactionId: genesisTxid, serializedBytes: genesisRaw.length / 2, feeSats: '200', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: [] } },
+    transactions: { source: { transactionId: bootstrapSourceTxid, serializedBytes: bootstrapSourceRaw.length / 2, rawTransactionSha256: sha256(bootstrapSourceRaw) }, genesis: { transactionId: genesisTxid, serializedBytes: genesisRaw.length / 2, feeSats: '200', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: [{ index: 0, accepted: true, metrics: { ...vmMetrics } }] } },
     timingsMs: { funding: 1, genesis: 1, exactReadback: 1, atomicCommit: 1, actionStoreBootstrap: 1, commandTotal: 1 },
   };
-  if (bad === 'cache-hit') {
+  if (bad === 'recovery') {
     result.runtimeLinkedDuringCommand = false;
     result.runtimeWork.counts['instance-specialization'] = 0;
     result.runtimeWork.events = [{ type: 'linked-runtime-cache-load' }];
+    result.rpcObservation.methodCounts = recoveredPoolRpcCounts;
   }
+  if (bad === 'mixed-rpc') result.rpcObservation.methodCounts = { ...poolRpcCounts, getblockhash: 1 };
+  if (bad === 'vm-shape') result.transactions.genesis.inputMetrics[0].index = 1;
+  if (bad === 'vm-fields') delete result.transactions.genesis.inputMetrics[0].metrics.stackPushedBytes;
+  if (bad === 'vm-number') result.transactions.genesis.inputMetrics[0].metrics.operationCost = 1000;
+  if (bad === 'vm-noncanonical') result.transactions.genesis.inputMetrics[0].metrics.operationCost = '01';
+  if (bad === 'vm-limit') result.transactions.genesis.inputMetrics[0].metrics.operationCost = '1001';
   if (bad === 'legacy') { result.rpc = result.rpcObservation; delete result.rpcObservation; result.cache = { runtimeManifestSha256: result.runtimeManifestSha256, runtimeMaterialSha256: result.runtimeMaterialSha256 }; delete result.runtimeManifestSha256; delete result.runtimeMaterialSha256; }
   return result;
 }
@@ -111,12 +142,29 @@ function memoryJournal(initial = null) {
     transitions, record: () => record,
   };
 }
-function fixture({ initialRecord = null, reject = false, badAction = undefined, badPool = undefined, wrongMempoolTxid = false, readbackFails = false, vmReject = false, sourceRaw = bootstrapSourceRaw } = {}) {
-  const calls = { commands: [], rpc: [] }; const holder = memoryJournal(initialRecord);
+function fixture({ initialRecord = null, reject = false, badAction = undefined, badPool = undefined, wrongMempoolTxid = false, readbackFails = false, sourceRaw = bootstrapSourceRaw, stateNftFault = undefined } = {}) {
+  const calls = { commands: [], journalSchemasAtCommand: [], rpc: [] }; const holder = memoryJournal(initialRecord);
   const rpc = {
     async scanAddress() { calls.rpc.push('scanAddress'); return [source]; },
     async getrawtransaction(txid) { calls.rpc.push('getrawtransaction'); if (readbackFails) throw new Error('temporary BCHN readback failure'); if (txid === fundingTxid) return fundingRaw; if (txid === bootstrapSourceTxid) return sourceRaw; if (txid === genesisTxid) return genesisRaw; throw new Error('unexpected txid'); },
-    async gettxout() { calls.rpc.push('gettxout'); return { valueSatoshis: '57001105', scriptPubKey: { hex: wallet.lockingBytecodeHex } }; },
+    async gettxout(txid, vout) {
+      calls.rpc.push('gettxout');
+      assert.equal(txid, genesisTxid); assert.equal(vout, 0);
+      const observed = {
+        valueSatoshis: '546',
+        scriptPubKey: { hex: wallet.lockingBytecodeHex },
+        tokenData: {
+          category: bootstrapSourceTxid,
+          amount: '0',
+          nft: { capability: 'mutable', commitment: stateCommitmentHex },
+        },
+      };
+      if (stateNftFault === 'category') observed.tokenData.category = H('f');
+      if (stateNftFault === 'capability') observed.tokenData.nft.capability = 'none';
+      if (stateNftFault === 'amount') observed.tokenData.amount = '1';
+      if (stateNftFault === 'commitment') observed.tokenData.nft.commitment = 'ab';
+      return observed;
+    },
     async testmempoolaccept() { calls.rpc.push('testmempoolaccept'); return [{ allowed: !reject, txid: wrongMempoolTxid ? H('f') : fundingTxid }]; },
     async sendrawtransaction() { calls.rpc.push('sendrawtransaction'); return fundingTxid; },
   };
@@ -131,7 +179,7 @@ function fixture({ initialRecord = null, reject = false, badAction = undefined, 
       now: (() => { let value = 0; return () => ++value; })(),
       async openRunJournal() { return holder.journal; },
       async validateInstall() { return { dataDirectory: '/private/data/shieldkit/v2-beta-product', receiptSha256: H('f'), releaseId: 'beta-r1', releaseManifestSha256: H('e') }; },
-      async runCommand(request) { calls.commands.push(request.literal); return { code: 0, stdout: JSON.stringify({ ok: true, confirmed: false, mined: false, productionQualified: false, result: resultFor(request.literal.slice(1)) }) }; },
+      async runCommand(request) { calls.commands.push(request.literal); calls.journalSchemasAtCommand.push(holder.record()?.schema); return { code: 0, stdout: JSON.stringify({ ok: true, confirmed: false, mined: false, productionQualified: false, result: resultFor(request.literal.slice(1)) }) }; },
       async writeEvidence(directory, evidence) { calls.written = evidence; return `${directory}/evidence.json`; },
     },
   };
@@ -240,6 +288,10 @@ test('records a strict public-CLI five-by-five semantic run without hidden insta
   assert.equal(subject.calls.rpc.includes('scanAddress'), false);
   assert.equal(subject.calls.rpc.includes('testmempoolaccept'), false);
   assert.equal(result.evidence.deposits.length, 5); assert.equal(result.evidence.withdrawals.length, 5);
+  assert.equal(result.evidence.schema, 'shieldkit-v2-beta-live-qualification-v3');
+  assert.equal(result.evidence.pool.creationMode, 'created-and-broadcast-in-command');
+  assert.equal(subject.calls.rpc.filter((entry) => entry === 'getrawtransaction').length, 2);
+  assert.equal(subject.calls.rpc.filter((entry) => entry === 'gettxout').length, 1);
   assert.equal(result.evidence.scope, 'semantic-five-by-five-only-not-performance-qualification');
   assert.deepEqual(result.evidence.install, { receiptSha256: H('f'), releaseId: 'beta-r1', releaseManifestSha256: H('e') });
   assert.equal(JSON.stringify(result.evidence).includes('/private/data/shieldkit/v2-beta-product'), false);
@@ -273,9 +325,43 @@ test('accepts literal public CLI envelopes and rejects the former synthetic rpc/
 });
 
 test('rejects a pool package whose bootstrap source does not spend the requested funding outpoint', async () => {
-  const unrelatedSourceRaw = rawWithOneInput(H('b'), Array.from({ length: 12 }, () => '546'));
+  const unrelatedSourceRaw = rawWithOneInput(
+    H('b'),
+    Array.from({ length: 12 }, () => serializedOutput('546', wallet.lockingBytecodeHex)),
+  );
   const subject = fixture({ sourceRaw: unrelatedSourceRaw });
   await assert.rejects(() => runV2BetaLiveQualification(inputs, subject.deps), { code: 'LIVE_QUALIFICATION_POOL_CREATE_REJECTED' });
+});
+
+test('rejects mixed fresh/recovery RPC evidence', async () => {
+  const subject = fixture({ badPool: 'mixed-rpc' });
+  await assert.rejects(
+    () => runV2BetaLiveQualification(inputs, subject.deps),
+    { code: 'LIVE_QUALIFICATION_POOL_CREATE_REJECTED' },
+  );
+  assert.equal(subject.calls.rpc.length, 0);
+});
+
+test('rejects malformed or over-limit single-input genesis VM evidence', async () => {
+  for (const badPool of ['vm-shape', 'vm-fields', 'vm-number', 'vm-noncanonical', 'vm-limit']) {
+    const subject = fixture({ badPool });
+    await assert.rejects(
+      () => runV2BetaLiveQualification(inputs, subject.deps),
+      { code: 'LIVE_QUALIFICATION_POOL_CREATE_REJECTED' },
+    );
+  }
+});
+
+test('rejects independently observed state NFT category, capability, amount, or commitment faults', async () => {
+  for (const stateNftFault of ['category', 'capability', 'amount', 'commitment']) {
+    const subject = fixture({ stateNftFault });
+    await assert.rejects(
+      () => runV2BetaLiveQualification(inputs, subject.deps),
+      { code: 'LIVE_QUALIFICATION_POOL_CREATE_REJECTED' },
+    );
+    assert.equal(subject.calls.rpc.filter((entry) => entry === 'getrawtransaction').length, 2);
+    assert.equal(subject.calls.rpc.filter((entry) => entry === 'gettxout').length, 1);
+  }
 });
 
 test('does not replay an interrupted pool create', async () => {
@@ -284,7 +370,7 @@ test('does not replay an interrupted pool create', async () => {
   assert.equal(subject.calls.commands.length, 0);
 });
 
-test('an exact interrupted semantic pool create resumes through the inner idempotent journal', async () => {
+test('atomically migrates an exact v1 pre-start journal before committed idempotent recovery', async () => {
   const initialRecord = Object.freeze({
     schema: 'shieldkit-v2-beta-live-qualification-run-v1',
     state: 'pool-create-started',
@@ -294,10 +380,42 @@ test('an exact interrupted semantic pool create resumes through the inner idempo
     pool: null,
     actions: [],
   });
-  const subject = fixture({ initialRecord, badPool: 'cache-hit' });
+  const subject = fixture({ initialRecord, badPool: 'recovery' });
   const result = await runV2BetaLiveQualification(inputs, subject.deps);
   assert.equal(subject.calls.commands.filter((entry) => entry[1] === 'pool' && entry[2] === 'create').length, 1);
+  assert.equal(subject.holder.transitions[0], 'pool-create-started');
+  assert.equal(subject.calls.journalSchemasAtCommand[0], 'shieldkit-v2-beta-live-qualification-run-v2');
+  assert.equal(subject.holder.record().schema, 'shieldkit-v2-beta-live-qualification-run-v2');
+  assert.equal(result.evidence.pool.creationMode, 'committed-idempotent-recovery');
   assert.equal(result.evidence.pool.runtime.linkedDuringCommand, false);
+  assert.deepEqual(result.evidence.pool.rpcObservation.methodCounts, recoveredPoolRpcCounts);
+  assert.equal(subject.calls.rpc.filter((entry) => entry === 'getrawtransaction').length, 2);
+  assert.equal(subject.calls.rpc.filter((entry) => entry === 'gettxout').length, 1);
   assert.equal(result.evidence.deposits.length, 5);
   assert.equal(result.evidence.withdrawals.length, 5);
+});
+
+test('rejects every evidence-bearing v1 journal instead of migrating it', async () => {
+  const base = {
+    schema: 'shieldkit-v2-beta-live-qualification-run-v1',
+    state: 'pool-create-started',
+    installReceiptSha256: H('f'),
+    sourceOutpointProvenanceSha256: sourceOutpointProvenanceSha256(inputs.fundingUtxo),
+    poolCreateCommandDurationMs: null,
+    pool: null,
+    actions: [],
+  };
+  for (const initialRecord of [
+    Object.freeze({ ...base, pool: Object.freeze({ stale: true }) }),
+    Object.freeze({ ...base, poolCreateCommandDurationMs: 1 }),
+    Object.freeze({ ...base, actions: Object.freeze([{ stale: true }]) }),
+  ]) {
+    const subject = fixture({ initialRecord });
+    await assert.rejects(
+      () => runV2BetaLiveQualification(inputs, subject.deps),
+      { code: 'LIVE_QUALIFICATION_JOURNAL_REJECTED' },
+    );
+    assert.equal(subject.calls.commands.length, 0);
+    assert.equal(subject.holder.transitions.length, 0);
+  }
 });

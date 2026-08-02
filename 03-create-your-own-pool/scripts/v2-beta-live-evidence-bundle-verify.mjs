@@ -17,7 +17,7 @@ import { CHIPNET_GENESIS_HASH } from '../packages/kit/chipnet-rpc.mjs';
 
 export const V2_BETA_LIVE_EVIDENCE_BUNDLE_MANIFEST_SCHEMA =
   'shieldkit-v2-beta-live-evidence-bundle-manifest-v2';
-export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v2';
+export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v3';
 export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v2';
 export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA =
   'shieldkit-v2-beta-live-pool-create-performance-v3';
@@ -160,22 +160,24 @@ function runtimeWork(value, linkedDuringCommand = false) {
   return clone(value);
 }
 
+function validateVmInput(input, index, label, code) {
+  exact(input, ['accepted', 'index', 'metrics'], label);
+  if (input.index !== index || input.accepted !== true) fail(code, 'VM input verdict is not canonical accepted evidence');
+  exact(input.metrics, VM_METRICS, `${label}.metrics`);
+  for (const name of VM_METRICS) decimal(input.metrics[name], `${label}.metrics.${name}`);
+  if (BigInt(input.metrics.operationCost) > BigInt(input.metrics.maximumOperationCost)
+    || BigInt(input.metrics.hashDigestIterations) > BigInt(input.metrics.maximumHashDigestIterations)
+    || BigInt(input.metrics.signatureCheckCount) > BigInt(input.metrics.maximumSignatureCheckCount)) {
+    fail(code, 'VM resource metric exceeds its retained ceiling');
+  }
+}
+
 function validateVm(value) {
   exact(value, ['allInputsAccepted', 'evidenceHash', 'inputCount', 'inputs'], 'action.vm');
   if (value.allInputsAccepted !== true || !Array.isArray(value.inputs)) fail('BUNDLE_VM_INVALID', 'all action inputs must be accepted');
   hash(value.evidenceHash, 'action.vm.evidenceHash'); integer(value.inputCount, 'action.vm.inputCount', 1);
   if (value.inputs.length !== value.inputCount) fail('BUNDLE_VM_INVALID', 'VM evidence does not retain every input');
-  value.inputs.forEach((input, index) => {
-    exact(input, ['accepted', 'index', 'metrics'], `action.vm.inputs[${index}]`);
-    if (input.index !== index || input.accepted !== true) fail('BUNDLE_VM_INVALID', 'VM input verdict is not canonical accepted evidence');
-    exact(input.metrics, VM_METRICS, `action.vm.inputs[${index}].metrics`);
-    for (const name of VM_METRICS) decimal(input.metrics[name], `action.vm.inputs[${index}].metrics.${name}`);
-    if (BigInt(input.metrics.operationCost) > BigInt(input.metrics.maximumOperationCost)
-      || BigInt(input.metrics.hashDigestIterations) > BigInt(input.metrics.maximumHashDigestIterations)
-      || BigInt(input.metrics.signatureCheckCount) > BigInt(input.metrics.maximumSignatureCheckCount)) {
-      fail('BUNDLE_VM_INVALID', 'VM resource metric exceeds its retained ceiling');
-    }
-  });
+  value.inputs.forEach((input, index) => validateVmInput(input, index, `action.vm.inputs[${index}]`, 'BUNDLE_VM_INVALID'));
 }
 
 function validateStore(value, kind) {
@@ -197,12 +199,15 @@ function validateStore(value, kind) {
   for (const [name, amount] of Object.entries(expected)) if (value.delta[name] !== amount) fail('BUNDLE_STORE_INVALID', `store ${name} delta is not the ${kind} transition`);
 }
 
-function validateRpc(value, multiplier = 1) {
+function validateRpcProfile(value, expected) {
   exact(value, ['backend', 'genesis', 'methodCounts'], 'rpcObservation');
   exact(value.methodCounts, RPC_METHODS, 'rpcObservation.methodCounts');
   if (value.backend !== 'layer1-bchn-chipnet' || value.genesis !== CHIPNET_GENESIS_HASH) fail('BUNDLE_RPC_INVALID', 'evidence is not bound to BCHN Chipnet');
-  const expected = { getblockhash: 0, getrawtransaction: multiplier, gettxout: 1, scantxoutset: 0, sendrawtransaction: multiplier, testmempoolaccept: multiplier };
   for (const name of RPC_METHODS) if (value.methodCounts[name] !== expected[name]) fail('BUNDLE_RPC_INVALID', `RPC count ${name} is not exact`);
+}
+
+function validateRpc(value, multiplier = 1) {
+  validateRpcProfile(value, { getblockhash: 0, getrawtransaction: multiplier, gettxout: 1, scantxoutset: 0, sendrawtransaction: multiplier, testmempoolaccept: multiplier });
 }
 
 function validateAction(value, kind, ordinal, cores, owningInstanceId, { performance = false } = {}) {
@@ -239,12 +244,17 @@ function validateAction(value, kind, ordinal, cores, owningInstanceId, { perform
 }
 
 function validatePool(value) {
-  exact(value, ['acceptance', 'actionFundingOutputs', 'actionFundingSetSha256', 'claims', 'genesisTransactionId', 'instanceId', 'rpcObservation', 'runtime', 'sourceTransactionId', 'timingsMs', 'transactions', 'zeroConfEvidenceSha256'], 'semantic.pool');
+  exact(value, ['acceptance', 'actionFundingOutputs', 'actionFundingSetSha256', 'claims', 'creationMode', 'genesisTransactionId', 'instanceId', 'rpcObservation', 'runtime', 'sourceTransactionId', 'timingsMs', 'transactions', 'zeroConfEvidenceSha256'], 'semantic.pool');
   hash(value.instanceId, 'semantic.pool.instanceId'); hash(value.sourceTransactionId, 'semantic.pool.sourceTransactionId'); hash(value.genesisTransactionId, 'semantic.pool.genesisTransactionId'); hash(value.zeroConfEvidenceSha256, 'semantic.pool.zeroConfEvidenceSha256'); hash(value.actionFundingSetSha256, 'semantic.pool.actionFundingSetSha256');
   if (value.sourceTransactionId === value.genesisTransactionId
     || value.instanceId === value.genesisTransactionId
     || value.actionFundingOutputs !== 10) fail('BUNDLE_POOL_INVALID', 'pool bootstrap topology or action funding set is invalid');
-  claims(value.claims, 'semantic.pool.claims', { broadcasted: true }); validateRpc(value.rpcObservation, 2);
+  const rpcProfiles = {
+    'created-and-broadcast-in-command': { getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0, sendrawtransaction: 2, testmempoolaccept: 2 },
+    'committed-idempotent-recovery': { getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0, sendrawtransaction: 0, testmempoolaccept: 0 },
+  };
+  if (!Object.hasOwn(rpcProfiles, value.creationMode)) fail('BUNDLE_POOL_INVALID', 'pool creation mode is unsupported');
+  claims(value.claims, 'semantic.pool.claims', { broadcasted: true }); validateRpcProfile(value.rpcObservation, rpcProfiles[value.creationMode]);
   exact(value.runtime, ['linkedDuringCommand', 'runtimeManifestSha256', 'runtimeMaterialSha256', 'work'], 'semantic.pool.runtime');
   if (typeof value.runtime.linkedDuringCommand !== 'boolean') fail('BUNDLE_POOL_INVALID', 'pool runtime link state is invalid');
   hash(value.runtime.runtimeManifestSha256, 'semantic.pool.runtime.runtimeManifestSha256'); hash(value.runtime.runtimeMaterialSha256, 'semantic.pool.runtime.runtimeMaterialSha256'); runtimeWork(value.runtime.work, value.runtime.linkedDuringCommand);
@@ -255,7 +265,11 @@ function validatePool(value) {
   exact(value.transactions.source, ['rawTransactionSha256', 'serializedBytes', 'transactionId'], 'semantic.pool.transactions.source'); hash(value.transactions.source.rawTransactionSha256, 'semantic.pool.transactions.source.rawTransactionSha256'); integer(value.transactions.source.serializedBytes, 'semantic.pool.transactions.source.serializedBytes', 1);
   if (value.transactions.source.transactionId !== value.sourceTransactionId) fail('BUNDLE_POOL_INVALID', 'pool source transaction id differs');
   exact(value.transactions.genesis, ['bch2026StandardVmAccepted', 'feeRateSatsPerByte', 'feeSats', 'inputMetrics', 'serializedBytes', 'transactionId'], 'semantic.pool.transactions.genesis');
-  if (value.transactions.genesis.transactionId !== value.genesisTransactionId || value.transactions.genesis.bch2026StandardVmAccepted !== true || !Array.isArray(value.transactions.genesis.inputMetrics)) fail('BUNDLE_POOL_INVALID', 'pool genesis evidence is incomplete');
+  if (value.transactions.genesis.transactionId !== value.genesisTransactionId
+    || value.transactions.genesis.bch2026StandardVmAccepted !== true
+    || !Array.isArray(value.transactions.genesis.inputMetrics)
+    || value.transactions.genesis.inputMetrics.length !== 1) fail('BUNDLE_POOL_INVALID', 'pool genesis evidence is incomplete');
+  validateVmInput(value.transactions.genesis.inputMetrics[0], 0, 'semantic.pool.transactions.genesis.inputMetrics[0]', 'BUNDLE_POOL_INVALID');
   integer(value.transactions.genesis.serializedBytes, 'semantic.pool.transactions.genesis.serializedBytes', 1); decimal(value.transactions.genesis.feeSats, 'semantic.pool.transactions.genesis.feeSats'); decimal(value.transactions.genesis.feeRateSatsPerByte, 'semantic.pool.transactions.genesis.feeRateSatsPerByte');
   if (BigInt(value.transactions.genesis.feeSats) !== BigInt(value.transactions.genesis.serializedBytes) * BigInt(value.transactions.genesis.feeRateSatsPerByte)) fail('BUNDLE_POOL_INVALID', 'pool genesis fee differs from bytes times fee rate');
   exact(value.timingsMs, POOL_TIMINGS, 'semantic.pool.timingsMs'); for (const name of POOL_TIMINGS) duration(value.timingsMs[name], `semantic.pool.timingsMs.${name}`);
@@ -407,6 +421,18 @@ function validatePoolCreatePerformance(value, disallowedIds, semanticInstall) {
   return clone(value);
 }
 
+function validateWarmPoolSubset(warmPools, freshPools) {
+  const freshByInstanceId = new Map(freshPools.map((pool) => [pool.instanceId, pool]));
+  for (const warm of warmPools) {
+    const fresh = freshByInstanceId.get(warm.instanceId);
+    if (fresh === undefined
+      || fresh.genesisTransactionId !== warm.genesisTransactionId
+      || fresh.installationReceiptSha256 !== warm.installationReceiptSha256) {
+      fail('BUNDLE_PERFORMANCE_INVALID', 'every warm pool must exactly match one independently created fresh pool identity and installation receipt');
+    }
+  }
+}
+
 function facts(value) {
   exact(value, ['host', 'repository'], 'verification facts');
   exact(value.repository, ['cleanWorktree', 'head', 'packageLockSha256', 'releasePinSha256', 'releasePinTracked', 'tree'], 'verification facts.repository');
@@ -456,11 +482,11 @@ export function createV2BetaLiveEvidenceBundleManifest({ semanticBytes, performa
     semantic.poolCreate.sourceOutpointProvenanceSha256, semantic.pool.sourceTransactionId,
     semantic.pool.genesisTransactionId, semantic.pool.instanceId,
     semantic.pool.actionFundingSetSha256,
-    ...performance.pools.flatMap((pool) => [pool.instanceId, pool.genesisTransactionId]),
     ...performance.samples.deposits.map((entry) => entry.transactionId),
     ...performance.samples.withdrawals.map((entry) => entry.transactionId),
   ]);
   const poolCreatePerformance = validatePoolCreatePerformance(poolCreatePerformanceFile.value, disallowedPoolIds, semantic.install);
+  validateWarmPoolSubset(performance.pools, poolCreatePerformance.pools);
   const core = manifestCore({ semantic: { schema: semantic.schema, sha256: semanticFile.sha256 }, performance: { schema: performance.schema, sha256: performanceFile.sha256 }, poolCreatePerformance: { schema: poolCreatePerformance.schema, sha256: poolCreatePerformanceFile.sha256 }, facts: factValue });
   return Object.freeze({ ...core, manifestSha256: sha256(Buffer.from(canonicalizeJcs(core), 'utf8')) });
 }
