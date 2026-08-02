@@ -16,9 +16,10 @@ const sha = (value) => createHash('sha256').update(value).digest('hex');
 const wireCategory = (instanceId) => Buffer.from(instanceId, 'hex').reverse().toString('hex');
 const cores = 20;
 const METRICS = Object.freeze({ arithmeticCost: '1', definedFunctions: '1', densityControlLength: '1', evaluatedInstructionCount: '1', hashDigestIterations: '1', maximumHashDigestIterations: '1', maximumOperationCost: '1', maximumSignatureCheckCount: '1', operationCost: '1', signatureCheckCount: '1', stackPushedBytes: '1' });
-const RPC = Object.freeze({ getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 1 });
-const POOL_RPC = Object.freeze({ ...RPC, getrawtransaction: 2, sendrawtransaction: 2, testmempoolaccept: 2 });
-const RECOVERED_POOL_RPC = Object.freeze({ getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0, sendrawtransaction: 0, testmempoolaccept: 0 });
+const RPC = Object.freeze({ getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 0 });
+const PUBLIC_ACTION_PHYSICAL = Object.freeze({ 'server.features': 0, 'server.version': 0, 'blockchain.transaction.broadcast': 1, 'blockchain.transaction.get': 1, 'blockchain.utxo.get_info': 1, 'blockchain.scripthash.listunspent': 0 });
+const POOL_RPC = Object.freeze({ ...RPC, getrawtransaction: 2, sendrawtransaction: 2, testmempoolaccept: 0 });
+const PUBLIC_POOL_PHYSICAL = Object.freeze({ 'server.features': 0, 'server.version': 0, 'blockchain.transaction.broadcast': 2, 'blockchain.transaction.get': 4, 'blockchain.utxo.get_info': 2, 'blockchain.scripthash.listunspent': 0 });
 const WORK = () => ({ schema: 'shieldkit-v2-beta-runtime-work-observation-v1', counts: { 'linked-runtime-cache-load': 1, 'cold-runtime-build': 0, 'full-runtime-verification': 0, 'compiler-child-spawn': 0, 'instance-specialization': 0 }, events: [{ type: 'linked-runtime-cache-load' }] });
 const FRESH_POOL_WORK = () => ({ schema: 'shieldkit-v2-beta-runtime-work-observation-v1', counts: { 'linked-runtime-cache-load': 1, 'cold-runtime-build': 0, 'full-runtime-verification': 0, 'compiler-child-spawn': 0, 'instance-specialization': 1 }, events: [{ type: 'instance-specialization' }, { type: 'linked-runtime-cache-load' }] });
 const TIMINGS = () => ({ admission: 1, commit: 1, fundingRead: 1, localVm: 1, proofGeneration: 1, proofTotal: 1, proofVerification: 1, signingAndVm: 1, stateRead: 1, total: 10, treeAndPreparation: 1, witnessAssembly: 1, witnessCalculation: 1 });
@@ -33,14 +34,15 @@ function action(kind, ordinal, txByte, poolOrdinal = undefined, owningInstanceId
   const operationId = poolOrdinal === undefined
     ? `semantic.${kind}.${ordinal}`
     : `warm.${String(poolOrdinal + 1).padStart(2, '0')}.${kind}.${String(ordinal).padStart(2, '0')}`;
-  const value = { kind, ordinal, operationId, transactionId: txid, commandTotalMs: 100, actionTotalMs: 10, bytes: 100, feeSats: '100', feeRateSatsPerByte: '1', claims: { ...CLAIMS }, cache: { runtimeManifestSha256: H('1'), runtimeMaterialSha256: H('2') }, runtimeWork: WORK(), proof: { backend: 'rapidsnark', verified: true, resultSha256: H('3'), nativeProverSha256: H('4'), ompThreads: cores, observedThreads: cores, activeCpuThreads: cores, peakRssKiB: 1024, proofGenerationMs: 1, userTicks: 10, systemTicks: 5, totalTicks: 15, cpuTicksPerWallMillisecond: 15, containment: { backend: 'linux-systemd-cgroup-v2', memoryMaxBytes: '4294967296', memorySwapMaxBytes: '0', memoryPeakBytes: '1024', oomDelta: 0, oomKillDelta: 0, terminatedSuccessfully: true } }, vm: { evidenceHash: H('5'), inputCount: 1, allInputsAccepted: true, inputs: [{ index: 0, accepted: true, metrics: { ...METRICS } }] }, store: { pre, post, delta }, readback: { rawTransactionSha256: H('6'), stateCategoryWire: wireCategory(owningInstanceId), stateCommitmentSha256: H('8'), stateOutpoint: { txid, vout: 0 } }, rpcObservation: { backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: { ...RPC } }, timingsMs: TIMINGS() };
+  const readback = { rawTransactionSha256: H('6'), stateCategoryWire: wireCategory(owningInstanceId), stateCommitmentSha256: H('8'), stateOutpoint: { txid, vout: 0 } };
+  const value = { kind, ordinal, operationId, transactionId: txid, admissionRoute: 'fresh-single-pass', commandTotalMs: 100, actionTotalMs: 10, bytes: 100, feeSats: '100', feeRateSatsPerByte: '1', claims: { ...CLAIMS }, cache: { runtimeManifestSha256: H('1'), runtimeMaterialSha256: H('2') }, runtimeWork: WORK(), proof: { backend: 'rapidsnark', verified: true, resultSha256: H('3'), nativeProverSha256: H('4'), ompThreads: cores, observedThreads: cores, activeCpuThreads: cores, peakRssKiB: 1024, proofGenerationMs: 1, userTicks: 10, systemTicks: 5, totalTicks: 15, cpuTicksPerWallMillisecond: 15, containment: { backend: 'linux-systemd-cgroup-v2', memoryMaxBytes: '4294967296', memorySwapMaxBytes: '0', memoryPeakBytes: '1024', oomDelta: 0, oomKillDelta: 0, terminatedSuccessfully: true } }, vm: { evidenceHash: H('5'), inputCount: 1, allInputsAccepted: true, inputs: [{ index: 0, accepted: true, metrics: { ...METRICS } }] }, store: { pre, post, delta }, readback, chainAttestation: { schema: 'shieldkit-v2-beta-live-action-chain-attestation-v1', backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', transactionId: txid, rawTransactionSha256: readback.rawTransactionSha256, stateOutpoint: { ...readback.stateOutpoint }, stateCategoryWire: readback.stateCategoryWire, stateCommitmentSha256: readback.stateCommitmentSha256, stateValueSatoshis: '546' }, rpcObservation: { backend: 'public-chipnet-fulcrum-tls', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: { ...RPC }, physicalMethodCounts: { ...PUBLIC_ACTION_PHYSICAL } }, timingsMs: TIMINGS() };
   if (poolOrdinal !== undefined) Object.assign(value, { poolOrdinal, state: 'accepted' });
   return value;
 }
 
 function semantic() {
   const source = H('9'); const genesis = H('a');
-  return { schema: 'shieldkit-v2-beta-live-qualification-v3', scope: 'semantic-five-by-five-only-not-performance-qualification', claims: { confirmed: false, mined: false, productionQualified: false }, capacity: '100000', install: { receiptSha256: H('b'), releaseId: 'shieldkit-v2-beta-20260802-r3', releaseManifestSha256: H('c') }, poolCreate: { commandDurationMs: 100, sourceOutpointProvenanceSha256: H('d') }, pool: { creationMode: 'created-and-broadcast-in-command', instanceId: H('1'), sourceTransactionId: source, genesisTransactionId: genesis, zeroConfEvidenceSha256: H('2'), actionFundingOutputs: 10, actionFundingSetSha256: H('3'), transactions: { source: { transactionId: source, serializedBytes: 100, rawTransactionSha256: H('4') }, genesis: { transactionId: genesis, serializedBytes: 100, feeSats: '100', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: [{ index: 0, accepted: true, metrics: { ...METRICS } }] } }, acceptance: { accepted: true, status: 'accepted-zero-conf', evidence: { status: 'accepted-zero-conf-beta-unqualified', claims: { ...CLAIMS } } }, rpcObservation: { backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: { ...POOL_RPC } }, runtime: { runtimeManifestSha256: H('5'), runtimeMaterialSha256: H('6'), linkedDuringCommand: false, work: WORK() }, timingsMs: { actionStoreBootstrap: 1, admissionAndBroadcast: 1, artifactLoad: 1, atomicCommit: 1, commandTotal: 1, durableStage: 1, exactReadback: 1, funding: 1, genesis: 1, instanceSpecialization: 0, runtimeCacheInstall: 0, runtimeLoad: 1, templateLoad: 0, templateReceiptAttestation: 0 }, claims: { ...CLAIMS } }, deposits: [1, 2, 3, 4, 5].map((ordinal) => action('deposit', ordinal, String(ordinal))), withdrawals: [1, 2, 3, 4, 5].map((ordinal) => action('withdraw', ordinal, String(ordinal + 5))), timingMs: 100 };
+  return { schema: 'shieldkit-v2-beta-live-qualification-v6', scope: 'semantic-five-by-five-only-not-performance-qualification', claims: { confirmed: false, mined: false, productionQualified: false }, capacity: '100000', install: { receiptSha256: H('b'), releaseId: 'shieldkit-v2-beta-20260802-r3', releaseManifestSha256: H('c') }, poolCreate: { commandDurationMs: 100, sourceOutpointProvenanceSha256: H('d') }, pool: { creationMode: 'created-and-broadcast-through-public-fulcrum', instanceId: H('1'), sourceTransactionId: source, genesisTransactionId: genesis, zeroConfEvidenceSha256: H('2'), actionFundingOutputs: 10, actionFundingSetSha256: H('3'), transactions: { source: { transactionId: source, serializedBytes: 100, rawTransactionSha256: H('4') }, genesis: { transactionId: genesis, serializedBytes: 100, feeSats: '100', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: [{ index: 0, accepted: true, metrics: { ...METRICS } }] } }, acceptance: { accepted: true, status: 'accepted-zero-conf', evidence: { status: 'accepted-zero-conf-beta-unqualified', claims: { ...CLAIMS } } }, rpcObservation: { backend: 'public-chipnet-fulcrum-tls', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: { ...POOL_RPC }, physicalMethodCounts: { ...PUBLIC_POOL_PHYSICAL } }, runtime: { runtimeManifestSha256: H('5'), runtimeMaterialSha256: H('6'), linkedDuringCommand: false, work: WORK() }, timingsMs: { actionStoreBootstrap: 1, admissionAndBroadcast: 1, artifactLoad: 1, atomicCommit: 1, commandTotal: 1, durableStage: 1, exactReadback: 1, funding: 1, genesis: 1, instanceSpecialization: 0, runtimeCacheInstall: 0, runtimeLoad: 1, templateLoad: 0, templateReceiptAttestation: 0 }, claims: { ...CLAIMS } }, deposits: [1, 2, 3, 4, 5].map((ordinal) => action('deposit', ordinal, String(ordinal))), withdrawals: [1, 2, 3, 4, 5].map((ordinal) => action('withdraw', ordinal, String(ordinal + 5))), timingMs: 100 };
 }
 
 function freshPoolIdentity(ordinal) {
@@ -56,7 +58,7 @@ function performance() {
   const deposits = Array.from({ length: 4 }, (_, poolOrdinal) => Array.from({ length: 5 }, (_, index) => action('deposit', index + 1, (poolOrdinal * 5 + index + 100).toString(16), poolOrdinal, pools[poolOrdinal].instanceId))).flat();
   const withdrawals = Array.from({ length: 4 }, (_, poolOrdinal) => Array.from({ length: 5 }, (_, index) => action('withdraw', index + 1, (poolOrdinal * 5 + index + 140).toString(16), poolOrdinal, pools[poolOrdinal].instanceId))).flat();
   const metrics = (entries) => ({ sampleCount: entries.length, commandTotalMs: { p50: 100, p95: 100 }, actionTotalMs: { p50: 10, p95: 10 } });
-  return { schema: 'shieldkit-v2-beta-live-performance-v2', scope: 'warm-performance-only-explicitly-unqualified', claims: { confirmed: false, mined: false, productionQualified: false }, release: { releaseId: 'shieldkit-v2-beta-20260802-r3', releaseManifestSha256: H('c') }, pools, samples: { deposits, withdrawals }, metrics: { deposits: metrics(deposits), withdrawals: metrics(withdrawals) }, elapsedMs: 500 };
+  return { schema: 'shieldkit-v2-beta-live-performance-v5', scope: 'warm-performance-only-explicitly-unqualified', claims: { confirmed: false, mined: false, productionQualified: false }, release: { releaseId: 'shieldkit-v2-beta-20260802-r3', releaseManifestSha256: H('c') }, pools, samples: { deposits, withdrawals }, metrics: { deposits: metrics(deposits), withdrawals: metrics(withdrawals) }, elapsedMs: 500 };
 }
 
 function poolCreatePerformance() {
@@ -79,9 +81,10 @@ function poolCreatePerformance() {
     max: pools.at(-1)[field],
   });
   return {
-    schema: 'shieldkit-v2-beta-live-pool-create-performance-v3',
+    schema: 'shieldkit-v2-beta-live-pool-create-performance-v5',
     scope: 'fresh-pool-create-performance-explicitly-unqualified',
     release: { releaseId: 'shieldkit-v2-beta-20260802-r3', releaseManifestSha256: H('c') },
+    sourceReservationLedgerSha256: H('e'),
     claims: { confirmed: false, mined: false, productionQualified: false },
     pools,
     metrics: {
@@ -102,17 +105,16 @@ test('creates and independently verifies a canonical secret-free semantic/perfor
   assert.equal(manifest.semantic.sha256, sha(files.semanticBytes));
 });
 
-test('accepts only creation-mode-specific semantic pool RPC profiles', () => {
+test('requires the public product pool route and exact literal Fulcrum counts', () => {
   const files = () => ({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(poolCreatePerformance()) });
-  const recovered = semantic(); recovered.pool.creationMode = 'committed-idempotent-recovery'; recovered.pool.rpcObservation.methodCounts = { ...RECOVERED_POOL_RPC };
-  assert.doesNotThrow(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(recovered) }, facts()));
-
-  const createdWithRecoveryRpc = semantic(); createdWithRecoveryRpc.pool.rpcObservation.methodCounts = { ...RECOVERED_POOL_RPC };
-  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(createdWithRecoveryRpc) }, facts()), rejects('BUNDLE_RPC_INVALID'));
-  const recoveredWithCreateRpc = semantic(); recoveredWithCreateRpc.pool.creationMode = 'committed-idempotent-recovery';
-  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(recoveredWithCreateRpc) }, facts()), rejects('BUNDLE_RPC_INVALID'));
-  const mixed = semantic(); mixed.pool.creationMode = 'committed-idempotent-recovery'; mixed.pool.rpcObservation.methodCounts.getblockhash = 1;
-  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(mixed) }, facts()), rejects('BUNDLE_RPC_INVALID'));
+  const direct = semantic(); direct.pool.rpcObservation = { backend: 'layer1-bchn-chipnet', genesis: direct.pool.rpcObservation.genesis, methodCounts: { ...POOL_RPC } };
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(direct) }, facts()), rejects('BUNDLE_UNKNOWN_FIELD'));
+  const physical = semantic(); physical.pool.rpcObservation.physicalMethodCounts['blockchain.transaction.get'] = 3;
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(physical) }, facts()), rejects('BUNDLE_RPC_INVALID'));
+  const directAction = semantic(); directAction.deposits[0].rpcObservation = { backend: 'layer1-bchn-chipnet', genesis: directAction.deposits[0].rpcObservation.genesis, methodCounts: { ...RPC } };
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(directAction) }, facts()), rejects('BUNDLE_UNKNOWN_FIELD'));
+  const actionPhysical = semantic(); actionPhysical.deposits[0].rpcObservation.physicalMethodCounts['blockchain.transaction.get'] = 2;
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(actionPhysical) }, facts()), rejects('BUNDLE_RPC_INVALID'));
   const unsupported = semantic(); unsupported.pool.creationMode = 'recovered-and-broadcast';
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ ...files(), semanticBytes: canonicalBytes(unsupported) }, facts()), rejects('BUNDLE_POOL_INVALID'));
 });
@@ -144,7 +146,7 @@ test('rejects noncanonical bytes, secret/path fields, dirty attestation, and pro
 
 test('rejects duplicate actions, telemetry/runtime tampering, bad percentiles, and stale manifest facts', () => {
   const base = semantic(); const perf = performance(); const poolCreate = poolCreatePerformance();
-  perf.samples.deposits[1].transactionId = perf.samples.deposits[0].transactionId; perf.samples.deposits[1].readback.stateOutpoint.txid = perf.samples.deposits[0].transactionId;
+  perf.samples.deposits[1].transactionId = perf.samples.deposits[0].transactionId; perf.samples.deposits[1].readback.stateOutpoint.txid = perf.samples.deposits[0].transactionId; perf.samples.deposits[1].chainAttestation.transactionId = perf.samples.deposits[0].transactionId; perf.samples.deposits[1].chainAttestation.stateOutpoint.txid = perf.samples.deposits[0].transactionId;
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(base), performanceBytes: canonicalBytes(perf), poolCreatePerformanceBytes: canonicalBytes(poolCreate) }, facts()), rejects('BUNDLE_PERFORMANCE_INVALID'));
   const badRuntime = semantic(); badRuntime.deposits[0].runtimeWork.counts['cold-runtime-build'] = 1; badRuntime.deposits[0].runtimeWork.events.push({ type: 'cold-runtime-build' });
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(badRuntime), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(poolCreatePerformance()) }, facts()), rejects('BUNDLE_RUNTIME_WORK_INVALID'));
@@ -154,6 +156,10 @@ test('rejects duplicate actions, telemetry/runtime tampering, bad percentiles, a
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(badPoolCreate) }, facts()), rejects('BUNDLE_POOL_CREATE_RUNTIME_WORK_INVALID'));
   const mismatchedRelease = poolCreatePerformance(); mismatchedRelease.release.releaseId = 'another-release';
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(mismatchedRelease) }, facts()), rejects('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID'));
+  const missingLedger = poolCreatePerformance(); delete missingLedger.sourceReservationLedgerSha256;
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(missingLedger) }, facts()), rejects('BUNDLE_UNKNOWN_FIELD'));
+  const oldLedgerSchema = poolCreatePerformance(); oldLedgerSchema.schema = 'shieldkit-v2-beta-live-pool-create-performance-v3';
+  assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(oldLedgerSchema) }, facts()), rejects('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID'));
   const legacyPoolCreate = poolCreatePerformance(); delete legacyPoolCreate.pools[0].commandDurationMs; delete legacyPoolCreate.pools[0].sourceOutpointProvenanceSha256; Object.assign(legacyPoolCreate.pools[0], { initialCliMs: 1, fundingAdmissionMs: 1, fundedCreateMs: 1, totalWorkflowMs: 3, fundingTxid: H('f') });
   assert.throws(() => createV2BetaLiveEvidenceBundleManifest({ semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(legacyPoolCreate) }, facts()), rejects('BUNDLE_UNKNOWN_FIELD'));
   const files = { semanticBytes: canonicalBytes(semantic()), performanceBytes: canonicalBytes(performance()), poolCreatePerformanceBytes: canonicalBytes(poolCreatePerformance()) }; const manifest = createV2BetaLiveEvidenceBundleManifest(files, facts()); const changedFacts = facts(); changedFacts.repository.tree = 'e'.repeat(40);

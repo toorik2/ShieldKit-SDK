@@ -222,11 +222,13 @@ export async function admitAndSendExactTransactionOnce({
   if (computedTransactionId !== expectedTransactionId) {
     broadcastFail('EXACT_BROADCAST_TXID_MISMATCH', 'expectedTransactionId does not match the exact serialized transaction');
   }
+  const publicSinglePass = rpc !== null && typeof rpc === 'object'
+    && typeof rpc.submitExactTransaction === 'function';
   if (rpc === null || typeof rpc !== 'object'
-    || typeof rpc.testmempoolaccept !== 'function'
-    || typeof rpc.sendrawtransaction !== 'function'
-    || typeof rpc.getrawtransaction !== 'function') {
-    broadcastFail('EXACT_BROADCAST_RPC_REQUIRED', 'RPC testmempoolaccept, sendrawtransaction, and getrawtransaction capabilities are required');
+    || (!publicSinglePass && (typeof rpc.testmempoolaccept !== 'function'
+      || typeof rpc.sendrawtransaction !== 'function'
+      || typeof rpc.getrawtransaction !== 'function'))) {
+    broadcastFail('EXACT_BROADCAST_RPC_REQUIRED', 'an exact single-pass capability or BCHN preflight/send/readback capabilities are required');
   }
   if (typeof beforeSendAttempt !== 'function') {
     broadcastFail('EXACT_BROADCAST_DURABILITY_REQUIRED', 'beforeSendAttempt must durably commit the pre-send boundary');
@@ -240,6 +242,38 @@ export async function admitAndSendExactTransactionOnce({
     });
   } catch (error) {
     broadcastFail('EXACT_BROADCAST_NETWORK_REJECTED', 'the mandatory network/broadcast gate rejected this transaction', { cause: error });
+  }
+
+  if (publicSinglePass) {
+    try {
+      await beforeSendAttempt(Object.freeze({
+        transactionId: expectedTransactionId,
+        rawTransactionHex,
+      }));
+    } catch (error) {
+      broadcastFail('EXACT_BROADCAST_DURABILITY_FAILED', 'the durable pre-send callback failed before any network mutation', { cause: error });
+    }
+    let observed;
+    try {
+      observed = await rpc.submitExactTransaction(rawTransactionHex, expectedTransactionId);
+    } catch (error) {
+      broadcastFail('EXACT_BROADCAST_SEND_INDETERMINATE', 'public Chipnet send outcome is indeterminate', {
+        cause: error,
+        sendAttempted: true,
+      });
+    }
+    const raw = observed?.rawTransaction;
+    if (observed?.transactionId !== expectedTransactionId
+      || raw?.txid !== expectedTransactionId || raw?.hex !== rawTransactionHex) {
+      broadcastFail('EXACT_BROADCAST_READBACK_INVALID', 'public Chipnet exact raw-transaction readback differs after send', {
+        sendAttempted: true,
+      });
+    }
+    return Object.freeze({
+      admission: Object.freeze({ allowed: true, txid: expectedTransactionId }),
+      transactionId: expectedTransactionId,
+      readback: Object.freeze({ transactionId: expectedTransactionId, rawTransactionHex: raw.hex }),
+    });
   }
 
   let mempool;
@@ -303,6 +337,110 @@ export async function admitAndSendExactTransactionOnce({
     admission: Object.freeze({ allowed: true, txid: expectedTransactionId }),
     transactionId: expectedTransactionId,
     readback: Object.freeze({ transactionId: expectedTransactionId, rawTransactionHex: raw }),
+  });
+}
+
+/**
+ * Action-only BCHN mutation boundary. After the caller durably commits its
+ * final pre-send state, one branded RPC operation performs sendrawtransaction
+ * followed by exact raw and output readback over one transport. There is no
+ * testmempoolaccept preflight, so BCHN receives one admission request.
+ *
+ * Any exception after the durable callback begins the remote operation is
+ * indeterminate. Callers must reconcile the exact transaction read-only and
+ * must never automatically retry it.
+ */
+export async function sendAndReadbackExactTransactionOnce({
+  rpc,
+  rawTransactionHex,
+  expectedTransactionId,
+  stateOutputIndex = 0,
+  network,
+  setupMode,
+  mainnetAcknowledged = false,
+  allowDevelopmentOnMainnet = false,
+  beforeSendAttempt,
+}) {
+  if (typeof expectedTransactionId !== 'string' || !TXID.test(expectedTransactionId)) {
+    broadcastFail('EXACT_BROADCAST_INVALID', 'expectedTransactionId must be a lowercase 32-byte transaction ID');
+  }
+  let computedTransactionId;
+  try {
+    computedTransactionId = transactionIdFromHex(rawTransactionHex);
+  } catch (error) {
+    broadcastFail('EXACT_BROADCAST_INVALID', 'rawTransactionHex is not a canonical serialized transaction', { cause: error });
+  }
+  if (computedTransactionId !== expectedTransactionId) {
+    broadcastFail('EXACT_BROADCAST_TXID_MISMATCH', 'expectedTransactionId does not match the exact serialized transaction');
+  }
+  if (!Number.isSafeInteger(stateOutputIndex) || stateOutputIndex < 0) {
+    broadcastFail('EXACT_BROADCAST_INVALID', 'stateOutputIndex must be a nonnegative safe integer');
+  }
+  if (rpc === null || typeof rpc !== 'object'
+    || typeof rpc.submitV2SinglePassAdmission !== 'function') {
+    broadcastFail(
+      'EXACT_BROADCAST_RPC_REQUIRED',
+      'a branded single-pass BCHN send and readback capability is required',
+    );
+  }
+  if (typeof beforeSendAttempt !== 'function') {
+    broadcastFail('EXACT_BROADCAST_DURABILITY_REQUIRED', 'beforeSendAttempt must durably commit the pre-send boundary');
+  }
+  try {
+    assertBroadcastAllowed({
+      network,
+      setupMode,
+      mainnetAcknowledged,
+      allowDevelopmentOnMainnet,
+    });
+  } catch (error) {
+    broadcastFail('EXACT_BROADCAST_NETWORK_REJECTED', 'the mandatory network/broadcast gate rejected this transaction', { cause: error });
+  }
+
+  try {
+    await beforeSendAttempt(Object.freeze({
+      transactionId: expectedTransactionId,
+      rawTransactionHex,
+    }));
+  } catch (error) {
+    broadcastFail('EXACT_BROADCAST_DURABILITY_FAILED', 'the durable pre-send callback failed before any network mutation', { cause: error });
+  }
+
+  let observed;
+  try {
+    observed = await rpc.submitV2SinglePassAdmission(
+      rawTransactionHex,
+      expectedTransactionId,
+      stateOutputIndex,
+    );
+  } catch (error) {
+    broadcastFail('EXACT_BROADCAST_SEND_INDETERMINATE', 'BCHN send and readback outcome is indeterminate', {
+      cause: error,
+      sendAttempted: true,
+    });
+  }
+  const raw = observed?.rawTransaction;
+  if (observed === null || typeof observed !== 'object' || Array.isArray(observed)
+    || observed.transactionId !== expectedTransactionId
+    || raw === null || typeof raw !== 'object' || Array.isArray(raw)
+    || raw.txid !== expectedTransactionId || raw.hex !== rawTransactionHex
+    || (observed.stateOutput !== null
+      && (typeof observed.stateOutput !== 'object'
+        || Array.isArray(observed.stateOutput)))) {
+    broadcastFail(
+      'EXACT_BROADCAST_READBACK_INVALID',
+      'BCHN single-pass exact transaction or state readback is malformed or differs',
+      { sendAttempted: true },
+    );
+  }
+  return Object.freeze({
+    admission: Object.freeze({ allowed: true, txid: expectedTransactionId }),
+    transactionId: expectedTransactionId,
+    readback: Object.freeze({
+      transactionId: expectedTransactionId,
+      rawTransactionHex: raw.hex,
+      stateOutput: observed.stateOutput,
+    }),
   });
 }
 

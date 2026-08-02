@@ -121,6 +121,9 @@ const BETA_PRODUCT_PORTABLE_SECURITY_TESTS = new Map([
   ['packages/kit/v2/beta-product-pool-create-journal.test.mjs', 'product pool-create journal test'],
   ['packages/kit/v2/beta-product-pool-create.test.mjs', 'product pool-create test'],
   ['packages/kit/v2/beta-product-pool-funding.test.mjs', 'product pool funding test'],
+  ['packages/kit/v2/performance-source-reservations.test.mjs', 'product fresh-pool performance source reservation security test'],
+  ['packages/kit/v2/operator-source-registry.test.mjs', 'operator-owned canonical source registry test'],
+  ['packages/kit/v2/operator-fanout.test.mjs', 'operator multi-input fanout and recovery boundary test'],
   ['packages/kit/v2/beta-product-runtime-refresh.test.mjs', 'product explicit runtime refresh security test'],
   ['packages/kit/v2/beta-product-session.test.mjs', 'product session lifecycle test'],
   ['packages/kit/v2/beta-product-wallet.test.mjs', 'product wallet test'],
@@ -134,6 +137,7 @@ const BETA_PRODUCT_PORTABLE_SECURITY_TESTS = new Map([
   ['packages/prove/v2/native-groth16-proof-worker.test.mjs', 'product native proof workspace security test'],
   ['packages/prove/v2/native-groth16-prover-installation.test.mjs', 'product native prover receipt/cache test'],
   ['scripts/v2-beta-live-action-evidence.test.mjs', 'product live-action evidence validator test'],
+  ['scripts/v2-beta-live-action-chain-attestation.test.mjs', 'product independent BCHN action-attestation test'],
   ['scripts/v2-beta-live-evidence-bundle-verify.test.mjs', 'product independent live evidence-bundle verifier test'],
   ['scripts/v2-beta-live-pool-create-performance.test.mjs', 'product fresh pool-create performance evidence test'],
 ]);

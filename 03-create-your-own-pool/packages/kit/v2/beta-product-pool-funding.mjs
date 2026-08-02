@@ -13,8 +13,8 @@ import path from 'node:path';
 import { secp256k1 } from '@bitauth/libauth';
 
 import {
-  assertLayer1BchnChipnetRpc,
-  createLayer1BchnChipnetRpc,
+  assertBchnChipnetRpc,
+  createPublicChipnetFulcrumRpc,
 } from '../chipnet-rpc.mjs';
 import {
   buildV2BetaChipnetBootstrapFunding,
@@ -297,7 +297,7 @@ async function authenticateExactOutpoint(rpc, outpoint, wallet) {
 }
 
 /**
- * Authenticate one explicitly supplied BCHN transaction without scanning or
+ * Authenticate one explicitly supplied Chipnet transaction without scanning or
  * waiting for confirmation. Raw bytes establish the txid and source output;
  * gettxout's include-mempool view establishes that the exact output remains
  * spendable now. Only raw-tokenless outputs to this generated wallet enter the
@@ -644,93 +644,100 @@ async function prepare(value, dependencies) {
     ? await dependencies.loadWallet({ filename: value.fundingWalletPath })
     : undefined;
   const wallet = userWallet ?? await createOrLoadWallet(paths.walletPath, dependencies);
-  const rpc = dependencies.sharedRpc === undefined
+  const ownsRpc = dependencies.sharedRpc === undefined;
+  const rpc = ownsRpc
     ? dependencies.assertRpc(await dependencies.createRpc())
     : dependencies.assertRpc(dependencies.sharedRpc);
-  let authenticated;
-  if (directFunding) {
-    const exact = await authenticateExactOutpoint(rpc, requestedOutpoint, wallet);
-    if (exact === null) {
-      fail('POOL_FUNDING_USER_UTXO_REJECTED', 'the exact user-owned funding outpoint is absent, spent, token-bearing, or does not match the supplied wallet');
-    }
-    authenticated = [exact];
-  } else if (value.fundingTxid !== undefined) {
-    authenticated = await authenticateHintedCandidates(rpc, value.fundingTxid, wallet);
-  } else {
-    let scanned;
-    try { scanned = await rpc.scanAddress(wallet.cashAddress); }
-    catch (error) { fail('POOL_FUNDING_SCAN_FAILED', 'BCHN Chipnet funding scan failed', { cause: error }); }
-    if (!Array.isArray(scanned)) fail('POOL_FUNDING_SCAN_FAILED', 'BCHN Chipnet funding scan returned a non-array observation');
-    const candidates = scanned.map(scanEntry).filter((entry) => entry !== null);
-    authenticated = [];
-    for (const candidate of candidates) {
-      const checked = await authenticateCandidate(rpc, candidate, wallet);
-      if (checked !== null) authenticated.push(checked);
-    }
-  }
-  let inspected;
   try {
-    inspected = inspectV2FundingUtxos({
-      fundingLockingBytecodeHex: wallet.lockingBytecodeHex,
-      utxos: Object.freeze(authenticated),
-    });
-  } catch (error) {
-    fail('POOL_FUNDING_AUTHENTICATION_FAILED', 'BCHN funding observations could not be authenticated', { cause: error });
-  }
-  for (const source of inspected) {
+    let authenticated;
+    if (directFunding) {
+      const exact = await authenticateExactOutpoint(rpc, requestedOutpoint, wallet);
+      if (exact === null) {
+        fail('POOL_FUNDING_USER_UTXO_REJECTED', 'the exact user-owned funding outpoint is absent, spent, token-bearing, or does not match the supplied wallet');
+      }
+      authenticated = [exact];
+    } else if (value.fundingTxid !== undefined) {
+      authenticated = await authenticateHintedCandidates(rpc, value.fundingTxid, wallet);
+    } else {
+      let scanned;
+      try { scanned = await rpc.scanAddress(wallet.cashAddress); }
+      catch (error) { fail('POOL_FUNDING_SCAN_FAILED', 'Chipnet product funding scan failed', { cause: error }); }
+      if (!Array.isArray(scanned)) fail('POOL_FUNDING_SCAN_FAILED', 'Chipnet product funding scan returned a non-array observation');
+      const candidates = scanned.map(scanEntry).filter((entry) => entry !== null);
+      authenticated = [];
+      for (const candidate of candidates) {
+        const checked = await authenticateCandidate(rpc, candidate, wallet);
+        if (checked !== null) authenticated.push(checked);
+      }
+    }
+    let inspected;
     try {
-      if (directFunding && BigInt(source.valueSats) < MINIMUM_BOOTSTRAP_VALUE_BEFORE_SIGNATURE) {
-        fail('POOL_FUNDING_USER_UTXO_INSUFFICIENT', 'the exact user-owned funding outpoint cannot meet fixed bootstrap reserves and dust-safe change');
-      }
-      // The copied private wallet is durable before the first signature. It
-      // lets recovery reconstruct only this exact bootstrap after any crash.
-      const signingWallet = directFunding
-        ? await persistUserWalletForRecovery(paths.walletPath, wallet, dependencies)
-        : wallet;
-      const bootstrap = buildV2BetaChipnetBootstrapFunding({
-        depositReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
-        fundingPrivateKeyHex: signingWallet.privateKeyHex,
-        fundingPublicKeyHex: signingWallet.compressedPublicKeyHex,
-        genesisSourceSats: V2_BETA_PRODUCT_BOOTSTRAP_GENESIS_SOURCE_SATS,
-        source: {
-          lockingBytecodeHex: source.lockingBytecodeHex,
-          outputIndex: source.vout,
-          token: null,
-          transactionId: source.txid,
-          valueSats: source.valueSats,
-        },
-        walletLockingBytecodeHex: signingWallet.lockingBytecodeHex,
-        withdrawalReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
-      });
-      if (JSON.stringify(bootstrap).includes(signingWallet.privateKeyHex)) {
-        fail('POOL_FUNDING_INTERNAL', 'bootstrap record unexpectedly contains funding private-key material');
-      }
-      const capability = createBootstrapReadyCapability(signingWallet, bootstrap);
-      return Object.freeze({
-        schema: V2_BETA_PRODUCT_POOL_FUNDING_SCHEMA,
-        status: 'bootstrap-ready',
-        configPath: created.configPath,
-        fundingWallet: projectV2FundingWalletPublic(signingWallet),
-        source,
-        capability,
+      inspected = inspectV2FundingUtxos({
+        fundingLockingBytecodeHex: wallet.lockingBytecodeHex,
+        utxos: Object.freeze(authenticated),
       });
     } catch (error) {
-      if (!(error instanceof V2BetaChipnetFundingError)
-        || error.code !== 'BOOTSTRAP_FUNDING_INSUFFICIENT') throw error;
+      fail('POOL_FUNDING_AUTHENTICATION_FAILED', 'Chipnet product funding observations could not be authenticated', { cause: error });
+    }
+    for (const source of inspected) {
+      try {
+        if (directFunding && BigInt(source.valueSats) < MINIMUM_BOOTSTRAP_VALUE_BEFORE_SIGNATURE) {
+          fail('POOL_FUNDING_USER_UTXO_INSUFFICIENT', 'the exact user-owned funding outpoint cannot meet fixed bootstrap reserves and dust-safe change');
+        }
+        // The copied private wallet is durable before the first signature. It
+        // lets recovery reconstruct only this exact bootstrap after any crash.
+        const signingWallet = directFunding
+          ? await persistUserWalletForRecovery(paths.walletPath, wallet, dependencies)
+          : wallet;
+        const bootstrap = buildV2BetaChipnetBootstrapFunding({
+          depositReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_DEPOSIT_RESERVE_SATS,
+          fundingPrivateKeyHex: signingWallet.privateKeyHex,
+          fundingPublicKeyHex: signingWallet.compressedPublicKeyHex,
+          genesisSourceSats: V2_BETA_PRODUCT_BOOTSTRAP_GENESIS_SOURCE_SATS,
+          source: {
+            lockingBytecodeHex: source.lockingBytecodeHex,
+            outputIndex: source.vout,
+            token: null,
+            transactionId: source.txid,
+            valueSats: source.valueSats,
+          },
+          walletLockingBytecodeHex: signingWallet.lockingBytecodeHex,
+          withdrawalReserveSats: V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
+        });
+        if (JSON.stringify(bootstrap).includes(signingWallet.privateKeyHex)) {
+          fail('POOL_FUNDING_INTERNAL', 'bootstrap record unexpectedly contains funding private-key material');
+        }
+        const capability = createBootstrapReadyCapability(signingWallet, bootstrap);
+        return Object.freeze({
+          schema: V2_BETA_PRODUCT_POOL_FUNDING_SCHEMA,
+          status: 'bootstrap-ready',
+          configPath: created.configPath,
+          fundingWallet: projectV2FundingWalletPublic(signingWallet),
+          source,
+          capability,
+        });
+      } catch (error) {
+        if (!(error instanceof V2BetaChipnetFundingError)
+          || error.code !== 'BOOTSTRAP_FUNDING_INSUFFICIENT') throw error;
+      }
+    }
+    if (directFunding) {
+      fail('POOL_FUNDING_USER_UTXO_INSUFFICIENT', 'the exact user-owned funding outpoint cannot fund the required bootstrap and fee');
+    }
+    return fundingRequired(created.configPath, wallet);
+  } finally {
+    if (ownsRpc) {
+      try { await rpc?.close?.(); } catch { /* preserve the funding result/error */ }
     }
   }
-  if (directFunding) {
-    fail('POOL_FUNDING_USER_UTXO_INSUFFICIENT', 'the exact user-owned funding outpoint cannot fund the required bootstrap and fee');
-  }
-  return fundingRequired(created.configPath, wallet);
 }
 
 /** Create/load local private prerequisites and prepare one in-memory bootstrap. */
 export async function createV2BetaProductPoolFunding(value = {}) {
   return prepare(value, Object.freeze({
-    assertRpc: assertLayer1BchnChipnetRpc,
+    assertRpc: assertBchnChipnetRpc,
     createConfig: createV2BetaProductConfig,
-    createRpc: createLayer1BchnChipnetRpc,
+    createRpc: createPublicChipnetFulcrumRpc,
     createWallet: createV2ChipnetFundingWallet,
     loadConfig: loadV2BetaProductConfig,
     loadWallet: loadV2ChipnetFundingWallet,
@@ -740,9 +747,9 @@ export async function createV2BetaProductPoolFunding(value = {}) {
 
 async function createPoolCreateRpc(createRpc) {
   let rpc;
-  try { rpc = assertLayer1BchnChipnetRpc(await createRpc()); }
+  try { rpc = assertBchnChipnetRpc(await createRpc()); }
   catch (error) {
-    fail('POOL_FUNDING_RPC_CAPABILITY_REQUIRED', 'pool-create RPC construction did not yield a fixed-route genesis-checked BCHN capability', { cause: error });
+    fail('POOL_FUNDING_RPC_CAPABILITY_REQUIRED', 'pool-create RPC construction did not yield a fixed-route genesis-checked Chipnet product capability', { cause: error });
   }
   const capability = Object.freeze({
     schema: V2_BETA_PRODUCT_POOL_CREATE_RPC_SCHEMA,
@@ -753,9 +760,9 @@ async function createPoolCreateRpc(createRpc) {
   return capability;
 }
 
-/** Create one fixed-route, genesis-checked BCHN capability for pool creation. */
+/** Create one fixed-route, genesis-checked Chipnet product capability for pool creation. */
 export async function createV2BetaProductPoolCreateRpc() {
-  return createPoolCreateRpc(createLayer1BchnChipnetRpc);
+  return createPoolCreateRpc(createPublicChipnetFulcrumRpc);
 }
 
 /** Test-only fixed-capability constructor; production never accepts an RPC seam. */
@@ -770,9 +777,9 @@ export async function createV2BetaProductPoolCreateRpcForTest({ createRpc } = {}
 export function consumeV2BetaProductPoolCreateRpc(value) {
   const rpc = POOL_CREATE_RPCS.get(value);
   if (rpc === undefined) {
-    fail('POOL_FUNDING_RPC_CAPABILITY_REQUIRED', 'a branded fixed-route pool-create BCHN RPC capability is required');
+    fail('POOL_FUNDING_RPC_CAPABILITY_REQUIRED', 'a branded fixed-route pool-create Chipnet product capability is required');
   }
-  return assertLayer1BchnChipnetRpc(rpc);
+  return assertBchnChipnetRpc(rpc);
 }
 
 async function createFundingWithPoolCreateRpc(value, poolCreateRpc, dependencies) {
@@ -782,12 +789,12 @@ async function createFundingWithPoolCreateRpc(value, poolCreateRpc, dependencies
   }));
 }
 
-/** Reuse the exact branded pool-create BCHN connection for funding discovery. */
+/** Reuse the exact branded pool-create Chipnet product connection for funding discovery. */
 export async function createV2BetaProductPoolFundingWithPoolCreateRpc(value = {}, poolCreateRpc) {
   return createFundingWithPoolCreateRpc(value, poolCreateRpc, Object.freeze({
-    assertRpc: assertLayer1BchnChipnetRpc,
+    assertRpc: assertBchnChipnetRpc,
     createConfig: createV2BetaProductConfig,
-    createRpc: createLayer1BchnChipnetRpc,
+    createRpc: createPublicChipnetFulcrumRpc,
     createWallet: createV2ChipnetFundingWallet,
     loadConfig: loadV2BetaProductConfig,
     loadWallet: loadV2ChipnetFundingWallet,

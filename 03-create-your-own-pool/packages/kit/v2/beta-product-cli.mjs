@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { createLayer1BchnChipnetRpc } from '../chipnet-rpc.mjs';
+import { createPublicChipnetFulcrumRpc } from '../chipnet-rpc.mjs';
 import {
   loadV2BetaProductConfig,
   toV2BetaProductContextConfig,
@@ -29,9 +29,9 @@ const fail = (code, message, options = undefined) => {
 };
 
 const VALUE_OPTIONS = new Set([
-  'attempt-token', 'data-home', 'funding-txid', 'funding-utxo', 'funding-wallet', 'note', 'operation-id', 'to',
+  'attempt-token', 'data-home', 'funding-utxo', 'funding-wallet', 'note', 'operation-id', 'to',
 ]);
-const BOOLEAN_OPTIONS = new Set(['acknowledge-exact-rebroadcast', 'human', 'json']);
+const BOOLEAN_OPTIONS = new Set(['acknowledge-exact-rebroadcast', 'human', 'json', 'resume']);
 
 function parse(tokens) {
   if (!Array.isArray(tokens) || tokens.some((entry) => typeof entry !== 'string')) {
@@ -86,7 +86,7 @@ function parse(tokens) {
     : command === 'deposit'
       ? new Set(['data-home', 'human', 'json', 'operation-id'])
       : command === 'pool-create'
-        ? new Set(['data-home', 'funding-txid', 'funding-utxo', 'funding-wallet', 'human', 'json'])
+        ? new Set(['data-home', 'funding-utxo', 'funding-wallet', 'human', 'json', 'resume'])
         : command === 'pool-refresh-runtime'
           ? new Set(['data-home', 'human', 'json'])
         : command === 'recovery-inspect'
@@ -125,16 +125,16 @@ function parse(tokens) {
       || path.normalize(options['data-home']) !== options['data-home'])) {
       fail('BETA_CLI_DATA_HOME_REJECTED', '--data-home must be a normalized absolute path');
   }
-  if (options['funding-txid'] !== undefined
-    && !/^[0-9a-f]{64}$/u.test(options['funding-txid'])) {
-    fail('BETA_CLI_FUNDING_TXID_REJECTED', '--funding-txid must be exactly 64 lowercase hexadecimal characters');
-  }
   const directFunding = options['funding-wallet'] !== undefined || options['funding-utxo'] !== undefined;
   if (directFunding && (options['funding-wallet'] === undefined || options['funding-utxo'] === undefined)) {
     fail('BETA_CLI_USER_FUNDING_REQUIRED', 'pool create requires both --funding-wallet and --funding-utxo');
   }
-  if (directFunding && options['funding-txid'] !== undefined) {
-    fail('BETA_CLI_FUNDING_AMBIGUOUS', '--funding-txid cannot be combined with direct user funding');
+  const resumePoolCreate = options.resume === true;
+  if (command === 'pool-create' && resumePoolCreate && directFunding) {
+    fail('BETA_CLI_FUNDING_AMBIGUOUS', 'pool create --resume cannot accept a new funding wallet or outpoint');
+  }
+  if (command === 'pool-create' && !resumePoolCreate && !directFunding) {
+    fail('BETA_CLI_USER_FUNDING_REQUIRED', 'new pool creation requires --funding-wallet and --funding-utxo in the same invocation; use --resume only for an existing durable create operation');
   }
   if (options['funding-wallet'] !== undefined
     && (!path.isAbsolute(options['funding-wallet'])
@@ -168,7 +168,7 @@ export function isV2BetaProductCliInvocation(tokens) {
 
 function productionDependencies() {
   return Object.freeze({
-    createRpc: createLayer1BchnChipnetRpc,
+    createRpc: createPublicChipnetFulcrumRpc,
     loadConfig: loadV2BetaProductConfig,
     toContextConfig: toV2BetaProductContextConfig,
     deposit: executeV2BetaProductDeposit,
@@ -209,12 +209,11 @@ async function execute(tokens, dependencies) {
     result = await dependencies.poolCreate(
       Object.freeze({
         ...(dataHome === undefined ? {} : { dataHome }),
-        ...(request.options['funding-txid'] === undefined
-          ? {} : { fundingTxid: request.options['funding-txid'] }),
         ...(request.options['funding-wallet'] === undefined
           ? {} : { fundingWalletPath: request.options['funding-wallet'] }),
         ...(request.options['funding-utxo'] === undefined
           ? {} : { fundingUtxo: request.options['funding-utxo'] }),
+        ...(request.options.resume === true ? { resume: true } : {}),
       }),
     );
   } else if (request.command === 'pool-refresh-runtime') {
@@ -222,40 +221,45 @@ async function execute(tokens, dependencies) {
       ...(dataHome === undefined ? {} : { dataHome }),
     }));
   } else {
-    const [loaded, rpc] = await Promise.all([
-      dependencies.loadConfig(dataHome === undefined ? {} : { dataHome }),
-      dependencies.createRpc(),
-    ]);
+    // Validate the local product boundary before opening sockets. One RPC
+    // capability is then reused for the complete command and always closed,
+    // including error and explicit recovery routes.
+    const loaded = await dependencies.loadConfig(dataHome === undefined ? {} : { dataHome });
     const config = dependencies.toContextConfig(loaded.config);
-    result = request.command === 'deposit'
-      ? await dependencies.deposit({
-        config,
-        rpc,
-        ...(request.options['operation-id'] === undefined
-          ? {} : { operationId: request.options['operation-id'] }),
-      })
-      : request.command === 'withdraw'
-        ? await dependencies.withdrawal({
+    const rpc = await dependencies.createRpc();
+    try {
+      result = request.command === 'deposit'
+        ? await dependencies.deposit({
           config,
           rpc,
-          toCashAddress: request.options.to,
-          ...(request.options.note === undefined ? {} : { noteId: request.options.note }),
           ...(request.options['operation-id'] === undefined
             ? {} : { operationId: request.options['operation-id'] }),
         })
-        : request.command === 'recovery-inspect'
-          ? await dependencies.inspectRecovery({
+        : request.command === 'withdraw'
+          ? await dependencies.withdrawal({
             config,
-            operationId: request.options['operation-id'],
             rpc,
+            toCashAddress: request.options.to,
+            ...(request.options.note === undefined ? {} : { noteId: request.options.note }),
+            ...(request.options['operation-id'] === undefined
+              ? {} : { operationId: request.options['operation-id'] }),
           })
-          : await dependencies.recovery({
-          acknowledgedExactRebroadcast: true,
-          config,
-          operationId: request.options['operation-id'],
-          priorAttemptToken: request.options['attempt-token'],
-          rpc,
-        });
+          : request.command === 'recovery-inspect'
+            ? await dependencies.inspectRecovery({
+              config,
+              operationId: request.options['operation-id'],
+              rpc,
+            })
+            : await dependencies.recovery({
+              acknowledgedExactRebroadcast: true,
+              config,
+              operationId: request.options['operation-id'],
+              priorAttemptToken: request.options['attempt-token'],
+              rpc,
+            });
+    } finally {
+      try { await rpc?.close?.(); } catch { /* preserve the command result/error */ }
+    }
   }
   return Object.freeze({
     schema: V2_BETA_PRODUCT_CLI_SCHEMA,

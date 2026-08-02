@@ -1,16 +1,115 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
+import { encodeTokenPrefix } from '@bitauth/libauth';
+
 import {
+  assertChipnetProductRpc,
   assertLayer1BchnChipnetRpc,
   CHIPNET_GENESIS_HASH,
   createLayer1BchnChipnetRpcForTest,
+  openPublicElectrumSessionForTest,
+  createPublicChipnetFulcrumRpcForTest,
   LAYER1_BCHN_CHIPNET_BACKEND,
+  observeChipnetProductRpc,
   observeLayer1BchnChipnetRpc,
 } from './chipnet-rpc.mjs';
 
 const TXID = 'ab'.repeat(32);
 const RAW_TRANSACTION = '01000000000000000000';
+const RAW_TRANSACTION_TXID =
+  'd21633ba23f70118185227be58a63527675641ad37967e2aa461559f577aec43';
+const H = (byte) => byte.repeat(64);
+const txidOf = (raw) => createHash('sha256').update(
+  createHash('sha256').update(Buffer.from(raw, 'hex')).digest(),
+).digest().reverse().toString('hex');
+const le64 = (value) => Buffer.from(Uint8Array.from({ length: 8 }, (_, index) =>
+  Number((BigInt(value) >> BigInt(index * 8)) & 0xffn),
+)).toString('hex');
+const serializedOutput = (valueSats, contentsHex) =>
+  `${le64(valueSats)}${(contentsHex.length / 2).toString(16).padStart(2, '0')}${contentsHex}`;
+const rawWithOneInput = (outputs) =>
+  `0200000001${Buffer.from(H('f'), 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.join('')}00000000`;
+
+function publicTransactionFixture() {
+  const instanceId = Buffer.from(Uint8Array.from(
+    { length: 32 }, (_, index) => index + 1,
+  )).toString('hex');
+  const commitment = H('2').repeat(4);
+  const prefix = Buffer.from(encodeTokenPrefix({
+    category: Uint8Array.from(Buffer.from(instanceId, 'hex').reverse()),
+    amount: 0n,
+    nft: {
+      capability: 'mutable',
+      commitment: Uint8Array.from(Buffer.from(commitment, 'hex')),
+    },
+  })).toString('hex');
+  const lockingBytecodeHex = '51';
+  const raw = rawWithOneInput([
+    serializedOutput('546', `${prefix}${lockingBytecodeHex}`),
+  ]);
+  return Object.freeze({
+    raw,
+    transactionId: txidOf(raw),
+    lockingBytecodeHex,
+    instanceId,
+    category: Buffer.from(instanceId, 'hex').reverse().toString('hex'),
+    commitment,
+    scripthash: createHash('sha256').update(
+      Buffer.from(lockingBytecodeHex, 'hex'),
+    ).digest().reverse().toString('hex'),
+  });
+}
+
+function publicElectrumFixture({
+  genesis = CHIPNET_GENESIS_HASH,
+  negotiatedVersion = '1.6',
+  broadcastError = undefined,
+  outputInfo = undefined,
+} = {}) {
+  const transaction = publicTransactionFixture();
+  const calls = [];
+  const closes = [];
+  const endpoints = Object.freeze([
+    Object.freeze({ host: 'one.example', port: 50002, tls: true }),
+    Object.freeze({ host: 'two.example', port: 50002, tls: true }),
+  ]);
+  const openSession = async (endpoint) => Object.freeze({
+    async request(method, params) {
+      calls.push(Object.freeze({ host: endpoint.host, method, params: [...params] }));
+      if (method === 'server.features') return { genesis_hash: genesis };
+      if (method === 'server.version') return ['Fulcrum', negotiatedVersion];
+      if (method === 'blockchain.transaction.broadcast') {
+        if (broadcastError !== undefined) throw broadcastError;
+        return transaction.transactionId;
+      }
+      if (method === 'blockchain.transaction.get') return transaction.raw;
+      if (method === 'blockchain.utxo.get_info') {
+        return outputInfo ?? {
+          value: 546,
+          scripthash: transaction.scripthash,
+          token_data: {
+            amount: '0',
+            category: transaction.category,
+            nft: { capability: 'mutable', commitment: transaction.commitment },
+          },
+        };
+      }
+      if (method === 'blockchain.scripthash.listunspent') {
+        return [{ tx_hash: transaction.transactionId, tx_pos: 0, value: 546 }];
+      }
+      throw new Error(`unexpected public Electrum method ${method}`);
+    },
+    close() { closes.push(endpoint.host); },
+  });
+  return Object.freeze({ calls, closes, endpoints, openSession, transaction });
+}
 
 function bchnFixture(calls, {
   genesis = CHIPNET_GENESIS_HASH,
@@ -62,6 +161,140 @@ test('creates a capability only after direct layer1 BCHN Chipnet proof without h
   assert.deepEqual(calls, [
     { method: 'getblockhash', args: [0] },
   ]);
+});
+
+test('single-pass action admission binds exact bytes before one composite executor call', async () => {
+  const cliCalls = [];
+  const admissionCalls = [];
+  const stateOutput = {
+    bestblock: 'cd'.repeat(32),
+    value: 1.25,
+    tokenData: { amount: '0' },
+  };
+  const rpc = await createLayer1BchnChipnetRpcForTest({
+    executeLayer1Cli: bchnFixture(cliCalls),
+    async executeLayer1Admission(request) {
+      admissionCalls.push(request);
+      return {
+        transactionId: request.expectedTransactionId,
+        rawTransaction: {
+          txid: request.expectedTransactionId,
+          hex: request.rawTransactionHex,
+        },
+        stateOutput,
+      };
+    },
+  });
+  cliCalls.length = 0;
+
+  const result = await rpc.submitV2SinglePassAdmission(
+    RAW_TRANSACTION,
+    RAW_TRANSACTION_TXID,
+    0,
+  );
+  assert.deepEqual(admissionCalls, [{
+    expectedTransactionId: RAW_TRANSACTION_TXID,
+    outputIndex: 0,
+    rawTransactionHex: RAW_TRANSACTION,
+  }]);
+  assert.deepEqual(result, {
+    transactionId: RAW_TRANSACTION_TXID,
+    rawTransaction: {
+      txid: RAW_TRANSACTION_TXID,
+      hex: RAW_TRANSACTION,
+    },
+    stateOutput,
+  });
+  assert.deepEqual(cliCalls, []);
+  assert.deepEqual(observeLayer1BchnChipnetRpc(rpc).methodCounts, {
+    getblockhash: 1,
+    getrawtransaction: 1,
+    gettxout: 1,
+    scantxoutset: 0,
+    sendrawtransaction: 1,
+    testmempoolaccept: 0,
+  });
+});
+
+test('single-pass admission rejects mismatched bytes before counters or executor', async () => {
+  let admissionCalls = 0;
+  const rpc = await createLayer1BchnChipnetRpcForTest({
+    executeLayer1Cli: bchnFixture([]),
+    async executeLayer1Admission() {
+      admissionCalls += 1;
+      throw new Error('must not execute');
+    },
+  });
+  const before = observeLayer1BchnChipnetRpc(rpc);
+  await assert.rejects(
+    rpc.submitV2SinglePassAdmission(RAW_TRANSACTION, TXID, 0),
+    /transaction ID does not match/u,
+  );
+  assert.equal(admissionCalls, 0);
+  assert.deepEqual(observeLayer1BchnChipnetRpc(rpc), before);
+});
+
+test('single-pass admission rejects malformed executor results fail closed', async () => {
+  const malformed = [
+    null,
+    { transactionId: RAW_TRANSACTION_TXID, rawTransaction: {}, stateOutput: {} },
+    {
+      transactionId: RAW_TRANSACTION_TXID,
+      rawTransaction: { txid: RAW_TRANSACTION_TXID, hex: '00' },
+      stateOutput: {},
+    },
+    {
+      transactionId: RAW_TRANSACTION_TXID,
+      rawTransaction: { txid: RAW_TRANSACTION_TXID, hex: RAW_TRANSACTION },
+      stateOutput: [],
+    },
+  ];
+  for (const result of malformed) {
+    const rpc = await createLayer1BchnChipnetRpcForTest({
+      executeLayer1Cli: bchnFixture([]),
+      async executeLayer1Admission() { return result; },
+    });
+    await assert.rejects(
+      rpc.submitV2SinglePassAdmission(
+        RAW_TRANSACTION,
+        RAW_TRANSACTION_TXID,
+        0,
+      ),
+      /result is malformed/u,
+    );
+  }
+});
+
+test('single-pass admission records one untrusted composite attempt on transport loss, never a TMA', async () => {
+  const cliCalls = [];
+  let admissionCalls = 0;
+  const rpc = await createLayer1BchnChipnetRpcForTest({
+    executeLayer1Cli: bchnFixture(cliCalls),
+    async executeLayer1Admission() {
+      admissionCalls += 1;
+      throw new Error('test-only transport lost after request began');
+    },
+  });
+  cliCalls.length = 0;
+
+  await assert.rejects(
+    rpc.submitV2SinglePassAdmission(
+      RAW_TRANSACTION,
+      RAW_TRANSACTION_TXID,
+      0,
+    ),
+    /transport lost/u,
+  );
+  assert.equal(admissionCalls, 1);
+  assert.deepEqual(cliCalls, []);
+  assert.deepEqual(observeLayer1BchnChipnetRpc(rpc).methodCounts, {
+    getblockhash: 1,
+    getrawtransaction: 1,
+    gettxout: 1,
+    scantxoutset: 0,
+    sendrawtransaction: 1,
+    testmempoolaccept: 0,
+  });
 });
 
 test('BCHN gettxout maps empty trimmed output and JSON null to a spent/missing result', async () => {
@@ -156,4 +389,329 @@ test('BCHN-only handle validates requested arguments before the executor runs', 
     () => assertLayer1BchnChipnetRpc({ backend: LAYER1_BCHN_CHIPNET_BACKEND }),
     /capability is required/u,
   );
+});
+
+test('importing and constructing the public product transport never creates an SSH control directory', () => {
+  const runtimeDirectory = mkdtempSync(path.join(os.tmpdir(), 'shieldkit-public-transport-'));
+  try {
+    const moduleUrl = new URL('./chipnet-rpc.mjs', import.meta.url).href;
+    const program = `
+      const { createPublicChipnetFulcrumRpcForTest } = await import(${JSON.stringify(moduleUrl)});
+      const rpc = await createPublicChipnetFulcrumRpcForTest({
+        endpoints: [
+          { host: 'one.example', port: 50002, tls: true },
+          { host: 'two.example', port: 50002, tls: true },
+        ],
+        openSession: async () => ({
+          async request(method) {
+            if (method === 'server.features') return { genesis_hash: ${JSON.stringify(CHIPNET_GENESIS_HASH)} };
+            if (method === 'server.version') return ['Fulcrum', '1.6'];
+            throw new Error('unexpected method');
+          },
+          close() {},
+        }),
+      });
+      rpc.close();
+    `;
+    const child = spawnSync(process.execPath, ['--input-type=module', '--eval', program], {
+      encoding: 'utf8',
+      env: { ...process.env, XDG_RUNTIME_DIR: runtimeDirectory },
+    });
+    assert.equal(child.status, 0, child.stderr || child.stdout);
+    assert.equal(existsSync(path.join(runtimeDirectory, 'shieldkit', 'ssh')), false);
+  } finally {
+    rmSync(runtimeDirectory, { force: true, recursive: true });
+  }
+});
+
+test('public product transport pre-verifies two TLS/genesis-pinned providers, broadcasts once, and independently attests exact bytes', async () => {
+  const fixture = publicElectrumFixture();
+  const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
+  assert.strictEqual(assertChipnetProductRpc(rpc), rpc);
+  assert.equal(rpc.backend, 'public-chipnet-fulcrum-tls');
+  assert.equal(Object.hasOwn(rpc, 'testmempoolaccept'), false);
+  assert.equal(Object.hasOwn(rpc, 'sendrawtransaction'), false);
+
+  const result = await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
+  );
+  assert.equal(result.rawTransaction.hex, fixture.transaction.raw);
+  assert.equal(result.stateOutput.valueSatoshis, '546');
+  assert.equal(result.stateOutput.scriptPubKey.hex, '51');
+  assert.equal(result.stateOutput.tokenData.nft.capability, 'mutable');
+  assert.equal(result.stateOutput.tokenData.category, fixture.transaction.category);
+
+  const broadcasts = fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast');
+  assert.deepEqual(broadcasts, [{
+    host: 'one.example',
+    method: 'blockchain.transaction.broadcast',
+    params: [fixture.transaction.raw],
+  }]);
+  assert.equal(fixture.calls.some((call) => call.host === 'one.example'
+    && call.method === 'blockchain.transaction.get'), false);
+  assert.deepEqual(
+    fixture.calls.filter((call) => call.host === 'two.example'
+      && /blockchain\.(?:transaction\.get|utxo\.get_info)/u.test(call.method))
+      .map((call) => call.method),
+    ['blockchain.transaction.get', 'blockchain.utxo.get_info'],
+  );
+  assert.deepEqual(observeChipnetProductRpc(rpc), {
+    backend: 'public-chipnet-fulcrum-tls',
+    genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: {
+      getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
+      sendrawtransaction: 1, testmempoolaccept: 0,
+    },
+    physicalMethodCounts: {
+      'server.features': 2,
+      'server.version': 2,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 1,
+      'blockchain.scripthash.listunspent': 0,
+    },
+  });
+  rpc.close();
+  rpc.close();
+  assert.deepEqual(fixture.closes, ['one.example', 'two.example']);
+  await assert.rejects(
+    rpc.getrawtransaction(fixture.transaction.transactionId),
+    /capability is closed/u,
+  );
+});
+
+test('public product transport uses listunspent only for pre-1.5 negotiated providers and derives token state from raw bytes', async () => {
+  const fixture = publicElectrumFixture({ negotiatedVersion: '1.4' });
+  const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
+  const state = await rpc.gettxout(fixture.transaction.transactionId, 0);
+  assert.equal(state.valueSatoshis, '546');
+  assert.equal(state.tokenData.amount, '0');
+  assert.equal(fixture.calls.some((call) => call.method === 'blockchain.utxo.get_info'), false);
+  assert.equal(fixture.calls.filter((call) => call.method === 'blockchain.scripthash.listunspent').length, 2);
+});
+
+test('public product admission overlaps modern exact-raw and UTXO readback, then rejects adversarial token metadata', async () => {
+  const fixture = publicElectrumFixture();
+  const starts = [];
+  let releaseRaw;
+  let rawReleased = false;
+  const openSession = async (endpoint) => Object.freeze({
+    async request(method, params) {
+      if (method === 'server.features' || method === 'server.version') {
+        return fixture.openSession(endpoint).then((session) => session.request(method, params));
+      }
+      starts.push(`${endpoint.host}:${method}`);
+      if (method === 'blockchain.transaction.broadcast') return fixture.transaction.transactionId;
+      if (method === 'blockchain.transaction.get') {
+        return new Promise((resolve) => { releaseRaw = resolve; });
+      }
+      if (method === 'blockchain.utxo.get_info') {
+        assert.equal(rawReleased, false, 'UTXO read must begin before the exact raw response resolves');
+        rawReleased = true;
+        releaseRaw(fixture.transaction.raw);
+        return {
+          value: 546,
+          scripthash: fixture.transaction.scripthash,
+          token_data: {
+            amount: '0', category: fixture.transaction.category,
+            nft: { capability: 'mutable', commitment: fixture.transaction.commitment },
+          },
+        };
+      }
+      throw new Error(`unexpected public Electrum method ${method}`);
+    },
+    close() {},
+  });
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints: fixture.endpoints,
+    openSession,
+  });
+  await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
+  );
+  assert.deepEqual(starts, [
+    'one.example:blockchain.transaction.broadcast',
+    'two.example:blockchain.transaction.get',
+    'two.example:blockchain.utxo.get_info',
+  ]);
+  rpc.close();
+
+  const adversarial = publicElectrumFixture({
+    outputInfo: {
+      value: 546,
+      scripthash: fixture.transaction.scripthash,
+      token_data: {
+        amount: '0', category: '00'.repeat(32),
+        nft: { capability: 'mutable', commitment: fixture.transaction.commitment },
+      },
+    },
+  });
+  const adversarialRpc = await createPublicChipnetFulcrumRpcForTest(adversarial);
+  await assert.rejects(
+    adversarialRpc.submitV2SinglePassAdmission(
+      adversarial.transaction.raw,
+      adversarial.transaction.transactionId,
+      0,
+    ),
+    /token metadata disagrees/u,
+  );
+  adversarialRpc.close();
+});
+
+test('public gettxout overlaps two-provider raw consensus with modern UTXO visibility', async () => {
+  const fixture = publicElectrumFixture();
+  const starts = [];
+  const rawResolvers = new Map();
+  let rawResponseReleased = false;
+  const openSession = async (endpoint) => Object.freeze({
+    async request(method, params) {
+      if (method === 'server.features' || method === 'server.version') {
+        return fixture.openSession(endpoint).then((session) => session.request(method, params));
+      }
+      starts.push(`${endpoint.host}:${method}`);
+      if (method === 'blockchain.transaction.get') {
+        return new Promise((resolve) => { rawResolvers.set(endpoint.host, resolve); });
+      }
+      if (method === 'blockchain.utxo.get_info') {
+        if (!rawResponseReleased) {
+          assert.equal(rawResolvers.size, 2, 'both exact raw reads must be in flight');
+          rawResponseReleased = true;
+          for (const resolve of rawResolvers.values()) resolve(fixture.transaction.raw);
+        }
+        return {
+          value: 546,
+          scripthash: fixture.transaction.scripthash,
+          token_data: {
+            amount: '0', category: fixture.transaction.category,
+            nft: { capability: 'mutable', commitment: fixture.transaction.commitment },
+          },
+        };
+      }
+      throw new Error(`unexpected public Electrum method ${method}`);
+    },
+    close() {},
+  });
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints: fixture.endpoints,
+    openSession,
+  });
+  const state = await rpc.gettxout(fixture.transaction.transactionId, 0);
+  assert.equal(state.valueSatoshis, '546');
+  assert.deepEqual(starts.slice(0, 3), [
+    'one.example:blockchain.transaction.get',
+    'two.example:blockchain.transaction.get',
+    'one.example:blockchain.utxo.get_info',
+  ]);
+  rpc.close();
+});
+
+test('public product transport connects both providers concurrently and shares one exact raw read across concurrent state queries', async () => {
+  const fixture = publicElectrumFixture();
+  const started = [];
+  const openSession = async (endpoint) => {
+    started.push(endpoint.host);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started.length, 2, 'provider startup must not serialize TLS handshakes');
+    return fixture.openSession(endpoint);
+  };
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints: fixture.endpoints,
+    openSession,
+  });
+  const [raw, state] = await Promise.all([
+    rpc.getrawtransaction(fixture.transaction.transactionId),
+    rpc.gettxout(fixture.transaction.transactionId, 0),
+  ]);
+  assert.equal(raw, fixture.transaction.raw);
+  assert.equal(state.valueSatoshis, '546');
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.get').length, 2);
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.utxo.get_info').length, 2);
+  rpc.close();
+});
+
+test('public product transport never failsover after a possibly-written broadcast and reconciles read-only through both providers', async () => {
+  const fixture = publicElectrumFixture({ broadcastError: new Error('transport lost') });
+  const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
+  await assert.rejects(
+    rpc.submitV2SinglePassAdmission(
+      fixture.transaction.raw,
+      fixture.transaction.transactionId,
+      0,
+    ),
+    /outcome is indeterminate/u,
+  );
+  assert.equal(fixture.calls.filter((call) =>
+    call.method === 'blockchain.transaction.broadcast').length, 1);
+  for (const host of ['one.example', 'two.example']) {
+    assert.equal(fixture.calls.some((call) => call.host === host
+      && call.method === 'blockchain.transaction.get'), true);
+    assert.equal(fixture.calls.some((call) => call.host === host
+      && call.method === 'blockchain.utxo.get_info'), true);
+  }
+  assert.deepEqual(observeChipnetProductRpc(rpc).methodCounts, {
+    getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
+    sendrawtransaction: 1, testmempoolaccept: 0,
+  });
+});
+
+test('public product transport rejects an unverified genesis and non-distinct provider set before exposing send capability', async () => {
+  const wrongGenesis = publicElectrumFixture({ genesis: '00'.repeat(32) });
+  await assert.rejects(
+    createPublicChipnetFulcrumRpcForTest(wrongGenesis),
+    /two distinct public Chipnet Fulcrum TLS endpoints/u,
+  );
+  const fixture = publicElectrumFixture();
+  await assert.rejects(
+    createPublicChipnetFulcrumRpcForTest({
+      ...fixture,
+      endpoints: [fixture.endpoints[0], fixture.endpoints[0]],
+    }),
+    /two distinct public Chipnet Fulcrum TLS endpoints/u,
+  );
+});
+
+test('public product transport rejects malformed, obsolete, and unnegotiated protocol versions before send capability', async () => {
+  for (const negotiatedVersion of ['bogus', '1.3', '2.0', null]) {
+    const fixture = publicElectrumFixture({ negotiatedVersion });
+    await assert.rejects(
+      createPublicChipnetFulcrumRpcForTest(fixture),
+      /two distinct public Chipnet Fulcrum TLS endpoints/u,
+    );
+    assert.equal(fixture.calls.some((call) =>
+      call.method === 'blockchain.transaction.broadcast'), false);
+  }
+});
+
+test('public Electrum session bounds in-flight requests and rejects them immediately on transport close', async () => {
+  class FakeTlsSocket extends EventEmitter {
+    authorized = true;
+    destroyed = false;
+    setEncoding() {}
+    write(_value, callback) { callback?.(); return true; }
+    destroy() { this.destroyed = true; }
+  }
+  const socket = new FakeTlsSocket();
+  const sessionPromise = openPublicElectrumSessionForTest(
+    { host: 'bounded.example', port: 50002, tls: true },
+    { connectTls: () => socket },
+  );
+  setImmediate(() => socket.emit('secureConnect'));
+  const session = await sessionPromise;
+  const pending = Array.from({ length: 32 }, (_, index) =>
+    session.request('bounded.test', [index]));
+  await assert.rejects(
+    session.request('bounded.test', [33]),
+    /in-flight request limit exceeded/u,
+  );
+  socket.emit('close');
+  const settled = await Promise.allSettled(pending);
+  assert.equal(settled.every((entry) => entry.status === 'rejected'), true);
+  assert.equal(settled.every((entry) => /connection closed/u.test(entry.reason.message)), true);
 });

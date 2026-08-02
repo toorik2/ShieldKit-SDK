@@ -45,6 +45,7 @@ import {
 } from './total-pairfold-cashscript.mjs';
 import {
   buildDirectV2TotalPairFoldWitness,
+  buildDirectV2TotalPairFoldWitnessPair,
 } from './total-pairfold.mjs';
 import {
   createLoosenedVm,
@@ -345,7 +346,27 @@ test(
       proof: createDirectV2IdentityReferenceProof(verificationKey),
       q: null,
     });
-    const finiteTemplate = buildDirectV2TotalPairFoldWitness(finiteTrace);
+    const legacyFiniteTemplate = buildDirectV2TotalPairFoldWitness(finiteTrace);
+    const finitePrecomputedTemplate = buildDirectV2TotalPairFoldWitness(
+      finiteTrace,
+      { precomputedFixedLines: true },
+    );
+    const pairedFiniteTemplates = buildDirectV2TotalPairFoldWitnessPair(
+      finiteTrace,
+    );
+    assert.deepEqual(
+      pairedFiniteTemplates.compact,
+      legacyFiniteTemplate,
+      'paired compact witness differs from the legacy compact witness',
+    );
+    assert.deepEqual(
+      pairedFiniteTemplates.precomputed,
+      finitePrecomputedTemplate,
+      'paired precomputed witness differs from the legacy precomputed witness',
+    );
+    // The remainder of this semantic/VM test therefore executes the paired
+    // compact result after proving it exactly matches the legacy bytes.
+    const finiteTemplate = pairedFiniteTemplates.compact;
     const identityTemplate = buildDirectV2TotalPairFoldWitness(identityTrace);
     assert.equal(finiteTemplate.terminal.bigQ.length, 6_080);
     assert.equal(identityTemplate.terminal.bigQ.length, 6_080);
@@ -452,6 +473,13 @@ test(
     }));
   },
 );
+
+test('paired PairFold witness builder rejects an incomplete trace', () => {
+  assert.throws(
+    () => buildDirectV2TotalPairFoldWitnessPair({}),
+    /complete 65-step direct-V2 trace/u,
+  );
+});
 
 test(
   'total terminal rejects fixed-table, quotient, endpoint, and residue mutations',

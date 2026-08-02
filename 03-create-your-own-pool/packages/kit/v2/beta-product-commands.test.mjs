@@ -9,6 +9,7 @@ import {
   executeV2BetaProductWithdrawalForTest,
   V2BetaProductCommandError,
 } from './beta-product-commands.mjs';
+import { CHIPNET_GENESIS_HASH } from '../chipnet-rpc.mjs';
 import { recordV2BetaRuntimeWork } from '../../profile/v2/beta-runtime-work-observer.mjs';
 
 const address = 'bchtest:qq3ncrumwkf6ajcfmjs3jvvktgttjp2gcg3yujp0yv';
@@ -16,10 +17,12 @@ const address = 'bchtest:qq3ncrumwkf6ajcfmjs3jvvktgttjp2gcg3yujp0yv';
 function result(kind, operationId) {
   const cores = availableParallelism();
   return Object.freeze({
+    schema: 'shieldkit-v2-beta-product-action-result-v3',
     status: 'accepted-zero-conf-beta-unqualified',
     operationId,
     kind,
     transactionId: '11'.repeat(32),
+    admissionRoute: 'fresh-single-pass',
     claims: Object.freeze({
       broadcasted: true,
       confirmed: false,
@@ -57,6 +60,18 @@ function result(kind, operationId) {
         pre: Object.freeze({ databaseBytes: 1, walBytes: 1, noteCount: 0, nullifierCount: 0, liveCount: 0 }),
         post: Object.freeze({ databaseBytes: 2, walBytes: 2, noteCount: 1, nullifierCount: 0, liveCount: 1 }),
         delta: Object.freeze({ databaseBytes: 1, walBytes: 1, noteCount: 1, nullifierCount: 0, liveCount: 1 }),
+      }),
+    }),
+    rpcObservation: Object.freeze({
+      backend: 'layer1-bchn-chipnet',
+      genesis: CHIPNET_GENESIS_HASH,
+      methodCounts: Object.freeze({
+        getblockhash: 0,
+        getrawtransaction: 1,
+        gettxout: 1,
+        scantxoutset: 0,
+        sendrawtransaction: 1,
+        testmempoolaccept: 0,
       }),
     }),
     timingsMs: Object.freeze({ total: 3 }),
@@ -232,6 +247,30 @@ test('command rejects an accepted-looking lifecycle result without action teleme
       && error.code === 'BETA_COMMAND_RESULT_REJECTED',
   );
   assert.deepEqual(subject.calls.at(-1), ['close']);
+});
+
+test('command rejects legacy action schemas and the former preflight RPC profile', async () => {
+  const mutations = [
+    (value) => { value.schema = 'shieldkit-v2-beta-product-action-result-v1'; },
+    (value) => { value.rpcObservation.methodCounts.testmempoolaccept = 1; },
+  ];
+  for (const [index, mutate] of mutations.entries()) {
+    const subject = fixture();
+    subject.session.lifecycle.executeDeposit = async ({ operationId }) => {
+      const tampered = structuredClone(result('deposit', operationId));
+      mutate(tampered);
+      return tampered;
+    };
+    await assert.rejects(
+      executeV2BetaProductDepositForTest(
+        { config: {}, operationId: `deposit.schema.${index}`, rpc: {} },
+        subject.dependencies,
+      ),
+      (error) => error instanceof V2BetaProductCommandError
+        && error.code === 'BETA_COMMAND_RESULT_REJECTED',
+    );
+    assert.deepEqual(subject.calls.at(-1), ['close']);
+  }
 });
 
 test('command boundary rejects incomplete, idle, partial-core, or uncontained proof telemetry', async () => {

@@ -107,12 +107,13 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
 
   # Create and operate your pool
   pool create --funding-wallet <absolute-canonical-private-wallet-path> --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]
+  pool create --resume [--data-home <absolute-directory>] [--human|--json]  # only an existing durable create operation
   pool refresh-runtime [--data-home <absolute-directory>] [--human|--json]
   deposit [--data-home <absolute-directory>] [--operation-id <id>] [--human|--json]
   withdraw --to <bchtest-p2pkh-address> [--data-home <absolute-directory>] [--note <id>] [--operation-id <id>] [--human|--json]
   recovery inspect --operation-id <id> [--data-home <absolute-directory>] [--human|--json]
   recovery rebroadcast --operation-id <id> --attempt-token <current-token> --acknowledge-exact-rebroadcast [--data-home <absolute-directory>] [--human|--json]
-  (V2 beta Chipnet: one user-funded invocation; wallet must be a canonical owner-private 0600 JSON file and the exact UTXO must be unspent, tokenless P2PKH. No sponsor or faucet. Completion is BCHN zero-conf only—never confirmed or mined; capacity 100000; explicitly unqualified. After a ShieldKit source upgrade, run pool refresh-runtime locally before actions; it never proves or contacts BCHN.)
+  (V2 beta Chipnet: one user-funded invocation; wallet must be a canonical owner-private 0600 JSON file and the exact UTXO must be unspent, tokenless P2PKH. A crash-resume is explicit and cannot substitute new funding. No sponsor, faucet, RPC account, API key, custom endpoint, or SSH. Completion means exact zero-conf visibility through two pinned independent public Chipnet providers—never confirmation or mining; capacity 100000; explicitly unqualified. Public providers can observe the client IP and queried transactions/outpoints. After a ShieldKit source upgrade, run pool refresh-runtime locally before actions; it never proves or contacts a network provider.)
 
   # Legacy tools
   init  # V1 legacy creation is quarantined; use the attested V2 pipeline

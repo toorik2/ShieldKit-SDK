@@ -1,20 +1,32 @@
 /**
- * Narrow, zero-conf-only BCHN admission boundary for the unqualified V2 beta
- * lane. It never polls for blocks, retries a send, or changes the durable
- * delivery state without exact BCHN raw-transaction and state-NFT readback.
+ * Narrow, zero-conf-only Chipnet admission boundary for the unqualified V2
+ * beta lane. It never polls for blocks, retries a send, or changes durable
+ * delivery state without exact raw-transaction and state-NFT readback.
  */
 import { createHash } from 'node:crypto';
 
-import { assertLayer1BchnChipnetRpc } from '../chipnet-rpc.mjs';
-import { admitAndSendExactTransactionOnce } from '../transaction-coordinator.mjs';
+import { assertBchnChipnetRpc } from '../chipnet-rpc.mjs';
+import { sendAndReadbackExactTransactionOnce } from '../transaction-coordinator.mjs';
 import { assertV2DeliveryJournal } from './delivery-journal.mjs';
 import { canonicalizeV2Evidence, inspectV2LocalVmEvidence } from './vm-evidence.mjs';
 import { createV2InputRoleLayout, parseV2RawTransaction, sha256Hex } from './transaction-policy.mjs';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
+// Immutable delivery identity schema. `identityFor` hashes this value into the
+// durable journal metadata, so it must never track presentation-only changes.
 export const V2_BETA_ZERO_CONF_ADMISSION_SCHEMA =
   'shieldkit-v2-beta-zero-conf-admission-v1';
+export const V2_BETA_ZERO_CONF_ADMISSION_RESULT_SCHEMA =
+  'shieldkit-v2-beta-zero-conf-admission-result-v2';
+export const V2_BETA_ZERO_CONF_ADMISSION_ROUTES = Object.freeze([
+  'fresh-single-pass',
+  'fresh-reconciled-after-indeterminate-send',
+  'read-only-reconciliation',
+  'explicit-rebroadcast-precheck-visible',
+  'explicit-rebroadcast-single-pass',
+  'explicit-rebroadcast-reconciled-after-indeterminate-send',
+]);
 export const V2_BETA_ZERO_CONF_ADMISSION_CRASH_STAGES = Object.freeze([
   'admission.after_claim', 'admission.before_send', 'admission.after_send',
   'admission.after_raw_readback', 'admission.after_state_readback',
@@ -95,7 +107,7 @@ function expectedState(value, instanceId) {
 
 function inspectInput(value) {
   exact(value, ['carrierCount', 'crashAt', 'expectedState', 'journal', 'localVmEvidence', 'operationId', 'rawTransactionHex', 'rpc'], 'admission input');
-  const rpc = (() => { try { return assertLayer1BchnChipnetRpc(value.rpc); } catch (error) { fail('ADMISSION_RPC_REQUIRED', error instanceof Error ? error.message : 'branded BCHN Chipnet RPC is required', { cause: error }); } })();
+  const rpc = (() => { try { return assertBchnChipnetRpc(value.rpc); } catch (error) { fail('ADMISSION_RPC_REQUIRED', error instanceof Error ? error.message : 'branded Chipnet product RPC is required', { cause: error }); } })();
   const journal = (() => { try { return assertV2DeliveryJournal(value.journal); } catch (error) { fail('ADMISSION_JOURNAL_REQUIRED', error instanceof Error ? error.message : 'branded V2 delivery journal is required', { cause: error }); } })();
   const count = carrierCount(value.carrierCount); operationId(value.operationId);
   if (!(value.localVmEvidence instanceof Uint8Array) || value.localVmEvidence.length === 0) fail('ADMISSION_VM_REQUIRED', 'localVmEvidence must be nonempty canonical evidence bytes');
@@ -154,35 +166,47 @@ function observedSatoshis(value) {
     const sats = Math.round(value.value * 1e8);
     if (Number.isSafeInteger(sats) && sats / 1e8 === value.value) return String(sats);
   }
-  fail('ADMISSION_STATE_READBACK_INVALID', 'BCHN state output has no exact safe satoshi value');
+  fail('ADMISSION_STATE_READBACK_INVALID', 'Chipnet state output has no exact safe satoshi value');
 }
 
-async function exactReadback(input, identity, requestedCrash, admittedRaw = undefined) {
+async function exactReadback(input, identity, requestedCrash, admitted = undefined) {
   let raw;
-  if (admittedRaw === undefined) {
-    try { raw = await input.rpc.getrawtransaction(identity.txid, true); } catch (error) { fail('ADMISSION_RAW_READBACK_FAILED', error instanceof Error ? error.message : 'BCHN raw readback failed', { cause: error }); }
+  if (admitted === undefined) {
+    try { raw = await input.rpc.getrawtransaction(identity.txid, true); } catch (error) { fail('ADMISSION_RAW_READBACK_FAILED', error instanceof Error ? error.message : 'Chipnet raw readback failed', { cause: error }); }
   } else {
     raw = Object.freeze({
-      txid: admittedRaw.transactionId,
-      hex: admittedRaw.rawTransactionHex,
+      txid: admitted.transactionId,
+      hex: admitted.rawTransactionHex,
     });
   }
-  if (raw?.txid !== identity.txid || raw?.hex !== input.rawTransactionHex) fail('ADMISSION_RAW_READBACK_INVALID', 'BCHN raw readback differs from the exact signed transaction');
+  if (raw?.txid !== identity.txid || raw?.hex !== input.rawTransactionHex) fail('ADMISSION_RAW_READBACK_INVALID', 'Chipnet raw readback differs from the exact signed transaction');
   crash(requestedCrash, 'admission.after_raw_readback');
   let state;
-  try { state = await input.rpc.gettxout(identity.txid, 0); } catch (error) { fail('ADMISSION_STATE_READBACK_FAILED', error instanceof Error ? error.message : 'BCHN state readback failed', { cause: error }); }
+  if (admitted === undefined) {
+    try { state = await input.rpc.gettxout(identity.txid, 0); } catch (error) { fail('ADMISSION_STATE_READBACK_FAILED', error instanceof Error ? error.message : 'Chipnet state readback failed', { cause: error }); }
+  } else {
+    state = admitted.stateOutput;
+  }
   const token = state?.tokenData ?? state?.token;
   const expectedWireCategory = Buffer.from(input.expectedState.category, 'hex').reverse().toString('hex');
   if (state === null || token?.category !== expectedWireCategory || token?.nft?.capability !== input.expectedState.capability
     || String(token?.amount) !== input.expectedState.tokenAmount || token?.nft?.commitment !== input.expectedState.commitment
-    || observedSatoshis(state) !== input.expectedState.valueSatoshis) fail('ADMISSION_STATE_READBACK_INVALID', 'BCHN output-0 state NFT differs from the exact expected category, commitment, token, capability, or value');
+    || observedSatoshis(state) !== input.expectedState.valueSatoshis) fail('ADMISSION_STATE_READBACK_INVALID', 'Chipnet output-0 state NFT differs from the exact expected category, commitment, token, capability, or value');
   crash(requestedCrash, 'admission.after_state_readback');
   return Object.freeze({ rawTransactionSha256: identity.rawTransactionSha256, stateOutpoint: Object.freeze({ txid: identity.txid, vout: 0 }), stateCategoryWire: expectedWireCategory, stateCommitmentSha256: sha256(Buffer.from(input.expectedState.commitment, 'hex')) });
 }
 
-function result(input, identity, journalRecord, admission, readback, status) {
+function admissionRoute(value) {
+  if (!V2_BETA_ZERO_CONF_ADMISSION_ROUTES.includes(value)) {
+    fail('ADMISSION_INVALID', 'admission route is unsupported');
+  }
+  return value;
+}
+
+function result(input, identity, journalRecord, admission, readback, status, route) {
   return Object.freeze({
-    schema: V2_BETA_ZERO_CONF_ADMISSION_SCHEMA, status, claims: claims(), operationId: input.operationId,
+    schema: V2_BETA_ZERO_CONF_ADMISSION_RESULT_SCHEMA,
+    status, admissionRoute: admissionRoute(route), claims: claims(), operationId: input.operationId,
     txid: identity.txid, backend: input.rpc.backend, journal: Object.freeze({ state: journalRecord.state, attemptCount: journalRecord.attemptCount, attemptToken: journalRecord.attemptToken, metadataHash: identity.metadataHash, vmEvidenceHash: identity.evidenceHash, roleLayoutHash: identity.roleLayoutHash }),
     admission, readback,
   });
@@ -192,7 +216,41 @@ function markIndeterminate(input, claimed, reason) {
   try { return input.journal.markIndeterminate({ operationId: input.operationId, attemptToken: claimed.attemptToken, reason: String(reason).replace(/[\u0000-\u001f\u007f]/gu, ' ').slice(0, 256) || 'send outcome is indeterminate' }); } catch { return input.journal.record(input.operationId); }
 }
 
-/** Perform one preflight and at most one send, then require exact zero-conf readback. */
+async function reconcileAfterIndeterminateSend(input, identity, claimed, sendError, route) {
+  try {
+    const readback = await exactReadback(input, identity, input.crashAt);
+    const observed = input.journal.reconcileObserved({
+      operationId: input.operationId,
+      txid: identity.txid,
+      rawTransactionSha256: identity.rawTransactionSha256,
+    });
+    const reconciled = input.journal.markLocallyReconciled({
+      operationId: input.operationId,
+      txid: identity.txid,
+      rawTransactionSha256: identity.rawTransactionSha256,
+    });
+    crash(input.crashAt, 'admission.after_commit');
+    return result(
+      input,
+      identity,
+      reconciled ?? observed,
+      Object.freeze({ allowed: null, txid: identity.txid }),
+      readback,
+      'locally-reconciled-zero-conf-beta-unqualified',
+      route,
+    );
+  } catch (error) {
+    markIndeterminate(
+      input,
+      claimed,
+      `${sendError instanceof Error ? sendError.message : String(sendError)}; read-only reconciliation failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    if (error instanceof V2BetaZeroConfAdmissionCrash) throw error;
+    return null;
+  }
+}
+
+/** Perform one Chipnet admission request, then require exact zero-conf readback. */
 export async function submitV2BetaZeroConfAdmission(value, dependencies = undefined) {
   const input = inspectInput(value); const identity = identityFor(input);
   const hooks = submissionDependencies(dependencies);
@@ -200,10 +258,11 @@ export async function submitV2BetaZeroConfAdmission(value, dependencies = undefi
   crash(input.crashAt, 'admission.after_claim'); crash(input.crashAt, 'admission.before_send');
   let gated;
   try {
-    gated = await admitAndSendExactTransactionOnce({
+    gated = await sendAndReadbackExactTransactionOnce({
       rpc: input.rpc,
       rawTransactionHex: input.rawTransactionHex,
       expectedTransactionId: identity.txid,
+      stateOutputIndex: 0,
       network: 'chipnet',
       setupMode: 'development-only',
       beforeSendAttempt: async () => {
@@ -217,31 +276,24 @@ export async function submitV2BetaZeroConfAdmission(value, dependencies = undefi
       },
     });
   } catch (error) {
-    if (error?.code === 'EXACT_BROADCAST_READBACK_FAILED') {
-      markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_RAW_READBACK_FAILED', 'BCHN raw readback failed after the send attempt', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_READBACK_INVALID') {
-      markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_RAW_READBACK_INVALID', 'BCHN raw readback differs from the exact signed transaction', { cause: error });
-    }
     if (error?.sendAttempted === true) {
-      markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_SEND_INDETERMINATE', 'BCHN send outcome is indeterminate; reconcile read-only before any explicit recovery action', { cause: error });
+      const recovered = await reconcileAfterIndeterminateSend(
+        input,
+        identity,
+        claimed,
+        error,
+        'fresh-reconciled-after-indeterminate-send',
+      );
+      if (recovered !== null) return recovered;
+      fail('ADMISSION_SEND_INDETERMINATE', 'Chipnet send outcome is indeterminate; reconcile read-only before any explicit recovery action', { cause: error });
     }
     if (error?.code === 'EXACT_BROADCAST_DURABILITY_FAILED') {
-      fail('ADMISSION_BEFORE_SEND_FAILED', 'the durable pre-send callback failed before BCHN sendrawtransaction', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_MEMPOOL_REJECTED') {
-      fail('ADMISSION_MEMPOOL_REJECTED', 'BCHN testmempoolaccept did not return exact accepted transaction details', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_MEMPOOL_FAILED') {
-      fail('ADMISSION_MEMPOOL_FAILED', 'BCHN admission preflight failed', { cause: error });
+      fail('ADMISSION_BEFORE_SEND_FAILED', 'the durable pre-send callback failed before the Chipnet broadcast', { cause: error });
     }
     fail('ADMISSION_BROADCAST_GATE_REJECTED', 'the mandatory transaction broadcast gate rejected the beta admission', { cause: error });
   }
   const admission = gated.admission;
-  try { crash(input.crashAt, 'admission.after_send'); } catch (error) { markIndeterminate(input, claimed, 'crash injected after BCHN send before readback'); throw error; }
+  try { crash(input.crashAt, 'admission.after_send'); } catch (error) { markIndeterminate(input, claimed, 'crash injected after Chipnet product send before readback'); throw error; }
   let readback;
   try { readback = await exactReadback(input, identity, input.crashAt, gated.readback); }
   catch (error) {
@@ -251,7 +303,7 @@ export async function submitV2BetaZeroConfAdmission(value, dependencies = undefi
   const submitted = input.journal.markSubmitted({ operationId: input.operationId, txid: identity.txid, attemptToken: claimed.attemptToken, rawTransactionSha256: identity.rawTransactionSha256 });
   const reconciled = input.journal.markLocallyReconciled({ operationId: input.operationId, txid: identity.txid, rawTransactionSha256: identity.rawTransactionSha256 });
   crash(input.crashAt, 'admission.after_commit');
-  return result(input, identity, reconciled ?? submitted, admission, readback, 'locally-reconciled-zero-conf-beta-unqualified');
+  return result(input, identity, reconciled ?? submitted, admission, readback, 'locally-reconciled-zero-conf-beta-unqualified', 'fresh-single-pass');
 }
 
 /** Read-only repair path: it never calls testmempoolaccept or sendrawtransaction. */
@@ -267,7 +319,7 @@ export async function reconcileV2BetaZeroConfAdmission(value) {
     : prior;
   const reconciled = input.journal.markLocallyReconciled({ operationId: input.operationId, txid: identity.txid, rawTransactionSha256: identity.rawTransactionSha256 });
   crash(input.crashAt, 'admission.after_commit');
-  return result(input, identity, reconciled ?? submitted, Object.freeze({ allowed: null, txid: identity.txid }), readback, 'locally-reconciled-zero-conf-beta-unqualified');
+  return result(input, identity, reconciled ?? submitted, Object.freeze({ allowed: null, txid: identity.txid }), readback, 'locally-reconciled-zero-conf-beta-unqualified', 'read-only-reconciliation');
 }
 
 /**
@@ -319,6 +371,7 @@ export async function rebroadcastV2BetaZeroConfAdmission(value, options) {
       Object.freeze({ allowed: null, txid: identity.txid }),
       readback,
       'locally-reconciled-zero-conf-beta-unqualified',
+      'explicit-rebroadcast-precheck-visible',
     );
   } catch (error) {
     if (error?.code !== 'ADMISSION_RAW_READBACK_FAILED') throw error;
@@ -327,10 +380,11 @@ export async function rebroadcastV2BetaZeroConfAdmission(value, options) {
   let claimed;
   let gated;
   try {
-    gated = await admitAndSendExactTransactionOnce({
+    gated = await sendAndReadbackExactTransactionOnce({
       rpc: input.rpc,
       rawTransactionHex: input.rawTransactionHex,
       expectedTransactionId: identity.txid,
+      stateOutputIndex: 0,
       network: 'chipnet',
       setupMode: 'development-only',
       beforeSendAttempt: async () => {
@@ -341,32 +395,25 @@ export async function rebroadcastV2BetaZeroConfAdmission(value, options) {
       },
     });
   } catch (error) {
-    if (error?.code === 'EXACT_BROADCAST_READBACK_FAILED') {
-      if (claimed !== undefined) markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_RAW_READBACK_FAILED', 'BCHN raw readback failed after the exact rebroadcast', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_READBACK_INVALID') {
-      if (claimed !== undefined) markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_RAW_READBACK_INVALID', 'BCHN raw readback differs after the exact rebroadcast', { cause: error });
-    }
     if (error?.sendAttempted === true && claimed !== undefined) {
-      markIndeterminate(input, claimed, error instanceof Error ? error.message : String(error));
-      fail('ADMISSION_SEND_INDETERMINATE', 'BCHN exact rebroadcast outcome is indeterminate; reconcile read-only before another explicit recovery action', { cause: error });
+      const recovered = await reconcileAfterIndeterminateSend(
+        input,
+        identity,
+        claimed,
+        error,
+        'explicit-rebroadcast-reconciled-after-indeterminate-send',
+      );
+      if (recovered !== null) return recovered;
+      fail('ADMISSION_SEND_INDETERMINATE', 'Chipnet product exact rebroadcast outcome is indeterminate; reconcile read-only before another explicit recovery action', { cause: error });
     }
     if (error?.code === 'EXACT_BROADCAST_DURABILITY_FAILED') {
-      fail('ADMISSION_EXACT_REBROADCAST_CLAIM_FAILED', 'the durable exact-rebroadcast claim failed before BCHN sendrawtransaction', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_MEMPOOL_REJECTED') {
-      fail('ADMISSION_MEMPOOL_REJECTED', 'BCHN testmempoolaccept did not accept the exact recovery transaction', { cause: error });
-    }
-    if (error?.code === 'EXACT_BROADCAST_MEMPOOL_FAILED') {
-      fail('ADMISSION_MEMPOOL_FAILED', 'BCHN recovery admission preflight failed', { cause: error });
+      fail('ADMISSION_EXACT_REBROADCAST_CLAIM_FAILED', 'the durable exact-rebroadcast claim failed before the Chipnet product send', { cause: error });
     }
     fail('ADMISSION_BROADCAST_GATE_REJECTED', 'the mandatory transaction broadcast gate rejected the exact beta rebroadcast', { cause: error });
   }
   try { crash(input.crashAt, 'admission.after_send'); }
   catch (error) {
-    markIndeterminate(input, claimed, 'crash injected after exact BCHN rebroadcast before readback');
+    markIndeterminate(input, claimed, 'crash injected after exact Chipnet product rebroadcast before readback');
     throw error;
   }
   let readback;
@@ -394,6 +441,7 @@ export async function rebroadcastV2BetaZeroConfAdmission(value, options) {
     gated.admission,
     readback,
     'locally-reconciled-zero-conf-beta-unqualified',
+    'explicit-rebroadcast-single-pass',
   );
 }
 

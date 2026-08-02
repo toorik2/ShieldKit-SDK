@@ -4,14 +4,18 @@ import { performance } from 'node:perf_hooks';
 
 import { decodeCashAddress } from '@bitauth/libauth';
 
+import { CHIPNET_GENESIS_HASH, isBchnChipnetBackend } from '../chipnet-rpc.mjs';
 import { openV2BetaProductSession } from './beta-product-session.mjs';
+import {
+  V2_BETA_PRODUCT_ACTION_RESULT_SCHEMA,
+} from './beta-product-action-lifecycle.mjs';
 import {
   assertV2BetaWarmActionRuntimeWork,
   observeV2BetaActionRuntimeWork,
 } from '../../profile/v2/beta-runtime-work-observer.mjs';
 
 export const V2_BETA_PRODUCT_COMMAND_RESULT_SCHEMA =
-  'shieldkit-v2-beta-product-command-result-v1';
+  'shieldkit-v2-beta-product-command-result-v3';
 
 export class V2BetaProductCommandError extends Error {
   constructor(code, message, options = undefined) {
@@ -148,7 +152,18 @@ function payoutLockingBytecode(cashAddress) {
 }
 
 function inspectActionResult(value, kind, operation) {
+  const rpc = value?.rpcObservation;
+  const counts = rpc?.methodCounts;
+  const expectedRpc = Object.freeze({
+    'fresh-single-pass': Object.freeze({ allowed: true, raw: 1, state: 1, send: 1 }),
+    'fresh-reconciled-after-indeterminate-send': Object.freeze({ allowed: null, raw: 2, state: 2, send: 1 }),
+    'read-only-reconciliation': Object.freeze({ allowed: null, raw: 1, state: 1, send: 0 }),
+    'explicit-rebroadcast-precheck-visible': Object.freeze({ allowed: null, raw: 1, state: 1, send: 0 }),
+    'explicit-rebroadcast-single-pass': Object.freeze({ allowed: true, raw: 2, state: 1, send: 1 }),
+    'explicit-rebroadcast-reconciled-after-indeterminate-send': Object.freeze({ allowed: null, raw: 3, state: 2, send: 1 }),
+  })[value?.admissionRoute];
   if (value === null || typeof value !== 'object'
+    || value.schema !== V2_BETA_PRODUCT_ACTION_RESULT_SCHEMA
     || value.status !== 'accepted-zero-conf-beta-unqualified'
     || value.kind !== kind || value.operationId !== operation
     || value.claims?.broadcasted !== true || value.claims?.mined !== false
@@ -156,8 +171,17 @@ function inspectActionResult(value, kind, operation) {
     || value.claims?.productionQualified !== false
     || !actionTelemetryAvailable(value.telemetry)
     || typeof value.transactionId !== 'string'
-    || !/^[0-9a-f]{64}$/u.test(value.transactionId)) {
-    fail('BETA_COMMAND_RESULT_REJECTED', 'action lifecycle returned a result outside the exact zero-conf beta boundary');
+    || !/^[0-9a-f]{64}$/u.test(value.transactionId)
+    || !isBchnChipnetBackend(rpc?.backend)
+    || rpc?.genesis !== CHIPNET_GENESIS_HASH
+    || counts === null || typeof counts !== 'object' || Array.isArray(counts)
+    || Object.keys(counts).sort().join(',')
+      !== 'getblockhash,getrawtransaction,gettxout,scantxoutset,sendrawtransaction,testmempoolaccept'
+    || expectedRpc === undefined
+    || counts.getblockhash !== 0 || counts.getrawtransaction !== expectedRpc.raw
+    || counts.gettxout !== expectedRpc.state || counts.scantxoutset !== 0
+    || counts.sendrawtransaction !== expectedRpc.send || counts.testmempoolaccept !== 0) {
+    fail('BETA_COMMAND_RESULT_REJECTED', 'action lifecycle returned a result outside its exact declared zero-conf route');
   }
   return value;
 }

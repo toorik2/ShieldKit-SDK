@@ -55,8 +55,9 @@ import {
   DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES,
 } from '../../unlock-builder/v2/pf10-action-witness.mjs';
 import {
-  assertLayer1BchnChipnetRpc,
-  observeLayer1BchnChipnetRpc,
+  assertBchnChipnetRpc,
+  isBchnChipnetBackend,
+  observeBchnChipnetRpc,
 } from '../chipnet-rpc.mjs';
 import {
   assertV2BetaProductWallet,
@@ -65,7 +66,8 @@ import {
   rebroadcastV2BetaZeroConfAdmission,
   reconcileV2BetaZeroConfAdmission,
   submitV2BetaZeroConfAdmission,
-  V2_BETA_ZERO_CONF_ADMISSION_SCHEMA,
+  V2_BETA_ZERO_CONF_ADMISSION_RESULT_SCHEMA,
+  V2_BETA_ZERO_CONF_ADMISSION_ROUTES,
 } from './beta-zero-conf-admission.mjs';
 import {
   assertV2DeliveryJournal,
@@ -84,7 +86,7 @@ import {
 export const V2_BETA_PRODUCT_ACTION_ARTIFACT_SCHEMA =
   'shieldkit-v2-beta-product-action-artifact-v1';
 export const V2_BETA_PRODUCT_ACTION_RESULT_SCHEMA =
-  'shieldkit-v2-beta-product-action-result-v1';
+  'shieldkit-v2-beta-product-action-result-v3';
 export const V2_BETA_PRODUCT_ACTION_TELEMETRY_SCHEMA =
   'shieldkit-v2-beta-product-action-telemetry-v1';
 export const V2_BETA_PRODUCT_RECOVERY_STATUS_SCHEMA =
@@ -235,10 +237,18 @@ const OBSERVED_RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
 ]);
+const PUBLIC_ELECTRUM_METHODS = Object.freeze([
+  'server.features', 'server.version', 'blockchain.transaction.broadcast',
+  'blockchain.transaction.get', 'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
 
 function observedRpc(value, label) {
-  exact(value, ['backend', 'genesis', 'methodCounts'], label);
-  if (value.backend !== 'layer1-bchn-chipnet' || !HASH.test(value.genesis)) {
+  const hasPhysicalCounts = Object.hasOwn(value ?? {}, 'physicalMethodCounts');
+  exact(value, hasPhysicalCounts
+    ? ['backend', 'genesis', 'methodCounts', 'physicalMethodCounts']
+    : ['backend', 'genesis', 'methodCounts'], label);
+  if (!isBchnChipnetBackend(value.backend) || !HASH.test(value.genesis)) {
     fail('BETA_RPC_OBSERVATION_REJECTED', `${label} backend or genesis is invalid`);
   }
   exact(value.methodCounts, OBSERVED_RPC_METHODS, `${label} method counts`);
@@ -247,37 +257,83 @@ function observedRpc(value, label) {
       fail('BETA_RPC_OBSERVATION_REJECTED', `${label} count ${method} is invalid`);
     }
   }
+  if (hasPhysicalCounts) {
+    if (value.backend !== 'public-chipnet-fulcrum-tls') {
+      fail('BETA_RPC_OBSERVATION_REJECTED', `${label} exposes public transport counts for a non-public backend`);
+    }
+    exact(value.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, `${label} physical method counts`);
+    for (const method of PUBLIC_ELECTRUM_METHODS) {
+      if (!Number.isSafeInteger(value.physicalMethodCounts[method])
+        || value.physicalMethodCounts[method] < 0) {
+        fail('BETA_RPC_OBSERVATION_REJECTED', `${label} physical count ${method} is invalid`);
+      }
+    }
+  }
   return Object.freeze({
     backend: value.backend,
     genesis: value.genesis,
     methodCounts: Object.freeze({ ...value.methodCounts }),
+    ...(hasPhysicalCounts
+      ? { physicalMethodCounts: Object.freeze({ ...value.physicalMethodCounts }) }
+      : {}),
   });
 }
 
-function assertOneShotAdmissionObservation(before, after) {
-  const prior = observedRpc(before, 'pre-admission BCHN observation');
-  const current = observedRpc(after, 'post-admission BCHN observation');
+const ADMISSION_ROUTE_PROFILES = Object.freeze({
+  'fresh-single-pass': Object.freeze({ allowed: true, getrawtransaction: 1, gettxout: 1, sendrawtransaction: 1 }),
+  'fresh-reconciled-after-indeterminate-send': Object.freeze({ allowed: null, getrawtransaction: 2, gettxout: 2, sendrawtransaction: 1 }),
+  'read-only-reconciliation': Object.freeze({ allowed: null, getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 }),
+  'explicit-rebroadcast-precheck-visible': Object.freeze({ allowed: null, getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 }),
+  'explicit-rebroadcast-single-pass': Object.freeze({ allowed: true, getrawtransaction: 2, gettxout: 1, sendrawtransaction: 1 }),
+  'explicit-rebroadcast-reconciled-after-indeterminate-send': Object.freeze({ allowed: null, getrawtransaction: 3, gettxout: 2, sendrawtransaction: 1 }),
+});
+
+function admissionRouteProfile(route) {
+  if (!V2_BETA_ZERO_CONF_ADMISSION_ROUTES.includes(route)
+    || !Object.hasOwn(ADMISSION_ROUTE_PROFILES, route)) {
+    fail('BETA_RPC_OBSERVATION_REJECTED', 'admission route is unsupported');
+  }
+  return ADMISSION_ROUTE_PROFILES[route];
+}
+
+function assertAdmissionObservation(before, after, route) {
+  const prior = observedRpc(before, 'pre-admission Chipnet product-RPC observation');
+  const current = observedRpc(after, 'post-admission Chipnet product-RPC observation');
   if (prior.backend !== current.backend || prior.genesis !== current.genesis) {
-    fail('BETA_RPC_OBSERVATION_REJECTED', 'BCHN backend or genesis changed during admission');
+    fail('BETA_RPC_OBSERVATION_REJECTED', 'Chipnet product-RPC backend or genesis changed during admission');
   }
   const delta = Object.fromEntries(OBSERVED_RPC_METHODS.map((method) => [
     method, current.methodCounts[method] - prior.methodCounts[method],
   ]));
+  const physicalDelta = prior.physicalMethodCounts === undefined
+    ? undefined
+    : Object.fromEntries(PUBLIC_ELECTRUM_METHODS.map((method) => [
+      method,
+      current.physicalMethodCounts[method] - prior.physicalMethodCounts[method],
+    ]));
+  if ((prior.physicalMethodCounts === undefined) !== (current.physicalMethodCounts === undefined)) {
+    fail('BETA_RPC_OBSERVATION_REJECTED', 'public transport-count availability changed during admission');
+  }
+  const profile = admissionRouteProfile(route);
   if (delta.getblockhash !== 0 || delta.scantxoutset !== 0
-    || delta.getrawtransaction !== 1 || delta.gettxout !== 1
-    || delta.testmempoolaccept !== 1 || delta.sendrawtransaction !== 1) {
-    fail('BETA_RPC_OBSERVATION_REJECTED', 'one action admission requires exactly one testmempoolaccept/send and one raw/gettxout readback');
+    || delta.testmempoolaccept !== 0
+    || delta.getrawtransaction !== profile.getrawtransaction
+    || delta.gettxout !== profile.gettxout
+    || delta.sendrawtransaction !== profile.sendrawtransaction) {
+    fail('BETA_RPC_OBSERVATION_REJECTED', 'Chipnet product-RPC request counts do not match the exact declared admission route');
   }
   return Object.freeze({
     backend: current.backend,
     genesis: current.genesis,
     methodCounts: Object.freeze(delta),
+    ...(physicalDelta === undefined
+      ? {} : { physicalMethodCounts: Object.freeze(physicalDelta) }),
   });
 }
 
 /** Unit-test seam for the admission-only RPC evidence projection. */
-export function deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after) {
-  return assertOneShotAdmissionObservation(before, after);
+export function deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after, route = 'fresh-single-pass') {
+  return assertAdmissionObservation(before, after, route);
 }
 
 function observedSatoshis(value, label) {
@@ -878,7 +934,7 @@ function inspectAdmissionResult(value, {
   transaction,
 }) {
   exact(value, [
-    'admission', 'backend', 'claims', 'journal', 'operationId', 'readback',
+    'admission', 'admissionRoute', 'backend', 'claims', 'journal', 'operationId', 'readback',
     'schema', 'status', 'txid',
   ], 'beta admission result');
   exact(value.claims, ['confirmed', 'mined', 'productionQualified'], 'admission claims');
@@ -894,7 +950,7 @@ function inspectAdmissionResult(value, {
   exact(value.readback.stateOutpoint, ['txid', 'vout'], 'admission state outpoint');
   const durable = journal.record(operation);
   if (
-    value.schema !== V2_BETA_ZERO_CONF_ADMISSION_SCHEMA
+    value.schema !== V2_BETA_ZERO_CONF_ADMISSION_RESULT_SCHEMA
     || value.status !== 'locally-reconciled-zero-conf-beta-unqualified'
     || value.operationId !== operation
     || value.txid !== transaction.txid
@@ -902,7 +958,7 @@ function inspectAdmissionResult(value, {
     || value.claims.confirmed !== false
     || value.claims.mined !== false
     || value.claims.productionQualified !== false
-    || ![true, null].includes(value.admission.allowed)
+    || value.admission.allowed !== admissionRouteProfile(value.admissionRoute).allowed
     || value.admission.txid !== transaction.txid
     || value.journal.state !== 'locally_reconciled'
     || durable?.state !== 'locally_reconciled'
@@ -1125,9 +1181,9 @@ export class V2BetaProductActionLifecycle {
     }
     this.#journal = assertV2DeliveryJournal(options.journal);
     try {
-      this.#rpc = assertLayer1BchnChipnetRpc(options.rpc);
+      this.#rpc = assertBchnChipnetRpc(options.rpc);
     } catch (error) {
-      fail('BETA_RPC_REJECTED', 'a branded BCHN Chipnet RPC is required', {
+      fail('BETA_RPC_REJECTED', 'a branded Chipnet product RPC is required', {
         cause: error,
       });
     }
@@ -1184,7 +1240,7 @@ export class V2BetaProductActionLifecycle {
       || token?.nft?.capability !== 'mutable'
       || String(token?.amount) !== '0'
       || token?.nft?.commitment !== tip.state.toString('hex')
-      || observedSatoshis(observedState, 'BCHN state output')
+      || observedSatoshis(observedState, 'Chipnet product state output')
         !== expectedStateValueSats
       || observedState?.scriptPubKey?.hex !== sourceOutput.lockingBytecodeHex
       || state.actionSequence !== String(tip.actionSequence)
@@ -1192,7 +1248,7 @@ export class V2BetaProductActionLifecycle {
     ) {
       fail(
         'BETA_TIP_READBACK_REJECTED',
-        'BCHN current state output differs from the persisted accepted zero-conf tip, reserve, or runtime capacity',
+        'Chipnet product current state output differs from the persisted accepted zero-conf tip, reserve, or runtime capacity',
       );
     }
     return Object.freeze({
@@ -1233,12 +1289,12 @@ export class V2BetaProductActionLifecycle {
         || serialized.valueSatoshis.toString() !== candidate.valueSats
         || serialized.token !== null
         || (observedToken !== undefined && observedToken !== null)
-        || observedSatoshis(observed, 'BCHN funding output') !== candidate.valueSats
+        || observedSatoshis(observed, 'Chipnet product funding output') !== candidate.valueSats
         || observed?.scriptPubKey?.hex !== serialized.lockingBytecodeHex
       ) {
         fail(
           'BETA_FUNDING_SOURCE_REJECTED',
-          'persisted funding UTXO is spent, token-bearing, or differs from exact BCHN bytes',
+          'persisted funding UTXO is spent, token-bearing, or differs from exact Chipnet provider bytes',
         );
       }
       const wallet = fundingProjection(
@@ -1302,8 +1358,15 @@ export class V2BetaProductActionLifecycle {
         { recoverable: true },
       );
     }
-    const tipRead = await this.#readTip();
-    const funding = await this.#selectFunding(tipRead.tip.outpoint.txid.toString('hex'));
+    // Both observations are read-only and bind independent persisted outputs.
+    // Start them together using the already accepted local tip identity; any
+    // stale/spent/mismatched result still fails closed before private material
+    // is reserved or a transaction is prepared.
+    const optimisticTipTxid = this.#store.optimisticTip().outpoint.txid.toString('hex');
+    const [tipRead, funding] = await Promise.all([
+      this.#readTip(),
+      this.#selectFunding(optimisticTipTxid),
+    ]);
     const change = this.#wallet.stageChangeWallet({ operationId: id });
     let reserved = false;
     try {
@@ -1661,8 +1724,8 @@ export class V2BetaProductActionLifecycle {
     };
     const prior = this.#journal.record(id);
     const admissionObservationBefore = observedRpc(
-      observeLayer1BchnChipnetRpc(this.#rpc),
-      'pre-admission BCHN observation',
+      observeBchnChipnetRpc(this.#rpc),
+      'pre-admission Chipnet product-RPC observation',
     );
     const admissionStarted = now();
     let admission;
@@ -1713,12 +1776,14 @@ export class V2BetaProductActionLifecycle {
       rpc: this.#rpc,
       transaction,
     });
-    const admissionObservation = prior === null
-      ? assertOneShotAdmissionObservation(
-        admissionObservationBefore,
-        observeLayer1BchnChipnetRpc(this.#rpc),
-      )
-      : observedRpc(observeLayer1BchnChipnetRpc(this.#rpc), 'post-admission BCHN observation');
+    // Always publish a delta from the boundary immediately before this
+    // invocation. A restarted process must never relabel historical requests
+    // from another RPC capability as part of its read-only reconciliation.
+    const admissionObservation = assertAdmissionObservation(
+      admissionObservationBefore,
+      observeBchnChipnetRpc(this.#rpc),
+      admission.admissionRoute,
+    );
 
     const commitStarted = now();
     if (staged.state !== 'accepted_zero_conf') {
@@ -1821,6 +1886,7 @@ export class V2BetaProductActionLifecycle {
         changeVout: change.vout,
         changeValueSats: change.valueSats,
       }),
+      admissionRoute: admission.admissionRoute,
       readback: admission.readback,
       rpcObservation: admissionObservation,
       timingsMs: Object.freeze({

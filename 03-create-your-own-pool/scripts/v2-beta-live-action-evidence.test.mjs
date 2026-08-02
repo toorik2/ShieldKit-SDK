@@ -60,8 +60,9 @@ function valid() {
   const telemetry = { schema: 'shieldkit-v2-beta-product-action-telemetry-v1', proof, vm, store };
   const actionTimings = timings();
   const action = {
-    schema: 'shieldkit-v2-beta-product-action-result-v1',
+    schema: 'shieldkit-v2-beta-product-action-result-v3',
     status: 'accepted-zero-conf-beta-unqualified', kind: 'deposit', operationId: 'operation-1', transactionId: H('a'),
+    admissionRoute: 'fresh-single-pass',
     claims: { broadcasted: true, confirmed: false, mined: false, productionQualified: false },
     cache: { runtimeManifestSha256: H('b'), runtimeMaterialSha256: H('c') },
     proof: {
@@ -77,11 +78,11 @@ function valid() {
     readback: { rawTransactionSha256: H('1'), stateCategoryWire: H('2'), stateCommitmentSha256: H('3'), stateOutpoint: { txid: H('a'), vout: 0 } },
     rpcObservation: {
       backend: 'layer1-bchn-chipnet', genesis: CHIPNET_GENESIS_HASH,
-      methodCounts: { getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 1 },
+      methodCounts: { getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 0 },
     },
   };
   return {
-    schema: 'shieldkit-v2-beta-product-command-result-v1', status: action.status,
+    schema: 'shieldkit-v2-beta-product-command-result-v3', status: action.status,
     command: 'deposit', operationId: action.operationId, transactionId: action.transactionId,
     claims: { ...action.claims }, runtimeWork: runtimeWork(), telemetry, action,
     timingsMs: { action: actionTimings.total, sessionOpen: 1, commandTotal: 3 },
@@ -104,6 +105,29 @@ test('portable live-action validator accepts a complete exact secret-free measur
   miss.events.unshift({ type: 'instance-specialization' });
   assert.equal(inspectV2BetaLivePoolRuntimeWork(miss, true).events.length, 2);
   assert.throws(() => inspectV2BetaLivePoolRuntimeWork(miss, false), rejects('LIVE_ACTION_RUNTIME_WORK_INVALID'));
+});
+
+test('portable live-action validator requires exact public Fulcrum method counts when the product route is public', () => {
+  const value = valid();
+  value.action.rpcObservation = {
+    backend: 'public-chipnet-fulcrum-tls',
+    genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: { ...value.action.rpcObservation.methodCounts },
+    physicalMethodCounts: {
+      'server.features': 0, 'server.version': 0,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 1,
+      'blockchain.scripthash.listunspent': 0,
+    },
+  };
+  assert.equal(inspectV2BetaLiveActionEvidence(value, {
+    command: 'deposit', operationId: 'operation-1', testAvailableCores: 4,
+  }).rpcObservation.backend, 'public-chipnet-fulcrum-tls');
+  value.action.rpcObservation.physicalMethodCounts['blockchain.transaction.get'] = 2;
+  assert.throws(() => inspectV2BetaLiveActionEvidence(value, {
+    command: 'deposit', operationId: 'operation-1', testAvailableCores: 4,
+  }), rejects('LIVE_ACTION_RPC_OBSERVATION_INVALID'));
 });
 
 test('portable live-action validator rejects telemetry, work, VM, store, RPC, timing, fee, secret, and unknown-wrapper tampering', () => {
@@ -133,4 +157,30 @@ test('portable live-action validator rejects telemetry, work, VM, store, RPC, ti
       label,
     );
   }
+});
+
+test('portable live-action validator accepts each exact recovery route and rejects route/count relabeling', () => {
+  const profiles = {
+    'fresh-single-pass': [1, 1, 1],
+    'fresh-reconciled-after-indeterminate-send': [2, 2, 1],
+    'read-only-reconciliation': [1, 1, 0],
+    'explicit-rebroadcast-precheck-visible': [1, 1, 0],
+    'explicit-rebroadcast-single-pass': [2, 1, 1],
+    'explicit-rebroadcast-reconciled-after-indeterminate-send': [3, 2, 1],
+  };
+  for (const [route, [raw, state, send]] of Object.entries(profiles)) {
+    const value = valid();
+    value.action.admissionRoute = route;
+    value.action.rpcObservation.methodCounts.getrawtransaction = raw;
+    value.action.rpcObservation.methodCounts.gettxout = state;
+    value.action.rpcObservation.methodCounts.sendrawtransaction = send;
+    assert.equal(inspectV2BetaLiveActionEvidence(value, {
+      command: 'deposit', operationId: 'operation-1', testAvailableCores: 4,
+    }).admissionRoute, route);
+  }
+  const relabeled = valid();
+  relabeled.action.admissionRoute = 'read-only-reconciliation';
+  assert.throws(() => inspectV2BetaLiveActionEvidence(relabeled, {
+    command: 'deposit', operationId: 'operation-1', testAvailableCores: 4,
+  }), rejects('LIVE_ACTION_RPC_OBSERVATION_INVALID'));
 });

@@ -1,7 +1,7 @@
 /**
  * Production composition boundary for one warm V2 beta action session.
  * Opening verifies the committed deployment, durable runtime cache, native
- * prover installation, wallet/store/journal bindings, and BCHN capability
+ * prover installation, wallet/store/journal bindings, and Chipnet product-RPC capability
  * before the lifecycle can prepare or send anything.
  */
 import {

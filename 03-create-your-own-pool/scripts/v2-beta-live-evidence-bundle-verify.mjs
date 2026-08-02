@@ -14,13 +14,14 @@ import { fileURLToPath } from 'node:url';
 import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
 import { parseStrictJson } from '../packages/profile/load.mjs';
 import { CHIPNET_GENESIS_HASH } from '../packages/kit/chipnet-rpc.mjs';
+import { inspectV2BetaLiveActionChainAttestation } from './v2-beta-live-action-chain-attestation.mjs';
 
 export const V2_BETA_LIVE_EVIDENCE_BUNDLE_MANIFEST_SCHEMA =
-  'shieldkit-v2-beta-live-evidence-bundle-manifest-v2';
-export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v3';
-export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v2';
+  'shieldkit-v2-beta-live-evidence-bundle-manifest-v6';
+export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v6';
+export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v5';
 export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA =
-  'shieldkit-v2-beta-live-pool-create-performance-v3';
+  'shieldkit-v2-beta-live-pool-create-performance-v5';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const GIT_ID = /^[0-9a-f]{40}$/u;
@@ -39,6 +40,43 @@ const VM_METRICS = Object.freeze([
 const RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
+]);
+const PUBLIC_ELECTRUM_METHODS = Object.freeze([
+  'server.features', 'server.version', 'blockchain.transaction.broadcast',
+  'blockchain.transaction.get', 'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
+const FRESH_ACTION_PUBLIC_PHYSICAL_PROFILES = Object.freeze([
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 1,
+    'blockchain.transaction.get': 1,
+    'blockchain.utxo.get_info': 1,
+    'blockchain.scripthash.listunspent': 0,
+  }),
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 1,
+    'blockchain.transaction.get': 1,
+    'blockchain.utxo.get_info': 0,
+    'blockchain.scripthash.listunspent': 1,
+  }),
+]);
+const FRESH_POOL_PUBLIC_PHYSICAL_PROFILES = Object.freeze([
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 2,
+    'blockchain.transaction.get': 4,
+    'blockchain.utxo.get_info': 2,
+    'blockchain.scripthash.listunspent': 0,
+  }),
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 2,
+    'blockchain.transaction.get': 4,
+    'blockchain.utxo.get_info': 0,
+    'blockchain.scripthash.listunspent': 2,
+  }),
 ]);
 const ACTION_TIMINGS = Object.freeze([
   'admission', 'commit', 'fundingRead', 'localVm', 'proofGeneration',
@@ -199,24 +237,43 @@ function validateStore(value, kind) {
   for (const [name, amount] of Object.entries(expected)) if (value.delta[name] !== amount) fail('BUNDLE_STORE_INVALID', `store ${name} delta is not the ${kind} transition`);
 }
 
-function validateRpcProfile(value, expected) {
-  exact(value, ['backend', 'genesis', 'methodCounts'], 'rpcObservation');
+function validateRpcProfile(value, expected, physicalProfiles) {
+  exact(value, ['backend', 'genesis', 'methodCounts', 'physicalMethodCounts'], 'rpcObservation');
   exact(value.methodCounts, RPC_METHODS, 'rpcObservation.methodCounts');
-  if (value.backend !== 'layer1-bchn-chipnet' || value.genesis !== CHIPNET_GENESIS_HASH) fail('BUNDLE_RPC_INVALID', 'evidence is not bound to BCHN Chipnet');
+  exact(value.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, 'rpcObservation.physicalMethodCounts');
+  if (value.backend !== 'public-chipnet-fulcrum-tls' || value.genesis !== CHIPNET_GENESIS_HASH) fail('BUNDLE_RPC_INVALID', 'evidence is not bound to the public Fulcrum Chipnet product route');
   for (const name of RPC_METHODS) if (value.methodCounts[name] !== expected[name]) fail('BUNDLE_RPC_INVALID', `RPC count ${name} is not exact`);
+  if (!physicalProfiles.some((profile) => PUBLIC_ELECTRUM_METHODS.every(
+    (name) => value.physicalMethodCounts[name] === profile[name],
+  ))) fail('BUNDLE_RPC_INVALID', 'literal public Fulcrum method counts do not match the declared route');
 }
 
-function validateRpc(value, multiplier = 1) {
-  validateRpcProfile(value, { getblockhash: 0, getrawtransaction: multiplier, gettxout: 1, scantxoutset: 0, sendrawtransaction: multiplier, testmempoolaccept: multiplier });
+function validateRpc(value, admissionRoute) {
+  const profiles = {
+    'fresh-single-pass': { getrawtransaction: 1, gettxout: 1, sendrawtransaction: 1 },
+    'fresh-reconciled-after-indeterminate-send': { getrawtransaction: 2, gettxout: 2, sendrawtransaction: 1 },
+    'read-only-reconciliation': { getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 },
+    'explicit-rebroadcast-precheck-visible': { getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 },
+    'explicit-rebroadcast-single-pass': { getrawtransaction: 2, gettxout: 1, sendrawtransaction: 1 },
+    'explicit-rebroadcast-reconciled-after-indeterminate-send': { getrawtransaction: 3, gettxout: 2, sendrawtransaction: 1 },
+  };
+  const profile = profiles[admissionRoute];
+  if (profile === undefined) fail('BUNDLE_RPC_INVALID', 'action admission route is unsupported');
+  validateRpcProfile(
+    value,
+    { getblockhash: 0, ...profile, scantxoutset: 0, testmempoolaccept: 0 },
+    FRESH_ACTION_PUBLIC_PHYSICAL_PROFILES,
+  );
 }
 
 function validateAction(value, kind, ordinal, cores, owningInstanceId, { performance = false } = {}) {
   const prefix = performance
-    ? ['actionTotalMs', 'bytes', 'cache', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'state', 'store', 'timingsMs', 'transactionId', 'vm']
-    : ['actionTotalMs', 'bytes', 'cache', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'store', 'timingsMs', 'transactionId', 'vm'];
+    ? ['actionTotalMs', 'admissionRoute', 'bytes', 'cache', 'chainAttestation', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'state', 'store', 'timingsMs', 'transactionId', 'vm']
+    : ['actionTotalMs', 'admissionRoute', 'bytes', 'cache', 'chainAttestation', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'store', 'timingsMs', 'transactionId', 'vm'];
   exact(value, prefix, 'action evidence');
   if (value.kind !== kind || value.ordinal !== ordinal || typeof value.operationId !== 'string' || value.operationId.length === 0) fail('BUNDLE_ACTION_IDENTITY_INVALID', 'action kind, ordinal, or operation id differs');
   if (performance && (!Number.isSafeInteger(value.poolOrdinal) || value.poolOrdinal < 0 || value.state !== 'accepted')) fail('BUNDLE_ACTION_IDENTITY_INVALID', 'performance sample is not an accepted planned action');
+  if (value.admissionRoute !== 'fresh-single-pass') fail('BUNDLE_ACTION_IDENTITY_INVALID', 'qualification and warm performance require fresh single-pass delivery evidence');
   hash(value.transactionId, 'action.transactionId'); duration(value.commandTotalMs, 'action.commandTotalMs'); duration(value.actionTotalMs, 'action.actionTotalMs');
   integer(value.bytes, 'action.bytes', 1); decimal(value.feeSats, 'action.feeSats'); decimal(value.feeRateSatsPerByte, 'action.feeRateSatsPerByte');
   if (BigInt(value.feeSats) !== BigInt(value.bytes) * BigInt(value.feeRateSatsPerByte)) fail('BUNDLE_ACTION_INVALID', 'action fee differs from bytes times fee rate');
@@ -230,7 +287,7 @@ function validateAction(value, kind, ordinal, cores, owningInstanceId, { perform
   duration(value.proof.proofGenerationMs, 'action.proof.proofGenerationMs');
   exact(value.proof.containment, ['backend', 'memoryMaxBytes', 'memoryPeakBytes', 'memorySwapMaxBytes', 'oomDelta', 'oomKillDelta', 'terminatedSuccessfully'], 'action.proof.containment');
   if (value.proof.containment.backend !== 'linux-systemd-cgroup-v2' || value.proof.containment.terminatedSuccessfully !== true || !['memoryMaxBytes', 'memoryPeakBytes', 'memorySwapMaxBytes'].every((name) => DECIMAL.test(value.proof.containment[name] ?? '')) || !['oomDelta', 'oomKillDelta'].every((name) => Number.isSafeInteger(value.proof.containment[name]) && value.proof.containment[name] >= 0) || value.proof.ompThreads !== cores || value.proof.activeCpuThreads < cores || value.proof.activeCpuThreads > value.proof.observedThreads || value.proof.observedThreads < cores || value.proof.peakRssKiB <= 0 || value.proof.totalTicks <= 0 || value.proof.totalTicks !== value.proof.userTicks + value.proof.systemTicks || value.proof.proofGenerationMs <= 0 || typeof value.proof.cpuTicksPerWallMillisecond !== 'number' || !Number.isFinite(value.proof.cpuTicksPerWallMillisecond) || value.proof.cpuTicksPerWallMillisecond <= 0 || value.proof.cpuTicksPerWallMillisecond !== value.proof.totalTicks / value.proof.proofGenerationMs) fail('BUNDLE_PROOF_INVALID', 'proof telemetry does not establish a measured all-core contained proof');
-  validateVm(value.vm); validateStore(value.store, kind); validateRpc(value.rpcObservation);
+  validateVm(value.vm); validateStore(value.store, kind); validateRpc(value.rpcObservation, value.admissionRoute);
   exact(value.readback, ['rawTransactionSha256', 'stateCategoryWire', 'stateCommitmentSha256', 'stateOutpoint'], 'action.readback');
   hash(value.readback.rawTransactionSha256, 'action.readback.rawTransactionSha256'); hash(value.readback.stateCategoryWire, 'action.readback.stateCategoryWire'); hash(value.readback.stateCommitmentSha256, 'action.readback.stateCommitmentSha256'); exact(value.readback.stateOutpoint, ['txid', 'vout'], 'action.readback.stateOutpoint');
   const owningCategoryWire = Buffer.from(owningInstanceId, 'hex').reverse().toString('hex');
@@ -239,6 +296,10 @@ function validateAction(value, kind, ordinal, cores, owningInstanceId, { perform
     || value.readback.stateCategoryWire !== owningCategoryWire) {
     fail('BUNDLE_READBACK_INVALID', 'state readback does not bind output zero and the owning pool category of the accepted action');
   }
+  inspectV2BetaLiveActionChainAttestation(value.chainAttestation, {
+    action: value,
+    expectedInstanceId: owningInstanceId,
+  });
   exact(value.timingsMs, ACTION_TIMINGS, 'action.timingsMs'); for (const name of ACTION_TIMINGS) duration(value.timingsMs[name], `action.timingsMs.${name}`);
   if (value.timingsMs.total !== value.actionTotalMs || value.timingsMs.proofGeneration !== value.proof.proofGenerationMs) fail('BUNDLE_ACTION_INVALID', 'action timing summary differs from retained stage telemetry');
 }
@@ -249,12 +310,12 @@ function validatePool(value) {
   if (value.sourceTransactionId === value.genesisTransactionId
     || value.instanceId === value.genesisTransactionId
     || value.actionFundingOutputs !== 10) fail('BUNDLE_POOL_INVALID', 'pool bootstrap topology or action funding set is invalid');
-  const rpcProfiles = {
-    'created-and-broadcast-in-command': { getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0, sendrawtransaction: 2, testmempoolaccept: 2 },
-    'committed-idempotent-recovery': { getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0, sendrawtransaction: 0, testmempoolaccept: 0 },
-  };
-  if (!Object.hasOwn(rpcProfiles, value.creationMode)) fail('BUNDLE_POOL_INVALID', 'pool creation mode is unsupported');
-  claims(value.claims, 'semantic.pool.claims', { broadcasted: true }); validateRpcProfile(value.rpcObservation, rpcProfiles[value.creationMode]);
+  if (value.creationMode !== 'created-and-broadcast-through-public-fulcrum') fail('BUNDLE_POOL_INVALID', 'pool creation mode is unsupported');
+  claims(value.claims, 'semantic.pool.claims', { broadcasted: true });
+  validateRpcProfile(value.rpcObservation, {
+    getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0,
+    sendrawtransaction: 2, testmempoolaccept: 0,
+  }, FRESH_POOL_PUBLIC_PHYSICAL_PROFILES);
   exact(value.runtime, ['linkedDuringCommand', 'runtimeManifestSha256', 'runtimeMaterialSha256', 'work'], 'semantic.pool.runtime');
   if (typeof value.runtime.linkedDuringCommand !== 'boolean') fail('BUNDLE_POOL_INVALID', 'pool runtime link state is invalid');
   hash(value.runtime.runtimeManifestSha256, 'semantic.pool.runtime.runtimeManifestSha256'); hash(value.runtime.runtimeMaterialSha256, 'semantic.pool.runtime.runtimeMaterialSha256'); runtimeWork(value.runtime.work, value.runtime.linkedDuringCommand);
@@ -383,12 +444,13 @@ function validatePoolCreateMetrics(value, samples) {
 }
 
 function validatePoolCreatePerformance(value, disallowedIds, semanticInstall) {
-  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'release', 'schema', 'scope'], 'pool-create performance evidence');
+  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'release', 'schema', 'scope', 'sourceReservationLedgerSha256'], 'pool-create performance evidence');
   if (value.schema !== V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA
     || value.scope !== 'fresh-pool-create-performance-explicitly-unqualified') {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create performance schema or scope is unsupported');
   }
   requireSemanticRelease(value.release, semanticInstall, 'pool-create performance.release', 'BUNDLE_POOL_CREATE_PERFORMANCE_INVALID');
+  hash(value.sourceReservationLedgerSha256, 'pool-create performance.sourceReservationLedgerSha256');
   claims(value.claims, 'pool-create performance.claims'); duration(value.elapsedMs, 'pool-create performance.elapsedMs');
   if (!Array.isArray(value.pools) || value.pools.length < 20) {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'at least twenty fresh pool-create samples are required');

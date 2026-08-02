@@ -2,7 +2,7 @@
  * Explicit local maintenance lane for a committed V2 beta pool's immutable
  * linked runtime cache. This is deliberately separate from warm actions: it
  * does not construct an action session, open a wallet/store/journal, contact
- * BCHN, prove, or send a transaction.
+ * public Chipnet providers, prove, or send a transaction.
  */
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';

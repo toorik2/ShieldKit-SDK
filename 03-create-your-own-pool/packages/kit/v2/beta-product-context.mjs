@@ -7,7 +7,7 @@ import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { decodeStateNftCommitment } from '../../action/v2/state.mjs';
-import { assertLayer1BchnChipnetRpc } from '../chipnet-rpc.mjs';
+import { assertBchnChipnetRpc } from '../chipnet-rpc.mjs';
 import {
   assertV2BetaChipnetCommittedGenesisCapability,
   loadV2BetaChipnetCommittedGenesis,
@@ -240,7 +240,7 @@ function productionDependencies() {
     assertWallet: assertV2BetaProductWallet,
     openJournal: openV2DeliveryJournal,
     assertJournal: assertV2DeliveryJournal,
-    assertRpc: assertLayer1BchnChipnetRpc,
+    assertRpc: assertBchnChipnetRpc,
   });
 }
 
@@ -255,7 +255,7 @@ async function openContext(value, dependencies) {
   const config = validateV2BetaProductContextConfig(value.config);
   let rpc;
   try { rpc = dependencies.assertRpc(value.rpc); }
-  catch (error) { fail('BETA_CONTEXT_RPC_REJECTED', 'a branded BCHN Chipnet RPC is required', { cause: error }); }
+  catch (error) { fail('BETA_CONTEXT_RPC_REJECTED', 'a branded Chipnet product RPC is required', { cause: error }); }
   const genesis = dependencies.loadGenesis({ deploymentDirectory: config.deploymentDirectory });
   dependencies.assertGenesis(genesis);
   const artifactInstallation = await dependencies.loadArtifacts({

@@ -47,6 +47,7 @@ import {
 } from '../../profile/v2/genesis.mjs';
 import {
   createOrLoadV2BetaProductConfig,
+  loadV2BetaProductConfig,
 } from './beta-product-config.mjs';
 import {
   assertV2BetaProductPoolFundingCapability,
@@ -58,7 +59,7 @@ import {
   V2_BETA_PRODUCT_BOOTSTRAP_GENESIS_SOURCE_SATS,
   V2_BETA_PRODUCT_BOOTSTRAP_WITHDRAWAL_RESERVE_SATS,
 } from './beta-product-pool-funding.mjs';
-import { observeLayer1BchnChipnetRpc } from '../chipnet-rpc.mjs';
+import { isBchnChipnetBackend, observeBchnChipnetRpc } from '../chipnet-rpc.mjs';
 import {
   openV2BetaProductPoolCreateJournal,
 } from './beta-product-pool-create-journal.mjs';
@@ -105,32 +106,6 @@ function exactOptional(value, allowed, label) {
 
 function now() { return performance.now(); }
 
-function fundingRequired(funding, started, request, rpcObservation) {
-  const command = [
-    'shieldkit', 'pool', 'create',
-    ...(request.dataHome === undefined ? [] : ['--data-home', request.dataHome]),
-    '--funding-txid', '<64-lowercase-hex-bchn-transaction-id>',
-  ].join(' ');
-  return Object.freeze({
-    schema: V2_BETA_PRODUCT_POOL_CREATE_RESULT_SCHEMA,
-    status: 'funding-required',
-    command: 'pool-create',
-    capacity: V2_BETA_PRODUCT_CAPACITY,
-    fundingAddress: funding.fundingWallet.cashAddress,
-    fundingWallet: funding.fundingWallet,
-    required: funding.required,
-    rerunCommand: command,
-    claims: Object.freeze({
-      broadcasted: false,
-      confirmed: false,
-      mined: false,
-      productionQualified: false,
-    }),
-    rpcObservation,
-    timingsMs: Object.freeze({ commandTotal: now() - started }),
-  });
-}
-
 function fundingJournalBinding(bootstrap) {
   const outpoint = bootstrap?.sourceFundingOutpoint;
   const lockingBytecodeHex = bootstrap?.fundingWallet?.lockingBytecodeHex;
@@ -152,10 +127,18 @@ const OBSERVED_RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
 ]);
+const PUBLIC_ELECTRUM_METHODS = Object.freeze([
+  'server.features', 'server.version', 'blockchain.transaction.broadcast',
+  'blockchain.transaction.get', 'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
 
 function rpcObservation(value, label) {
-  exactOptional(value, ['backend', 'genesis', 'methodCounts'], label);
-  if (value.backend !== 'layer1-bchn-chipnet' || !HASH.test(value.genesis)) {
+  const hasPhysicalCounts = Object.hasOwn(value ?? {}, 'physicalMethodCounts');
+  exactOptional(value, hasPhysicalCounts
+    ? ['backend', 'genesis', 'methodCounts', 'physicalMethodCounts']
+    : ['backend', 'genesis', 'methodCounts'], label);
+  if (!isBchnChipnetBackend(value.backend) || !HASH.test(value.genesis)) {
     fail('BETA_POOL_RPC_OBSERVATION_REJECTED', `${label} has an unexpected backend or genesis`);
   }
   exactOptional(value.methodCounts, OBSERVED_RPC_METHODS, `${label} method counts`);
@@ -164,10 +147,25 @@ function rpcObservation(value, label) {
       fail('BETA_POOL_RPC_OBSERVATION_REJECTED', `${label} count ${method} is invalid`);
     }
   }
+  if (hasPhysicalCounts) {
+    if (value.backend !== 'public-chipnet-fulcrum-tls') {
+      fail('BETA_POOL_RPC_OBSERVATION_REJECTED', `${label} exposes public transport counts for a non-public backend`);
+    }
+    exactOptional(value.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, `${label} physical method counts`);
+    for (const method of PUBLIC_ELECTRUM_METHODS) {
+      if (!Number.isSafeInteger(value.physicalMethodCounts[method])
+        || value.physicalMethodCounts[method] < 0) {
+        fail('BETA_POOL_RPC_OBSERVATION_REJECTED', `${label} physical count ${method} is invalid`);
+      }
+    }
+  }
   return Object.freeze({
     backend: value.backend,
     genesis: value.genesis,
     methodCounts: Object.freeze({ ...value.methodCounts }),
+    ...(hasPhysicalCounts
+      ? { physicalMethodCounts: Object.freeze({ ...value.physicalMethodCounts }) }
+      : {}),
   });
 }
 
@@ -180,15 +178,27 @@ function oneShotAdmissionObservation(before, after) {
   const delta = Object.fromEntries(OBSERVED_RPC_METHODS.map((method) => [
     method, current.methodCounts[method] - prior.methodCounts[method],
   ]));
+  if ((prior.physicalMethodCounts === undefined) !== (current.physicalMethodCounts === undefined)) {
+    fail('BETA_POOL_RPC_OBSERVATION_REJECTED', 'public transport-count availability changed during zero-conf admission');
+  }
+  const physicalDelta = prior.physicalMethodCounts === undefined
+    ? undefined
+    : Object.fromEntries(PUBLIC_ELECTRUM_METHODS.map((method) => [
+      method,
+      current.physicalMethodCounts[method] - prior.physicalMethodCounts[method],
+    ]));
+  const expectedTma = current.backend === 'public-chipnet-fulcrum-tls' ? 0 : 2;
   if (delta.getblockhash !== 0 || delta.scantxoutset !== 0
     || delta.getrawtransaction !== 2 || delta.gettxout !== 1
-    || delta.testmempoolaccept !== 2 || delta.sendrawtransaction !== 2) {
-    fail('BETA_POOL_RPC_OBSERVATION_REJECTED', 'the exact two-transaction pool-create package requires one testmempoolaccept/send per transaction, two raw readbacks, and one state-output readback');
+    || delta.testmempoolaccept !== expectedTma || delta.sendrawtransaction !== 2) {
+    fail('BETA_POOL_RPC_OBSERVATION_REJECTED', 'the exact two-transaction pool-create package requires two broadcasts, two raw readbacks, and one state-output readback; direct BCHN additionally has one preflight per transaction');
   }
   return Object.freeze({
     backend: current.backend,
     genesis: current.genesis,
     methodCounts: Object.freeze(delta),
+    ...(physicalDelta === undefined
+      ? {} : { physicalMethodCounts: Object.freeze(physicalDelta) }),
   });
 }
 
@@ -452,7 +462,7 @@ function assertAccepted(value) {
     || value.evidence?.claims?.productionQualified !== false) {
     fail(
       'BETA_POOL_ZERO_CONF_PENDING',
-      'BCHN did not expose the exact bootstrap, genesis, and state NFT in its zero-conf view; no local success was committed',
+      'the Chipnet product providers did not expose the exact bootstrap, genesis, and state NFT in their zero-conf view; no local success was committed',
       { recoverable: true },
     );
   }
@@ -614,7 +624,7 @@ function productionDependencies() {
       linkedTemplate,
     }),
     consumeRpc: consumeV2BetaProductPoolCreateRpc,
-    observeRpc: observeLayer1BchnChipnetRpc,
+    observeRpc: observeBchnChipnetRpc,
     createFunding: createV2BetaProductPoolFundingWithPoolCreateRpc,
     createGenesisRuntime: createV2BetaChipnetGenesisRuntimeFromResolution,
     createRpc: createV2BetaProductPoolCreateRpc,
@@ -629,6 +639,7 @@ function productionDependencies() {
     }),
     installRuntime: installV2BetaProductLinkedRuntimeCache,
     loadArtifactInstallation: loadV2BetaProductArtifactInstallation,
+    loadConfig: loadV2BetaProductConfig,
     loadDeploymentRecovery: loadV2BetaChipnetDeploymentRecovery,
     loadRuntime: loadV2BetaProductLinkedRuntimeCache,
     loadTemplate: loadV2BetaProductLinkedRuntimeTemplate,
@@ -649,7 +660,7 @@ function testDependencies(value) {
     'broadcastDeployment', 'commitDeployment', 'consumeRpc', 'createFunding', 'observeRpc',
     'createGenesisRuntime', 'createOrLoadConfig', 'createRpc', 'deriveDeploymentBinding',
     'deriveGenesisPins', 'deriveProfileCore', 'deriveSettlementPins',
-    'initializeActionStore', 'installRuntime', 'loadArtifactInstallation', 'loadDeploymentRecovery',
+    'initializeActionStore', 'installRuntime', 'loadArtifactInstallation', 'loadConfig', 'loadDeploymentRecovery',
     'loadRuntime', 'loadTemplate', 'openCreateJournal', 'recoverFunding',
     'specializeRuntime', 'stageDeployment',
   ];
@@ -662,72 +673,79 @@ function testDependencies(value) {
 }
 
 async function create(value, dependencies) {
-  exactOptional(value, ['dataHome', 'fundingTxid', 'fundingUtxo', 'fundingWalletPath'], 'beta pool create options');
-  if (value.fundingTxid !== undefined && !HASH.test(value.fundingTxid)) {
-    fail('BETA_POOL_FUNDING_TXID_REJECTED', 'fundingTxid must be exactly 64 lowercase hexadecimal characters');
-  }
+  exactOptional(value, ['dataHome', 'fundingUtxo', 'fundingWalletPath', 'resume'], 'beta pool create options');
   const directFunding = value.fundingWalletPath !== undefined || value.fundingUtxo !== undefined;
+  const resume = value.resume === true;
+  if (value.resume !== undefined && value.resume !== true) {
+    fail('BETA_POOL_CREATE_INVALID', 'resume must be the literal boolean true when supplied');
+  }
   if (directFunding && (typeof value.fundingWalletPath !== 'string' || typeof value.fundingUtxo !== 'string')) {
     fail('BETA_POOL_USER_FUNDING_REQUIRED', 'fundingWalletPath and fundingUtxo are required together');
   }
-  if (directFunding && value.fundingTxid !== undefined) {
-    fail('BETA_POOL_FUNDING_TXID_REJECTED', 'fundingTxid cannot be combined with direct user funding');
+  if (resume && directFunding) {
+    fail('BETA_POOL_FUNDING_AMBIGUOUS', 'pool-create recovery cannot accept a new funding wallet or outpoint');
+  }
+  if (!resume && !directFunding) {
+    fail('BETA_POOL_USER_FUNDING_REQUIRED', 'new pool creation requires one user-owned funding wallet and exact outpoint in the same invocation');
   }
   const started = now();
   const configOptions = value.dataHome === undefined ? {} : { dataHome: value.dataHome };
   // Recovery is local-only and deliberately precedes ordinary funding
   // discovery. Once exact source/genesis bytes are durable, source UTXO
   // scanning is unnecessary and unsafe because the source may be spent.
-  const loaded = await dependencies.createOrLoadConfig(configOptions);
+  const loaded = await (resume
+    ? dependencies.loadConfig(configOptions)
+    : dependencies.createOrLoadConfig(configOptions));
   const recovery = dependencies.loadDeploymentRecovery({
     deploymentDirectory: loaded.config.deploymentDirectory,
   });
-  if (value.fundingTxid !== undefined && recovery === null) {
-    fail('BETA_POOL_LEGACY_FUNDING_TXID_REJECTED', 'fundingTxid is retained only for an existing local recovery operation; new pool creation requires user-owned funding');
+  if (resume && recovery === null) {
+    fail('BETA_POOL_RECOVERY_REQUIRED', 'pool create --resume requires an existing exact durable deployment operation');
+  }
+  if (!resume && recovery !== null) {
+    fail('BETA_POOL_RECOVERY_REQUIRED', 'an exact durable pool-create operation already exists; rerun with --resume and no funding options');
   }
   const rpcCapability = await dependencies.createRpc();
   const rpc = dependencies.consumeRpc(rpcCapability);
-  const fundingStarted = now();
-  const funding = recovery === null
-    ? await dependencies.createFunding(value, rpcCapability)
-    : await dependencies.recoverFunding({
-      ...(value.dataHome === undefined ? {} : { dataHome: value.dataHome }),
-      sourceFundingRawTxHex: recovery.sourceFundingRawTxHex,
-    });
-  const fundingMs = now() - fundingStarted;
-  if (funding?.status === 'funding-required') {
-    return fundingRequired(funding, started, value, rpcObservation(dependencies.observeRpc(rpc), 'funding-required RPC observation'));
-  }
-  if (funding?.status !== 'bootstrap-ready') {
-    fail('BETA_POOL_FUNDING_REJECTED', 'pool funding did not return an exact funding-required or bootstrap-ready result');
-  }
-  const capability = dependencies.assertFunding(funding.capability);
-  const bootstrap = capability.bootstrapBinding();
-  const operationId = `pool-create.${bootstrap.instanceId}`;
-  assertRecoveredBootstrap(recovery, bootstrap);
-  const observedRuntime = await observeV2BetaRuntimeWork(() =>
-    loadOrCreateLinkedRuntime({
-      bootstrap,
-      config: loaded.config,
-    }, dependencies));
-  const linkedRuntime = observedRuntime.value;
-  const runtimeWork = assertV2BetaPoolCreateRuntimeWork(
-    observedRuntime.observation,
-    { linkedDuringCommand: linkedRuntime.linkedNow },
-  );
-  const { runtimeResolution } = linkedRuntime;
-  assertBootstrapRuntime(bootstrap, runtimeResolution);
-  const profileCore = dependencies.deriveProfileCore(runtimeResolution);
-  const genesisRuntime = dependencies.createGenesisRuntime({
-    profileCore,
-    runtimeResolution,
-  });
-  let wallet;
-  let createJournal;
-  let createClaim;
-  let change;
-  let sendAttempted = false;
   try {
+    const fundingStarted = now();
+    const funding = recovery === null
+      ? await dependencies.createFunding(value, rpcCapability)
+      : await dependencies.recoverFunding({
+        ...(value.dataHome === undefined ? {} : { dataHome: value.dataHome }),
+        sourceFundingRawTxHex: recovery.sourceFundingRawTxHex,
+      });
+    const fundingMs = now() - fundingStarted;
+    if (funding?.status !== 'bootstrap-ready') {
+      fail('BETA_POOL_FUNDING_REJECTED', 'one-invocation user funding did not produce an exact bootstrap-ready result');
+    }
+    const capability = dependencies.assertFunding(funding.capability);
+    const bootstrap = capability.bootstrapBinding();
+    const operationId = `pool-create.${bootstrap.instanceId}`;
+    assertRecoveredBootstrap(recovery, bootstrap);
+    const observedRuntime = await observeV2BetaRuntimeWork(() =>
+      loadOrCreateLinkedRuntime({
+        bootstrap,
+        config: loaded.config,
+      }, dependencies));
+    const linkedRuntime = observedRuntime.value;
+    const runtimeWork = assertV2BetaPoolCreateRuntimeWork(
+      observedRuntime.observation,
+      { linkedDuringCommand: linkedRuntime.linkedNow },
+    );
+    const { runtimeResolution } = linkedRuntime;
+    assertBootstrapRuntime(bootstrap, runtimeResolution);
+    const profileCore = dependencies.deriveProfileCore(runtimeResolution);
+    const genesisRuntime = dependencies.createGenesisRuntime({
+      profileCore,
+      runtimeResolution,
+    });
+    let wallet;
+    let createJournal;
+    let createClaim;
+    let change;
+    let sendAttempted = false;
+    try {
     createJournal = dependencies.openCreateJournal({
       databasePath: loaded.config.poolCreateJournalDatabasePath,
     });
@@ -927,21 +945,24 @@ async function create(value, dependencies) {
       actionFundingOutputs: actionStore.actionFundingOutputs,
       actionFundingSetSha256: actionStore.actionFundingSetSha256,
     });
-  } catch (error) {
-    if (wallet !== undefined && change !== undefined) {
-      try {
-        if (sendAttempted) wallet.markChangeWalletIndeterminate({ operationId });
-        else if (createJournal !== undefined && createClaim?.mode === 'send-allowed') {
-          // Keep the exact staged key and bootstrap recoverable for a retry;
-          // do not misclassify it as an abandoned orphan.
-          createJournal.releaseSafePreSend({ claim: createClaim });
-        }
-      } catch { /* preserve the protocol failure; wallet reopen exposes recovery state */ }
+    } catch (error) {
+      if (wallet !== undefined && change !== undefined) {
+        try {
+          if (sendAttempted) wallet.markChangeWalletIndeterminate({ operationId });
+          else if (createJournal !== undefined && createClaim?.mode === 'send-allowed') {
+            // Keep the exact staged key and bootstrap recoverable for a retry;
+            // do not misclassify it as an abandoned orphan.
+            createJournal.releaseSafePreSend({ claim: createClaim });
+          }
+        } catch { /* preserve the protocol failure; wallet reopen exposes recovery state */ }
+      }
+      throw error;
+    } finally {
+      wallet?.close();
+      createJournal?.close();
     }
-    throw error;
   } finally {
-    wallet?.close();
-    createJournal?.close();
+    try { await rpc?.close?.(); } catch { /* preserve the pool-create result/error */ }
   }
 }
 

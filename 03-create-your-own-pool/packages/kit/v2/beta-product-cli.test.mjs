@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -32,6 +33,39 @@ function dependencies(events) {
   };
 }
 
+test('production V2 product wiring has no SSH or credential-configured RPC dependency', () => {
+  for (const filename of [
+    './beta-product-cli.mjs',
+    './beta-product-pool-funding.mjs',
+    './beta-product-action-lifecycle.mjs',
+  ]) {
+    const source = readFileSync(new URL(filename, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /createLayer1|layer1-node|\bssh\b|SHIELDKIT_RPC_URL|BCH_RPC_URL/u);
+  }
+});
+
+test('every networked CLI command closes its one persistent public RPC capability on success and failure', async () => {
+  const events = [];
+  let closes = 0;
+  const base = dependencies(events);
+  const withClose = Object.freeze({
+    ...base,
+    createRpc: async () => ({ branded: true, close: async () => { closes += 1; } }),
+  });
+  await executeV2BetaProductCliForTest(['deposit', '--data-home', '/tmp/shieldkit-test'], withClose);
+  assert.equal(closes, 1);
+
+  const failing = Object.freeze({
+    ...withClose,
+    deposit: async () => { throw new Error('action failed'); },
+  });
+  await assert.rejects(
+    executeV2BetaProductCliForTest(['deposit', '--data-home', '/tmp/shieldkit-test'], failing),
+    /action failed/u,
+  );
+  assert.equal(closes, 2);
+});
+
 test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['pool', 'create']), true);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'refresh-runtime']), true);
@@ -44,7 +78,7 @@ test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['pool', 'add']), false);
 });
 
-test('dispatches local runtime refresh without loading a BCHN capability or action context', async () => {
+test('dispatches local runtime refresh without loading a Chipnet product capability or action context', async () => {
   const events = [];
   const refreshed = await executeV2BetaProductCliForTest(
     ['pool', 'refresh-runtime', '--data-home', '/tmp/shieldkit-test', '--human'],
@@ -64,18 +98,29 @@ test('dispatches local runtime refresh without loading a BCHN capability or acti
   ]) {
     await assert.rejects(
       executeV2BetaProductCliForTest(argv, dependencies([])),
-      (error) => error instanceof V2BetaProductCliError && error.code === 'BETA_CLI_OPTION_NOT_ALLOWED',
+      (error) => error instanceof V2BetaProductCliError
+        && (argv.includes('--funding-txid')
+          ? error.code === 'BETA_CLI_UNKNOWN_OPTION'
+          : error.code === 'BETA_CLI_OPTION_NOT_ALLOWED'),
     );
   }
 });
 
 test('dispatches pool creation without any separate per-pool preparation command', async () => {
+  const walletPath = '/tmp/shieldkit-user-wallet.json';
+  const fundingUtxo = `${'cd'.repeat(32)}:0`;
   const created = await executeV2BetaProductCliForTest(
-    ['pool', 'create', '--data-home', '/tmp/shieldkit-test'], dependencies([]),
+    [
+      'pool', 'create', '--data-home', '/tmp/shieldkit-test',
+      '--funding-wallet', walletPath, '--funding-utxo', fundingUtxo,
+    ],
+    dependencies([]),
   );
   assert.equal(created.command, 'pool-create');
   assert.equal(created.result.status, 'accepted-zero-conf-beta-unqualified');
-  assert.deepEqual(created.result.input, { dataHome: '/tmp/shieldkit-test' });
+  assert.deepEqual(created.result.input, {
+    dataHome: '/tmp/shieldkit-test', fundingWalletPath: walletPath, fundingUtxo,
+  });
   await assert.rejects(
     executeV2BetaProductCliForTest(['pool', 'prepare'], dependencies([])),
     error => error instanceof V2BetaProductCliError
@@ -83,19 +128,13 @@ test('dispatches pool creation without any separate per-pool preparation command
   );
 });
 
-test('accepts and propagates an exact pool-create funding transaction hint only', async () => {
-  const fundingTxid = 'ab'.repeat(32);
-  const created = await executeV2BetaProductCliForTest(
-    ['pool', 'create', '--data-home', '/tmp/shieldkit-test', '--funding-txid', fundingTxid],
-    dependencies([]),
-  );
-  assert.deepEqual(created.result.input, {
-    dataHome: '/tmp/shieldkit-test', fundingTxid,
-  });
+test('rejects legacy two-step funding hints and requires one exact user-funded invocation', async () => {
   for (const argv of [
+    ['pool', 'create'],
+    ['pool', 'create', '--funding-txid', 'ab'.repeat(32)],
     ['pool', 'create', '--funding-txid', 'AB'.repeat(32)],
     ['pool', 'create', '--funding-txid', 'ab'.repeat(31)],
-    ['deposit', '--funding-txid', fundingTxid],
+    ['deposit', '--funding-txid', 'ab'.repeat(32)],
   ]) {
     await assert.rejects(
       executeV2BetaProductCliForTest(argv, dependencies([])),
@@ -119,6 +158,7 @@ test('accepts one-invocation user wallet funding without placing a key on argv',
     ['pool', 'create', '--funding-utxo', `${txid}:01`, '--funding-wallet', walletPath],
     ['pool', 'create', '--funding-wallet', 'relative.json', '--funding-utxo', `${txid}:0`],
     ['pool', 'create', '--funding-wallet', walletPath, '--funding-utxo', `${txid}:0`, '--funding-txid', txid],
+    ['pool', 'create', '--resume', '--funding-wallet', walletPath, '--funding-utxo', `${txid}:0`],
     ['pool', 'create', '--private-key', '00'.repeat(32)],
   ]) {
     await assert.rejects(
@@ -128,20 +168,42 @@ test('accepts one-invocation user wallet funding without placing a key on argv',
   }
 });
 
-test('renders the secret-free pool funding rerun command for human output', () => {
+test('pool-create recovery is an explicit funding-free resume route', async () => {
+  const resumed = await executeV2BetaProductCliForTest(
+    ['pool', 'create', '--resume', '--data-home', '/tmp/shieldkit-test'],
+    dependencies([]),
+  );
+  assert.equal(resumed.command, 'pool-create');
+  assert.deepEqual(resumed.result.input, { dataHome: '/tmp/shieldkit-test', resume: true });
+});
+
+test('renders an accepted pool without advertising a two-step funding rerun', () => {
   const rendered = renderV2BetaProductCliHuman({
     command: 'pool-create',
     result: {
-      status: 'funding-required',
-      fundingAddress: 'bchtest:qtest',
-      rerunCommand: 'shieldkit pool create --funding-txid <64-lowercase-hex-bchn-transaction-id>',
+      status: 'accepted-zero-conf-beta-unqualified',
+      instanceId: 'ab'.repeat(32),
     },
   });
-  assert.match(rendered, /bchtest:qtest/u);
-  assert.match(rendered, /--funding-txid/u);
+  assert.match(rendered, new RegExp('ab'.repeat(32), 'u'));
+  assert.doesNotMatch(rendered, /rerun|funding-txid/u);
 });
 
-test('dispatches deposit and withdrawal through loaded config and one BCHN capability', async () => {
+test('invalid local action configuration is rejected before opening public sockets', async () => {
+  const events = [];
+  const base = dependencies(events);
+  const invalid = Object.freeze({
+    ...base,
+    toContextConfig: () => { events.push('context:reject'); throw new Error('invalid local config'); },
+  });
+  await assert.rejects(
+    executeV2BetaProductCliForTest(['deposit'], invalid),
+    /invalid local config/u,
+  );
+  assert.deepEqual(events, ['config', 'context:reject']);
+});
+
+test('dispatches deposit and withdrawal through loaded config and one Chipnet product capability', async () => {
   const depositEvents = [];
   const deposit = await executeV2BetaProductCliForTest(
     ['deposit', '--operation-id', 'deposit.1'], dependencies(depositEvents),

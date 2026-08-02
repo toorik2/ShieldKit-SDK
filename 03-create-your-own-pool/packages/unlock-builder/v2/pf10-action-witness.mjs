@@ -50,7 +50,7 @@ import {
   splitDirectV2PairFoldBody,
 } from './total-pairfold-cashscript.mjs';
 import {
-  buildDirectV2TotalPairFoldWitness,
+  buildDirectV2TotalPairFoldWitnessPair,
 } from './total-pairfold.mjs';
 
 export const DIRECT_V2_PF10_RUNTIME_SCHEMA =
@@ -787,11 +787,8 @@ function buildDirectV2Pf10ActionWitnessForLane({
       proof: result.proof,
       q: msm.output,
     });
-    template = buildDirectV2TotalPairFoldWitness(trace);
-    precomputedTemplate = buildDirectV2TotalPairFoldWitness(
-      trace,
-      { precomputedFixedLines: true },
-    );
+    ({ compact: template, precomputed: precomputedTemplate } =
+      buildDirectV2TotalPairFoldWitnessPair(trace));
   } catch (error) {
     fail(
       'PF10_WITNESS_INVALID',

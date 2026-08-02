@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { decodeCashAddress } from '@bitauth/libauth';
 
+import { createPublicChipnetFulcrumRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { loadV2BetaProductConfig } from '../packages/kit/v2/beta-product-config.mjs';
 import { loadV2BetaChipnetCommittedGenesis } from '../packages/profile/v2/beta-chipnet-deployment.mjs';
 import { loadV2BetaProductArtifactInstallation } from '../packages/profile/v2/beta-product-artifact-installation.mjs';
@@ -17,12 +18,16 @@ import {
 } from '../packages/profile/v2/beta-product-offline-bootstrap.mjs';
 import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
 import { inspectV2BetaLiveActionEvidence } from './v2-beta-live-action-evidence.mjs';
+import {
+  attestV2BetaLiveActionChainReadback,
+  inspectV2BetaLiveActionChainAttestation,
+} from './v2-beta-live-action-chain-attestation.mjs';
 import { assertPrivateDirectory, readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
 
-export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v2';
+export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v5';
 export const V2_BETA_WARM_SAMPLES_PER_POOL = 5;
 export const V2_BETA_WARM_POOL_MINIMUM = 4;
-const JOURNAL_SCHEMA = 'shieldkit-v2-beta-live-performance-journal-v3';
+const JOURNAL_SCHEMA = 'shieldkit-v2-beta-live-performance-journal-v4';
 const JOURNAL_FILE = 'live-performance-run.json';
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
@@ -41,7 +46,11 @@ function cliRequest(tokens) { return Object.freeze({ executable: process.execPat
 function parseCli(value, label) { if (value?.code !== 0) fail('LIVE_PERFORMANCE_CLI_FAILED', `${label} exited unsuccessfully`); try { const body = JSON.parse(value.stdout); if (body?.ok !== true) fail('LIVE_PERFORMANCE_CLI_FAILED', `${label} did not return success JSON`); claims(body, label); return body.result; } catch (error) { if (error instanceof V2BetaLivePerformanceError) throw error; fail('LIVE_PERFORMANCE_CLI_FAILED', `${label} did not return JSON`, { cause: error }); } }
 function strictAction(result, kind, operationId) {
   try {
-    return inspectV2BetaLiveActionEvidence(result, { command: kind, operationId });
+    const action = inspectV2BetaLiveActionEvidence(result, { command: kind, operationId });
+    if (action.admissionRoute !== 'fresh-single-pass') {
+      fail('LIVE_PERFORMANCE_RESULT_REJECTED', 'warm performance accepts only fresh single-pass action delivery evidence');
+    }
+    return action;
   } catch (error) {
     fail(
       'LIVE_PERFORMANCE_RESULT_REJECTED',
@@ -105,7 +114,7 @@ function validateJournal(value) {
 }
 function journalAction(entry, item) {
   const expected = entry?.state === 'accepted'
-    ? ['kind', 'operationId', 'ordinal', 'poolOrdinal', 'result', 'state']
+    ? ['chainAttestation', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'result', 'state']
     : ['kind', 'operationId', 'ordinal', 'poolOrdinal', 'state'];
   try { exact(entry, expected, 'performance journal action'); }
   catch (error) { fail('LIVE_PERFORMANCE_JOURNAL_REJECTED', 'performance journal action is malformed', { cause: error }); }
@@ -114,7 +123,16 @@ function journalAction(entry, item) {
     || entry.ordinal !== item.ordinal || entry.operationId !== item.operationId) {
     fail('LIVE_PERFORMANCE_JOURNAL_REJECTED', 'performance journal action does not bind one exact planned idempotency key');
   }
-  if (entry.state === 'accepted') return strictAction(entry.result, item.kind, item.operationId);
+  if (entry.state === 'accepted') {
+    const action = strictAction(entry.result, item.kind, item.operationId);
+    return Object.freeze({
+      ...action,
+      chainAttestation: inspectV2BetaLiveActionChainAttestation(entry.chainAttestation, {
+        action,
+        expectedInstanceId: item.expectedInstanceId,
+      }),
+    });
+  }
   return undefined;
 }
 function publicSample(item, action, pools) {
@@ -162,8 +180,8 @@ async function validateInstalledPool({ dataHome }) {
     genesisTransactionId: genesis.genesisOutpoint.txid,
   });
 }
-function assertDeps(value) { exact(value, ['now', 'openJournal', 'runCommand', 'validateInstalledPool', 'writeEvidence'], 'performance test dependencies'); for (const name of ['now', 'openJournal', 'runCommand', 'validateInstalledPool', 'writeEvidence']) if (typeof value[name] !== 'function') fail('LIVE_PERFORMANCE_INVALID', `dependency ${name} must be a function`); return value; }
-function actionPlan(poolOrdinal, dataHome, withdrawalAddress) { const prefix = `warm.${String(poolOrdinal + 1).padStart(2, '0')}`; return Object.freeze([...[...Array(V2_BETA_WARM_SAMPLES_PER_POOL).keys()].map((index) => Object.freeze({ kind: 'deposit', poolOrdinal, ordinal: index + 1, dataHome, operationId: `${prefix}.deposit.${String(index + 1).padStart(2, '0')}` })), ...[...Array(V2_BETA_WARM_SAMPLES_PER_POOL).keys()].map((index) => Object.freeze({ kind: 'withdraw', poolOrdinal, ordinal: index + 1, dataHome, operationId: `${prefix}.withdraw.${String(index + 1).padStart(2, '0')}`, withdrawalAddress }))]); }
+function assertDeps(value) { exact(value, ['actionRpc', 'now', 'openJournal', 'runCommand', 'validateInstalledPool', 'writeEvidence'], 'performance test dependencies'); for (const name of ['now', 'openJournal', 'runCommand', 'validateInstalledPool', 'writeEvidence']) if (typeof value[name] !== 'function') fail('LIVE_PERFORMANCE_INVALID', `dependency ${name} must be a function`); if (typeof value.actionRpc?.getrawtransaction !== 'function' || typeof value.actionRpc?.gettxout !== 'function') fail('LIVE_PERFORMANCE_INVALID', 'independent Chipnet action raw/state capability is required'); return value; }
+function actionPlan(poolOrdinal, dataHome, withdrawalAddress, expectedInstanceId) { const prefix = `warm.${String(poolOrdinal + 1).padStart(2, '0')}`; return Object.freeze([...[...Array(V2_BETA_WARM_SAMPLES_PER_POOL).keys()].map((index) => Object.freeze({ kind: 'deposit', poolOrdinal, ordinal: index + 1, dataHome, expectedInstanceId, operationId: `${prefix}.deposit.${String(index + 1).padStart(2, '0')}` })), ...[...Array(V2_BETA_WARM_SAMPLES_PER_POOL).keys()].map((index) => Object.freeze({ kind: 'withdraw', poolOrdinal, ordinal: index + 1, dataHome, expectedInstanceId, operationId: `${prefix}.withdraw.${String(index + 1).padStart(2, '0')}`, withdrawalAddress }))]); }
 
 async function run(options, dependencies) {
   exact(options, ['evidenceDirectory', 'poolDataHomes', 'withdrawalAddress'], 'live performance options');
@@ -213,7 +231,7 @@ async function run(options, dependencies) {
       || canonicalizeJcs(record.pools) !== canonicalizeJcs(pools)) {
       fail('LIVE_PERFORMANCE_JOURNAL_REJECTED', 'performance journal belongs to different release or pool identities');
     }
-    const plan = options.poolDataHomes.flatMap((dataHome, poolOrdinal) => actionPlan(poolOrdinal, dataHome, options.withdrawalAddress));
+    const plan = options.poolDataHomes.flatMap((dataHome, poolOrdinal) => actionPlan(poolOrdinal, dataHome, options.withdrawalAddress, pools[poolOrdinal].instanceId));
     const planned = new Map(plan.map((item) => [item.operationId, item]));
     const accepted = new Map();
     for (const entry of record.actions) {
@@ -232,15 +250,26 @@ async function run(options, dependencies) {
     const invoke = async (item) => {
       const tokens = item.kind === 'deposit' ? ['deposit', '--data-home', item.dataHome, '--operation-id', item.operationId, '--json'] : ['withdraw', '--data-home', item.dataHome, '--operation-id', item.operationId, '--to', item.withdrawalAddress, '--json'];
       const result = parseCli(await deps.runCommand(cliRequest(tokens)), `shieldkit ${item.kind} ${item.poolOrdinal + 1}.${item.ordinal}`);
-      return Object.freeze({ action: strictAction(result, item.kind, item.operationId), result });
+      const action = strictAction(result, item.kind, item.operationId);
+      if (seenTxids.has(action.transactionId)) fail('LIVE_PERFORMANCE_RESULT_REJECTED', 'warm performance evidence reuses a transaction id');
+      let chainAttestation;
+      try {
+        chainAttestation = await attestV2BetaLiveActionChainReadback({
+          rpc: deps.actionRpc,
+          action,
+          expectedInstanceId: pools[item.poolOrdinal].instanceId,
+        });
+      } catch (error) {
+        fail('LIVE_PERFORMANCE_RESULT_REJECTED', 'independent Chipnet action raw/output-0 attestation failed', { cause: error });
+      }
+      return Object.freeze({ action: Object.freeze({ ...action, chainAttestation }), result });
     };
     for (const item of plan) {
       if (seenIds.has(item.operationId)) continue;
       record = await journal.update(Object.freeze({ ...record, actions: Object.freeze([...record.actions, Object.freeze({ kind: item.kind, poolOrdinal: item.poolOrdinal, ordinal: item.ordinal, operationId: item.operationId, state: 'pending' })]) })); seenIds.add(item.operationId);
       const invoked = await invoke(item);
-      if (seenTxids.has(invoked.action.transactionId)) fail('LIVE_PERFORMANCE_RESULT_REJECTED', 'warm performance evidence reuses a transaction id');
       const sample = publicSample(item, invoked.action, pools);
-      record = await journal.update(Object.freeze({ ...record, actions: Object.freeze(record.actions.map((entry) => entry.operationId === item.operationId ? Object.freeze({ kind: item.kind, poolOrdinal: item.poolOrdinal, ordinal: item.ordinal, state: 'accepted', result: invoked.result }) : entry)) })); accepted.set(item.operationId, Object.freeze({ kind: item.kind, action: sample })); seenTxids.add(invoked.action.transactionId);
+      record = await journal.update(Object.freeze({ ...record, actions: Object.freeze(record.actions.map((entry) => entry.operationId === item.operationId ? Object.freeze({ chainAttestation: invoked.action.chainAttestation, kind: item.kind, poolOrdinal: item.poolOrdinal, ordinal: item.ordinal, state: 'accepted', result: invoked.result }) : entry)) })); accepted.set(item.operationId, Object.freeze({ kind: item.kind, action: sample })); seenTxids.add(invoked.action.transactionId);
     }
     const deposits = [...accepted.values()].filter((entry) => entry.kind === 'deposit').map((entry) => entry.action); const withdrawals = [...accepted.values()].filter((entry) => entry.kind === 'withdraw').map((entry) => entry.action); const depositMetrics = metrics(deposits); const withdrawalMetrics = metrics(withdrawals); assertThresholds(depositMetrics); assertThresholds(withdrawalMetrics);
     const evidence = Object.freeze({ schema: V2_BETA_LIVE_PERFORMANCE_SCHEMA, scope: 'warm-performance-only-explicitly-unqualified', claims: Object.freeze({ confirmed: false, mined: false, productionQualified: false }), release, pools, samples: Object.freeze({ deposits: Object.freeze(deposits), withdrawals: Object.freeze(withdrawals) }), metrics: Object.freeze({ deposits: depositMetrics, withdrawals: withdrawalMetrics }), elapsedMs: deps.now() - started }); const serialized = JSON.stringify(evidence);
@@ -249,7 +278,39 @@ async function run(options, dependencies) {
   } finally { journal.close(); }
 }
 export async function runV2BetaLivePerformanceForTest(options, dependencies) { return run(options, dependencies); }
-export async function runV2BetaLivePerformance(options) { return run(options, { now: performance.now.bind(performance), openJournal: openFileJournal, runCommand: async (request) => { const { spawn } = await import('node:child_process'); return new Promise((resolve, reject) => { const child = spawn(request.executable, request.args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] }); const stdout = []; const stderr = []; child.stdout.on('data', (chunk) => stdout.push(Buffer.from(chunk))); child.stderr.on('data', (chunk) => stderr.push(Buffer.from(chunk))); child.once('error', reject); child.once('close', (code) => resolve({ code, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8') })); }); }, validateInstalledPool, writeEvidence: async (directory, evidence) => { const filename = path.join(directory, `v2-beta-live-performance-${new Date().toISOString().replaceAll(/[:.]/gu, '-')}.json`); try { await writePrivateFile(filename, Buffer.from(`${canonicalizeJcs(evidence)}\n`, 'utf8'), 'performance evidence'); return filename; } catch (error) { fail('LIVE_PERFORMANCE_PATH_REJECTED', 'performance evidence cannot be safely written', { cause: error }); } } }); }
+export async function runV2BetaLivePerformance(options) {
+  const actionRpc = await createPublicChipnetFulcrumRpc();
+  try {
+    return await run(options, {
+      actionRpc,
+      now: performance.now.bind(performance),
+      openJournal: openFileJournal,
+      runCommand: async (request) => {
+        const { spawn } = await import('node:child_process');
+        return new Promise((resolve, reject) => {
+          const child = spawn(request.executable, request.args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+          const stdout = []; const stderr = [];
+          child.stdout.on('data', (chunk) => stdout.push(Buffer.from(chunk)));
+          child.stderr.on('data', (chunk) => stderr.push(Buffer.from(chunk)));
+          child.once('error', reject);
+          child.once('close', (code) => resolve({ code, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8') }));
+        });
+      },
+      validateInstalledPool,
+      writeEvidence: async (directory, evidence) => {
+        const filename = path.join(directory, `v2-beta-live-performance-${new Date().toISOString().replaceAll(/[:.]/gu, '-')}.json`);
+        try {
+          await writePrivateFile(filename, Buffer.from(`${canonicalizeJcs(evidence)}\n`, 'utf8'), 'performance evidence');
+          return filename;
+        } catch (error) {
+          fail('LIVE_PERFORMANCE_PATH_REJECTED', 'performance evidence cannot be safely written', { cause: error });
+        }
+      },
+    });
+  } finally {
+    try { actionRpc.close?.(); } catch {}
+  }
+}
 function usage() { throw new Error('usage: node v2-beta-live-performance.mjs --execute-live --evidence-dir <private-absolute-dir> --withdraw-to <bchtest-p2pkh> --pool-data-home <private-absolute-dir> [--pool-data-home <private-absolute-dir> ...]'); }
 function parseArguments(tokens) { if (tokens[0] !== '--execute-live') usage(); const values = { poolDataHomes: [] }; for (let index = 1; index < tokens.length; index += 2) { const name = tokens[index]; const value = tokens[index + 1]; if (value === undefined) usage(); if (name === '--pool-data-home') values.poolDataHomes.push(value); else if (name === '--evidence-dir' && values.evidenceDirectory === undefined) values.evidenceDirectory = value; else if (name === '--withdraw-to' && values.withdrawalAddress === undefined) values.withdrawalAddress = value; else usage(); } if (values.evidenceDirectory === undefined || values.withdrawalAddress === undefined) usage(); return values; }
 if (import.meta.main === true || (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))) { if (process.version !== 'v22.23.1') throw new Error(`LIVE_PERFORMANCE_NODE_VERSION_REQUIRED: expected Node v22.23.1, received ${process.version}`); const result = await runV2BetaLivePerformance(parseArguments(process.argv.slice(2))); process.stdout.write(`${JSON.stringify({ evidencePath: result.evidencePath, metrics: result.evidence.metrics, claims: result.evidence.claims })}\n`); }

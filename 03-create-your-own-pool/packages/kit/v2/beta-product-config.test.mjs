@@ -64,6 +64,15 @@ const testArtifactVerification = async () => ({
   native: { manifestSha256: hash('manifest.json\n') }, binary: { sha256: hash('prover\n') },
 });
 
+test('load-only resume preflight does not create a missing product layout', (t) => {
+  const subject = fixture(t);
+  assert.throws(
+    () => loadV2BetaProductConfig({ dataHome: subject.dataHome }),
+    rejects('BETA_PRODUCT_CONFIG_PATH_REJECTED'),
+  );
+  assert.throws(() => lstatSync(path.join(subject.dataHome, 'shieldkit')), { code: 'ENOENT' });
+});
+
 test('records a planned artifact destination before install and accepts its exact native path only after atomic install', async (t) => {
   const subject = fixture(t);
   chmodSync(subject.dataHome, 0o755);

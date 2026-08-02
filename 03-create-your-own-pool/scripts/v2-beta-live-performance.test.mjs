@@ -5,6 +5,8 @@ import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { encodeTokenPrefix } from '@bitauth/libauth';
+
 import { deriveV2ChipnetFundingWallet } from '../packages/kit/v2/funding-wallet.mjs';
 import { runV2BetaLivePerformanceForTest } from './v2-beta-live-performance.mjs';
 
@@ -14,8 +16,13 @@ const RELEASE_MANIFEST_SHA256 = H('e');
 const INSTALLATION_RECEIPTS = Object.freeze(['a', 'b', 'c', 'd'].map(H));
 const address = deriveV2ChipnetFundingWallet({ privateKeyHex: '01'.padStart(64, '0') }).cashAddress;
 const timings = Object.freeze({ treeAndPreparation: 1, fundingRead: 1, witnessAssembly: 1, witnessCalculation: 1, proofGeneration: 1, proofVerification: 1, proofTotal: 1, signingAndVm: 1, localVm: 1, stateRead: 1, admission: 1, commit: 1, total: 100 });
-const rpcObservation = Object.freeze({ backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: Object.freeze({ getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 1 }) });
+const rpcObservation = Object.freeze({ backend: 'layer1-bchn-chipnet', genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b', methodCounts: Object.freeze({ getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0, sendrawtransaction: 1, testmempoolaccept: 0 }) });
 const hash = (value) => createHash('sha256').update(value).digest('hex');
+const txidOf = (raw) => createHash('sha256').update(createHash('sha256').update(Buffer.from(raw, 'hex')).digest()).digest().reverse().toString('hex');
+const le64 = (value) => Buffer.from(Uint8Array.from({ length: 8 }, (_, index) => Number((BigInt(value) >> BigInt(index * 8)) & 0xffn))).toString('hex');
+const output = (valueSats, contentsHex) => `${le64(valueSats)}${(contentsHex.length / 2).toString(16).padStart(2, '0')}${contentsHex}`;
+const rawWithOneInput = (parentTxid, outputs) => `0200000001${Buffer.from(parentTxid, 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.join('')}00000000`;
+const actionChainFixtures = new Map();
 const cores = availableParallelism();
 const vmMetrics = Object.freeze({
   arithmeticCost: '1', definedFunctions: '1', densityControlLength: '100',
@@ -62,7 +69,7 @@ function poolIdentities({ duplicatePoolIdentity = false, duplicateReceipt = fals
 }
 function performanceJournal(actions, fixtureOptions = {}) {
   return Object.freeze({
-    schema: 'shieldkit-v2-beta-live-performance-journal-v3',
+    schema: 'shieldkit-v2-beta-live-performance-journal-v4',
     started: true,
     release: Object.freeze({
       releaseId: RELEASE_ID,
@@ -73,18 +80,43 @@ function performanceJournal(actions, fixtureOptions = {}) {
   });
 }
 function action(tokens, { duplicateTxid = false, rebuild = false, slow = false, legacySynthetic = false, wrongPoolReadback = false } = {}) {
-  const kind = tokens[1]; const operationId = tokens[tokens.indexOf('--operation-id') + 1]; const transactionId = duplicateTxid ? H('d') : hash(operationId);
+  const kind = tokens[1]; const operationId = tokens[tokens.indexOf('--operation-id') + 1];
   const poolOrdinal = Number.parseInt(operationId.split('.')[1], 10) - 1;
+  const instanceId = H(String(poolOrdinal + 1));
+  const commitment = hash(Buffer.from(operationId, 'utf8')).repeat(4);
+  const prefix = Buffer.from(encodeTokenPrefix({
+    category: Uint8Array.from(Buffer.from(instanceId, 'hex').reverse()), amount: 0n,
+    nft: { capability: 'mutable', commitment: Uint8Array.from(Buffer.from(commitment, 'hex')) },
+  })).toString('hex');
+  const raw = rawWithOneInput(H('f'), [output('546', `${prefix}51`)]);
+  const actualTransactionId = txidOf(raw);
+  const transactionId = duplicateTxid ? H('d') : actualTransactionId;
+  if (!duplicateTxid) actionChainFixtures.set(transactionId, Object.freeze({ commitment, instanceId, raw }));
   const telemetry = actionTelemetry(kind, 10); const runtimeWork = warmRuntimeWork();
   const nested = {
-    schema: 'shieldkit-v2-beta-product-action-result-v1', status: 'accepted-zero-conf-beta-unqualified', kind: kind === 'deposit' ? 'deposit' : 'withdrawal', operationId, transactionId,
+    schema: 'shieldkit-v2-beta-product-action-result-v3', status: 'accepted-zero-conf-beta-unqualified', kind: kind === 'deposit' ? 'deposit' : 'withdrawal', operationId, transactionId,
+    admissionRoute: 'fresh-single-pass',
     claims: { broadcasted: true, confirmed: false, mined: false, productionQualified: false }, cache: { runtimeManifestSha256: H('1'), runtimeMaterialSha256: H('2') },
     proof: { verified: true, resultSha256: H('3'), nativeBackend: 'rapidsnark', nativeProverSha256: H('4'), ompThreads: cores, observedThreads: cores, activeCpuThreads: cores, peakRssKiB: 1024, userCpuTicks: 10, systemCpuTicks: 5, totalCpuTicks: 15, cpuTicksPerWallMillisecond: 15, containment: telemetry.proof.containment }, vm: { allInputsAccepted: true, inputCount: 10, acceptedInputCount: 10, evidenceHash: H('4') }, telemetry,
-    transaction: { bytes: 100, feeSats: '100', feeRateSatsPerByte: '1', changeVout: 1, changeValueSats: '1000' }, readback: { rawTransactionSha256: H('5'), stateOutpoint: { txid: transactionId, vout: 0 }, stateCommitmentSha256: H('6'), stateCategoryWire: H(String(wrongPoolReadback ? (poolOrdinal + 1) % 4 + 1 : poolOrdinal + 1)) }, rpcObservation, timingsMs: { ...timings, total: slow ? 11_000 : timings.total },
+    transaction: { bytes: 100, feeSats: '100', feeRateSatsPerByte: '1', changeVout: 1, changeValueSats: '1000' }, readback: { rawTransactionSha256: hash(Buffer.from(raw, 'hex')), stateOutpoint: { txid: transactionId, vout: 0 }, stateCommitmentSha256: hash(Buffer.from(commitment, 'hex')), stateCategoryWire: Buffer.from(H(String(wrongPoolReadback ? (poolOrdinal + 1) % 4 + 1 : poolOrdinal + 1)), 'hex').reverse().toString('hex') }, rpcObservation, timingsMs: { ...timings, total: slow ? 11_000 : timings.total },
   };
   if (rebuild) { runtimeWork.counts['instance-specialization'] = 1; runtimeWork.events.push({ type: 'instance-specialization' }); }
   if (legacySynthetic) { nested.rpc = nested.rpcObservation; delete nested.rpcObservation; nested.runtime = { rebuilt: false }; }
-  return { schema: 'shieldkit-v2-beta-product-command-result-v1', command: kind, status: nested.status, operationId, transactionId, claims: nested.claims, action: nested, telemetry: nested.telemetry, runtimeWork, timingsMs: { sessionOpen: 1, action: slow ? 11_000 : 100, commandTotal: slow ? 11_001 : 200 } };
+  return { schema: 'shieldkit-v2-beta-product-command-result-v3', command: kind, status: nested.status, operationId, transactionId, claims: nested.claims, action: nested, telemetry: nested.telemetry, runtimeWork, timingsMs: { sessionOpen: 1, action: slow ? 11_000 : 100, commandTotal: slow ? 11_001 : 200 } };
+}
+function chainAttestationFor(result) {
+  const actionResult = result.action;
+  return {
+    schema: 'shieldkit-v2-beta-live-action-chain-attestation-v1',
+    backend: 'layer1-bchn-chipnet',
+    genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b',
+    transactionId: actionResult.transactionId,
+    rawTransactionSha256: actionResult.readback.rawTransactionSha256,
+    stateOutpoint: { ...actionResult.readback.stateOutpoint },
+    stateCategoryWire: actionResult.readback.stateCategoryWire,
+    stateCommitmentSha256: actionResult.readback.stateCommitmentSha256,
+    stateValueSatoshis: '546',
+  };
 }
 function fixture(options = {}) {
   const holder = memoryJournal(options.initial); const calls = [];
@@ -110,6 +142,24 @@ function fixture(options = {}) {
         };
       },
       async runCommand(request) { calls.push(request.literal); return { code: 0, stdout: JSON.stringify({ ok: true, confirmed: false, mined: false, productionQualified: false, result: action(request.literal, options) }) }; },
+      actionRpc: {
+        backend: 'layer1-bchn-chipnet',
+        genesis: '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b',
+        async getrawtransaction(txid) {
+          const entry = actionChainFixtures.get(txid);
+          if (entry === undefined) throw new Error('unknown action transaction');
+          return entry.raw;
+        },
+        async gettxout(txid, vout) {
+          assert.equal(vout, 0);
+          const entry = actionChainFixtures.get(txid);
+          if (entry === undefined) throw new Error('unknown action transaction');
+          return { valueSatoshis: '546', scriptPubKey: { hex: '51' }, tokenData: {
+            category: Buffer.from(entry.instanceId, 'hex').reverse().toString('hex'), amount: '0',
+            nft: { capability: 'mutable', commitment: entry.commitment },
+          } };
+        },
+      },
       async writeEvidence(directory, evidence) { return `${directory}/performance.json`; },
     },
   };
@@ -120,7 +170,7 @@ test('accepts distinct local installation receipts for one stable release and fo
   const subject = directories(); const mocked = fixture();
   try {
     const result = await runV2BetaLivePerformanceForTest(options(subject), mocked.deps);
-    assert.equal(result.evidence.schema, 'shieldkit-v2-beta-live-performance-v2');
+    assert.equal(result.evidence.schema, 'shieldkit-v2-beta-live-performance-v5');
     assert.deepEqual(result.evidence.release, {
       releaseId: RELEASE_ID,
       releaseManifestSha256: RELEASE_MANIFEST_SHA256,
@@ -134,7 +184,7 @@ test('accepts distinct local installation receipts for one stable release and fo
     assert.equal(new Set(result.evidence.samples.deposits.map((entry) => entry.operationId)).size, 20);
     assert.equal(new Set([...result.evidence.samples.deposits, ...result.evidence.samples.withdrawals].map((entry) => entry.transactionId)).size, 40);
     const sample = result.evidence.samples.deposits[0];
-    assert.deepEqual(Object.keys(sample).sort(), ['actionTotalMs', 'bytes', 'cache', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'state', 'store', 'timingsMs', 'transactionId', 'vm'].sort());
+    assert.deepEqual(Object.keys(sample).sort(), ['actionTotalMs', 'admissionRoute', 'bytes', 'cache', 'chainAttestation', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'state', 'store', 'timingsMs', 'transactionId', 'vm'].sort());
     assert.equal(sample.kind, 'deposit'); assert.equal(sample.ordinal, 1); assert.equal(sample.poolOrdinal, 0); assert.equal(sample.state, 'accepted');
     assert.equal(sample.readback.stateCategoryWire, Buffer.from(result.evidence.pools[sample.poolOrdinal].instanceId, 'hex').reverse().toString('hex'));
     assert.equal(JSON.stringify(result.evidence).includes(subject.poolDataHomes[0]), false);
@@ -227,9 +277,10 @@ test('requires reconciliation for a pre-existing pending action and excludes it 
 test('revalidates persisted accepted action results before timing them', async () => {
   const subject = directories();
   const operationId = 'warm.01.deposit.01';
+  const result = action(['shieldkit', 'deposit', '--operation-id', operationId]);
   const accepted = performanceJournal([Object.freeze({
     state: 'accepted', kind: 'deposit', poolOrdinal: 0, ordinal: 1, operationId,
-    result: action(['shieldkit', 'deposit', '--operation-id', operationId]),
+    result, chainAttestation: chainAttestationFor(result),
   })]);
   const mocked = fixture({ initial: accepted });
   try {
@@ -254,6 +305,7 @@ test('rejects malformed or forged persisted accepted action results before count
     const subject = directories();
     const accepted = performanceJournal([Object.freeze({
       state: 'accepted', kind: 'deposit', poolOrdinal: 0, ordinal: 1, operationId, result,
+      chainAttestation: result.action === undefined ? {} : chainAttestationFor(result),
     })]);
     const mocked = fixture({ initial: accepted });
     try {

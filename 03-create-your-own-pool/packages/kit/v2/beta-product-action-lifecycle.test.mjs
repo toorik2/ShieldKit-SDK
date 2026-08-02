@@ -532,7 +532,7 @@ test('action RPC evidence projects only the exact admission delta', () => {
       gettxout: 4,
       scantxoutset: 0,
       sendrawtransaction: 1,
-      testmempoolaccept: 1,
+      testmempoolaccept: 0,
     }),
   });
   assert.deepEqual(
@@ -546,7 +546,7 @@ test('action RPC evidence projects only the exact admission delta', () => {
         gettxout: 1,
         scantxoutset: 0,
         sendrawtransaction: 1,
-        testmempoolaccept: 1,
+        testmempoolaccept: 0,
       },
     },
   );
@@ -557,6 +557,95 @@ test('action RPC evidence projects only the exact admission delta', () => {
     }),
     { code: 'BETA_RPC_OBSERVATION_REJECTED' },
   );
+  assert.throws(
+    () => deriveV2BetaOneShotAdmissionRpcObservationForTest(before, {
+      ...after,
+      methodCounts: { ...after.methodCounts, testmempoolaccept: 1 },
+    }),
+    { code: 'BETA_RPC_OBSERVATION_REJECTED' },
+  );
+});
+
+test('action RPC evidence preserves literal public-provider transport counts beside logical routes', () => {
+  const physical = {
+    'server.features': 2,
+    'server.version': 2,
+    'blockchain.transaction.broadcast': 0,
+    'blockchain.transaction.get': 0,
+    'blockchain.utxo.get_info': 0,
+    'blockchain.scripthash.listunspent': 0,
+  };
+  const before = {
+    backend: 'public-chipnet-fulcrum-tls', genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: {
+      getblockhash: 0, getrawtransaction: 0, gettxout: 0, scantxoutset: 0,
+      sendrawtransaction: 0, testmempoolaccept: 0,
+    },
+    physicalMethodCounts: physical,
+  };
+  const after = {
+    ...before,
+    methodCounts: {
+      ...before.methodCounts, getrawtransaction: 1, gettxout: 1,
+      sendrawtransaction: 1,
+    },
+    physicalMethodCounts: {
+      ...physical,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 1,
+    },
+  };
+  assert.deepEqual(deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after), {
+    backend: 'public-chipnet-fulcrum-tls',
+    genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: {
+      getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
+      sendrawtransaction: 1, testmempoolaccept: 0,
+    },
+    physicalMethodCounts: {
+      'server.features': 0,
+      'server.version': 0,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 1,
+      'blockchain.scripthash.listunspent': 0,
+    },
+  });
+});
+
+test('restarted and recovery lifecycle routes retain their own exact request-count evidence', () => {
+  const before = Object.freeze({
+    backend: 'layer1-bchn-chipnet', genesis: CHIPNET_GENESIS_HASH,
+    methodCounts: Object.freeze({ getblockhash: 9, getrawtransaction: 40, gettxout: 30, scantxoutset: 0, sendrawtransaction: 7, testmempoolaccept: 0 }),
+  });
+  const profiles = {
+    'fresh-single-pass': [1, 1, 1],
+    'fresh-reconciled-after-indeterminate-send': [2, 2, 1],
+    'read-only-reconciliation': [1, 1, 0],
+    'explicit-rebroadcast-precheck-visible': [1, 1, 0],
+    'explicit-rebroadcast-single-pass': [2, 1, 1],
+    'explicit-rebroadcast-reconciled-after-indeterminate-send': [3, 2, 1],
+  };
+  for (const [route, [raw, state, send]] of Object.entries(profiles)) {
+    const after = Object.freeze({
+      backend: before.backend, genesis: before.genesis,
+      methodCounts: Object.freeze({
+        ...before.methodCounts,
+        getrawtransaction: before.methodCounts.getrawtransaction + raw,
+        gettxout: before.methodCounts.gettxout + state,
+        sendrawtransaction: before.methodCounts.sendrawtransaction + send,
+      }),
+    });
+    assert.deepEqual(deriveV2BetaOneShotAdmissionRpcObservationForTest(before, after, route).methodCounts, {
+      getblockhash: 0, getrawtransaction: raw, gettxout: state,
+      scantxoutset: 0, sendrawtransaction: send, testmempoolaccept: 0,
+    }, route);
+  }
+  assert.throws(() => deriveV2BetaOneShotAdmissionRpcObservationForTest(before, Object.freeze({
+    backend: before.backend, genesis: before.genesis,
+    methodCounts: Object.freeze({ ...before.methodCounts, getrawtransaction: 41, gettxout: 31, sendrawtransaction: 1 }),
+  }), 'explicit-rebroadcast-single-pass'), { code: 'BETA_RPC_OBSERVATION_REJECTED' });
 });
 
 test('accepted lifecycle results claim broadcast only after zero-conf reconciliation', () => {

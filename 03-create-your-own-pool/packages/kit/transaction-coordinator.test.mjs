@@ -10,6 +10,7 @@ import {
   commitStagedOperation,
   loadPendingOperation,
   rebroadcastStagedOperation,
+  sendAndReadbackExactTransactionOnce,
   stageOperation,
   transactionIdFromHex,
 } from './transaction-coordinator.mjs';
@@ -86,6 +87,38 @@ test('mandatory exact-send gate binds bytes and authorizes one TMA, durable call
   assert.equal(calls.filter(([name]) => name === 'send').length, 1);
 });
 
+test('public exact-send capability has no BCHN preflight and treats its one provider operation as indeterminate on loss', async () => {
+  const rawTransactionHex = '01000000000000000000';
+  const expectedTransactionId = transactionIdFromHex(rawTransactionHex);
+  const calls = [];
+  const rpc = {
+    async submitExactTransaction(raw, txid) {
+      calls.push(['public-send', raw, txid]);
+      return {
+        transactionId: txid,
+        rawTransaction: { txid, hex: raw },
+      };
+    },
+  };
+  const result = await admitAndSendExactTransactionOnce({
+    rpc, rawTransactionHex, expectedTransactionId,
+    network: 'chipnet', setupMode: 'development-only',
+    async beforeSendAttempt() { calls.push(['durable']); },
+  });
+  assert.deepEqual(calls.map(([name]) => name), ['durable', 'public-send']);
+  assert.deepEqual(result.readback, { transactionId: expectedTransactionId, rawTransactionHex });
+  rpc.submitExactTransaction = async () => { calls.push(['public-loss']); throw new Error('connection lost'); };
+  await assert.rejects(
+    admitAndSendExactTransactionOnce({
+      rpc, rawTransactionHex, expectedTransactionId,
+      network: 'chipnet', setupMode: 'development-only', beforeSendAttempt: async () => {},
+    }),
+    (error) => error?.code === 'EXACT_BROADCAST_SEND_INDETERMINATE'
+      && error.sendAttempted === true,
+  );
+  assert.equal(calls.filter(([name]) => name === 'public-loss').length, 1);
+});
+
 test('mandatory exact-send gate has no send on authorization, TMA, or durability failure and marks send uncertainty', async () => {
   const rawTransactionHex = '01000000000000000000';
   const expectedTransactionId = transactionIdFromHex(rawTransactionHex);
@@ -128,6 +161,141 @@ test('mandatory exact-send gate has no send on authorization, TMA, or durability
     (error) => error?.code === 'EXACT_BROADCAST_READBACK_INVALID' && error.sendAttempted === true,
   );
   assert.equal(sends, 3);
+});
+
+test('single-pass exact-send gate durably binds bytes before one composite action admission', async () => {
+  const rawTransactionHex = '01000000000000000000';
+  const expectedTransactionId = transactionIdFromHex(rawTransactionHex);
+  const stateOutput = { value: 1, tokenData: { amount: '0' } };
+  const calls = [];
+  const rpc = {
+    async testmempoolaccept() { throw new Error('must not preflight'); },
+    async submitV2SinglePassAdmission(raw, txid, vout) {
+      calls.push(['single-pass', raw, txid, vout]);
+      return {
+        transactionId: txid,
+        rawTransaction: { txid, hex: raw },
+        stateOutput,
+      };
+    },
+  };
+  const result = await sendAndReadbackExactTransactionOnce({
+    rpc,
+    rawTransactionHex,
+    expectedTransactionId,
+    stateOutputIndex: 0,
+    network: 'chipnet',
+    setupMode: 'development-only',
+    async beforeSendAttempt(bound) {
+      calls.push(['durable', bound.transactionId, bound.rawTransactionHex]);
+    },
+  });
+  assert.deepEqual(calls, [
+    ['durable', expectedTransactionId, rawTransactionHex],
+    ['single-pass', rawTransactionHex, expectedTransactionId, 0],
+  ]);
+  assert.deepEqual(result, {
+    admission: { allowed: true, txid: expectedTransactionId },
+    transactionId: expectedTransactionId,
+    readback: {
+      transactionId: expectedTransactionId,
+      rawTransactionHex,
+      stateOutput,
+    },
+  });
+});
+
+test('single-pass exact-send gate has zero remote calls before durability and treats every later error as indeterminate', async () => {
+  const rawTransactionHex = '01000000000000000000';
+  const expectedTransactionId = transactionIdFromHex(rawTransactionHex);
+  let remoteCalls = 0;
+  const rpc = {
+    async submitV2SinglePassAdmission() {
+      remoteCalls += 1;
+      throw new Error('disconnect after request began');
+    },
+  };
+  await assert.rejects(
+    sendAndReadbackExactTransactionOnce({
+      rpc, rawTransactionHex, expectedTransactionId,
+      network: 'mainnet', setupMode: 'development-only',
+      beforeSendAttempt: async () => {},
+    }),
+    (error) => error?.code === 'EXACT_BROADCAST_NETWORK_REJECTED'
+      && error.sendAttempted === false,
+  );
+  await assert.rejects(
+    sendAndReadbackExactTransactionOnce({
+      rpc, rawTransactionHex, expectedTransactionId,
+      network: 'chipnet', setupMode: 'development-only',
+      beforeSendAttempt: async () => { throw new Error('durability failed'); },
+    }),
+    (error) => error?.code === 'EXACT_BROADCAST_DURABILITY_FAILED'
+      && error.sendAttempted === false,
+  );
+  assert.equal(remoteCalls, 0);
+  await assert.rejects(
+    sendAndReadbackExactTransactionOnce({
+      rpc, rawTransactionHex, expectedTransactionId,
+      network: 'chipnet', setupMode: 'development-only',
+      beforeSendAttempt: async () => {},
+    }),
+    (error) => error?.code === 'EXACT_BROADCAST_SEND_INDETERMINATE'
+      && error.sendAttempted === true,
+  );
+  assert.equal(remoteCalls, 1);
+});
+
+test('single-pass exact-send gate rejects every swapped composite readback without a second request or TMA', async () => {
+  const rawTransactionHex = '01000000000000000000';
+  const expectedTransactionId = transactionIdFromHex(rawTransactionHex);
+  const alternateTransactionId = '00'.repeat(32);
+  const malformedResults = [
+    {
+      transactionId: alternateTransactionId,
+      rawTransaction: { txid: expectedTransactionId, hex: rawTransactionHex },
+      stateOutput: {},
+    },
+    {
+      transactionId: expectedTransactionId,
+      rawTransaction: { txid: alternateTransactionId, hex: rawTransactionHex },
+      stateOutput: {},
+    },
+    {
+      transactionId: expectedTransactionId,
+      rawTransaction: { txid: expectedTransactionId, hex: '00' },
+      stateOutput: {},
+    },
+    {
+      transactionId: expectedTransactionId,
+      rawTransaction: { txid: expectedTransactionId, hex: rawTransactionHex },
+      stateOutput: [],
+    },
+  ];
+
+  for (const observed of malformedResults) {
+    const calls = [];
+    const rpc = {
+      async testmempoolaccept() { calls.push('tma'); },
+      async submitV2SinglePassAdmission() {
+        calls.push('single-pass');
+        return observed;
+      },
+    };
+    await assert.rejects(
+      sendAndReadbackExactTransactionOnce({
+        rpc,
+        rawTransactionHex,
+        expectedTransactionId,
+        network: 'chipnet',
+        setupMode: 'development-only',
+        beforeSendAttempt: async () => { calls.push('durable'); },
+      }),
+      (error) => error?.code === 'EXACT_BROADCAST_READBACK_INVALID'
+        && error.sendAttempted === true,
+    );
+    assert.deepEqual(calls, ['durable', 'single-pass']);
+  }
 });
 
 test('offline staging writes a 0600 journal and does not mutate live state', async (t) => {

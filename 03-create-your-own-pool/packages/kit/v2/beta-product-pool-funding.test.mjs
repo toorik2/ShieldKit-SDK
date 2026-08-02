@@ -150,7 +150,7 @@ test('first run creates the fixed 0600 private funding wallet and returns a secr
   } finally { rmSync(dataHome, { recursive: true, force: true }); }
 });
 
-test('one branded fixed-route BCHN RPC is reused for funding discovery and later orchestration', async () => {
+test('one branded fixed-route Chipnet product RPC is reused for funding discovery and later orchestration', async () => {
   const dataHome = temporaryDataHome();
   try {
     const calls = [];
@@ -233,7 +233,7 @@ test('shared pool-create RPC construction rejects an arbitrary structural lookal
   );
 });
 
-test('funding txid hint authenticates one unconfirmed BCHN output without scanning', async () => {
+test('funding txid hint authenticates one unconfirmed Chipnet output without scanning', async () => {
   const dataHome = temporaryDataHome();
   try {
     const lock = '76a914'.concat('751e76e8199196d454941c45d1b3a323f1433bd6', '88ac');

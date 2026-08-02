@@ -302,10 +302,7 @@ const terminalRecords = (trace) => {
   ]);
 };
 
-export function buildDirectV2TotalPairFoldWitness(
-  trace,
-  { precomputedFixedLines = false } = {},
-) {
+function assertCompleteTrace(trace) {
   if (
     trace === null
     || typeof trace !== 'object'
@@ -314,37 +311,9 @@ export function buildDirectV2TotalPairFoldWitness(
   ) {
     fail('total PairFold witness requires one complete 65-step direct-V2 trace');
   }
-  const schedule = fixedSchedule(trace);
-  if (typeof precomputedFixedLines !== 'boolean') {
-    fail('precomputedFixedLines must be boolean');
-  }
-  const roles = DIRECT_V2_PAIRFOLD_RANGES.map(([start, end], role) => {
-    const compactTable = executorTable(schedule, start, end);
-    const fullTable = precomputedFixedLines
-      ? executorPrecomputedFixedTable(schedule, start, end)
-      : compactTable;
-    // Keep each executor's local table allocation unchanged. In the
-    // precomputed format, the exact suffix is carried in already-budgeted
-    // sibling density payloads and reassembled under one full-table digest.
-    const table = fullTable.subarray(0, compactTable.length);
-    const remoteTable = fullTable.subarray(compactTable.length);
-    const records = executorRecords(trace, start, end, role);
-    return Object.freeze({
-      role,
-      range: Object.freeze([start, end]),
-      modes: Object.freeze(schedule.steps.slice(start, end).map(
-        (step) => step.mode,
-      )),
-      state: encodeDirectV2MillerBoundaryState(trace, start),
-      expectedOut: encodeDirectV2MillerBoundaryState(trace, end),
-      records,
-      table,
-      remoteTable,
-      fullTableBytes: fullTable.length,
-      tableHash256: sha256d(fullTable),
-      endpointBlocks: executorEndpointBlocks(trace, start, end, role),
-    });
-  });
+}
+
+function terminalWitness(trace, schedule) {
   const finalTable = terminalTable(schedule);
   const finalRecords = terminalRecords(trace);
   const bigQ = catFieldsBe(trace.bigQ);
@@ -353,23 +322,119 @@ export function buildDirectV2TotalPairFoldWitness(
     Q: trace.key.beta,
   }).f;
   return Object.freeze({
+    state: encodeDirectV2MillerBoundaryState(
+      trace,
+      DIRECT_V2_PAIRFOLD_TERMINAL_STEP,
+    ),
+    records: finalRecords,
+    table: finalTable,
+    tableHash256: sha256d(finalTable),
+    bigQ,
+    finalEndpointBlock: blockIndexForAnchor(trace, 65),
+    fAB: Object.freeze(f12limbs(fAB).map(mod)),
+  });
+}
+
+function roleWitness(trace, schedule, start, end, role, precomputedFixedLines) {
+  const compactTable = executorTable(schedule, start, end);
+  const fullTable = precomputedFixedLines
+    ? executorPrecomputedFixedTable(schedule, start, end)
+    : compactTable;
+  return Object.freeze({
+    role,
+    range: Object.freeze([start, end]),
+    modes: Object.freeze(schedule.steps.slice(start, end).map(
+      (step) => step.mode,
+    )),
+    state: encodeDirectV2MillerBoundaryState(trace, start),
+    expectedOut: encodeDirectV2MillerBoundaryState(trace, end),
+    records: executorRecords(trace, start, end, role),
+    table: fullTable.subarray(0, compactTable.length),
+    remoteTable: fullTable.subarray(compactTable.length),
+    fullTableBytes: fullTable.length,
+    tableHash256: sha256d(fullTable),
+    endpointBlocks: executorEndpointBlocks(trace, start, end, role),
+  });
+}
+
+function witnessFromSchedule(trace, schedule, precomputedFixedLines) {
+  const roles = DIRECT_V2_PAIRFOLD_RANGES.map(([start, end], role) =>
+    roleWitness(trace, schedule, start, end, role, precomputedFixedLines));
+  return Object.freeze({
     trace,
     schedule,
     fixedLineFormat: precomputedFixedLines
       ? 'precomputed-full'
       : 'xonly-slopes',
     roles: Object.freeze(roles),
-    terminal: Object.freeze({
-      state: encodeDirectV2MillerBoundaryState(
-        trace,
-        DIRECT_V2_PAIRFOLD_TERMINAL_STEP,
-      ),
-      records: finalRecords,
-      table: finalTable,
-      tableHash256: sha256d(finalTable),
-      bigQ,
-      finalEndpointBlock: blockIndexForAnchor(trace, 65),
-      fAB: Object.freeze(f12limbs(fAB).map(mod)),
+    terminal: terminalWitness(trace, schedule),
+  });
+}
+
+/**
+ * Produce both PairFold table encodings from one trace traversal. The compact
+ * and precomputed forms differ only in their per-role fixed tables; their
+ * schedule, records, boundary states, and terminal witness are identical.
+ */
+export function buildDirectV2TotalPairFoldWitnessPair(trace) {
+  assertCompleteTrace(trace);
+  const schedule = fixedSchedule(trace);
+  const terminal = terminalWitness(trace, schedule);
+  const compactRoles = [];
+  const precomputedRoles = [];
+  for (const [role, [start, end]] of DIRECT_V2_PAIRFOLD_RANGES.entries()) {
+    const compactTable = executorTable(schedule, start, end);
+    const fullTable = executorPrecomputedFixedTable(schedule, start, end);
+    const modes = Object.freeze(schedule.steps.slice(start, end).map(
+      (step) => step.mode,
+    ));
+    const range = Object.freeze([start, end]);
+    const state = encodeDirectV2MillerBoundaryState(trace, start);
+    const expectedOut = encodeDirectV2MillerBoundaryState(trace, end);
+    const records = executorRecords(trace, start, end, role);
+    const endpointBlocks = executorEndpointBlocks(trace, start, end, role);
+    const common = { role, range, modes, state, expectedOut, records, endpointBlocks };
+    compactRoles.push(Object.freeze({
+      ...common,
+      table: compactTable.subarray(0, compactTable.length),
+      remoteTable: compactTable.subarray(compactTable.length),
+      fullTableBytes: compactTable.length,
+      tableHash256: sha256d(compactTable),
+    }));
+    precomputedRoles.push(Object.freeze({
+      ...common,
+      table: fullTable.subarray(0, compactTable.length),
+      remoteTable: fullTable.subarray(compactTable.length),
+      fullTableBytes: fullTable.length,
+      tableHash256: sha256d(fullTable),
+    }));
+  }
+  return Object.freeze({
+    compact: Object.freeze({
+      trace,
+      schedule,
+      fixedLineFormat: 'xonly-slopes',
+      roles: Object.freeze(compactRoles),
+      terminal,
+    }),
+    precomputed: Object.freeze({
+      trace,
+      schedule,
+      fixedLineFormat: 'precomputed-full',
+      roles: Object.freeze(precomputedRoles),
+      terminal,
     }),
   });
+}
+
+export function buildDirectV2TotalPairFoldWitness(
+  trace,
+  { precomputedFixedLines = false } = {},
+) {
+  assertCompleteTrace(trace);
+  const schedule = fixedSchedule(trace);
+  if (typeof precomputedFixedLines !== 'boolean') {
+    fail('precomputedFixedLines must be boolean');
+  }
+  return witnessFromSchedule(trace, schedule, precomputedFixedLines);
 }

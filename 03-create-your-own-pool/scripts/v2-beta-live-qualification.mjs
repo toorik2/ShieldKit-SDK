@@ -15,7 +15,7 @@ import {
   parseSerializedSourceOutput,
   parseV2RawTransaction,
 } from '../packages/kit/v2/transaction-policy.mjs';
-import { CHIPNET_GENESIS_HASH, createLayer1BchnChipnetRpc } from '../packages/kit/chipnet-rpc.mjs';
+import { CHIPNET_GENESIS_HASH, createPublicChipnetFulcrumRpc } from '../packages/kit/chipnet-rpc.mjs';
 import { deriveV2BetaProductDataLayout } from '../packages/kit/v2/beta-product-config.mjs';
 import { loadV2BetaProductArtifactInstallation } from '../packages/profile/v2/beta-product-artifact-installation.mjs';
 import {
@@ -28,12 +28,15 @@ import {
   inspectV2BetaLiveActionEvidence,
   inspectV2BetaLivePoolRuntimeWork,
 } from './v2-beta-live-action-evidence.mjs';
+import {
+  attestV2BetaLiveActionChainReadback,
+  inspectV2BetaLiveActionChainAttestation,
+} from './v2-beta-live-action-chain-attestation.mjs';
 import { assertPrivateDirectory, assertPrivateFile, readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
 
-export const V2_BETA_LIVE_QUALIFICATION_SCHEMA = 'shieldkit-v2-beta-live-qualification-v3';
+export const V2_BETA_LIVE_QUALIFICATION_SCHEMA = 'shieldkit-v2-beta-live-qualification-v6';
 export const V2_BETA_CAPACITY = '100000';
-const RUN_SCHEMA = 'shieldkit-v2-beta-live-qualification-run-v2';
-const LEGACY_RUN_SCHEMA = 'shieldkit-v2-beta-live-qualification-run-v1';
+const RUN_SCHEMA = 'shieldkit-v2-beta-live-qualification-run-v4';
 const RUN_FILE = 'live-qualification-run.json';
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
@@ -49,14 +52,47 @@ const RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
 ]);
+const PUBLIC_ELECTRUM_METHODS = Object.freeze([
+  'server.features', 'server.version', 'blockchain.transaction.broadcast',
+  'blockchain.transaction.get', 'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
 const FRESH_POOL_RPC_COUNTS = Object.freeze({
   getblockhash: 0, getrawtransaction: 2, gettxout: 1, scantxoutset: 0,
-  sendrawtransaction: 2, testmempoolaccept: 2,
+  sendrawtransaction: 2, testmempoolaccept: 0,
 });
-const RECOVERED_POOL_RPC_COUNTS = Object.freeze({
-  getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0,
-  sendrawtransaction: 0, testmempoolaccept: 0,
-});
+const FRESH_POOL_PUBLIC_PHYSICAL_PROFILES = Object.freeze([
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 2,
+    'blockchain.transaction.get': 4,
+    'blockchain.utxo.get_info': 2,
+    'blockchain.scripthash.listunspent': 0,
+  }),
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 2,
+    'blockchain.transaction.get': 4,
+    'blockchain.utxo.get_info': 0,
+    'blockchain.scripthash.listunspent': 2,
+  }),
+]);
+const FRESH_ACTION_PUBLIC_PHYSICAL_PROFILES = Object.freeze([
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 1,
+    'blockchain.transaction.get': 1,
+    'blockchain.utxo.get_info': 1,
+    'blockchain.scripthash.listunspent': 0,
+  }),
+  Object.freeze({
+    'server.features': 0, 'server.version': 0,
+    'blockchain.transaction.broadcast': 1,
+    'blockchain.transaction.get': 1,
+    'blockchain.utxo.get_info': 0,
+    'blockchain.scripthash.listunspent': 1,
+  }),
+]);
 const MAX_SAFE_PRE_SEND_RETRY_SUFFIX = 16;
 const VALIDATED_INPUTS = new WeakSet();
 
@@ -112,7 +148,23 @@ function claims(value, label) { if (value?.confirmed !== false || value?.mined !
 function positiveInteger(value, label) { if (!Number.isSafeInteger(value) || value <= 0) fail('LIVE_QUALIFICATION_RESULT_REJECTED', `${label} must be a positive safe integer`); return value; }
 function strictAction(result, kind, operationId) {
   try {
-    return inspectV2BetaLiveActionEvidence(result, { command: kind, operationId });
+    const action = inspectV2BetaLiveActionEvidence(result, { command: kind, operationId });
+    if (action.admissionRoute !== 'fresh-single-pass') {
+      fail('LIVE_QUALIFICATION_RESULT_REJECTED', 'semantic qualification accepts only fresh single-pass action delivery evidence');
+    }
+    const observation = poolExact(action.rpcObservation, [
+      'backend', 'genesis', 'methodCounts', 'physicalMethodCounts',
+    ], 'public action RPC observation');
+    poolExact(observation.methodCounts, RPC_METHODS, 'public action RPC logical method counts');
+    poolExact(observation.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, 'public action RPC physical method counts');
+    if (observation.backend !== 'public-chipnet-fulcrum-tls'
+      || observation.genesis !== CHIPNET_GENESIS_HASH
+      || RPC_METHODS.some((name) => observation.methodCounts[name] !== (name === 'getrawtransaction' || name === 'gettxout' || name === 'sendrawtransaction' ? 1 : 0))
+      || !FRESH_ACTION_PUBLIC_PHYSICAL_PROFILES.some((profile) =>
+        PUBLIC_ELECTRUM_METHODS.every((name) => observation.physicalMethodCounts[name] === profile[name]))) {
+      fail('LIVE_QUALIFICATION_RESULT_REJECTED', 'action lacks the exact public Fulcrum fresh single-pass admission evidence');
+    }
+    return action;
   } catch (error) {
     fail(
       'LIVE_QUALIFICATION_RESULT_REJECTED',
@@ -130,21 +182,22 @@ function poolExact(value, keys, label) {
 function poolCreationMode(result) {
   const observation = poolExact(
     result.rpcObservation,
-    ['backend', 'genesis', 'methodCounts'],
+    ['backend', 'genesis', 'methodCounts', 'physicalMethodCounts'],
     'pool create RPC observation',
   );
   poolExact(observation.methodCounts, RPC_METHODS, 'pool create RPC method counts');
-  if (result.rpcBackend !== 'layer1-bchn-chipnet'
+  poolExact(observation.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, 'pool create RPC physical method counts');
+  if (result.rpcBackend !== 'public-chipnet-fulcrum-tls'
     || observation.backend !== result.rpcBackend
     || observation.genesis !== CHIPNET_GENESIS_HASH) {
-    fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create lacks an authenticated BCHN Chipnet RPC observation');
+    fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create lacks an authenticated public Fulcrum Chipnet RPC observation');
   }
-  const matches = (expected) => RPC_METHODS.every(
-    (name) => observation.methodCounts[name] === expected[name],
-  );
-  if (matches(FRESH_POOL_RPC_COUNTS)) return 'created-and-broadcast-in-command';
-  if (matches(RECOVERED_POOL_RPC_COUNTS)) return 'committed-idempotent-recovery';
-  fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create RPC evidence mixes fresh creation and committed recovery');
+  if (RPC_METHODS.some((name) => observation.methodCounts[name] !== FRESH_POOL_RPC_COUNTS[name])
+    || !FRESH_POOL_PUBLIC_PHYSICAL_PROFILES.some((profile) =>
+      PUBLIC_ELECTRUM_METHODS.every((name) => observation.physicalMethodCounts[name] === profile[name]))) {
+    fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create public Fulcrum method counts do not bind one fresh source/genesis admission');
+  }
+  return 'created-and-broadcast-through-public-fulcrum';
 }
 function validateGenesisVmEvidence(value) {
   if (value?.bch2026StandardVmAccepted !== true
@@ -209,7 +262,7 @@ export async function inspectV2BetaLivePoolCreateEvidence(result, fundingOutpoin
   catch (error) { fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create runtime work is missing, hidden, or inconsistent', { cause: error }); }
   if (result.transactions?.source?.transactionId !== result.sourceTransactionId || !HASH.test(result.transactions?.source?.rawTransactionSha256) || !positiveInteger(result.transactions?.source?.serializedBytes, 'pool source bytes') || result.transactions?.genesis?.transactionId !== result.genesisTransactionId || !positiveInteger(result.transactions?.genesis?.serializedBytes, 'pool genesis bytes') || !DECIMAL.test(result.transactions?.genesis?.feeSats) || !DECIMAL.test(result.transactions?.genesis?.feeRateSatsPerByte)) fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool create lacks exact transaction byte/fee evidence');
   let source; let genesis; let state;
-  try { [source, genesis, state] = await Promise.all([rpc.getrawtransaction(result.sourceTransactionId, false), rpc.getrawtransaction(result.genesisTransactionId, false), rpc.gettxout(result.genesisTransactionId, 0)]); } catch (error) { fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'BCHN could not independently read back the pool source/genesis/state package', { cause: error }); }
+  try { [source, genesis, state] = await Promise.all([rpc.getrawtransaction(result.sourceTransactionId, false), rpc.getrawtransaction(result.genesisTransactionId, false), rpc.gettxout(result.genesisTransactionId, 0)]); } catch (error) { fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'independent Chipnet provider readback failed for the pool source/genesis/state package', { cause: error }); }
   try {
     const sourceTx = parseV2RawTransaction(source); const genesisTx = parseV2RawTransaction(genesis);
     if (sourceTx.txid !== result.sourceTransactionId || sourceTx.inputs.length !== 1 || sourceTx.inputs[0].outpoint.txid !== fundingOutpoint.txid || sourceTx.inputs[0].outpoint.vout !== fundingOutpoint.vout || sourceTx.bytes.length !== result.transactions.source.serializedBytes || sha256(Buffer.from(source, 'hex')) !== result.transactions.source.rawTransactionSha256 || genesisTx.txid !== result.genesisTransactionId || genesisTx.inputs.length !== 1 || genesisTx.inputs[0].outpoint.txid !== result.sourceTransactionId || genesisTx.inputs[0].outpoint.vout !== 0 || genesisTx.bytes.length !== result.transactions.genesis.serializedBytes) fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'pool source/genesis readback does not bind the requested source outpoint to bootstrap output 0');
@@ -218,7 +271,7 @@ export async function inspectV2BetaLivePoolCreateEvidence(result, fundingOutpoin
   for (const name of ['funding', 'genesis', 'exactReadback', 'atomicCommit', 'actionStoreBootstrap', 'commandTotal']) if (!finite(result.timingsMs?.[name])) fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', `pool create timing ${name} is missing`);
   validateGenesisVmEvidence(result.transactions.genesis);
   if (requireFreshLink !== false && (result.runtimeLinkedDuringCommand !== true
-    || creationMode !== 'created-and-broadcast-in-command')) fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'fresh pool-create performance sample did not measure one in-command creation and instance specialization');
+    || creationMode !== 'created-and-broadcast-through-public-fulcrum')) fail('LIVE_QUALIFICATION_POOL_CREATE_REJECTED', 'fresh public pool-create performance sample did not measure one in-command creation and instance specialization');
   return Object.freeze({ creationMode, instanceId: result.instanceId, sourceTransactionId: result.sourceTransactionId, genesisTransactionId: result.genesisTransactionId, zeroConfEvidenceSha256: result.zeroConfEvidenceSha256, actionFundingOutputs: 10, actionFundingSetSha256: result.actionFundingSetSha256, transactions: result.transactions, acceptance: result.acceptance, rpcObservation: result.rpcObservation, runtime: Object.freeze({ runtimeManifestSha256: result.runtimeManifestSha256, runtimeMaterialSha256: result.runtimeMaterialSha256, linkedDuringCommand: result.runtimeLinkedDuringCommand, work: runtimeWork }), timingsMs: result.timingsMs, claims: claims(result.claims, 'pool create') });
 }
 
@@ -252,13 +305,6 @@ async function writeCanonicalPrivate(filename, value) {
 function validateRun(value) {
   exact(value, ['actions', 'installReceiptSha256', 'pool', 'poolCreateCommandDurationMs', 'schema', 'sourceOutpointProvenanceSha256', 'state'], 'qualification run journal');
   if (!HASH.test(value.installReceiptSha256) || !HASH.test(value.sourceOutpointProvenanceSha256) || !['pool-create-started', 'pool-created', 'completed'].includes(value.state) || !Array.isArray(value.actions) || (value.poolCreateCommandDurationMs !== null && !finite(value.poolCreateCommandDurationMs))) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'qualification run journal is malformed');
-  if (value.schema === LEGACY_RUN_SCHEMA) {
-    if (value.state !== 'pool-create-started' || value.pool !== null
-      || value.poolCreateCommandDurationMs !== null || value.actions.length !== 0) {
-      fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'legacy qualification journal contains evidence and cannot be migrated');
-    }
-    return value;
-  }
   if (value.schema !== RUN_SCHEMA) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'qualification run journal schema is unsupported');
   if ((value.state === 'pool-created' || value.state === 'completed') && value.pool === null) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'completed qualification journal lacks pool create evidence');
   return value;
@@ -302,7 +348,7 @@ export async function validateV2BetaPinnedInstall({ dataHome }) {
 
 /** Unit-test seam for the pre-session pinned-install validation boundary. */
 export async function validateV2BetaPinnedInstallForTest(options, dependencies) { return validatePinnedInstall(options, dependencies); }
-function assertDeps(value) { exact(value, ['now', 'openRunJournal', 'rpc', 'runCommand', 'validateInstall', 'writeEvidence'], 'live qualification dependencies'); for (const name of ['now', 'openRunJournal', 'runCommand', 'validateInstall', 'writeEvidence']) if (typeof value[name] !== 'function') fail('LIVE_QUALIFICATION_INVALID', `dependency ${name} must be a function`); if (typeof value.rpc?.getrawtransaction !== 'function' || typeof value.rpc?.gettxout !== 'function') fail('LIVE_QUALIFICATION_INVALID', 'rpc.getrawtransaction and rpc.gettxout must be functions'); return value; }
+function assertDeps(value) { exact(value, ['actionRpc', 'now', 'openRunJournal', 'rpc', 'runCommand', 'validateInstall', 'writeEvidence'], 'live qualification dependencies'); for (const name of ['now', 'openRunJournal', 'runCommand', 'validateInstall', 'writeEvidence']) if (typeof value[name] !== 'function') fail('LIVE_QUALIFICATION_INVALID', `dependency ${name} must be a function`); for (const rpc of [value.rpc, value.actionRpc]) if (typeof rpc?.getrawtransaction !== 'function' || typeof rpc?.gettxout !== 'function') fail('LIVE_QUALIFICATION_INVALID', 'independent Chipnet raw/state capabilities are required'); return value; }
 function summaryEvidence(record, install, elapsedMs) { return Object.freeze({ schema: V2_BETA_LIVE_QUALIFICATION_SCHEMA, scope: 'semantic-five-by-five-only-not-performance-qualification', claims: Object.freeze({ confirmed: false, mined: false, productionQualified: false }), capacity: V2_BETA_CAPACITY, install: Object.freeze({ receiptSha256: install.receiptSha256, releaseId: install.releaseId, releaseManifestSha256: install.releaseManifestSha256 }), poolCreate: Object.freeze({ commandDurationMs: record.poolCreateCommandDurationMs, sourceOutpointProvenanceSha256: record.sourceOutpointProvenanceSha256 }), pool: record.pool, deposits: Object.freeze(record.actions.filter((entry) => entry.kind === 'deposit')), withdrawals: Object.freeze(record.actions.filter((entry) => entry.kind === 'withdraw')), timingMs: elapsedMs }); }
 
 /** Testable core. Production passes only real CLI/RPC/install/journal dependencies. */
@@ -316,14 +362,24 @@ export async function runV2BetaLiveQualification(options, dependencies) {
     if (record === null) record = await journal.prepare(Object.freeze({ schema: RUN_SCHEMA, state: 'pool-create-started', installReceiptSha256: install.receiptSha256, sourceOutpointProvenanceSha256: provenance, poolCreateCommandDurationMs: null, pool: null, actions: [] }));
     if (record.installReceiptSha256 !== install.receiptSha256) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'run journal belongs to a different installed receipt');
     if (record.sourceOutpointProvenanceSha256 !== provenance) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'run journal belongs to a different source outpoint');
-    if (record.schema === LEGACY_RUN_SCHEMA) {
-      record = await journal.update(Object.freeze({ ...record, schema: RUN_SCHEMA }));
-    }
     if (record.state === 'pool-create-started' && record.pool === null && record.poolCreateCommandDurationMs === null) {
       const commandStarted = deps.now();
       const created = await inspectV2BetaLivePoolCreateEvidence(await callCli(['pool', 'create', '--data-home', inputs.dataHome, '--funding-wallet', inputs.fundingWallet, '--funding-utxo', `${inputs.fundingUtxo.txid}:${inputs.fundingUtxo.vout}`, '--json'], 'shieldkit pool create'), inputs.fundingUtxo, deps.rpc, { requireFreshLink: false });
       record = await journal.update(Object.freeze({ ...record, state: 'pool-created', pool: created, poolCreateCommandDurationMs: deps.now() - commandStarted }));
     } else if (record.state === 'pool-create-started') fail('LIVE_QUALIFICATION_RECONCILIATION_REQUIRED', 'pool create may already have been invoked; inspect the chain before starting a new fresh qualification');
+    for (const entry of record.actions) {
+      if (entry?.admissionRoute !== 'fresh-single-pass') {
+        fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'recorded qualification action is not fresh single-pass evidence');
+      }
+      try {
+        inspectV2BetaLiveActionChainAttestation(entry.chainAttestation, {
+          action: entry,
+          expectedInstanceId: record.pool.instanceId,
+        });
+      } catch (error) {
+        fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'recorded qualification action lacks an exact independent chain attestation', { cause: error });
+      }
+    }
     for (const kind of ['deposit', 'withdraw']) for (let ordinal = 1; ordinal <= 5; ordinal += 1) {
       if (record.actions.some((entry) => entry.kind === kind && entry.ordinal === ordinal)) continue;
       const baseOperationId = `live5x5.${record.sourceOutpointProvenanceSha256.slice(0, 16)}.${kind}.${String(ordinal).padStart(2, '0')}`;
@@ -335,6 +391,17 @@ export async function runV2BetaLiveQualification(options, dependencies) {
         const tokens = kind === 'deposit' ? ['deposit', '--data-home', inputs.dataHome, '--operation-id', operationId, '--json'] : ['withdraw', '--data-home', inputs.dataHome, '--operation-id', operationId, '--to', inputs.withdrawalAddress, '--json'];
         try {
           action = strictAction(await callCli(tokens, `shieldkit ${kind} ${ordinal}`), kind, operationId);
+          let chainAttestation;
+          try {
+            chainAttestation = await attestV2BetaLiveActionChainReadback({
+              rpc: deps.actionRpc,
+              action,
+              expectedInstanceId: record.pool.instanceId,
+            });
+          } catch (error) {
+            fail('LIVE_QUALIFICATION_RESULT_REJECTED', 'independent Chipnet action raw/output-0 attestation failed', { cause: error });
+          }
+          action = Object.freeze({ ...action, chainAttestation });
           break;
         } catch (error) {
           const safelyAborted = error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
@@ -354,4 +421,33 @@ export async function runV2BetaLiveQualification(options, dependencies) {
 async function defaultWriteEvidence(directory, evidence) { const filename = path.join(directory, `v2-beta-live-qualification-${new Date().toISOString().replaceAll(/[:.]/gu, '-')}.json`); try { await writePrivateFile(filename, Buffer.from(`${canonicalizeJcs(evidence)}\n`, 'utf8'), 'qualification evidence'); return filename; } catch (error) { fail('LIVE_QUALIFICATION_PATH_REJECTED', 'qualification evidence cannot be safely written', { cause: error }); } }
 function usage() { throw new Error('usage: node v2-beta-live-qualification.mjs --execute-live --data-home <private-absolute-dir> --evidence-dir <private-absolute-dir> --funding-wallet <private-canonical-wallet-json> --funding-utxo <txid:vout> --withdraw-to <bchtest:cashaddr>'); }
 export function parseV2BetaLiveQualificationArguments(tokens) { const values = {}; const names = new Map([['--data-home', 'dataHome'], ['--evidence-dir', 'evidenceDirectory'], ['--funding-wallet', 'fundingWallet'], ['--funding-utxo', 'fundingUtxo'], ['--withdraw-to', 'withdrawalAddress']]); if (tokens[0] !== '--execute-live') usage(); for (let index = 1; index < tokens.length; index += 2) { const name = names.get(tokens[index]); const value = tokens[index + 1]; if (name === undefined || value === undefined || Object.hasOwn(values, name)) usage(); values[name] = value; } if (Object.keys(values).length !== names.size) usage(); return Object.freeze(values); }
-if (import.meta.main === true || (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))) { if (process.version !== 'v22.23.1') throw new Error(`LIVE_QUALIFICATION_NODE_VERSION_REQUIRED: expected Node v22.23.1, received ${process.version}`); const options = await loadInputs(parseV2BetaLiveQualificationArguments(process.argv.slice(2))); const result = await runV2BetaLiveQualification(options, { now: performance.now.bind(performance), openRunJournal: openFileRunJournal, rpc: await createLayer1BchnChipnetRpc(), runCommand: async (request) => { const { spawn } = await import('node:child_process'); return new Promise((resolve, reject) => { const child = spawn(request.executable, request.args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] }); const stdout = []; const stderr = []; child.stdout.on('data', (chunk) => stdout.push(Buffer.from(chunk))); child.stderr.on('data', (chunk) => stderr.push(Buffer.from(chunk))); child.once('error', reject); child.once('close', (code) => resolve({ code, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8') })); }); }, validateInstall: validateV2BetaPinnedInstall, writeEvidence: defaultWriteEvidence }); process.stdout.write(`${JSON.stringify({ evidencePath: result.evidencePath, claims: result.evidence.claims, scope: result.evidence.scope })}\n`); }
+if (import.meta.main === true || (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))) {
+  if (process.version !== 'v22.23.1') throw new Error(`LIVE_QUALIFICATION_NODE_VERSION_REQUIRED: expected Node v22.23.1, received ${process.version}`);
+  const options = await loadInputs(parseV2BetaLiveQualificationArguments(process.argv.slice(2)));
+  const [rpc, actionRpc] = await Promise.all([createPublicChipnetFulcrumRpc(), createPublicChipnetFulcrumRpc()]);
+  try {
+    const result = await runV2BetaLiveQualification(options, {
+      actionRpc,
+      now: performance.now.bind(performance),
+      openRunJournal: openFileRunJournal,
+      rpc,
+      runCommand: async (request) => {
+        const { spawn } = await import('node:child_process');
+        return new Promise((resolve, reject) => {
+          const child = spawn(request.executable, request.args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+          const stdout = []; const stderr = [];
+          child.stdout.on('data', (chunk) => stdout.push(Buffer.from(chunk)));
+          child.stderr.on('data', (chunk) => stderr.push(Buffer.from(chunk)));
+          child.once('error', reject);
+          child.once('close', (code) => resolve({ code, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8') }));
+        });
+      },
+      validateInstall: validateV2BetaPinnedInstall,
+      writeEvidence: defaultWriteEvidence,
+    });
+    process.stdout.write(`${JSON.stringify({ evidencePath: result.evidencePath, claims: result.evidence.claims, scope: result.evidence.scope })}\n`);
+  } finally {
+    try { rpc.close?.(); } catch {}
+    try { actionRpc.close?.(); } catch {}
+  }
+}

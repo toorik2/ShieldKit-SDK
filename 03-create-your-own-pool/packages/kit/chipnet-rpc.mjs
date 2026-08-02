@@ -1,16 +1,14 @@
 /**
- * Chain access (chipnet default, mainnet via config).
+ * Chain access transports.
  *
- * Average users need **no bitcoind**. Defaults are public Fulcrum (Electrum TLS).
- * JSON-RPC path optional via SHIELDKIT_RPC_URL.
+ * The V2 beta end-user product is fixed to two pinned public Chipnet Fulcrum
+ * TLS providers. It accepts no provider URL, username, password, or SSH option.
+ * Providers are untrusted, every relevant response is checked against exact
+ * transaction bytes locally, and no network-query privacy claim is made.
  *
- * Resolution order:
- *   1) SHIELDKIT_RPC_URL  — your JSON-RPC (optional power-user)
- *   2) SHIELDKIT_ELECTRUM — your Fulcrum host:port (optional)
- *   3) Public Fulcrum TLS for the selected network  ← default
- *   4) SSH layer1-node (lab chipnet only)
- *
- * Providers are untrusted. No network-query privacy claim.
+ * The older `createChainRpc` compatibility API later in this module separately
+ * supports optional operator JSON-RPC, custom Electrum, and lab-only SSH. None
+ * of those resolution paths is reachable from the V2 beta product constructor.
  */
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
@@ -20,6 +18,11 @@ import {
 import net from 'node:net';
 import path from 'node:path';
 import tls from 'node:tls';
+
+import {
+  parseSerializedSourceOutput,
+  parseV2RawTransaction,
+} from './v2/transaction-policy.mjs';
 
 export const CHIPNET_GENESIS_HASH =
   '000000001dd410c49a788668ce26751718cc797474d3152a5fc073dd44fd9f7b';
@@ -33,6 +36,13 @@ export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
   Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
   Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
 ]);
+
+const PUBLIC_ELECTRUM_CONNECT_TIMEOUT_MS = 12_000;
+const PUBLIC_ELECTRUM_MAX_INFLIGHT_REQUESTS = 32;
+// A standard V2 transaction is at most 100,000 bytes (200,000 hexadecimal
+// characters). Keep ample JSON overhead without allowing an untrusted server
+// to grow an unterminated response line without bound.
+const PUBLIC_ELECTRUM_MAX_RESPONSE_LINE_CHARACTERS = 4 * 1024 * 1024;
 
 /** Public Fulcrum (Electrum) mainnet endpoints — TLS, no auth. */
 export const PUBLIC_MAINNET_ELECTRUM = Object.freeze([
@@ -86,12 +96,26 @@ function privateSshControlOptions() {
   return [];
 }
 
-const SSH_OPTS = [
+const SSH_BASE_OPTIONS = Object.freeze([
   '-o', 'BatchMode=yes',
   '-o', 'LogLevel=ERROR',
   '-o', 'ConnectTimeout=12',
-  ...privateSshControlOptions(),
-];
+]);
+let cachedLayer1SshOptions;
+
+// Do not probe, create, or chmod an SSH control directory while loading the
+// product's public-provider transport. This runs only at the point an explicit
+// layer1 SSH call is about to be made, then keeps that private configuration
+// stable for the process.
+function layer1SshOptions() {
+  if (cachedLayer1SshOptions === undefined) {
+    cachedLayer1SshOptions = Object.freeze([
+      ...SSH_BASE_OPTIONS,
+      ...privateSshControlOptions(),
+    ]);
+  }
+  return cachedLayer1SshOptions;
+}
 
 function electrumScriptHash(lockingBytecode) {
   const bytes = lockingBytecode instanceof Uint8Array
@@ -200,7 +224,7 @@ function parseElectrumEndpoint(spec) {
 }
 
 function layer1Available() {
-  const r = spawnSync('ssh', [...SSH_OPTS, 'layer1-node', 'echo ok'], { encoding: 'utf8' });
+  const r = spawnSync('ssh', [...layer1SshOptions(), 'layer1-node', 'echo ok'], { encoding: 'utf8' });
   return r.status === 0 && (r.stdout || '').includes('ok');
 }
 
@@ -219,13 +243,47 @@ const PRODUCT_RPC_METHODS = Object.freeze([
   'getblockhash', 'getrawtransaction', 'gettxout', 'scantxoutset',
   'sendrawtransaction', 'testmempoolaccept',
 ]);
+// Exact on-the-wire requests made to the pinned public-provider transport.
+// These are intentionally separate from PRODUCT_RPC_METHODS, which is a
+// stable logical route vocabulary retained by the product journal/evidence.
+export const PUBLIC_CHIPNET_ELECTRUM_METHODS = Object.freeze([
+  'server.features',
+  'server.version',
+  'blockchain.transaction.broadcast',
+  'blockchain.transaction.get',
+  'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
 const TXID = /^[0-9a-f]{64}$/;
 const HEX = /^(?:[0-9a-f]{2})+$/;
+
+function transactionIdFromRawHex(rawTransactionHex) {
+  const first = createHash('sha256')
+    .update(Buffer.from(rawTransactionHex, 'hex'))
+    .digest();
+  return createHash('sha256')
+    .update(first)
+    .digest()
+    .reverse()
+    .toString('hex');
+}
 const ADDRESS = /^(?:bitcoincash|bchtest):[a-z0-9]{20,120}$/;
-const layer1BchnChipnetCapabilities = new WeakSet();
+// Product callers accept only capabilities constructed here. The V2 product
+// uses the public TLS constructor below; the layer1 SSH constructor remains a
+// deliberately separate lab-qualification transport.
+const bchnChipnetCapabilities = new WeakSet();
 
 /** Exact backend label for the BCHN-only Chipnet capability. */
 export const LAYER1_BCHN_CHIPNET_BACKEND = 'layer1-bchn-chipnet';
+export const BCHN_CHIPNET_BACKEND = 'bchn-chipnet-jsonrpc';
+
+export function isBchnChipnetBackend(value) {
+  return value === BCHN_CHIPNET_BACKEND || value === LAYER1_BCHN_CHIPNET_BACKEND
+    || value === 'public-chipnet-fulcrum-tls';
+}
+
+/** True for an authenticated V2 product transport, regardless of provider. */
+export const isChipnetProductBackend = isBchnChipnetBackend;
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
@@ -272,6 +330,60 @@ function validateLayer1Arguments(method, args) {
   }
 }
 
+async function runLayer1Remote(command, stdin, label) {
+  const maximumOutputBytes = 64 * 1024 * 1024;
+  const child = spawn('ssh', [...layer1SshOptions(), 'layer1-node', command], {
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const stdout = [];
+  const stderr = [];
+  let stdoutBytes = 0;
+  let stderrBytes = 0;
+  let outputExceeded = false;
+  let inputError = null;
+  const collect = (target, chunk, kind) => {
+    if (outputExceeded) return;
+    if (kind === 'stdout') stdoutBytes += chunk.length;
+    else stderrBytes += chunk.length;
+    if (stdoutBytes > maximumOutputBytes || stderrBytes > maximumOutputBytes) {
+      outputExceeded = true;
+      child.kill('SIGKILL');
+      return;
+    }
+    target.push(Buffer.from(chunk));
+  };
+  child.stdout.on('data', (chunk) => collect(stdout, chunk, 'stdout'));
+  child.stderr.on('data', (chunk) => collect(stderr, chunk, 'stderr'));
+  // A connection that fails before SSH consumes the large transaction can
+  // otherwise surface EPIPE as an unhandled stream error and terminate the
+  // CLI instead of entering the caller's indeterminate recovery path.
+  child.stdin.once('error', (error) => { inputError = error; });
+  const timeout = setTimeout(() => child.kill('SIGKILL'), 30_000);
+  child.stdin.end(stdin);
+  let terminal;
+  try {
+    terminal = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve({ code, signal }));
+    });
+  } catch (error) {
+    throw new Error(`layer1 ${label} transport: ${error.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+  const output = Buffer.concat(stdout).toString('utf8');
+  const errorOutput = Buffer.concat(stderr).toString('utf8');
+  if (inputError !== null) {
+    throw new Error(`layer1 ${label} transport input: ${inputError.message}`);
+  }
+  if (outputExceeded) throw new Error(`layer1 ${label}: RPC output exceeded the 64 MiB limit`);
+  if (terminal.code !== 0 || terminal.signal !== null) {
+    throw new Error(`layer1 ${label}: ${String(errorOutput || output || `remote command failed (${terminal.signal ?? `exit ${terminal.code}`})`).slice(0, 2000)}`);
+  }
+  return output.trim();
+}
+
 async function layer1Cli(method, args = []) {
   validateLayer1Arguments(method, args);
   const rpcArgs = method === 'scantxoutset'
@@ -293,50 +405,67 @@ async function layer1Cli(method, args = []) {
     method,
     ...(streamRpcArgs ? [] : rpcArgs),
   ].map(shellQuote).join(' ');
-  const maximumOutputBytes = 64 * 1024 * 1024;
-  const child = spawn('ssh', [...SSH_OPTS, 'layer1-node', command], {
-    shell: false,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const stdout = [];
-  const stderr = [];
-  let stdoutBytes = 0;
-  let stderrBytes = 0;
-  let outputExceeded = false;
-  const collect = (target, chunk, kind) => {
-    if (outputExceeded) return;
-    if (kind === 'stdout') stdoutBytes += chunk.length;
-    else stderrBytes += chunk.length;
-    if (stdoutBytes > maximumOutputBytes || stderrBytes > maximumOutputBytes) {
-      outputExceeded = true;
-      child.kill('SIGKILL');
-      return;
-    }
-    target.push(Buffer.from(chunk));
-  };
-  child.stdout.on('data', (chunk) => collect(stdout, chunk, 'stdout'));
-  child.stderr.on('data', (chunk) => collect(stderr, chunk, 'stderr'));
-  const timeout = setTimeout(() => child.kill('SIGKILL'), 30_000);
-  if (streamRpcArgs) child.stdin.end(`${rpcArgs.join('\n')}\n`);
-  else child.stdin.end();
-  let terminal;
+  return runLayer1Remote(
+    command,
+    streamRpcArgs ? `${rpcArgs.join('\n')}\n` : '',
+    method,
+  );
+}
+
+const SINGLE_PASS_SEPARATOR = '\u001e';
+
+/**
+ * One fixed SSH transport: one BCHN admission request followed by exact raw
+ * and state readback on the same node. The transaction travels only on stdin.
+ */
+async function layer1SinglePassAdmission({
+  expectedTransactionId,
+  outputIndex,
+  rawTransactionHex,
+}) {
+  if (!TXID.test(expectedTransactionId)
+    || !HEX.test(rawTransactionHex)
+    || !Number.isSafeInteger(outputIndex) || outputIndex < 0) {
+    throw new Error('invalid single-pass admission arguments');
+  }
+  const cli = [
+    'sudo', '-n', '-u', 'bchn',
+    '/usr/local/bin/bitcoin-cli',
+    '-conf=/etc/bchn/bitcoin.conf',
+  ].map(shellQuote).join(' ');
+  const command = [
+    'set -eu',
+    'IFS= read -r raw',
+    'IFS= read -r expected',
+    'IFS= read -r vout',
+    `sent=$(printf '%s\\n%s\\n' "$raw" true | ${cli} -stdin sendrawtransaction)`,
+    '[ "$sent" = "$expected" ]',
+    `raw_json=$(${cli} getrawtransaction "$expected" true)`,
+    `state_json=$(${cli} gettxout "$expected" "$vout" true)`,
+    `printf '%s\\036%s\\036%s' "$sent" "$raw_json" "$state_json"`,
+  ].join('; ');
+  const output = await runLayer1Remote(
+    command,
+    `${rawTransactionHex}\n${expectedTransactionId}\n${outputIndex}\n`,
+    'single-pass-admission',
+  );
+  const fields = output.split(SINGLE_PASS_SEPARATOR);
+  if (fields.length !== 3 || fields[0] !== expectedTransactionId) {
+    throw new Error('layer1 single-pass admission returned a malformed frame');
+  }
+  let rawTransaction;
+  let stateOutput;
   try {
-    terminal = await new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('close', (code, signal) => resolve({ code, signal }));
-    });
+    rawTransaction = JSON.parse(fields[1]);
+    stateOutput = JSON.parse(fields[2]);
   } catch (error) {
-    throw new Error(`layer1 ${method} transport: ${error.message}`);
-  } finally {
-    clearTimeout(timeout);
+    throw new Error('layer1 single-pass admission returned malformed JSON', { cause: error });
   }
-  const output = Buffer.concat(stdout).toString('utf8');
-  const errorOutput = Buffer.concat(stderr).toString('utf8');
-  if (outputExceeded) throw new Error(`layer1 ${method}: RPC output exceeded the 64 MiB limit`);
-  if (terminal.code !== 0 || terminal.signal !== null) {
-    throw new Error(`layer1 ${method}: ${String(errorOutput || output || `remote command failed (${terminal.signal ?? `exit ${terminal.code}`})`).slice(0, 2000)}`);
-  }
-  return output.trim();
+  return Object.freeze({
+    transactionId: fields[0],
+    rawTransaction,
+    stateOutput,
+  });
 }
 
 function parseFirstJsonObject(raw) {
@@ -353,14 +482,14 @@ function parseFirstJsonObject(raw) {
   throw new Error('unterminated JSON object');
 }
 
-function parseLayer1ChipnetGenesis(value) {
+function parseBchnChipnetGenesis(value, label = 'BCHN') {
   const genesis = String(value).trim().toLowerCase();
   if (!TXID.test(genesis)) {
-    throw new Error('layer1 BCHN getblockhash(0) returned a malformed hash');
+    throw new Error(`${label} getblockhash(0) returned a malformed hash`);
   }
   if (genesis !== CHIPNET_GENESIS_HASH) {
     throw new Error(
-      `layer1-node BCHN is not Chipnet: genesis ${genesis} differs from ${CHIPNET_GENESIS_HASH}`,
+      `${label} is not Chipnet: genesis ${genesis} differs from ${CHIPNET_GENESIS_HASH}`,
     );
   }
   return genesis;
@@ -371,10 +500,41 @@ function layer1BchnCall(executeLayer1Cli, method, args = []) {
   return executeLayer1Cli(method, args);
 }
 
-async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
+async function createLayer1BchnChipnetRpcInternal({
+  executeLayer1Admission = undefined,
+  executeLayer1Cli,
+  backend = LAYER1_BCHN_CHIPNET_BACKEND,
+  label = 'layer1-node BCHN Chipnet',
+}) {
   if (typeof executeLayer1Cli !== 'function') {
     throw new Error('layer1 BCHN executor is required');
   }
+  if (executeLayer1Admission !== undefined
+    && typeof executeLayer1Admission !== 'function') {
+    throw new Error('layer1 BCHN single-pass admission executor must be a function');
+  }
+  const executeAdmission = executeLayer1Admission ?? (async ({
+    expectedTransactionId,
+    outputIndex,
+    rawTransactionHex,
+  }) => {
+    const transactionId = String(await executeLayer1Cli(
+      'sendrawtransaction',
+      [rawTransactionHex, true],
+    )).trim();
+    const [rawText, stateText] = await Promise.all([
+      executeLayer1Cli('getrawtransaction', [expectedTransactionId, true]),
+      executeLayer1Cli('gettxout', [expectedTransactionId, outputIndex, true]),
+    ]);
+    const rawTransaction = JSON.parse(rawText);
+    return Object.freeze({
+      transactionId,
+      rawTransaction,
+      stateOutput: stateText === '' || stateText === 'null'
+        ? null
+        : JSON.parse(stateText),
+    });
+  });
 
   const methodCounts = Object.fromEntries(PRODUCT_RPC_METHODS.map((method) => [method, 0]));
   const call = async (method, args = []) => {
@@ -389,12 +549,13 @@ async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
   // This is intentionally a direct BCHN network proof, rather than an SSH
   // availability probe. A reachable mainnet/regtest node must never acquire
   // this Chipnet capability.
-  const genesis = parseLayer1ChipnetGenesis(
+  const genesis = parseBchnChipnetGenesis(
     await call('getblockhash', [0]),
+    label,
   );
   const rpc = {
-    backend: LAYER1_BCHN_CHIPNET_BACKEND,
-    label: 'layer1-node BCHN Chipnet',
+    backend,
+    label,
     network: 'chipnet',
     genesis,
     async getrawtransaction(txid, verbose = false) {
@@ -463,16 +624,61 @@ async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
         [String(hex).toLowerCase(), true],
       )).trim();
     },
+    async submitV2SinglePassAdmission(rawTransactionHex, expectedTransactionId, outputIndex = 0) {
+      const request = {
+        rawTransactionHex: String(rawTransactionHex).toLowerCase(),
+        expectedTransactionId: String(expectedTransactionId).toLowerCase(),
+        outputIndex: Number(outputIndex),
+      };
+      if (!HEX.test(request.rawTransactionHex)
+        || !TXID.test(request.expectedTransactionId)
+        || !Number.isSafeInteger(request.outputIndex) || request.outputIndex < 0) {
+        throw new Error('invalid single-pass admission arguments');
+      }
+      if (transactionIdFromRawHex(request.rawTransactionHex)
+        !== request.expectedTransactionId) {
+        throw new Error('single-pass admission transaction ID does not match the exact bytes');
+      }
+      // These counters describe the three requested BCHN operations in this
+      // fixed transport. Only a fully validated successful result is eligible
+      // for accepted-action evidence; failure counters are not forensic proof
+      // of which remote command completed before a transport failure.
+      methodCounts.sendrawtransaction += 1;
+      methodCounts.getrawtransaction += 1;
+      methodCounts.gettxout += 1;
+      const result = await executeAdmission(request);
+      if (result === null || Array.isArray(result) || typeof result !== 'object'
+        || Object.keys(result).sort().join(',') !== 'rawTransaction,stateOutput,transactionId'
+        || result.transactionId !== request.expectedTransactionId
+        || result.rawTransaction === null || Array.isArray(result.rawTransaction)
+        || typeof result.rawTransaction !== 'object'
+        || Object.getPrototypeOf(result.rawTransaction) !== Object.prototype
+        || result.rawTransaction.txid !== request.expectedTransactionId
+        || result.rawTransaction.hex !== request.rawTransactionHex
+        || (result.stateOutput !== null
+          && (Array.isArray(result.stateOutput)
+            || typeof result.stateOutput !== 'object'
+            || Object.getPrototypeOf(result.stateOutput) !== Object.prototype))) {
+        throw new Error('single-pass admission result is malformed');
+      }
+      return Object.freeze({
+        transactionId: result.transactionId,
+        rawTransaction: Object.freeze({ ...result.rawTransaction }),
+        stateOutput: result.stateOutput === null
+          ? null
+          : Object.freeze({ ...result.stateOutput }),
+      });
+    },
     observation() {
       return Object.freeze({
-        backend: LAYER1_BCHN_CHIPNET_BACKEND,
+        backend,
         genesis,
         methodCounts: Object.freeze({ ...methodCounts }),
       });
     },
   };
   Object.freeze(rpc);
-  layer1BchnChipnetCapabilities.add(rpc);
+  bchnChipnetCapabilities.add(rpc);
   return rpc;
 }
 
@@ -483,6 +689,7 @@ async function createLayer1BchnChipnetRpcInternal({ executeLayer1Cli }) {
  */
 export async function createLayer1BchnChipnetRpc() {
   return createLayer1BchnChipnetRpcInternal({
+    executeLayer1Admission: layer1SinglePassAdmission,
     executeLayer1Cli: layer1Cli,
   });
 }
@@ -492,27 +699,508 @@ export async function createLayer1BchnChipnetRpc() {
  * createLayer1BchnChipnetRpc(), which fixes the transport to layer1-node.
  */
 export async function createLayer1BchnChipnetRpcForTest({
+  executeLayer1Admission = undefined,
   executeLayer1Cli,
 } = {}) {
-  return createLayer1BchnChipnetRpcInternal({ executeLayer1Cli });
+  return createLayer1BchnChipnetRpcInternal({
+    executeLayer1Admission,
+    executeLayer1Cli,
+  });
 }
 
 /** Require a capability created by the fixed layer1-node BCHN constructor. */
 export function assertLayer1BchnChipnetRpc(value) {
-  if (value === null || typeof value !== 'object'
-    || !layer1BchnChipnetCapabilities.has(value)) {
-    throw new Error('a real layer1-node BCHN Chipnet RPC capability is required');
-  }
-  return value;
+  return assertBchnChipnetRpc(value);
 }
 
 /** Return a frozen, secret-free exact transport observation for the branded product RPC. */
 export function observeLayer1BchnChipnetRpc(value) {
-  const rpc = assertLayer1BchnChipnetRpc(value);
+  return observeBchnChipnetRpc(value);
+}
+
+/** Require a branded authenticated BCHN Chipnet capability, independent of transport. */
+export function assertBchnChipnetRpc(value) {
+  if (value === null || typeof value !== 'object' || !bchnChipnetCapabilities.has(value)) {
+    throw new Error('a branded BCHN Chipnet RPC capability is required');
+  }
+  return value;
+}
+
+/** Return secret-free logical product request counts for a branded BCHN capability. */
+export function observeBchnChipnetRpc(value) {
+  const rpc = assertBchnChipnetRpc(value);
   if (typeof rpc.observation !== 'function') {
-    throw new Error('layer1 BCHN Chipnet observation capability is unavailable');
+    throw new Error('BCHN Chipnet observation capability is unavailable');
   }
   return rpc.observation();
+}
+
+// V2 product-facing names intentionally do not imply that a public Fulcrum
+// provider is a direct BCHN JSON-RPC node. The established BCHN aliases above
+// remain for lab callers and persisted compatibility fixtures.
+export function assertChipnetProductRpc(value) {
+  return assertBchnChipnetRpc(value);
+}
+
+export function observeChipnetProductRpc(value) {
+  return observeBchnChipnetRpc(value);
+}
+
+function electrumScriptHashFromLockingBytecode(lockingBytecodeHex) {
+  if (typeof lockingBytecodeHex !== 'string' || !HEX.test(lockingBytecodeHex)) {
+    throw new Error('Electrum output locking bytecode is malformed');
+  }
+  return Buffer.from(createHash('sha256').update(Buffer.from(lockingBytecodeHex, 'hex')).digest())
+    .reverse().toString('hex');
+}
+
+/** One verified-TLS Electrum session, kept open for serial product requests. */
+function openPublicElectrumSession(endpoint, connectTls = tls.connect) {
+  if (endpoint?.tls !== true || typeof endpoint.host !== 'string'
+    || !Number.isSafeInteger(endpoint.port) || endpoint.port < 1 || endpoint.port > 65535) {
+    throw new Error('public Chipnet Electrum endpoint is invalid');
+  }
+  return new Promise((resolve, reject) => {
+    const socket = connectTls({
+      host: endpoint.host, port: endpoint.port, servername: endpoint.host,
+      rejectUnauthorized: true,
+    });
+    let settled = false;
+    let closed = false;
+    let nextId = 1;
+    let buffer = '';
+    const pending = new Map();
+    const close = (error) => {
+      if (closed) return;
+      closed = true;
+      clearTimeout(connectTimer);
+      if (!settled) { settled = true; reject(error); }
+      for (const entry of pending.values()) { clearTimeout(entry.timer); entry.reject(error); }
+      pending.clear();
+      try { socket.destroy(); } catch {}
+    };
+    const connectTimer = setTimeout(() => {
+      close(new Error('public Chipnet Electrum TLS connection timed out'));
+    }, PUBLIC_ELECTRUM_CONNECT_TIMEOUT_MS);
+    socket.setEncoding('utf8');
+    // Keep this listener after the TLS handshake: a transport loss after the
+    // durable send boundary must reject every pending read, never strand a
+    // request and never trigger a cross-provider rebroadcast.
+    socket.on('error', close);
+    socket.on('end', () => close(new Error('public Chipnet Electrum connection ended')));
+    socket.on('close', () => close(new Error('public Chipnet Electrum connection closed')));
+    socket.once('secureConnect', () => {
+      if (socket.authorized !== true) { close(new Error('public Chipnet Electrum TLS authentication failed')); return; }
+      clearTimeout(connectTimer);
+      settled = true;
+      resolve(Object.freeze({
+        async request(method, params) {
+          if (typeof method !== 'string' || !Array.isArray(params)) throw new Error('Electrum request is malformed');
+          if (closed || socket.destroyed) throw new Error('public Chipnet Electrum session is closed');
+          if (pending.size >= PUBLIC_ELECTRUM_MAX_INFLIGHT_REQUESTS) {
+            throw new Error('public Chipnet Electrum in-flight request limit exceeded');
+          }
+          const id = nextId; nextId += 1;
+          return new Promise((resolveRequest, rejectRequest) => {
+            const timer = setTimeout(() => {
+              pending.delete(id); rejectRequest(new Error(`public Chipnet Electrum ${method} timed out`));
+            }, 30_000);
+            pending.set(id, { resolve: resolveRequest, reject: rejectRequest, timer });
+            socket.write(`${JSON.stringify({ id, method, params })}\n`, (error) => {
+              if (error !== undefined && error !== null) {
+                const entry = pending.get(id); if (entry !== undefined) { clearTimeout(entry.timer); pending.delete(id); entry.reject(new Error(`public Chipnet Electrum ${method} transport failed`)); }
+              }
+            });
+          });
+        },
+        close: () => close(new Error('public Chipnet Electrum session closed')),
+      }));
+    });
+    socket.on('data', (chunk) => {
+      buffer += chunk;
+      for (;;) {
+        const newline = buffer.indexOf('\n');
+        if (newline < 0) {
+          if (buffer.length > PUBLIC_ELECTRUM_MAX_RESPONSE_LINE_CHARACTERS) {
+            close(new Error('public Chipnet Electrum response line exceeds the bounded maximum'));
+          }
+          return;
+        }
+        if (newline > PUBLIC_ELECTRUM_MAX_RESPONSE_LINE_CHARACTERS) {
+          close(new Error('public Chipnet Electrum response line exceeds the bounded maximum'));
+          return;
+        }
+        const line = buffer.slice(0, newline).replace(/\r$/u, ''); buffer = buffer.slice(newline + 1);
+        let message;
+        try { message = JSON.parse(line); } catch { close(new Error('public Chipnet Electrum returned malformed JSON')); return; }
+        const entry = pending.get(message?.id); if (entry === undefined) continue;
+        clearTimeout(entry.timer); pending.delete(message.id);
+        if (message.error !== null && message.error !== undefined) entry.reject(new Error('public Chipnet Electrum rejected a request'));
+        else entry.resolve(message.result);
+      }
+    });
+  });
+}
+
+/** Test-only socket seam for bounded session-parser and lifecycle tests. */
+export function openPublicElectrumSessionForTest(endpoint, { connectTls } = {}) {
+  if (typeof connectTls !== 'function') throw new Error('test TLS connector is required');
+  return openPublicElectrumSession(endpoint, connectTls);
+}
+
+function publicElectrumGenesis(features) {
+  const genesis = typeof features?.genesis_hash === 'string'
+    ? features.genesis_hash.toLowerCase() : '';
+  return parseBchnChipnetGenesis(genesis, 'public Chipnet Fulcrum');
+}
+
+function electrumStateOutput(rawTransactionHex, transactionId, outputIndex, info) {
+  let transaction;
+  try { transaction = parseV2RawTransaction(rawTransactionHex); }
+  catch (error) { throw new Error('public Chipnet Fulcrum returned malformed raw transaction', { cause: error }); }
+  const serializedOutput = transaction.outputs[outputIndex];
+  let output;
+  try {
+    output = serializedOutput === undefined
+      ? undefined
+      : parseSerializedSourceOutput(serializedOutput.serializedHex);
+  } catch (error) {
+    throw new Error('public Chipnet Fulcrum returned a malformed output serialization', { cause: error });
+  }
+  if (transaction.txid !== transactionId || output === undefined || info === null
+    || info === undefined || typeof info !== 'object' || Array.isArray(info)) {
+    throw new Error('public Chipnet Fulcrum raw transaction or output visibility is invalid');
+  }
+  const expectedScripthash = electrumScriptHashFromLockingBytecode(output.lockingBytecodeHex);
+  if (!Number.isSafeInteger(info.value) || BigInt(info.value) !== output.valueSatoshis
+    || info.scripthash !== expectedScripthash) {
+    throw new Error('public Chipnet Fulcrum does not show the exact zero-conf output');
+  }
+  const token = output.token === null ? undefined : Object.freeze({
+    // Transaction parsing retains the exact 32 category bytes serialized in
+    // the token prefix. Electrum Cash (like BCHN JSON-RPC) presents token IDs
+    // in canonical display order, so reverse only at this public API boundary.
+    category: Buffer.from(output.token.categoryWire, 'hex').reverse().toString('hex'),
+    amount: output.token.amount,
+    nft: output.token.nft === null ? undefined : Object.freeze({
+      capability: output.token.nft.capability,
+      commitment: output.token.nft.commitmentHex,
+    }),
+  });
+  // Provider token metadata is never a source of truth. If supplied, it must
+  // nevertheless agree with locally parsed exact transaction bytes.
+  if (info.token_data !== undefined) {
+    const expectedCategory = token === undefined ? undefined : token.category;
+    if (token === undefined || info.token_data === null || typeof info.token_data !== 'object'
+      || info.token_data.category !== expectedCategory
+      || String(info.token_data.amount) !== token.amount
+      || (token.nft === undefined
+        ? (info.token_data.nft !== undefined && info.token_data.nft !== null)
+        : (info.token_data.nft?.capability !== token.nft.capability
+          || info.token_data.nft?.commitment !== token.nft.commitment))) {
+      throw new Error('public Chipnet Fulcrum token metadata disagrees with exact raw transaction bytes');
+    }
+  }
+  return Object.freeze({
+    valueSatoshis: output.valueSatoshis.toString(),
+    scriptPubKey: Object.freeze({ hex: output.lockingBytecodeHex }),
+    ...(token === undefined ? {} : { tokenData: token }),
+  });
+}
+
+async function publicElectrumOutputReadback(entry, transactionId, outputIndex, rawTransactionHex = undefined) {
+  // For modern Electrum providers, output visibility does not depend on
+  // parsing the raw transaction. Start both independent reads together, then
+  // bind the provider's visibility claim to locally parsed exact bytes below.
+  // The legacy listunspent fallback needs the parsed locking bytecode, so it
+  // deliberately remains after the raw read for negotiated protocol 1.4.
+  const rawRequest = rawTransactionHex === undefined
+    ? entry.request('blockchain.transaction.get', [transactionId])
+    : Promise.resolve(rawTransactionHex);
+  const infoRequest = entry.utxoGetInfo
+    ? entry.request('blockchain.utxo.get_info', [transactionId, outputIndex])
+    : undefined;
+  const [raw, prefetchedInfo] = infoRequest === undefined
+    ? [await rawRequest, undefined]
+    : await Promise.all([rawRequest, infoRequest]);
+  if (typeof raw !== 'string' || !HEX.test(raw)) throw new Error('public Chipnet Fulcrum returned malformed raw transaction bytes');
+  let transaction;
+  try { transaction = parseV2RawTransaction(raw); }
+  catch (error) { throw new Error('public Chipnet Fulcrum returned malformed raw transaction', { cause: error }); }
+  const serializedOutput = transaction.outputs[outputIndex];
+  let output;
+  try {
+    output = serializedOutput === undefined
+      ? undefined
+      : parseSerializedSourceOutput(serializedOutput.serializedHex);
+  } catch (error) {
+    throw new Error('public Chipnet Fulcrum returned a malformed output serialization', { cause: error });
+  }
+  if (transaction.txid !== transactionId || output === undefined) throw new Error('public Chipnet Fulcrum raw transaction does not bind the requested output');
+  const info = entry.utxoGetInfo
+    ? prefetchedInfo
+    : await (async () => {
+      const scripthash = electrumScriptHashFromLockingBytecode(output.lockingBytecodeHex);
+      const entries = await entry.request('blockchain.scripthash.listunspent', [scripthash]);
+      if (!Array.isArray(entries)) throw new Error('public Chipnet Fulcrum listunspent response is malformed');
+      const candidate = entries.find((entryValue) => entryValue !== null && typeof entryValue === 'object'
+        && entryValue.tx_hash === transactionId && entryValue.tx_pos === outputIndex);
+      return candidate === undefined ? null : { ...candidate, scripthash };
+    })();
+  return Object.freeze({ rawTransactionHex: raw, stateOutput: electrumStateOutput(raw, transactionId, outputIndex, info) });
+}
+
+async function publicElectrumRawReadback(entries, transactionId) {
+  const rawTransactions = await Promise.all(entries.map(async (entry) => {
+    const raw = await entry.request('blockchain.transaction.get', [transactionId]);
+    if (typeof raw !== 'string' || !HEX.test(raw)) {
+      throw new Error('public Chipnet Fulcrum returned malformed raw transaction bytes');
+    }
+    let transaction;
+    try { transaction = parseV2RawTransaction(raw); }
+    catch (error) { throw new Error('public Chipnet Fulcrum returned malformed raw transaction', { cause: error }); }
+    if (transaction.txid !== transactionId) {
+      throw new Error('public Chipnet Fulcrum raw transaction does not bind the requested transaction id');
+    }
+    return raw;
+  }));
+  if (rawTransactions.some((raw) => raw !== rawTransactions[0])) {
+    throw new Error('public Chipnet Fulcrum providers disagree on exact raw transaction bytes');
+  }
+  return rawTransactions[0];
+}
+
+async function publicElectrumStateReadback(
+  entries,
+  transactionId,
+  outputIndex,
+  rawTransactionReadback = undefined,
+) {
+  const rawRequest = rawTransactionReadback === undefined
+    ? publicElectrumRawReadback(entries, transactionId)
+    : Promise.resolve(rawTransactionReadback);
+  const readbacks = await Promise.all(entries.map(async (entry) => {
+    if (!entry.utxoGetInfo) {
+      // Protocol 1.4 can only locate the output by the script hash derived
+      // from parsed exact bytes, so retain its required sequential fallback.
+      return publicElectrumOutputReadback(
+        entry,
+        transactionId,
+        outputIndex,
+        await rawRequest,
+      );
+    }
+    // `get_info` is keyed by outpoint, so it can start with the shared raw
+    // consensus request. `electrumStateOutput` binds it to the exact parsed
+    // bytes only after both promises settle.
+    const [raw, info] = await Promise.all([
+      rawRequest,
+      entry.request('blockchain.utxo.get_info', [transactionId, outputIndex]),
+    ]);
+    return Object.freeze({
+      rawTransactionHex: raw,
+      stateOutput: electrumStateOutput(raw, transactionId, outputIndex, info),
+    });
+  }));
+  if (readbacks.some((readback) => readback.rawTransactionHex !== readbacks[0].rawTransactionHex
+    || JSON.stringify(readback.stateOutput) !== JSON.stringify(readbacks[0].stateOutput))) {
+    throw new Error('public Chipnet Fulcrum providers disagree on the exact zero-conf output');
+  }
+  return readbacks[0];
+}
+
+async function createPublicBchnChipnetRpcInternal({ endpoints, openSession }) {
+  if (!Array.isArray(endpoints) || endpoints.length < 2 || typeof openSession !== 'function') {
+    throw new Error('at least two public Chipnet Fulcrum TLS endpoints are required');
+  }
+  const endpointKeys = new Set(endpoints.map((endpoint) =>
+    endpoint !== null && typeof endpoint === 'object'
+      ? `${endpoint.host ?? ''}:${endpoint.port ?? ''}` : ''));
+  if (endpointKeys.size < 2 || endpointKeys.has(':')) {
+    throw new Error('two distinct public Chipnet Fulcrum TLS endpoints are required');
+  }
+  const physicalMethodCounts = Object.fromEntries(
+    PUBLIC_CHIPNET_ELECTRUM_METHODS.map((method) => [method, 0]),
+  );
+  const connect = async (endpoint) => {
+    let session;
+    try {
+      session = await openSession(endpoint);
+      const request = async (method, params) => {
+        if (!Object.hasOwn(physicalMethodCounts, method)) {
+          throw new Error(`public Chipnet Electrum method refused: ${method}`);
+        }
+        physicalMethodCounts[method] += 1;
+        return session.request(method, params);
+      };
+      // A lower negotiated protocol version is the only listunspent fallback.
+      // A malformed/rejected/transport-failed negotiation rejects this provider
+      // before the durable send boundary rather than silently weakening it.
+      const [negotiated, features] = await Promise.all([
+        // Write the protocol negotiation as the first request on the session.
+        request('server.version', ['ShieldKit', '1.5']),
+        request('server.features', []),
+      ]);
+      publicElectrumGenesis(features);
+      const version = Array.isArray(negotiated) ? negotiated[1] : undefined;
+      const matchedVersion = typeof version === 'string'
+        ? /^1\.(4|5|6)(?:\.[0-9]+)?$/u.exec(version) : null;
+      if (matchedVersion === null) {
+        throw new Error('public Chipnet Fulcrum negotiated an unsupported protocol version');
+      }
+      const utxoGetInfo = Number(matchedVersion[1]) >= 5;
+      return Object.freeze({ endpoint, request, session, utxoGetInfo });
+    } catch (error) {
+      try { session?.close?.(); } catch {}
+      throw error;
+    }
+  };
+  // Establish and genesis-check all pinned candidates concurrently. This is
+  // entirely before any durable send boundary and removes serial TLS latency
+  // from every CLI invocation without permitting send-side failover.
+  const connected = await Promise.allSettled(endpoints.map(connect));
+  const sessions = connected
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter((entry, index, entries) => entries.findIndex((candidate) =>
+      candidate.endpoint.host === entry.endpoint.host) === index)
+    .slice(0, 2);
+  for (const result of connected) {
+    if (result.status === 'fulfilled' && !sessions.includes(result.value)) {
+      try { result.value.session.close?.(); } catch {}
+    }
+  }
+  if (sessions.length < 2 || sessions[0].endpoint.host === sessions[1].endpoint.host) {
+    for (const entry of sessions) entry.session.close?.();
+    throw new Error('two distinct public Chipnet Fulcrum TLS endpoints with Chipnet genesis are required');
+  }
+  const [broadcast, attestation] = sessions;
+  let closed = false;
+  const requireOpen = () => {
+    if (closed) throw new Error('public Chipnet Fulcrum capability is closed');
+  };
+  const methodCounts = Object.fromEntries(PRODUCT_RPC_METHODS.map((method) => [method, 0]));
+  const rawReadbacks = new Map();
+  const exactRawFromBoth = (transactionId) => {
+    const retained = rawReadbacks.get(transactionId);
+    if (retained !== undefined) return retained;
+    const pending = publicElectrumRawReadback(sessions, transactionId).catch((error) => {
+      rawReadbacks.delete(transactionId);
+      throw error;
+    });
+    // CLI invocations are short-lived, but retain a strict bound for library
+    // callers which reuse one capability for many immutable transactions.
+    if (rawReadbacks.size >= 64) rawReadbacks.delete(rawReadbacks.keys().next().value);
+    rawReadbacks.set(transactionId, pending);
+    return pending;
+  };
+  const rpc = {
+    backend: 'public-chipnet-fulcrum-tls', label: 'public Chipnet Fulcrum TLS', network: 'chipnet', genesis: CHIPNET_GENESIS_HASH,
+    async getrawtransaction(txid, verbose = false) {
+      requireOpen();
+      if (!TXID.test(String(txid).toLowerCase())) throw new Error('invalid public Chipnet raw transaction id');
+      methodCounts.getrawtransaction += 1;
+      const raw = await exactRawFromBoth(String(txid).toLowerCase());
+      return verbose ? Object.freeze({ txid: String(txid).toLowerCase(), hex: raw }) : raw;
+    },
+    async gettxout(txid, vout) {
+      requireOpen();
+      if (!TXID.test(String(txid).toLowerCase()) || !Number.isSafeInteger(vout) || vout < 0) throw new Error('invalid public Chipnet output request');
+      methodCounts.gettxout += 1;
+      const transactionId = String(txid).toLowerCase();
+      return (await publicElectrumStateReadback(
+        sessions,
+        transactionId,
+        vout,
+        exactRawFromBoth(transactionId),
+      )).stateOutput;
+    },
+    async scanAddress() { requireOpen(); throw new Error('public Chipnet product RPC requires an explicit funding outpoint'); },
+    async submitExactTransaction(rawTransactionHex, expectedTransactionId) {
+      requireOpen();
+      if (!HEX.test(rawTransactionHex) || !TXID.test(expectedTransactionId)
+        || transactionIdFromRawHex(rawTransactionHex) !== expectedTransactionId) {
+        throw new Error('invalid public exact transaction request');
+      }
+      methodCounts.sendrawtransaction += 1;
+      let transactionId;
+      try {
+        transactionId = await broadcast.request(
+          'blockchain.transaction.broadcast', [rawTransactionHex],
+        );
+      } catch (error) {
+        try { await publicElectrumRawReadback(sessions, expectedTransactionId); } catch {}
+        throw new Error('public Chipnet broadcast outcome is indeterminate', { cause: error });
+      }
+      if (typeof transactionId !== 'string'
+        || transactionId.toLowerCase() !== expectedTransactionId) {
+        throw new Error('public Chipnet broadcast returned a mismatched transaction id');
+      }
+      methodCounts.getrawtransaction += 1;
+      const raw = await publicElectrumRawReadback([attestation], expectedTransactionId);
+      if (raw !== rawTransactionHex) {
+        throw new Error('independent public Chipnet raw readback differs from broadcast bytes');
+      }
+      return Object.freeze({
+        transactionId: expectedTransactionId,
+        rawTransaction: Object.freeze({ txid: expectedTransactionId, hex: raw }),
+      });
+    },
+    async submitV2SinglePassAdmission(rawTransactionHex, expectedTransactionId, outputIndex = 0) {
+      requireOpen();
+      if (!HEX.test(rawTransactionHex) || !TXID.test(expectedTransactionId)
+        || !Number.isSafeInteger(outputIndex) || outputIndex < 0
+        || transactionIdFromRawHex(rawTransactionHex) !== expectedTransactionId) throw new Error('invalid public single-pass admission request');
+      methodCounts.sendrawtransaction += 1;
+      let transactionId;
+      try { transactionId = await broadcast.request('blockchain.transaction.broadcast', [rawTransactionHex]); }
+      catch (error) {
+        // The bytes may already have reached the primary. Reconcile using only
+        // reads from both pre-verified providers, then let the existing
+        // token-bound recovery path decide whether an explicit resend is safe.
+        // Count the one logical admission readback attempt separately from
+        // the physical provider requests below; recovery will add its own
+        // explicit read-only route count.
+        methodCounts.getrawtransaction += 1;
+        methodCounts.gettxout += 1;
+        try { await publicElectrumStateReadback(sessions, expectedTransactionId, outputIndex); } catch {}
+        throw new Error('public Chipnet broadcast outcome is indeterminate', { cause: error });
+      }
+      if (typeof transactionId !== 'string' || transactionId.toLowerCase() !== expectedTransactionId) throw new Error('public Chipnet broadcast returned a mismatched transaction id');
+      methodCounts.getrawtransaction += 1; methodCounts.gettxout += 1;
+      const readback = await publicElectrumOutputReadback(attestation, expectedTransactionId, outputIndex);
+      if (readback.rawTransactionHex !== rawTransactionHex) throw new Error('independent public Chipnet raw readback differs from broadcast bytes');
+      return Object.freeze({ transactionId: expectedTransactionId, rawTransaction: Object.freeze({ txid: expectedTransactionId, hex: readback.rawTransactionHex }), stateOutput: readback.stateOutput });
+    },
+    observation() {
+      return Object.freeze({
+        backend: 'public-chipnet-fulcrum-tls',
+        genesis: CHIPNET_GENESIS_HASH,
+        // Stable logical route counts: retained for delivery-route contracts.
+        methodCounts: Object.freeze({ ...methodCounts }),
+        // Actual public-provider JSON-RPC method names: never BCHN aliases.
+        physicalMethodCounts: Object.freeze({ ...physicalMethodCounts }),
+      });
+    },
+    close() {
+      if (closed) return;
+      closed = true;
+      for (const entry of sessions) {
+        try { entry.session.close?.(); } catch { /* best-effort socket cleanup */ }
+      }
+    },
+  };
+  Object.freeze(rpc); bchnChipnetCapabilities.add(rpc); return rpc;
+}
+
+/** End-user product transport: two pinned, TLS-verified public Chipnet Fulcrum endpoints. */
+export async function createPublicChipnetFulcrumRpc() {
+  return createPublicBchnChipnetRpcInternal({ endpoints: PUBLIC_CHIPNET_ELECTRUM, openSession: openPublicElectrumSession });
+}
+
+/** Test-only public-transport seam; production never accepts provider URLs or credentials. */
+export async function createPublicChipnetFulcrumRpcForTest({ endpoints, openSession } = {}) {
+  return createPublicBchnChipnetRpcInternal({ endpoints, openSession });
 }
 
 /**

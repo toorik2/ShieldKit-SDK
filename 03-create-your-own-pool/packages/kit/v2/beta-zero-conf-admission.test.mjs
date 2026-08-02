@@ -22,45 +22,61 @@ function testOnlyContext(t, options = {}) {
   const rawTransactionHex = buildRawTransaction({ carrierCount: FIXTURE_CARRIER_COUNT });
   const txid = transactionId(Buffer.from(rawTransactionHex, 'hex'));
   const commitment = 'ab'.repeat(128); const calls = []; let sendAttempts = 0;
-  const rpc = createLayer1BchnChipnetRpcForTest({ executeLayer1Cli: async (method, args) => {
-    calls.push(method);
-    if (method === 'getblockhash') return CHIPNET_GENESIS_HASH;
-    if (method === 'testmempoolaccept') return JSON.stringify([{ txid, allowed: options.reject === true ? false : true }]);
-    if (method === 'sendrawtransaction') {
+  let forceRawAvailable = false;
+  const stateOutput = { value: 0.00001, tokenData: { category: Buffer.from(FIXTURE_INSTANCE_ID, 'hex').reverse().toString('hex'), amount: '0', nft: { capability: 'mutable', commitment } } };
+  const rawAvailable = () => options.reject !== true
+    && (forceRawAvailable
+      || !Number.isSafeInteger(options.rawAvailableAfterSendAttempt)
+      || sendAttempts >= options.rawAvailableAfterSendAttempt);
+  const rpc = createLayer1BchnChipnetRpcForTest({
+    executeLayer1Cli: async (method) => {
+      calls.push(method);
+      if (method === 'getblockhash') return CHIPNET_GENESIS_HASH;
+      if (method === 'getrawtransaction') {
+        if (!rawAvailable()) throw new Error('test-only transaction not found');
+        return JSON.stringify({ txid, hex: options.rawMismatch ? '00' : rawTransactionHex });
+      }
+      if (method === 'gettxout') return JSON.stringify(stateOutput);
+      throw new Error(`unexpected test-only standalone method ${method}`);
+    },
+    executeLayer1Admission: async (request) => {
+      calls.push('sendrawtransaction');
       sendAttempts += 1;
+      if (options.reject === true) throw new Error('test-only BCHN policy rejection');
       if (options.sendError || (options.sendErrorOnce === true && sendAttempts === 1)) {
         throw new Error('test-only send disconnect');
       }
-      return options.sendTxid ?? txid;
-    }
-    if (method === 'getrawtransaction') {
-      if (Number.isSafeInteger(options.rawAvailableAfterSendAttempt)
-        && sendAttempts < options.rawAvailableAfterSendAttempt) {
-        throw new Error('test-only transaction not found');
-      }
-      return JSON.stringify({ txid, hex: options.rawMismatch ? '00' : rawTransactionHex });
-    }
-    if (method === 'gettxout') return JSON.stringify({ value: 0.00001, tokenData: { category: Buffer.from(FIXTURE_INSTANCE_ID, 'hex').reverse().toString('hex'), amount: '0', nft: { capability: 'mutable', commitment } } });
-    throw new Error(`unexpected test-only method ${method}`);
-  } });
+      calls.push('getrawtransaction', 'gettxout');
+      return {
+        transactionId: options.sendTxid ?? txid,
+        rawTransaction: {
+          txid: options.admissionRawTxid ?? txid,
+          hex: options.admissionRawTransactionHex ?? (options.rawMismatch ? '00' : request.rawTransactionHex),
+        },
+        stateOutput: Object.hasOwn(options, 'admissionStateOutput')
+          ? options.admissionStateOutput
+          : stateOutput,
+      };
+    },
+  });
   return Promise.resolve(rpc).then((brandedRpc) => ({
     // TEST-ONLY local fixture: it exercises branded transport/journal mechanics
     // but is never a live BCHN or qualification artifact.
     input: { rpc: brandedRpc, journal, rawTransactionHex, carrierCount: FIXTURE_CARRIER_COUNT,
       localVmEvidence: createFixtureEvidence({ rawTransactionHex, carrierCount: FIXTURE_CARRIER_COUNT }),
       expectedState: { category: FIXTURE_INSTANCE_ID, capability: 'mutable', commitment, tokenAmount: '0', valueSatoshis: '1000' }, operationId: 'beta-op-1', crashAt: null }, calls, journal, operationId: 'beta-op-1',
+    makeRawAvailable() { forceRawAvailable = true; },
   }));
 }
 
 const rejects = (code) => (error) => error instanceof V2BetaZeroConfAdmissionError && error.code === code;
 
-test('one-shot admission uses one preflight/send then exact readbacks and unqualified claims', async (t) => {
+test('one-shot admission uses one send/readback transport without preflight and keeps unqualified claims', async (t) => {
   const context = await testOnlyContext(t); let beforeSend = 0;
   const result = await submitV2BetaZeroConfAdmission(context.input, {
     beforeSendAttempt: async (attempt) => {
       beforeSend += 1;
       assert.equal(attempt.operationId, context.operationId);
-      assert.equal(context.calls.at(-1), 'testmempoolaccept');
       assert.equal(context.calls.includes('sendrawtransaction'), false);
       assert.equal(context.journal.record(context.operationId).state, 'attempted');
     },
@@ -68,38 +84,119 @@ test('one-shot admission uses one preflight/send then exact readbacks and unqual
   assert.equal(beforeSend, 1);
   assert.equal(result.status, 'locally-reconciled-zero-conf-beta-unqualified');
   assert.deepEqual(result.claims, { confirmed: false, mined: false, productionQualified: false });
-  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 1);
+  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
   assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
   assert.equal(context.calls.filter((name) => name === 'getrawtransaction').length, 1);
   assert.equal(context.calls.filter((name) => name === 'gettxout').length, 1);
   assert.equal(context.calls.some((name) => /(?:blockcount|confirmation|blockchaininfo|chaintips)/u.test(name)), false);
   assert.deepEqual(observeLayer1BchnChipnetRpc(context.input.rpc).methodCounts, {
     getblockhash: 1, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
-    sendrawtransaction: 1, testmempoolaccept: 1,
+    sendrawtransaction: 1, testmempoolaccept: 0,
   });
   assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
   await assert.rejects(submitV2BetaZeroConfAdmission(context.input), (error) => error?.code === 'SEND_ALREADY_CLAIMED');
   assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
 });
 
-test('rejection sends nothing and send uncertainty becomes indeterminate for read-only reconciliation', async (t) => {
+test('the durable pre-send callback is a hard ordering boundary before the one composite request', async (t) => {
+  const context = await testOnlyContext(t);
+  let releaseDurability;
+  const durabilityPending = new Promise((resolve) => { releaseDurability = resolve; });
+  const pending = submitV2BetaZeroConfAdmission(context.input, {
+    beforeSendAttempt: async () => {
+      assert.equal(context.journal.record(context.operationId).state, 'attempted');
+      await durabilityPending;
+    },
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(context.calls.includes('sendrawtransaction'), false);
+  assert.equal(context.calls.includes('testmempoolaccept'), false);
+  releaseDurability();
+  const result = await pending;
+  assert.equal(result.admission.allowed, true);
+  assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+});
+
+test('a lost composite response immediately attempts authenticated read-only recovery, never an automatic resend', async (t) => {
+  const context = await testOnlyContext(t, {
+    sendError: true,
+    rawAvailableAfterSendAttempt: 1,
+  });
+  const result = await submitV2BetaZeroConfAdmission(context.input);
+  assert.equal(result.status, 'locally-reconciled-zero-conf-beta-unqualified');
+  assert.equal(result.admission.allowed, null);
+  assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
+  assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
+  assert.deepEqual(observeLayer1BchnChipnetRpc(context.input.rpc).methodCounts, {
+    getblockhash: 1, getrawtransaction: 2, gettxout: 2, scantxoutset: 0,
+    sendrawtransaction: 1, testmempoolaccept: 0,
+  });
+});
+
+test('wrong or malformed composite transaction readback is recovered only from exact authenticated bytes', async (t) => {
+  const cases = [
+    { sendTxid: '00'.repeat(32) },
+    { admissionRawTxid: '00'.repeat(32) },
+    { admissionRawTransactionHex: '00' },
+    { admissionStateOutput: [] },
+  ];
+  for (const options of cases) {
+    const context = await testOnlyContext(t, options);
+    const result = await submitV2BetaZeroConfAdmission(context.input);
+    assert.equal(result.status, 'locally-reconciled-zero-conf-beta-unqualified');
+    assert.equal(result.admission.allowed, null);
+    assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
+    assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+    assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
+  }
+});
+
+test('null or mismatched state from the composite response is never committed and requires a read-only repair', async (t) => {
+  const mismatchedState = {
+    value: 0.00001,
+    tokenData: {
+      category: '00'.repeat(32),
+      amount: '0',
+      nft: { capability: 'mutable', commitment: 'ab'.repeat(128) },
+    },
+  };
+  for (const admissionStateOutput of [null, mismatchedState]) {
+    const context = await testOnlyContext(t, { admissionStateOutput });
+    await assert.rejects(
+      submitV2BetaZeroConfAdmission(context.input),
+      rejects('ADMISSION_STATE_READBACK_INVALID'),
+    );
+    assert.equal(context.journal.record(context.operationId).state, 'indeterminate');
+    assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+    assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
+    const repaired = await reconcileV2BetaZeroConfAdmission(context.input);
+    assert.equal(repaired.admission.allowed, null);
+    assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
+    assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+  }
+});
+
+test('node rejection and transport uncertainty remain indeterminate unless exact readback succeeds', async (t) => {
   const rejected = await testOnlyContext(t, { reject: true });
-  await assert.rejects(submitV2BetaZeroConfAdmission(rejected.input), rejects('ADMISSION_MEMPOOL_REJECTED'));
-  assert.equal(rejected.calls.includes('sendrawtransaction'), false);
-  const uncertain = await testOnlyContext(t, { sendError: true });
+  await assert.rejects(submitV2BetaZeroConfAdmission(rejected.input), rejects('ADMISSION_SEND_INDETERMINATE'));
+  assert.equal(rejected.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+  assert.equal(rejected.journal.record(rejected.operationId).state, 'indeterminate');
+  const uncertain = await testOnlyContext(t, {
+    sendError: true,
+    rawAvailableAfterSendAttempt: 2,
+  });
   await assert.rejects(submitV2BetaZeroConfAdmission(uncertain.input), rejects('ADMISSION_SEND_INDETERMINATE'));
   assert.equal(uncertain.journal.record(uncertain.operationId).state, 'indeterminate');
+  uncertain.makeRawAvailable();
   const recovered = await reconcileV2BetaZeroConfAdmission(uncertain.input);
   assert.equal(recovered.status, 'locally-reconciled-zero-conf-beta-unqualified');
   assert.equal(uncertain.calls.filter((name) => name === 'sendrawtransaction').length, 1);
 
   const mismatchedSend = await testOnlyContext(t, { sendTxid: '00'.repeat(32) });
-  await assert.rejects(
-    submitV2BetaZeroConfAdmission(mismatchedSend.input),
-    rejects('ADMISSION_SEND_INDETERMINATE'),
-  );
-  assert.equal(mismatchedSend.journal.record(mismatchedSend.operationId).state, 'indeterminate');
-  await reconcileV2BetaZeroConfAdmission(mismatchedSend.input);
+  const mismatchRecovered = await submitV2BetaZeroConfAdmission(mismatchedSend.input);
+  assert.equal(mismatchRecovered.admission.allowed, null);
+  assert.equal(mismatchedSend.journal.record(mismatchedSend.operationId).state, 'locally_reconciled');
   assert.equal(mismatchedSend.calls.filter((name) => name === 'sendrawtransaction').length, 1);
 
   const hookFailure = await testOnlyContext(t);
@@ -134,13 +231,34 @@ test('a durable safe pre-send abort marker permanently forbids a later send clai
 
 test('raw mismatch and injected post-send crash do not claim successful local reconciliation', async (t) => {
   const mismatched = await testOnlyContext(t, { rawMismatch: true });
-  await assert.rejects(submitV2BetaZeroConfAdmission(mismatched.input), rejects('ADMISSION_RAW_READBACK_INVALID'));
+  await assert.rejects(submitV2BetaZeroConfAdmission(mismatched.input), rejects('ADMISSION_SEND_INDETERMINATE'));
   assert.equal(mismatched.journal.record(mismatched.operationId).state, 'indeterminate');
   const crashed = await testOnlyContext(t); crashed.input.crashAt = 'admission.after_send';
   await assert.rejects(submitV2BetaZeroConfAdmission(crashed.input), V2BetaZeroConfAdmissionCrash);
   assert.equal(crashed.journal.record(crashed.operationId).state, 'indeterminate');
   crashed.input.crashAt = null; await reconcileV2BetaZeroConfAdmission(crashed.input);
   assert.equal(crashed.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+});
+
+test('post-readback crash recovery stays read-only and preserves the single admitted request', async (t) => {
+  for (const crashAt of [
+    'admission.after_raw_readback',
+    'admission.after_state_readback',
+  ]) {
+    const context = await testOnlyContext(t);
+    context.input.crashAt = crashAt;
+    await assert.rejects(
+      submitV2BetaZeroConfAdmission(context.input),
+      V2BetaZeroConfAdmissionCrash,
+    );
+    assert.equal(context.journal.record(context.operationId).state, 'indeterminate');
+    context.input.crashAt = null;
+    const recovered = await reconcileV2BetaZeroConfAdmission(context.input);
+    assert.equal(recovered.admission.allowed, null);
+    assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
+    assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
+    assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
+  }
 });
 
 test('exact rebroadcast requires acknowledgement and current CAS token, then sends identical bytes once', async (t) => {
@@ -180,7 +298,7 @@ test('exact rebroadcast requires acknowledgement and current CAS token, then sen
   assert.equal(recovered.admission.allowed, true);
   assert.equal(context.journal.record(context.operationId).attemptCount, 2);
   assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
-  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 2);
+  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
   assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 2);
 
   await assert.rejects(
@@ -207,7 +325,7 @@ test('explicit recovery remains read-only when a post-send crash transaction is 
     priorAttemptToken: prior.attemptToken,
   });
   assert.equal(recovered.admission.allowed, null);
-  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 1);
+  assert.equal(context.calls.filter((name) => name === 'testmempoolaccept').length, 0);
   assert.equal(context.calls.filter((name) => name === 'sendrawtransaction').length, 1);
   assert.equal(context.journal.record(context.operationId).state, 'locally_reconciled');
 });

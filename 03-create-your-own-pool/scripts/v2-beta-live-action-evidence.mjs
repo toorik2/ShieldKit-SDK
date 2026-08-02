@@ -1,6 +1,6 @@
 import { availableParallelism } from 'node:os';
 
-import { CHIPNET_GENESIS_HASH } from '../packages/kit/chipnet-rpc.mjs';
+import { CHIPNET_GENESIS_HASH, isBchnChipnetBackend } from '../packages/kit/chipnet-rpc.mjs';
 import { canonicalizeJcs } from '../packages/profile/v2/profile-core.mjs';
 import { V2_BETA_RUNTIME_WORK_OBSERVATION_SCHEMA } from '../packages/profile/v2/beta-runtime-work-observer.mjs';
 
@@ -27,6 +27,33 @@ const RPC_METHODS = Object.freeze([
   'sendrawtransaction',
   'testmempoolaccept',
 ]);
+const PUBLIC_ELECTRUM_METHODS = Object.freeze([
+  'server.features', 'server.version', 'blockchain.transaction.broadcast',
+  'blockchain.transaction.get', 'blockchain.utxo.get_info',
+  'blockchain.scripthash.listunspent',
+]);
+// The logical action route is deliberately transport-neutral. For the actual
+// end-user product, retain the literal requests made by Fulcrum as well. A
+// negotiated 1.4 provider must use listunspent; 1.5+ uses get_info. Both
+// profiles are exact, rather than accepting an unbounded provider counter.
+const PUBLIC_FULCRUM_ACTION_PHYSICAL_PROFILES = Object.freeze({
+  'fresh-single-pass': Object.freeze([
+    Object.freeze({
+      'server.features': 0, 'server.version': 0,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 1,
+      'blockchain.scripthash.listunspent': 0,
+    }),
+    Object.freeze({
+      'server.features': 0, 'server.version': 0,
+      'blockchain.transaction.broadcast': 1,
+      'blockchain.transaction.get': 1,
+      'blockchain.utxo.get_info': 0,
+      'blockchain.scripthash.listunspent': 1,
+    }),
+  ]),
+});
 const RUNTIME_WORK_TYPES = Object.freeze([
   'linked-runtime-cache-load',
   'cold-runtime-build',
@@ -290,29 +317,64 @@ function storeTelemetry(value, kind) {
   return Object.freeze({ pre, post, delta: Object.freeze({ ...value.delta }) });
 }
 
-function rpcObservation(value) {
-  exact(value, ['backend', 'genesis', 'methodCounts'], 'action.rpcObservation');
+function rpcObservation(value, admissionRoute) {
+  const hasPhysicalCounts = Object.hasOwn(value ?? {}, 'physicalMethodCounts');
+  exact(value, hasPhysicalCounts
+    ? ['backend', 'genesis', 'methodCounts', 'physicalMethodCounts']
+    : ['backend', 'genesis', 'methodCounts'], 'action.rpcObservation');
   exact(value.methodCounts, RPC_METHODS, 'action.rpcObservation.methodCounts');
-  if (value.backend !== 'layer1-bchn-chipnet' || value.genesis !== CHIPNET_GENESIS_HASH) {
-    fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', 'action RPC backend is not the authenticated BCHN Chipnet capability');
+  if (!isBchnChipnetBackend(value.backend) || value.genesis !== CHIPNET_GENESIS_HASH) {
+    fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', 'action RPC backend is not the authenticated Chipnet capability');
+  }
+  const routeProfiles = Object.freeze({
+    'fresh-single-pass': Object.freeze({ getrawtransaction: 1, gettxout: 1, sendrawtransaction: 1 }),
+    'fresh-reconciled-after-indeterminate-send': Object.freeze({ getrawtransaction: 2, gettxout: 2, sendrawtransaction: 1 }),
+    'read-only-reconciliation': Object.freeze({ getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 }),
+    'explicit-rebroadcast-precheck-visible': Object.freeze({ getrawtransaction: 1, gettxout: 1, sendrawtransaction: 0 }),
+    'explicit-rebroadcast-single-pass': Object.freeze({ getrawtransaction: 2, gettxout: 1, sendrawtransaction: 1 }),
+    'explicit-rebroadcast-reconciled-after-indeterminate-send': Object.freeze({ getrawtransaction: 3, gettxout: 2, sendrawtransaction: 1 }),
+  });
+  const route = routeProfiles[admissionRoute];
+  if (route === undefined) {
+    fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', 'action admission route is unsupported');
   }
   const expected = {
     getblockhash: 0,
-    getrawtransaction: 1,
-    gettxout: 1,
+    getrawtransaction: route.getrawtransaction,
+    gettxout: route.gettxout,
     scantxoutset: 0,
-    sendrawtransaction: 1,
-    testmempoolaccept: 1,
+    sendrawtransaction: route.sendrawtransaction,
+    testmempoolaccept: 0,
   };
   for (const name of RPC_METHODS) {
     if (value.methodCounts[name] !== expected[name]) {
       fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', `action RPC count ${name} is not exactly ${expected[name]}`);
     }
   }
+  if (hasPhysicalCounts) {
+    if (value.backend !== 'public-chipnet-fulcrum-tls') {
+      fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', 'public provider method counts require the public Fulcrum backend');
+    }
+    exact(value.physicalMethodCounts, PUBLIC_ELECTRUM_METHODS, 'action.rpcObservation.physicalMethodCounts');
+    for (const name of PUBLIC_ELECTRUM_METHODS) {
+      if (!Number.isSafeInteger(value.physicalMethodCounts[name])
+        || value.physicalMethodCounts[name] < 0) {
+        fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', `public provider count ${name} is invalid`);
+      }
+    }
+    const physicalProfiles = PUBLIC_FULCRUM_ACTION_PHYSICAL_PROFILES[admissionRoute];
+    if (physicalProfiles === undefined || !physicalProfiles.some((profile) =>
+      PUBLIC_ELECTRUM_METHODS.every((name) => value.physicalMethodCounts[name] === profile[name]))) {
+      fail('LIVE_ACTION_RPC_OBSERVATION_INVALID', 'public Fulcrum method counts do not match the exact declared admission route');
+    }
+  }
   return Object.freeze({
     backend: value.backend,
     genesis: value.genesis,
     methodCounts: Object.freeze({ ...value.methodCounts }),
+    ...(hasPhysicalCounts
+      ? { physicalMethodCounts: Object.freeze({ ...value.physicalMethodCounts }) }
+      : {}),
   });
 }
 
@@ -342,7 +404,7 @@ export function inspectV2BetaLiveActionEvidence(result, {
   for (const name of ['action', 'commandTotal', 'sessionOpen']) {
     duration(result.timingsMs[name], `command.timingsMs.${name}`);
   }
-  if (result.schema !== 'shieldkit-v2-beta-product-command-result-v1'
+  if (result.schema !== 'shieldkit-v2-beta-product-command-result-v3'
     || result.status !== 'accepted-zero-conf-beta-unqualified'
     || result.command !== command || result.operationId !== operationId
     || !HASH.test(result.transactionId)) {
@@ -352,12 +414,12 @@ export function inspectV2BetaLiveActionEvidence(result, {
   const work = runtimeWork(result.runtimeWork);
   const action = result.action;
   exact(action, [
-    'cache', 'claims', 'kind', 'operationId', 'proof', 'readback',
+    'admissionRoute', 'cache', 'claims', 'kind', 'operationId', 'proof', 'readback',
     'rpcObservation', 'schema', 'status', 'telemetry', 'timingsMs',
     'transaction', 'transactionId', 'vm',
   ], 'action');
   const actionKind = command === 'deposit' ? 'deposit' : 'withdrawal';
-  if (action.schema !== 'shieldkit-v2-beta-product-action-result-v1'
+  if (action.schema !== 'shieldkit-v2-beta-product-action-result-v3'
     || action.status !== result.status || action.kind !== actionKind
     || action.operationId !== operationId
     || action.transactionId !== result.transactionId) {
@@ -444,10 +506,11 @@ export function inspectV2BetaLiveActionEvidence(result, {
     || action.readback.stateOutpoint.vout !== 0) {
     fail('LIVE_ACTION_EVIDENCE_INVALID', 'state-NFT readback does not bind the accepted transaction output zero');
   }
-  const rpc = rpcObservation(action.rpcObservation);
+  const rpc = rpcObservation(action.rpcObservation, action.admissionRoute);
 
   return Object.freeze({
     operationId,
+    admissionRoute: action.admissionRoute,
     transactionId: result.transactionId,
     commandTotalMs: result.timingsMs.commandTotal,
     actionTotalMs: action.timingsMs.total,

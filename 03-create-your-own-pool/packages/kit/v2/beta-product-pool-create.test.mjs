@@ -13,6 +13,10 @@ import {
 } from '../../action/v2/topology.mjs';
 
 const H = (byte) => byte.repeat(64);
+const DIRECT_FUNDING_INPUT = Object.freeze({
+  fundingWalletPath: '/tmp/shieldkit-user-wallet.json',
+  fundingUtxo: `${H('4')}:0`,
+});
 
 function fixture({
   funded = true,
@@ -128,6 +132,7 @@ function fixture({
       return Object.freeze({ actionFundingOutputs: 10, actionFundingSetSha256: '9a'.repeat(32) });
     },
     loadArtifactInstallation: async ({ productDataDirectory }) => { assert.equal(productDataDirectory, '/tmp/data'); calls.push('artifacts:load'); return Object.freeze({ installed: true }); },
+    loadConfig: () => Object.freeze({ config: Object.freeze({ dataDirectory: '/tmp/data', deploymentDirectory: '/tmp/deployment', runtimeCacheRoot: '/tmp/cache', walletDatabasePath: '/tmp/wallet.sqlite', poolCreateJournalDatabasePath: '/tmp/pool-create.sqlite' }) }),
     loadDeploymentRecovery: () => recovery,
     loadRuntime: async ({ instanceId: requested }) => {
       calls.push('runtime:load');
@@ -180,25 +185,39 @@ function exactRecovery() {
   });
 }
 
-test('returns a secret-free actionable funding address without loading or sending a runtime', async () => {
+test('rejects missing one-invocation user funding before opening a public RPC', async () => {
   const subject = fixture({ funded: false });
-  const result = await createV2BetaProductPoolForTest({}, subject.dependencies);
-  assert.equal(result.status, 'funding-required');
-  assert.equal(result.fundingAddress, 'bchtest:qtest');
-  assert.deepEqual(subject.calls, ['rpc:create', 'funding']);
-  assert.equal(result.claims.productionQualified, false);
-  assert.deepEqual(result.rpcObservation.methodCounts, {
-    getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0,
-    sendrawtransaction: 0, testmempoolaccept: 0,
-  });
+  await assert.rejects(
+    createV2BetaProductPoolForTest({}, subject.dependencies),
+    error => error instanceof V2BetaProductPoolCreateError
+      && error.code === 'BETA_POOL_USER_FUNDING_REQUIRED',
+  );
+  assert.deepEqual(subject.calls, []);
 });
 
-test('rejects legacy external funding txids for a new pool before any RPC funding discovery', async () => {
+test('rejects the removed legacy external funding-txid API before any RPC funding discovery', async () => {
   const subject = fixture({ funded: false });
   await assert.rejects(
     createV2BetaProductPoolForTest({ dataHome: '/tmp/shieldkit-test', fundingTxid: H('a') }, subject.dependencies),
-    error => error?.code === 'BETA_POOL_LEGACY_FUNDING_TXID_REJECTED',
+    error => error?.code === 'BETA_POOL_CREATE_INVALID',
   );
+  assert.deepEqual(subject.calls, []);
+});
+
+test('requires an existing durable operation for explicit funding-free resume', async () => {
+  const subject = fixture();
+  let createConfigCalls = 0;
+  let loadConfigCalls = 0;
+  subject.dependencies.createOrLoadConfig = () => { createConfigCalls += 1; throw new Error('must not create'); };
+  const originalLoadConfig = subject.dependencies.loadConfig;
+  subject.dependencies.loadConfig = (value) => { loadConfigCalls += 1; return originalLoadConfig(value); };
+  await assert.rejects(
+    createV2BetaProductPoolForTest({ resume: true }, subject.dependencies),
+    error => error instanceof V2BetaProductPoolCreateError
+      && error.code === 'BETA_POOL_RECOVERY_REQUIRED',
+  );
+  assert.equal(createConfigCalls, 0);
+  assert.equal(loadConfigCalls, 1);
   assert.deepEqual(subject.calls, []);
 });
 
@@ -251,7 +270,7 @@ test('one direct user funding invocation reaches the normal staged package flow 
 
 test('warm create consumes one exact instance runtime and commits only after exact zero-conf readback', async () => {
   const subject = fixture();
-  const result = await createV2BetaProductPoolForTest({}, subject.dependencies);
+  const result = await createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies);
   assert.equal(result.status, 'accepted-zero-conf-beta-unqualified');
   assert.equal(result.instanceId, H('2'));
   assert.equal(result.capacity, '100000');
@@ -301,7 +320,7 @@ test('refuses a duplicate zero-conf admission transport attempt before committin
     });
   };
   await assert.rejects(
-    createV2BetaProductPoolForTest({}, subject.dependencies),
+    createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies),
     error => error instanceof V2BetaProductPoolCreateError
       && error.code === 'BETA_POOL_RPC_OBSERVATION_REJECTED',
   );
@@ -311,7 +330,7 @@ test('refuses a duplicate zero-conf admission transport attempt before committin
 test('refuses runtime retargeting and keeps a pre-send change key recoverable', async () => {
   const subject = fixture({ runtimeInstance: H('a') });
   await assert.rejects(
-    createV2BetaProductPoolForTest({}, subject.dependencies),
+    createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies),
     (error) => error instanceof V2BetaProductPoolCreateError
       && error.code === 'BETA_POOL_RUNTIME_REJECTED',
   );
@@ -320,7 +339,7 @@ test('refuses runtime retargeting and keeps a pre-send change key recoverable', 
 
 test('first pool create links the exact signed bootstrap inside the measured command and reloads its durable cache', async () => {
   const subject = fixture({ cacheAvailable: false });
-  const result = await createV2BetaProductPoolForTest({}, subject.dependencies);
+  const result = await createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies);
   assert.equal(result.runtimeLinkedDuringCommand, true);
   assert.deepEqual(result.runtimeWork.counts, {
     'linked-runtime-cache-load': 1,
@@ -347,7 +366,7 @@ test('first pool create links the exact signed bootstrap inside the measured com
 test('does not commit on missing exact zero-conf readback and marks the sent change indeterminate', async () => {
   const subject = fixture({ accept: false });
   await assert.rejects(
-    createV2BetaProductPoolForTest({}, subject.dependencies),
+    createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies),
     (error) => error instanceof V2BetaProductPoolCreateError
       && error.code === 'BETA_POOL_ZERO_CONF_PENDING'
       && error.recoverable === true,
@@ -371,7 +390,7 @@ test('post-send restart recovers exact funding before any UTXO scan and delegate
     subject.calls.push('reconcile');
     return { broadcast: false, record: { status: 'broadcast' } };
   };
-  const result = await createV2BetaProductPoolForTest({}, subject.dependencies);
+  const result = await createV2BetaProductPoolForTest({ resume: true }, subject.dependencies);
   assert.equal(result.status, 'accepted-zero-conf-beta-unqualified');
   assert.equal(ordinaryFundingCalls, 0);
   assert.equal(reconciliationCalls, 1);
@@ -393,7 +412,7 @@ test('accepted and committed restarts recover retained bytes without source resc
       broadcastCalls += 1;
       throw new Error('a recovered accepted deployment must never resend');
     };
-    const result = await createV2BetaProductPoolForTest({}, subject.dependencies);
+    const result = await createV2BetaProductPoolForTest({ resume: true }, subject.dependencies);
     assert.equal(result.status, 'accepted-zero-conf-beta-unqualified');
     assert.equal(ordinaryFundingCalls, 0, claimMode);
     assert.equal(broadcastCalls, 0, claimMode);
@@ -411,7 +430,7 @@ test('an action-store failure happens only after commit and leaves restart recon
     throw new Error('test action-store failure');
   };
   await assert.rejects(
-    createV2BetaProductPoolForTest({}, subject.dependencies),
+    createV2BetaProductPoolForTest(DIRECT_FUNDING_INPUT, subject.dependencies),
     error => error?.message === 'test action-store failure',
   );
   assert.ok(subject.calls.indexOf('accept') < subject.calls.indexOf('commit'));
@@ -426,7 +445,7 @@ test('recovery rejects a coordinator operation rebinding before any send', async
     return { operationId: 'different-deployment-op', record: { status: 'prepared' } };
   };
   await assert.rejects(
-    createV2BetaProductPoolForTest({}, subject.dependencies),
+    createV2BetaProductPoolForTest({ resume: true }, subject.dependencies),
     (error) => error instanceof V2BetaProductPoolCreateError
       && error.code === 'BETA_POOL_RECOVERY_REJECTED',
   );
