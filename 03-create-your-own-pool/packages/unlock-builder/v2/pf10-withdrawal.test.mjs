@@ -80,6 +80,10 @@ import {
   V2_GROTH16_PROOF_RESULT_SCHEMA,
 } from '../../prove/v2/groth16-proof-child.mjs';
 import {
+  parseV2CanonicalNativeGroth16Proof,
+  V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA,
+} from '../../prove/v2/native-groth16-proof-child.mjs';
+import {
   sha256File,
 } from '../../prove/groth16.mjs';
 import {
@@ -1892,6 +1896,82 @@ test(
           proofResult,
           runtimeMaterial: material,
         });
+        // The native worker must normalize rapidsnark's curve-less producer
+        // output before it crosses into the PF10 action boundary. Exercise
+        // that exact boundary with this test's freshly generated proof,
+        // packet, and pinned runtime: only the proof-provider envelope may
+        // differ, never a byte of settlement witness material.
+        assert.deepEqual(
+          Object.keys(generated.proof).sort(),
+          ['curve', 'pi_a', 'pi_b', 'pi_c', 'protocol'],
+          'fresh proof is not the canonical snarkjs BN254 proof shape',
+        );
+        assert.equal(generated.proof.curve, 'bn128');
+        const nativeProofResultForAdapter = Object.freeze({
+          schema: V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA,
+          claims: Object.freeze({
+            proofVerified: true,
+            witnessCalculated: true,
+            witnessR1csChecked: false,
+          }),
+          sourceHashes: Object.freeze({ ...proofArtifactHashes }),
+          nativeProver: Object.freeze({
+            backend: 'rapidsnark',
+            sha256: 'ab'.repeat(32),
+            ompThreads: 1,
+            threads: 1,
+            peakRssKiB: 1,
+            userTicks: 1,
+            systemTicks: 0,
+          }),
+          inputSha256: sha256(Buffer.from(JSON.stringify(circuitInput)))
+            .toString('hex'),
+          proof: Object.freeze(JSON.parse(JSON.stringify(generated.proof))),
+          publicInputs: Object.freeze([...generated.publicSignals]),
+          timingsMs: Object.freeze({
+            witnessCalculation: 1,
+            proofGeneration: 1,
+            proofVerification: 1,
+            total: 3,
+          }),
+        });
+        const nativeWitness = buildAdapterWitness({
+          proofResult: nativeProofResultForAdapter,
+        });
+        assert.deepEqual(
+          Buffer.from(nativeWitness.actionPacket),
+          Buffer.from(productionWitness.actionPacket),
+          'native proof envelope changed the PF10 action packet',
+        );
+        assert.deepEqual(
+          nativeWitness.publicInputs,
+          productionWitness.publicInputs,
+          'native proof envelope changed PF10 public inputs',
+        );
+        assert.deepEqual(
+          nativeWitness.verifierUnlockingBytecodes.map((value) =>
+            Buffer.from(value),
+          ),
+          productionWitness.verifierUnlockingBytecodes.map((value) =>
+            Buffer.from(value),
+          ),
+          'canonical native-result-v2 changed PF10 verifier witness bytes',
+        );
+        assert.deepEqual(
+          Buffer.from(nativeWitness.bindingUnlockingBytecode),
+          Buffer.from(productionWitness.bindingUnlockingBytecode),
+          'canonical native-result-v2 changed PF10 binding witness bytes',
+        );
+        assert.deepEqual(
+          Buffer.from(nativeWitness.stateUnlockingBytecode),
+          Buffer.from(productionWitness.stateUnlockingBytecode),
+          'canonical native-result-v2 changed PF10 state witness bytes',
+        );
+        assert.deepEqual(
+          nativeWitness.measurements,
+          productionWitness.measurements,
+          'canonical native-result-v2 changed PF10 witness measurements',
+        );
         const cloneRuntimeInput = () => ({
           ...runtimeMaterialInput,
           proofArtifactHashes: { ...runtimeMaterialInput.proofArtifactHashes },
@@ -1923,6 +2003,22 @@ test(
         });
         const expects = (code) => (error) =>
           error instanceof DirectV2Pf10ActionWitnessError && error.code === code;
+
+        const curveLessNativeProof = { ...nativeProofResultForAdapter.proof };
+        delete curveLessNativeProof.curve;
+        assert.throws(
+          () => parseV2CanonicalNativeGroth16Proof(curveLessNativeProof),
+          /canonical snarkjs shape/u,
+          'curve-less native result passed the worker-to-PF10 boundary',
+        );
+        assert.throws(
+          () => parseV2CanonicalNativeGroth16Proof({
+            ...nativeProofResultForAdapter.proof,
+            pi_a: ['0'],
+          }),
+          /must be \[x,y,1\]/u,
+          'malformed native result passed the worker-to-PF10 boundary',
+        );
 
         assert.throws(
           () => buildAdapterWitness({
