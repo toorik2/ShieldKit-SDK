@@ -464,6 +464,41 @@ function assertRuntimeCache(
   return Object.freeze({ profileId, instanceId: value.identity.instanceId });
 }
 
+function projectSettlementPreparationPins(value) {
+  exact(value, [
+    'bindingBaseSats', 'bindingLockingBytecode', 'bindingRedeemBytecode',
+    'stateBaseSats', 'stateHelperBytecode', 'stateLockingBytecode',
+    'stateUnlockingBytecode', 'topologyId', 'verifierCarriers',
+    'verifierRoles',
+  ], 'beta runtime settlement pins');
+  if (!Array.isArray(value.verifierRoles)
+    || !Array.isArray(value.verifierCarriers)) {
+    fail(
+      'BETA_ACTION_INVALID',
+      'beta runtime settlement pins must retain verifier roles and carriers',
+    );
+  }
+  // The authenticated runtime also retains the state helper and state unlock
+  // used by witness/genesis construction. Settlement preparation has a
+  // deliberately narrower exact schema containing only public locks and base
+  // values, so cross that boundary with an explicit copy rather than relaxing
+  // either validator.
+  return Object.freeze({
+    topologyId: value.topologyId,
+    verifierRoles: Object.freeze([...value.verifierRoles]),
+    verifierCarriers: Object.freeze(value.verifierCarriers.map((entry) =>
+      Object.freeze({
+        baseValueSats: entry.baseValueSats,
+        lockingBytecode: Buffer.from(entry.lockingBytecode),
+      }))),
+    bindingBaseSats: value.bindingBaseSats,
+    bindingLockingBytecode: Buffer.from(value.bindingLockingBytecode),
+    bindingRedeemBytecode: Buffer.from(value.bindingRedeemBytecode),
+    stateBaseSats: value.stateBaseSats,
+    stateLockingBytecode: Buffer.from(value.stateLockingBytecode),
+  });
+}
+
 function assertTestNativeProverInstallation(value) {
   exact(value, ['binary'], 'test native prover installation');
   if (
@@ -1004,6 +1039,7 @@ function testDependencies(value) {
 export class V2BetaProductActionLifecycle {
   #profileCore;
   #runtime;
+  #settlementPreparationPins;
   #nativeProverInstallation;
   #nativeProverSha256;
   #store;
@@ -1082,6 +1118,9 @@ export class V2BetaProductActionLifecycle {
     }
     this.#profileCore = options.profileCore;
     this.#runtime = options.runtimeCache;
+    this.#settlementPreparationPins = projectSettlementPreparationPins(
+      options.runtimeCache.settlementPins,
+    );
     this.#nativeProverInstallation = options.nativeProverInstallation;
     this.#nativeProverSha256 = factory === PRODUCTION_FACTORY
       ? installedNativeProver?.sha256
@@ -1308,7 +1347,7 @@ export class V2BetaProductActionLifecycle {
       kind,
       networkId: 2,
       payoutLockingBytecode,
-      pins: this.#runtime.settlementPins,
+      pins: this.#settlementPreparationPins,
       postState: successor.state,
       preState: tipRead.state,
       previousBundleTransactionHex: tipRead.rawTransactionHex,

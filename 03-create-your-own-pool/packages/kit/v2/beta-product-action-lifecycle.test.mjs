@@ -156,7 +156,9 @@ function settlementPins(pins) {
     ),
     bindingRedeemBytecode: Buffer.from(pins.finalLocks.binding.redeemBytecode),
     stateBaseSats: pins.finalLocks.state.baseSats.toString(),
+    stateHelperBytecode: Buffer.from('51', 'hex'),
     stateLockingBytecode: Buffer.from(pins.finalLocks.state.lockingBytecode),
+    stateUnlockingBytecode: Buffer.from('00', 'hex'),
   });
 }
 
@@ -682,6 +684,12 @@ test('canonical native proof provenance passes the lifecycle gate before the tes
 
 test('a prover failure atomically rejects only the pre-send operation and releases funding', async (t) => {
   const subject = await context(t);
+  assert.deepEqual(Object.keys(fakeRuntime().settlementPins).sort(), [
+    'bindingBaseSats', 'bindingLockingBytecode', 'bindingRedeemBytecode',
+    'stateBaseSats', 'stateHelperBytecode', 'stateLockingBytecode',
+    'stateUnlockingBytecode', 'topologyId', 'verifierCarriers',
+    'verifierRoles',
+  ]);
   await assert.rejects(
     lifecycle(subject).executeDeposit({ operationId: 'deposit.proof-failure' }),
     error => error?.code === 'TEST_PROOF_FAILED',
