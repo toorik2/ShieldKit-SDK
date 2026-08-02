@@ -67,6 +67,9 @@ function parse(tokens) {
   if (positionals.length === 2 && positionals[0] === 'pool'
     && positionals[1] === 'create') {
     command = 'pool-create';
+  } else if (positionals.length === 2 && positionals[0] === 'pool'
+    && positionals[1] === 'refresh-runtime') {
+    command = 'pool-refresh-runtime';
   } else if (positionals.length === 1 && ['deposit', 'withdraw'].includes(positionals[0])) {
     command = positionals[0];
   } else if (positionals.length === 2
@@ -76,7 +79,7 @@ function parse(tokens) {
     && positionals[0] === 'recovery' && positionals[1] === 'inspect') {
     command = 'recovery-inspect';
   } else {
-    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, deposit, withdraw, recovery inspect, or recovery rebroadcast');
+    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, pool refresh-runtime, deposit, withdraw, recovery inspect, or recovery rebroadcast');
   }
   const allowed = command === 'withdraw'
     ? new Set(['data-home', 'human', 'json', 'note', 'operation-id', 'to'])
@@ -84,6 +87,8 @@ function parse(tokens) {
       ? new Set(['data-home', 'human', 'json', 'operation-id'])
       : command === 'pool-create'
         ? new Set(['data-home', 'funding-txid', 'funding-utxo', 'funding-wallet', 'human', 'json'])
+        : command === 'pool-refresh-runtime'
+          ? new Set(['data-home', 'human', 'json'])
         : command === 'recovery-inspect'
           ? new Set(['data-home', 'human', 'json', 'operation-id'])
           : new Set([
@@ -154,6 +159,7 @@ function parse(tokens) {
 export function isV2BetaProductCliInvocation(tokens) {
   if (!Array.isArray(tokens)) return false;
   return (tokens[0] === 'pool' && tokens[1] === 'create')
+    || (tokens[0] === 'pool' && tokens[1] === 'refresh-runtime')
     || (tokens[0] === 'recovery' && tokens[1] === 'rebroadcast')
     || (tokens[0] === 'recovery' && tokens[1] === 'inspect')
     || (['deposit', 'withdraw'].includes(tokens[0])
@@ -173,12 +179,17 @@ function productionDependencies() {
       const module = await import('./beta-product-pool-create.mjs');
       return module.createV2BetaProductPool(value);
     },
+    refreshRuntime: async (value) => {
+      const module = await import('./beta-product-runtime-refresh.mjs');
+      return module.refreshV2BetaProductRuntime(value);
+    },
   });
 }
 
 function dependenciesForTest(value) {
   const names = [
     'createRpc', 'deposit', 'inspectRecovery', 'loadConfig', 'poolCreate', 'recovery',
+    'refreshRuntime',
     'toContextConfig', 'withdrawal',
   ];
   if (value === null || Array.isArray(value) || typeof value !== 'object'
@@ -206,6 +217,10 @@ async function execute(tokens, dependencies) {
           ? {} : { fundingUtxo: request.options['funding-utxo'] }),
       }),
     );
+  } else if (request.command === 'pool-refresh-runtime') {
+    result = await dependencies.refreshRuntime(Object.freeze({
+      ...(dataHome === undefined ? {} : { dataHome }),
+    }));
   } else {
     const [loaded, rpc] = await Promise.all([
       dependencies.loadConfig(dataHome === undefined ? {} : { dataHome }),
@@ -285,6 +300,14 @@ export function renderV2BetaProductCliHuman(envelope) {
         ? [`rerun: ${result.rerunCommand}`]
         : []),
     ].filter(Boolean).join('\n');
+  }
+  if (envelope.command === 'pool-refresh-runtime') {
+    return [
+      `ShieldKit V2 beta runtime: ${result.status}`,
+      `instance: ${result.instanceId}`,
+      `cache installed: ${String(result.cacheInstalled)}`,
+      `total: ${Number(result.timingsMs?.commandTotal).toFixed(1)} ms`,
+    ].join('\n');
   }
   if (envelope.command === 'recovery-inspect') {
     const recovery = result.recovery;

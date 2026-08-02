@@ -211,6 +211,20 @@ function closeAll(resources) {
   if (first) throw first;
 }
 
+function shellSingleQuote(value) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function runtimeRefreshCommand(config) {
+  const dataHome = path.dirname(path.dirname(config.productDataDirectory));
+  return `shieldkit pool refresh-runtime --data-home ${shellSingleQuote(dataHome)}`;
+}
+
+/** Pure test seam for the copy/paste-safe local remediation command. */
+export function deriveV2BetaRuntimeRefreshCommandForTest(config) {
+  return runtimeRefreshCommand(config);
+}
+
 function productionDependencies() {
   return Object.freeze({
     loadGenesis: loadV2BetaChipnetCommittedGenesis,
@@ -247,11 +261,23 @@ async function openContext(value, dependencies) {
   const artifactInstallation = await dependencies.loadArtifacts({
     productDataDirectory: config.productDataDirectory,
   });
-  const unboundRuntime = await dependencies.loadRuntime({
-    artifactInstallation,
-    cacheRoot: config.runtimeCacheRoot,
-    instanceId: genesis.instanceId,
-  });
+  let unboundRuntime;
+  try {
+    unboundRuntime = await dependencies.loadRuntime({
+      artifactInstallation,
+      cacheRoot: config.runtimeCacheRoot,
+      instanceId: genesis.instanceId,
+    });
+  } catch (error) {
+    if (error?.code === 'BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE') {
+      fail(
+        'BETA_RUNTIME_REFRESH_REQUIRED',
+        `linked runtime cache is unavailable; run ${runtimeRefreshCommand(config)}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
   dependencies.assertRuntime(unboundRuntime);
   const runtime = dependencies.bindRuntime(unboundRuntime, {
     descriptorSha256: genesis.zeroConfEvidenceSha256,

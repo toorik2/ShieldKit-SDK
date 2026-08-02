@@ -121,6 +121,7 @@ const BETA_PRODUCT_PORTABLE_SECURITY_TESTS = new Map([
   ['packages/kit/v2/beta-product-pool-create-journal.test.mjs', 'product pool-create journal test'],
   ['packages/kit/v2/beta-product-pool-create.test.mjs', 'product pool-create test'],
   ['packages/kit/v2/beta-product-pool-funding.test.mjs', 'product pool funding test'],
+  ['packages/kit/v2/beta-product-runtime-refresh.test.mjs', 'product explicit runtime refresh security test'],
   ['packages/kit/v2/beta-product-session.test.mjs', 'product session lifecycle test'],
   ['packages/kit/v2/beta-product-wallet.test.mjs', 'product wallet test'],
   ['packages/kit/v2/beta-qualification-evidence.test.mjs', 'product evidence redaction/schema test'],

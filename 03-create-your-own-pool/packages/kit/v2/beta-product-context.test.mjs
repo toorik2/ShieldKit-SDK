@@ -14,6 +14,7 @@ import { deriveV2NativeGroth16ProverInstallationFromProductArtifact, setV2Native
 import {
   V2_BETA_PRODUCT_CONTEXT_CONFIG_SCHEMA,
   V2BetaProductContextError,
+  deriveV2BetaRuntimeRefreshCommandForTest,
   openV2BetaProductContextForTest,
   validateV2BetaProductContextConfig,
 } from './beta-product-context.mjs';
@@ -157,6 +158,67 @@ test('test-only context seam binds committed genesis, warm runtime, and store pr
     context.close();
     assert.deepEqual(events, ['store.initialize', 'journal.close', 'wallet.close', 'store.close']);
   } finally { rmSync(subject.root, { recursive: true, force: true }); }
+});
+
+test('context maps only a missing linked runtime to the explicit refresh command', async () => {
+  const subject = fixture(); const events = [];
+  const unavailable = Object.assign(new Error('no current generation'), {
+    code: 'BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE',
+  });
+  const dependencies = {
+    ...testDependencies(events),
+    loadRuntime: async () => { throw unavailable; },
+  };
+  try {
+    await assert.rejects(
+      () => openV2BetaProductContextForTest({
+        config: subject.config,
+        rpc: Object.freeze({ backend: 'test' }),
+      }, dependencies),
+      (error) => error instanceof V2BetaProductContextError
+        && error.code === 'BETA_RUNTIME_REFRESH_REQUIRED'
+        && error.cause === unavailable
+        && error.message.includes('shieldkit pool refresh-runtime --data-home ')
+        && error.message.includes(`'${path.dirname(path.dirname(subject.config.productDataDirectory))}'`),
+    );
+    assert.deepEqual(events, []);
+  } finally { rmSync(subject.root, { recursive: true, force: true }); }
+});
+
+test('runtime refresh guidance single-quotes shell metacharacters and embedded quotes', () => {
+  const dataHome = "/tmp/data home/$USER/$(touch nope)/`id`/owner's";
+  const command = deriveV2BetaRuntimeRefreshCommandForTest({
+    productDataDirectory: path.join(dataHome, 'shieldkit', 'v2-beta-product'),
+  });
+  assert.equal(
+    command,
+    `shieldkit pool refresh-runtime --data-home '/tmp/data home/$USER/$(touch nope)/\`id\`/owner'"'"'s'`,
+  );
+});
+
+test('context preserves invalid, stale, and ambiguous linked runtime failures', async () => {
+  for (const code of [
+    'BETA_LINKED_RUNTIME_CACHE_INVALID',
+    'BETA_LINKED_RUNTIME_CACHE_STALE',
+    'BETA_LINKED_RUNTIME_CACHE_AMBIGUOUS',
+  ]) {
+    const subject = fixture(); const events = [];
+    const failure = Object.assign(new Error(code), { code });
+    const dependencies = {
+      ...testDependencies(events),
+      loadRuntime: async () => { throw failure; },
+    };
+    try {
+      await assert.rejects(
+        () => openV2BetaProductContextForTest({
+          config: subject.config,
+          rpc: Object.freeze({ backend: 'test' }),
+        }, dependencies),
+        (error) => error === failure,
+      );
+      assert.deepEqual(events, []);
+    } finally { rmSync(subject.root, { recursive: true, force: true }); }
+  }
 });
 
 test('warm context derives native capability from the loaded artifact receipt with zero binary content reads', async () => {

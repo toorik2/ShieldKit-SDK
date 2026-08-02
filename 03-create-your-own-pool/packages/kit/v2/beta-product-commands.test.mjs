@@ -142,6 +142,27 @@ test('deposit owns session open, generated operation identity, accepted result, 
   ]);
 });
 
+test('action commands preserve runtime refresh and fail-closed cache errors from session open', async () => {
+  for (const code of [
+    'BETA_RUNTIME_REFRESH_REQUIRED',
+    'BETA_LINKED_RUNTIME_CACHE_INVALID',
+    'BETA_LINKED_RUNTIME_CACHE_STALE',
+    'BETA_LINKED_RUNTIME_CACHE_AMBIGUOUS',
+  ]) {
+    const failure = Object.assign(new Error(code), { code });
+    await assert.rejects(
+      executeV2BetaProductDepositForTest(
+        { config: {}, rpc: {} },
+        {
+          openSession: async () => { throw failure; },
+          randomBytes: () => Buffer.alloc(32, 7),
+        },
+      ),
+      (error) => error === failure,
+    );
+  }
+});
+
 test('withdrawal requires a Chipnet P2PKH destination and passes exact bytecode', async () => {
   const subject = fixture();
   const actual = await executeV2BetaProductWithdrawalForTest(

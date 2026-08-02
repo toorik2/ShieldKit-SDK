@@ -13,6 +13,8 @@ import {
   deriveV2BetaLinkedRuntimeCacheDirectoryNameForTest,
   deriveV2BetaRuntimeCacheDirectoryNameForTest,
   extractV2BetaRuntimeImportsForTest,
+  selectV2BetaLinkedRuntimeCacheMatchForTest,
+  V2BetaChipnetRuntimeCacheError,
   V2_BETA_CHIPNET_RUNTIME_CACHE_FILE,
   V2_BETA_CHIPNET_RUNTIME_CACHE_SCHEMA,
 } from './beta-chipnet-runtime-cache.mjs';
@@ -101,6 +103,24 @@ test('linked cache source upgrades are misses while malformed generation names f
       candidateName: H('f'),
     }),
     /directory name differs/u,
+  );
+});
+
+test('linked cache loader distinguishes no current generation from ambiguous current generations', () => {
+  const rejects = (code) => (error) =>
+    error instanceof V2BetaChipnetRuntimeCacheError && error.code === code;
+  assert.throws(
+    () => selectV2BetaLinkedRuntimeCacheMatchForTest([]),
+    rejects('BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE'),
+  );
+  const only = Object.freeze({ cache: Object.freeze({ id: 1 }), record: Object.freeze({ id: 1 }) });
+  assert.equal(selectV2BetaLinkedRuntimeCacheMatchForTest([only]), only);
+  assert.throws(
+    () => selectV2BetaLinkedRuntimeCacheMatchForTest([
+      only,
+      Object.freeze({ cache: Object.freeze({ id: 2 }), record: Object.freeze({ id: 2 }) }),
+    ]),
+    rejects('BETA_LINKED_RUNTIME_CACHE_AMBIGUOUS'),
   );
 });
 

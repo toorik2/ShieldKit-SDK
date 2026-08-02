@@ -24,11 +24,17 @@ function dependencies(events) {
     recovery: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '33'.repeat(32), timingsMs: { commandTotal: 6 }, input: value }),
     withdrawal: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '22'.repeat(32), timingsMs: { commandTotal: 5 }, input: value }),
     poolCreate: async value => ({ status: 'accepted-zero-conf-beta-unqualified', input: value }),
+    refreshRuntime: async value => ({
+      status: 'linked-runtime-refreshed-beta-unqualified',
+      instanceId: '44'.repeat(32), cacheInstalled: true,
+      timingsMs: { commandTotal: 3 }, input: value,
+    }),
   };
 }
 
 test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['pool', 'create']), true);
+  assert.equal(isV2BetaProductCliInvocation(['pool', 'refresh-runtime']), true);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'prepare']), false);
   assert.equal(isV2BetaProductCliInvocation(['deposit']), true);
   assert.equal(isV2BetaProductCliInvocation(['withdraw', '--to', 'x']), true);
@@ -36,6 +42,31 @@ test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['recovery', 'rebroadcast']), true);
   assert.equal(isV2BetaProductCliInvocation(['deposit', '--protocol', 'v1-legacy']), false);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'add']), false);
+});
+
+test('dispatches local runtime refresh without loading a BCHN capability or action context', async () => {
+  const events = [];
+  const refreshed = await executeV2BetaProductCliForTest(
+    ['pool', 'refresh-runtime', '--data-home', '/tmp/shieldkit-test', '--human'],
+    dependencies(events),
+  );
+  assert.equal(refreshed.command, 'pool-refresh-runtime');
+  assert.equal(refreshed.format, 'human');
+  assert.deepEqual(refreshed.result.input, { dataHome: '/tmp/shieldkit-test' });
+  assert.deepEqual(events, []);
+  const rendered = renderV2BetaProductCliHuman(refreshed);
+  assert.match(rendered, /cache installed: true/u);
+  assert.doesNotMatch(rendered, /transaction:/u);
+  for (const argv of [
+    ['pool', 'refresh-runtime', '--funding-txid', 'ab'.repeat(32)],
+    ['pool', 'refresh-runtime', '--operation-id', 'x'],
+    ['pool', 'refresh-runtime', '--to', 'bchtest:qtest'],
+  ]) {
+    await assert.rejects(
+      executeV2BetaProductCliForTest(argv, dependencies([])),
+      (error) => error instanceof V2BetaProductCliError && error.code === 'BETA_CLI_OPTION_NOT_ALLOWED',
+    );
+  }
 });
 
 test('dispatches pool creation without any separate per-pool preparation command', async () => {

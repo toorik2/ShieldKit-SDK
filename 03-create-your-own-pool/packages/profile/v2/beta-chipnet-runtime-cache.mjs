@@ -821,6 +821,27 @@ export function classifyV2BetaLinkedRuntimeCacheCandidateForTest(value) {
   return classifyLinkedCacheCandidate(value);
 }
 
+function selectCurrentLinkedCache(matches) {
+  if (matches.length === 0) {
+    fail(
+      'BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE',
+      'no current linked runtime cache generation is available',
+    );
+  }
+  if (matches.length > 1) {
+    fail(
+      'BETA_LINKED_RUNTIME_CACHE_AMBIGUOUS',
+      'multiple current linked runtime cache generations are present',
+    );
+  }
+  return matches[0];
+}
+
+/** Test-only pure selection seam for current linked-cache cardinality. */
+export function selectV2BetaLinkedRuntimeCacheMatchForTest(matches) {
+  return selectCurrentLinkedCache(matches);
+}
+
 function linkedCacheValue({ template, specialized, sourceSha256 }) {
   const raw = specialized.runtimeMaterialInput;
   const material = validateDirectV2Pf10BetaRuntimeMaterial(raw);
@@ -953,8 +974,7 @@ export async function loadV2BetaLinkedRuntimeCache({ artifactInstallation, cache
     });
     if (classification === 'current') matches.push({ cache, record });
   }
-  if (matches.length !== 1) fail('BETA_LINKED_RUNTIME_CACHE_UNAVAILABLE', 'exactly one linked runtime cache is required');
-  const { cache, record } = matches[0];
+  const { cache, record } = selectCurrentLinkedCache(matches);
   if (cache.runtimeSourceSha256 !== sourceSha256 || cache.genericRuntimeManifestSha256 !== template.templateRuntimeManifestSha256
     || canonicalizeJcs({ ...cache.identity, instanceId: template.identity.instanceId }) !== canonicalizeJcs(template.identity)
     || canonicalizeJcs(cache.proofArtifacts) !== canonicalizeJcs(template.proofArtifacts)) fail('BETA_LINKED_RUNTIME_CACHE_STALE', 'linked runtime cache is not bound to this artifact installation');
