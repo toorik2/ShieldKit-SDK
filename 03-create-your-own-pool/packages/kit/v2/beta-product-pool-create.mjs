@@ -891,7 +891,11 @@ async function create(value, dependencies) {
           feeSats: finalized.measurements.feeSats,
           feeRateSatsPerByte: finalized.measurements.feeRateSatsPerByte,
           bch2026StandardVmAccepted: finalized.measurements.bch2026StandardVmAccepted,
-          inputMetrics: finalized.measurements.inputMetrics,
+          inputMetrics: Object.freeze([Object.freeze({
+            index: 0,
+            accepted: true,
+            metrics: Object.freeze({ ...finalized.measurements.inputMetrics }),
+          })]),
         }),
       }),
       zeroConfEvidenceSha256: binding.zeroConfEvidenceSha256,

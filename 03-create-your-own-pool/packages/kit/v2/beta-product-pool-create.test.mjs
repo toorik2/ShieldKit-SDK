@@ -57,7 +57,17 @@ function fixture({
       profileId: H('5'), instanceId: H('2'),
       source: Object.freeze({ transactionId: H('1'), outputIndex: 0 }),
       genesis: Object.freeze({ transactionId: H('6'), outputIndex: 0, rawTransactionHex: '00', serializedBytes: 200 }),
-      measurements: Object.freeze({ changeSats: '546', feeSats: '200', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: Object.freeze([]) }),
+      measurements: Object.freeze({
+        changeSats: '546', feeSats: '200', feeRateSatsPerByte: '1',
+        bch2026StandardVmAccepted: true,
+        inputMetrics: Object.freeze({
+          arithmeticCost: '1', definedFunctions: '1', densityControlLength: '100',
+          evaluatedInstructionCount: '1', hashDigestIterations: '1',
+          maximumHashDigestIterations: '1000', maximumOperationCost: '1000',
+          maximumSignatureCheckCount: '100', operationCost: '1',
+          signatureCheckCount: '1', stackPushedBytes: '1',
+        }),
+      }),
     }),
   };
   const createClaim = Object.freeze({ mode: claimMode });
@@ -209,6 +219,17 @@ test('one direct user funding invocation reaches the normal staged package flow 
     dataHome: '/tmp/shieldkit-test', fundingWalletPath: walletPath, fundingUtxo: `${H('4')}:0`,
   });
   assert.equal(JSON.stringify(result).includes(walletPath), false);
+  assert.deepEqual(result.transactions.genesis.inputMetrics, [{
+    index: 0,
+    accepted: true,
+    metrics: {
+      arithmeticCost: '1', definedFunctions: '1', densityControlLength: '100',
+      evaluatedInstructionCount: '1', hashDigestIterations: '1',
+      maximumHashDigestIterations: '1000', maximumOperationCost: '1000',
+      maximumSignatureCheckCount: '100', operationCost: '1',
+      signatureCheckCount: '1', stackPushedBytes: '1',
+    },
+  }]);
   assert.deepEqual(
     Object.keys(subject.stagedPackages[0].settlementPins).sort(),
     [
