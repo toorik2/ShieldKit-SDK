@@ -33,8 +33,10 @@ export const MAINNET_GENESIS_HASH =
 
 /** Public Fulcrum (Electrum) Chipnet endpoints — TLS, no auth. */
 export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
-  Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
+  // Ordered roles: the first provider receives the sole broadcast; the
+  // second independently attests exact raw bytes and the successor output.
   Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
+  Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
 ]);
 
 const PUBLIC_ELECTRUM_CONNECT_TIMEOUT_MS = 12_000;

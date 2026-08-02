@@ -19,6 +19,7 @@ import {
   LAYER1_BCHN_CHIPNET_BACKEND,
   observeChipnetProductRpc,
   observeLayer1BchnChipnetRpc,
+  PUBLIC_CHIPNET_ELECTRUM,
 } from './chipnet-rpc.mjs';
 
 const TXID = 'ab'.repeat(32);
@@ -36,6 +37,13 @@ const serializedOutput = (valueSats, contentsHex) =>
   `${le64(valueSats)}${(contentsHex.length / 2).toString(16).padStart(2, '0')}${contentsHex}`;
 const rawWithOneInput = (outputs) =>
   `0200000001${Buffer.from(H('f'), 'hex').reverse().toString('hex')}0000000000ffffffff${outputs.length.toString(16).padStart(2, '0')}${outputs.join('')}00000000`;
+
+test('public Chipnet provider roles pin imaginary.cash for the sole send and bch.ninja for independent attestation', () => {
+  assert.deepEqual(PUBLIC_CHIPNET_ELECTRUM.map(({ host, port, tls }) => ({ host, port, tls })), [
+    { host: 'chipnet.imaginary.cash', port: 50002, tls: true },
+    { host: 'chipnet.bch.ninja', port: 50002, tls: true },
+  ]);
+});
 
 function publicTransactionFixture() {
   const instanceId = Buffer.from(Uint8Array.from(
