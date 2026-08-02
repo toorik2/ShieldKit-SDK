@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import {
   chmod,
-  link,
+  copyFile,
   lstat,
   mkdir,
   mkdtemp,
@@ -42,15 +43,26 @@ const sourceQualificationEvidence = path.join(
 const sha256 = (value) =>
   createHash('sha256').update(value).digest('hex');
 
-async function hardlinkTree(source, destination) {
+async function privateCopyTree(source, destination) {
   await mkdir(destination, { mode: 0o700 });
   for (const entry of await readdir(source, { withFileTypes: true })) {
     const sourcePath = path.join(source, entry.name);
     const destinationPath = path.join(destination, entry.name);
     if (entry.isDirectory()) {
-      await hardlinkTree(sourcePath, destinationPath);
+      await privateCopyTree(sourcePath, destinationPath);
     } else if (entry.isFile()) {
-      await link(sourcePath, destinationPath);
+      const sourceMetadata = await lstat(sourcePath);
+      assert.equal(sourceMetadata.nlink, 1, sourcePath);
+      await copyFile(
+        sourcePath,
+        destinationPath,
+        fsConstants.COPYFILE_FICLONE,
+      );
+      await chmod(destinationPath, 0o600);
+      const destinationMetadata = await lstat(destinationPath);
+      assert.equal(destinationMetadata.isFile(), true, destinationPath);
+      assert.equal(destinationMetadata.isSymbolicLink(), false, destinationPath);
+      assert.equal(destinationMetadata.nlink, 1, destinationPath);
     } else {
       throw new Error(`runtime fixture contains a non-file entry: ${sourcePath}`);
     }
@@ -160,8 +172,8 @@ test('complete PF10 bundle gate rejects self-hashed semantic substitutions', asy
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtimeRoot = path.join(root, 'runtime');
   const libauthRoot = path.join(root, 'libauth');
-  await hardlinkTree(sourceRuntimeRoot, runtimeRoot);
-  await hardlinkTree(sourceLibauthRoot, libauthRoot);
+  await privateCopyTree(sourceRuntimeRoot, runtimeRoot);
+  await privateCopyTree(sourceLibauthRoot, libauthRoot);
   assert.equal((await lstat(runtimeRoot)).isDirectory(), true);
   const qualificationEvidenceSha256 = sha256(
     await readFile(sourceQualificationEvidence),
