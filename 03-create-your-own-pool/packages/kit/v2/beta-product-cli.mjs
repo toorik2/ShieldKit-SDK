@@ -241,9 +241,9 @@ async function execute(tokens, dependencies) {
       ...(dataHome === undefined ? {} : { dataHome }),
     }));
   } else {
-    // Validate the local product boundary before opening sockets. One RPC
-    // capability is then reused for the complete command and always closed,
-    // including error and explicit recovery routes.
+    // Validate the local product boundary before opening sockets. The initial
+    // capability owns the only possible send. Bounded recovery capabilities
+    // are fresh read-only connections and every capability is always closed.
     const loaded = await dependencies.loadConfig(dataHome === undefined ? {} : { dataHome });
     const config = dependencies.toContextConfig(loaded.config);
     let rpc = await dependencies.createRpc();
