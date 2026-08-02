@@ -72,6 +72,7 @@ function publicElectrumFixture({
   negotiatedVersion = '1.6',
   broadcastError = undefined,
   outputInfo = undefined,
+  outputInfoByHost = undefined,
   rawReadbackError = undefined,
   rawReadbackFailures = 0,
 } = {}) {
@@ -100,6 +101,10 @@ function publicElectrumFixture({
         return transaction.raw;
       }
       if (method === 'blockchain.utxo.get_info') {
+        if (outputInfoByHost !== undefined
+          && Object.hasOwn(outputInfoByHost, endpoint.host)) {
+          return outputInfoByHost[endpoint.host];
+        }
         return outputInfo ?? {
           value: 546,
           scripthash: transaction.scripthash,
@@ -645,8 +650,13 @@ test('public product transport connects both providers concurrently and shares o
   rpc.close();
 });
 
-test('public product transport resolves a broadcast error only from dual exact readback and never failsover', async () => {
-  const fixture = publicElectrumFixture({ broadcastError: new Error('transport lost') });
+test('public product transport resolves a broadcast error from dual exact raw and distinct secondary state readback without failover', async () => {
+  const fixture = publicElectrumFixture({
+    broadcastError: new Error('transport lost'),
+    // The broadcasting provider may lag in its own UTXO index. It is not the
+    // independent state attestor and must not delay an otherwise exact result.
+    outputInfoByHost: { 'one.example': null },
+  });
   const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);
   const result = await rpc.submitV2SinglePassAdmission(
     fixture.transaction.raw,
@@ -661,9 +671,11 @@ test('public product transport resolves a broadcast error only from dual exact r
   for (const host of ['one.example', 'two.example']) {
     assert.equal(fixture.calls.some((call) => call.host === host
       && call.method === 'blockchain.transaction.get'), true);
-    assert.equal(fixture.calls.some((call) => call.host === host
-      && call.method === 'blockchain.utxo.get_info'), true);
   }
+  assert.equal(fixture.calls.some((call) => call.host === 'one.example'
+    && call.method === 'blockchain.utxo.get_info'), false);
+  assert.equal(fixture.calls.some((call) => call.host === 'two.example'
+    && call.method === 'blockchain.utxo.get_info'), true);
   assert.deepEqual(observeChipnetProductRpc(rpc).methodCounts, {
     getblockhash: 0, getrawtransaction: 1, gettxout: 1, scantxoutset: 0,
     sendrawtransaction: 1, testmempoolaccept: 0,

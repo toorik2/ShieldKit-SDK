@@ -1205,12 +1205,23 @@ async function createPublicBchnChipnetRpcInternal({
         methodCounts.getrawtransaction += 1;
         methodCounts.gettxout += 1;
         try {
-          const readback = await resolvePostBroadcast(() =>
-            publicElectrumStateReadback(
+          const readback = await resolvePostBroadcast(async () => {
+            // Preserve two-provider exact-raw consensus, then use the distinct
+            // non-broadcasting provider for the output attestation. This is
+            // the same trust split as the ordinary successful-response path;
+            // requiring the broadcasting provider's UTXO index as well only
+            // adds lag without adding an independent party.
+            const raw = await publicElectrumRawReadback(
               sessions,
               expectedTransactionId,
+            );
+            return publicElectrumOutputReadback(
+              attestation,
+              expectedTransactionId,
               outputIndex,
-            ));
+              raw,
+            );
+          });
           if (readback.rawTransactionHex === rawTransactionHex) {
             return Object.freeze({
               transactionId: expectedTransactionId,
