@@ -57,10 +57,14 @@ const RECOVERED_POOL_RPC_COUNTS = Object.freeze({
   getblockhash: 1, getrawtransaction: 0, gettxout: 0, scantxoutset: 0,
   sendrawtransaction: 0, testmempoolaccept: 0,
 });
+const MAX_SAFE_PRE_SEND_RETRY_SUFFIX = 16;
 const VALIDATED_INPUTS = new WeakSet();
 
 export class V2BetaLiveQualificationError extends Error {
   constructor(code, message, options = undefined) { super(message, options?.cause === undefined ? undefined : { cause: options.cause }); this.name = 'V2BetaLiveQualificationError'; this.code = code; }
+}
+class V2BetaLiveQualificationChildError extends Error {
+  constructor(code, message) { super(message); this.name = 'V2BetaLiveQualificationChildError'; this.code = code; }
 }
 const fail = (code, message, options = undefined) => { throw new V2BetaLiveQualificationError(code, message, options); };
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
@@ -229,7 +233,9 @@ function parseCli(value, label) {
   if (value?.code !== 0) {
     const childCode = typeof body?.error?.code === 'string' ? body.error.code : 'UNKNOWN_CHILD_ERROR';
     const childMessage = typeof body?.error?.message === 'string' ? body.error.message : 'no child error message';
-    fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} failed with ${childCode}: ${childMessage}`);
+    fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} failed with ${childCode}: ${childMessage}`, {
+      cause: new V2BetaLiveQualificationChildError(childCode, childMessage),
+    });
   }
   if (body?.ok !== true) fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} did not return success JSON`);
   claims(body, label);
@@ -299,9 +305,22 @@ export async function runV2BetaLiveQualification(options, dependencies) {
     } else if (record.state === 'pool-create-started') fail('LIVE_QUALIFICATION_RECONCILIATION_REQUIRED', 'pool create may already have been invoked; inspect the chain before starting a new fresh qualification');
     for (const kind of ['deposit', 'withdraw']) for (let ordinal = 1; ordinal <= 5; ordinal += 1) {
       if (record.actions.some((entry) => entry.kind === kind && entry.ordinal === ordinal)) continue;
-      const operationId = `live5x5.${record.sourceOutpointProvenanceSha256.slice(0, 16)}.${kind}.${String(ordinal).padStart(2, '0')}`;
-      const tokens = kind === 'deposit' ? ['deposit', '--data-home', inputs.dataHome, '--operation-id', operationId, '--json'] : ['withdraw', '--data-home', inputs.dataHome, '--operation-id', operationId, '--to', inputs.withdrawalAddress, '--json'];
-      const action = strictAction(await callCli(tokens, `shieldkit ${kind} ${ordinal}`), kind, operationId);
+      const baseOperationId = `live5x5.${record.sourceOutpointProvenanceSha256.slice(0, 16)}.${kind}.${String(ordinal).padStart(2, '0')}`;
+      let action;
+      for (let retrySuffix = 0; retrySuffix <= MAX_SAFE_PRE_SEND_RETRY_SUFFIX; retrySuffix += 1) {
+        const operationId = retrySuffix === 0
+          ? baseOperationId
+          : `${baseOperationId}.retry${String(retrySuffix).padStart(2, '0')}`;
+        const tokens = kind === 'deposit' ? ['deposit', '--data-home', inputs.dataHome, '--operation-id', operationId, '--json'] : ['withdraw', '--data-home', inputs.dataHome, '--operation-id', operationId, '--to', inputs.withdrawalAddress, '--json'];
+        try {
+          action = strictAction(await callCli(tokens, `shieldkit ${kind} ${ordinal}`), kind, operationId);
+          break;
+        } catch (error) {
+          const safelyAborted = error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
+            && error?.cause?.code === 'BETA_ACTION_ABORTED_PRE_SEND';
+          if (!safelyAborted || retrySuffix === MAX_SAFE_PRE_SEND_RETRY_SUFFIX) throw error;
+        }
+      }
       record = await journal.update(Object.freeze({ ...record, actions: Object.freeze([...record.actions, Object.freeze({ kind, ordinal, ...action })]) }));
     }
     record = record.state === 'completed' ? record : await journal.update(Object.freeze({ ...record, state: 'completed' }));

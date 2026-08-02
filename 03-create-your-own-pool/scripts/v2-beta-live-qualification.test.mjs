@@ -142,8 +142,9 @@ function memoryJournal(initial = null) {
     transitions, record: () => record,
   };
 }
-function fixture({ initialRecord = null, reject = false, badAction = undefined, badPool = undefined, wrongMempoolTxid = false, readbackFails = false, sourceRaw = bootstrapSourceRaw, stateNftFault = undefined } = {}) {
+function fixture({ initialRecord = null, reject = false, badAction = undefined, badPool = undefined, childActionErrors = [], wrongMempoolTxid = false, readbackFails = false, sourceRaw = bootstrapSourceRaw, stateNftFault = undefined } = {}) {
   const calls = { commands: [], journalSchemasAtCommand: [], rpc: [] }; const holder = memoryJournal(initialRecord);
+  let childActionErrorIndex = 0;
   const rpc = {
     async scanAddress() { calls.rpc.push('scanAddress'); return [source]; },
     async getrawtransaction(txid) { calls.rpc.push('getrawtransaction'); if (readbackFails) throw new Error('temporary BCHN readback failure'); if (txid === fundingTxid) return fundingRaw; if (txid === bootstrapSourceTxid) return sourceRaw; if (txid === genesisTxid) return genesisRaw; throw new Error('unexpected txid'); },
@@ -179,7 +180,17 @@ function fixture({ initialRecord = null, reject = false, badAction = undefined, 
       now: (() => { let value = 0; return () => ++value; })(),
       async openRunJournal() { return holder.journal; },
       async validateInstall() { return { dataDirectory: '/private/data/shieldkit/v2-beta-product', receiptSha256: H('f'), releaseId: 'beta-r1', releaseManifestSha256: H('e') }; },
-      async runCommand(request) { calls.commands.push(request.literal); calls.journalSchemasAtCommand.push(holder.record()?.schema); return { code: 0, stdout: JSON.stringify({ ok: true, confirmed: false, mined: false, productionQualified: false, result: resultFor(request.literal.slice(1)) }) }; },
+      async runCommand(request) {
+        calls.commands.push(request.literal); calls.journalSchemasAtCommand.push(holder.record()?.schema);
+        const tokens = request.literal.slice(1);
+        if (tokens[0] !== 'pool' && childActionErrorIndex < childActionErrors.length) {
+          const failure = childActionErrors[childActionErrorIndex]; childActionErrorIndex += 1;
+          const code = typeof failure === 'string' ? failure : failure.code;
+          const message = typeof failure === 'string' ? 'public child action failure' : failure.message;
+          return { code: 1, stdout: JSON.stringify({ ok: false, error: { code, message } }), stderr: 'private diagnostic must not be projected' };
+        }
+        return { code: 0, stdout: JSON.stringify({ ok: true, confirmed: false, mined: false, productionQualified: false, result: resultFor(tokens) }) };
+      },
       async writeEvidence(directory, evidence) { calls.written = evidence; return `${directory}/evidence.json`; },
     },
   };
@@ -253,8 +264,57 @@ test('child CLI failures preserve their public error code and message', () => {
       stderr: 'must not be projected',
     }, 'shieldkit pool create'),
     (error) => error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
-      && error.message === 'shieldkit pool create failed with BETA_POOL_RUNTIME_REJECTED: runtime observation failed',
+      && error.message === 'shieldkit pool create failed with BETA_POOL_RUNTIME_REJECTED: runtime observation failed'
+      && error.cause?.code === 'BETA_POOL_RUNTIME_REJECTED'
+      && error.cause?.message === 'runtime observation failed'
+      && !error.message.includes('must not be projected'),
   );
+});
+
+test('retries one durable pre-send abort with a deterministic suffixed operation id', async () => {
+  const subject = fixture({ childActionErrors: ['BETA_ACTION_ABORTED_PRE_SEND'] });
+  const result = await runV2BetaLiveQualification(inputs, subject.deps);
+  const base = `live5x5.${sourceOutpointProvenanceSha256(inputs.fundingUtxo).slice(0, 16)}.deposit.01`;
+  const depositCommands = subject.calls.commands.filter((entry) => entry[1] === 'deposit');
+  const operationIds = depositCommands.map((entry) => entry[entry.indexOf('--operation-id') + 1]);
+  assert.deepEqual(operationIds.slice(0, 2), [base, `${base}.retry01`]);
+  assert.equal(operationIds.length, 6);
+  assert.equal(result.evidence.deposits[0].operationId, `${base}.retry01`);
+  assert.equal(subject.holder.record().actions[0].operationId, `${base}.retry01`);
+  assert.equal(subject.calls.rpc.includes('testmempoolaccept'), false);
+  assert.equal(subject.calls.rpc.includes('sendrawtransaction'), false);
+});
+
+test('does not retry any child error other than a durable pre-send abort', async () => {
+  const subject = fixture({ childActionErrors: [{ code: 'INVALID_SETTLEMENT', message: 'public settlement shape rejected' }] });
+  await assert.rejects(
+    () => runV2BetaLiveQualification(inputs, subject.deps),
+    (error) => error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
+      && error.cause?.code === 'INVALID_SETTLEMENT',
+  );
+  assert.equal(subject.calls.commands.filter((entry) => entry[1] === 'deposit').length, 1);
+  assert.equal(subject.holder.record().actions.length, 0);
+  assert.equal(subject.calls.rpc.includes('testmempoolaccept'), false);
+  assert.equal(subject.calls.rpc.includes('sendrawtransaction'), false);
+});
+
+test('bounds durable pre-send retries at retry16 without assuming a network result', async () => {
+  const subject = fixture({ childActionErrors: Array.from({ length: 17 }, () => 'BETA_ACTION_ABORTED_PRE_SEND') });
+  await assert.rejects(
+    () => runV2BetaLiveQualification(inputs, subject.deps),
+    (error) => error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
+      && error.cause?.code === 'BETA_ACTION_ABORTED_PRE_SEND',
+  );
+  const base = `live5x5.${sourceOutpointProvenanceSha256(inputs.fundingUtxo).slice(0, 16)}.deposit.01`;
+  const actionCommands = subject.calls.commands.filter((entry) => ['deposit', 'withdraw'].includes(entry[1]));
+  assert.equal(actionCommands.length, 17);
+  assert.deepEqual(
+    actionCommands.map((entry) => entry[entry.indexOf('--operation-id') + 1]),
+    [base, ...Array.from({ length: 16 }, (_, index) => `${base}.retry${String(index + 1).padStart(2, '0')}`)],
+  );
+  assert.equal(subject.holder.record().actions.length, 0);
+  assert.equal(subject.calls.rpc.includes('testmempoolaccept'), false);
+  assert.equal(subject.calls.rpc.includes('sendrawtransaction'), false);
 });
 
 test('the real private qualification journal opens from a missing first-run file', async (t) => {
