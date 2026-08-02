@@ -7,6 +7,10 @@ import {
   V2BetaProductPoolCreateError,
 } from './beta-product-pool-create.mjs';
 import { recordV2BetaRuntimeWork } from '../../profile/v2/beta-runtime-work-observer.mjs';
+import {
+  DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+  DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+} from '../../action/v2/topology.mjs';
 
 const H = (byte) => byte.repeat(64);
 
@@ -19,6 +23,7 @@ function fixture({
   cacheAvailable = true,
 } = {}) {
   const calls = [];
+  const stagedPackages = [];
   let observationCalls = 0;
   let linkedCacheAvailable = cacheAvailable;
   const bootstrap = Object.freeze({
@@ -73,6 +78,20 @@ function fixture({
     source: Object.freeze({ transactionId: H('1'), outputIndex: 0, rawTransactionHex: '01000000000000000000', serializedBytes: 10 }),
     genesis: Object.freeze({ transactionId: H('6'), outputIndex: 0, rawTransactionHex: '02000000000000000000', serializedBytes: 10 }),
   });
+  const settlementPins = Object.freeze({
+    topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID,
+    verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES,
+    verifierCarriers: Object.freeze(DIRECT_V2_PF10_FUSED_VERIFIER_ROLES.map(() => Object.freeze({
+      baseValueSats: '1000', lockingBytecode: Buffer.from('51', 'hex'),
+    }))),
+    bindingBaseSats: '1000',
+    bindingLockingBytecode: Buffer.from('51', 'hex'),
+    bindingRedeemBytecode: Buffer.from('52', 'hex'),
+    stateBaseSats: '1000',
+    stateHelperBytecode: Buffer.from('53', 'hex'),
+    stateLockingBytecode: Buffer.from('54', 'hex'),
+    stateUnlockingBytecode: Buffer.from('55', 'hex'),
+  });
   const funding = funded
     ? Object.freeze({ status: 'bootstrap-ready', capability })
     : Object.freeze({ status: 'funding-required', fundingWallet: Object.freeze({ cashAddress: 'bchtest:qtest' }), required: Object.freeze({ total: '1' }) });
@@ -91,7 +110,7 @@ function fixture({
     deriveDeploymentBinding: () => Object.freeze({ profileId: H('5'), instanceId: H('2'), sourceTransactionId: H('1'), genesisOutpoint: Object.freeze({ txid: H('6'), vout: 0 }), zeroConfEvidenceSha256: H('9') }),
     deriveGenesisPins: () => pins,
     deriveProfileCore: () => Object.freeze({ profile: true }),
-    deriveSettlementPins: () => Object.freeze({ settlement: true }),
+    deriveSettlementPins: () => settlementPins,
     installRuntime: async ({ specializedRuntime }) => { assert.equal(specializedRuntime.specialized, true); calls.push('runtime:install'); linkedCacheAvailable = true; },
     initializeActionStore: ({ rawSourceTransaction }) => {
       assert.equal(rawSourceTransaction instanceof Uint8Array, true);
@@ -132,10 +151,10 @@ function fixture({
       recordV2BetaRuntimeWork({ type: 'instance-specialization' });
       return Object.freeze({ specialized: true });
     },
-    stageDeployment: () => { calls.push('stage'); return { operationId: 'deployment-op', record: { status: 'prepared' } }; },
+    stageDeployment: ({ packagedGenesis }) => { stagedPackages.push(packagedGenesis); calls.push('stage'); return { operationId: 'deployment-op', record: { status: 'prepared' } }; },
   };
   const journalBindings = [];
-  return { calls, dependencies, funding, journalBindings };
+  return { calls, dependencies, funding, journalBindings, stagedPackages };
 }
 
 function exactRecovery() {
@@ -190,6 +209,16 @@ test('one direct user funding invocation reaches the normal staged package flow 
     dataHome: '/tmp/shieldkit-test', fundingWalletPath: walletPath, fundingUtxo: `${H('4')}:0`,
   });
   assert.equal(JSON.stringify(result).includes(walletPath), false);
+  assert.deepEqual(
+    Object.keys(subject.stagedPackages[0].settlementPins).sort(),
+    [
+      'bindingBaseSats', 'bindingLockingBytecode', 'bindingRedeemBytecode',
+      'stateBaseSats', 'stateLockingBytecode', 'topologyId',
+      'verifierCarriers', 'verifierRoles',
+    ],
+  );
+  assert.equal(Object.hasOwn(subject.stagedPackages[0].settlementPins, 'stateHelperBytecode'), false);
+  assert.equal(Object.hasOwn(subject.stagedPackages[0].settlementPins, 'stateUnlockingBytecode'), false);
   assert.deepEqual(subject.journalBindings[0], {
     operationId: `pool-create.${H('2')}`,
     profileId: H('5'), instanceId: H('2'), sourceTransactionId: H('1'), bootstrapRawSha256: H('3'),

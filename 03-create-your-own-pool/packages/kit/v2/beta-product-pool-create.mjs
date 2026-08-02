@@ -387,9 +387,45 @@ function assertRecoveredPackage(recovery, packageValue, finalized) {
   }
 }
 
+function projectGenesisSettlementPins(value) {
+  const runtimeKeys = [
+    'bindingBaseSats', 'bindingLockingBytecode', 'bindingRedeemBytecode',
+    'stateBaseSats', 'stateHelperBytecode', 'stateLockingBytecode',
+    'stateUnlockingBytecode', 'topologyId', 'verifierCarriers', 'verifierRoles',
+  ];
+  exactOptional(value, runtimeKeys, 'beta runtime settlement pins');
+  if (Object.keys(value).length !== runtimeKeys.length
+    || !Array.isArray(value.verifierRoles)
+    || !Array.isArray(value.verifierCarriers)) {
+    fail(
+      'BETA_POOL_RUNTIME_REJECTED',
+      'the linked runtime did not provide the complete authenticated settlement pins',
+      { recoverable: true },
+    );
+  }
+  // The deployment package intentionally carries only public settlement
+  // locks and base values. The state helper and state unlock remain private to
+  // the branded runtime/genesis capability and are not part of that schema.
+  return Object.freeze({
+    topologyId: value.topologyId,
+    verifierRoles: Object.freeze([...value.verifierRoles]),
+    verifierCarriers: Object.freeze(value.verifierCarriers.map((entry) => Object.freeze({
+      baseValueSats: entry.baseValueSats,
+      lockingBytecode: Buffer.from(entry.lockingBytecode),
+    }))),
+    bindingBaseSats: value.bindingBaseSats,
+    bindingLockingBytecode: Buffer.from(value.bindingLockingBytecode),
+    bindingRedeemBytecode: Buffer.from(value.bindingRedeemBytecode),
+    stateBaseSats: value.stateBaseSats,
+    stateLockingBytecode: Buffer.from(value.stateLockingBytecode),
+  });
+}
+
 function packagedGenesis(finalized, genesisRuntime, runtimeResolution, dependencies) {
   const pins = dependencies.deriveGenesisPins(finalized, genesisRuntime);
-  const settlementPins = dependencies.deriveSettlementPins(runtimeResolution);
+  const settlementPins = projectGenesisSettlementPins(
+    dependencies.deriveSettlementPins(runtimeResolution),
+  );
   return Object.freeze({
     descriptor: Object.freeze({
       profileId: pins.profileId,
