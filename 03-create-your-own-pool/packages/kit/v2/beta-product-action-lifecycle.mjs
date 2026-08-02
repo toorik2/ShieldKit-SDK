@@ -36,6 +36,7 @@ import {
   consumeV2NativeGroth16ProverInstallation,
 } from '../../prove/v2/native-groth16-prover-installation.mjs';
 import {
+  parseV2CanonicalNativeGroth16Proof,
   V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA,
 } from '../../prove/v2/native-groth16-proof-child.mjs';
 import {
@@ -706,11 +707,14 @@ function canonicalNativeProofResult(value) {
     fail('BETA_PROOF_ARTIFACT_REJECTED', 'native proof result has malformed provenance fields');
   }
   const resultSha256 = value.resultSha256;
+  let proof;
+  try { proof = parseV2CanonicalNativeGroth16Proof(value.proof); }
+  catch (error) { fail('BETA_PROOF_ARTIFACT_REJECTED', `native proof result contains a noncanonical proof: ${error.message}`, { cause: error }); }
   const persisted = Object.freeze({
     schema: value.schema,
     claims: copyJson(value.claims),
     inputSha256: value.inputSha256,
-    proof: copyJson(value.proof),
+    proof,
     publicInputs: [...value.publicInputs],
     sourceHashes: copyJson(value.sourceHashes),
     timingsMs: copyJson(value.timingsMs),
@@ -756,9 +760,6 @@ function canonicalNativeProofResult(value) {
     || persisted.nativeProver.activeCpuThreads > persisted.nativeProver.threads
     || persisted.nativeProver.peakRssKiB <= 0
     || persisted.nativeProver.userTicks + persisted.nativeProver.systemTicks <= 0
-    || persisted.proof === null
-    || Array.isArray(persisted.proof)
-    || typeof persisted.proof !== 'object'
   ) {
     fail('BETA_PROOF_ARTIFACT_REJECTED', 'native proof result provenance is invalid');
   }

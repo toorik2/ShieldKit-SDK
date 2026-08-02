@@ -192,12 +192,35 @@ function verificationKey(raw) {
     ic: raw.IC.map((point, index) => g1(point, `verification_key.json.IC[${index}]`, { allowInfinity: index === 0 })),
   });
 }
-function proof(raw) {
+function canonicalProof(raw) {
   exactKeys(raw, 'proof.json', ['curve', 'pi_a', 'pi_b', 'pi_c', 'protocol']);
   if (raw.protocol !== 'groth16') fail('proof.json.protocol must be groth16');
   if (raw.curve !== 'bn128') fail('proof.json.curve must be bn128');
-  return Object.freeze({ a: g1(raw.pi_a, 'proof.json.pi_a'), b: g2(raw.pi_b, 'proof.json.pi_b'), c: g1(raw.pi_c, 'proof.json.pi_c') });
+  const a = g1(raw.pi_a, 'proof.json.pi_a');
+  const b = g2(raw.pi_b, 'proof.json.pi_b');
+  const c = g1(raw.pi_c, 'proof.json.pi_c');
+  return Object.freeze({
+    value: Object.freeze({
+      pi_a: Object.freeze([a.x, a.y, '1']),
+      pi_b: Object.freeze([
+        Object.freeze([b.x0, b.x1]),
+        Object.freeze([b.y0, b.y1]),
+        Object.freeze(['1', '0']),
+      ]),
+      pi_c: Object.freeze([c.x, c.y, '1']),
+      protocol: 'groth16',
+      curve: 'bn128',
+    }),
+    parsed: Object.freeze({ a, b, c }),
+  });
 }
+
+/** Validate and normalize one exact coordinate-bearing snarkjs BN254 proof. */
+export function normalizeSnarkjsBn254Groth16Proof(raw) {
+  return canonicalProof(raw).value;
+}
+
+function proof(raw) { return canonicalProof(raw).parsed; }
 function publicSignals(raw) {
   if (!Array.isArray(raw) || raw.length !== 2) fail('public.json must contain exactly two public signals');
   return Object.freeze(raw.map((value, index) => scalarString(value, `public.json[${index}]`)));

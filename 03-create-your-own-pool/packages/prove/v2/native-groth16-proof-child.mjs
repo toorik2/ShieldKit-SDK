@@ -7,24 +7,63 @@ import { pathToFileURL } from 'node:url';
 import * as snarkjs from 'snarkjs';
 
 import { canonicalizeJcs } from '../../profile/v2/profile-core.mjs';
-import { parseStrictJson, sha256Bytes, sha256File } from '../groth16.mjs';
+import { normalizeSnarkjsBn254Groth16Proof, parseStrictJson, sha256Bytes, sha256File } from '../groth16.mjs';
 
 export const V2_NATIVE_GROTH16_PROOF_REQUEST_SCHEMA = 'shieldkit-v2-direct-native-groth16-proof-request-v1';
-export const V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA = 'shieldkit-v2-direct-native-groth16-proof-result-v1';
+export const V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA = 'shieldkit-v2-direct-native-groth16-proof-result-v2';
 const HASH = /^[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
 const MAX_U128 = (1n << 128n) - 1n;
 const ARTIFACTS = Object.freeze(['r1cs', 'wasm', 'provingKey', 'verificationKey']);
 const RECEIPT_SCHEMA = 'shieldkit-v2-beta-receipt-bound-proof-artifacts-v1';
 const MAX_NATIVE_OUTPUT = 64 * 1024;
+const RAPIDSNARK_PROOF_KEYS = Object.freeze(['pi_a', 'pi_b', 'pi_c', 'protocol']);
+const CANONICAL_PROOF_KEYS = Object.freeze([...RAPIDSNARK_PROOF_KEYS, 'curve']);
 
 export class V2NativeGroth16ProofChildError extends Error { constructor(code, message, cause) { super(message, cause === undefined ? undefined : { cause }); this.name = 'V2NativeGroth16ProofChildError'; this.code = code; } }
+export class V2NativeGroth16ProofShapeError extends Error { constructor(message) { super(message); this.name = 'V2NativeGroth16ProofShapeError'; } }
 const fail = (code, message, cause) => { throw new V2NativeGroth16ProofChildError(code, message, cause); };
 const object = (v, l) => { if (v === null || Array.isArray(v) || typeof v !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(v))) fail('NATIVE_PROVER_REQUEST_INVALID', `${l} must be an object`); return v; };
 const exact = (v, keys, l) => { object(v, l); const a = Object.keys(v).sort(); const e = [...keys].sort(); if (a.length !== e.length || a.some((x, i) => x !== e[i])) fail('NATIVE_PROVER_REQUEST_INVALID', `${l} has missing or unknown properties`); return v; };
 const absolute = (v, l) => { if (typeof v !== 'string' || !path.isAbsolute(v) || path.normalize(v) !== v || v.includes('\0')) fail('NATIVE_PROVER_REQUEST_INVALID', `${l} must be a normalized absolute path`); return v; };
 const digest = (v, l) => { if (typeof v !== 'string' || !HASH.test(v)) fail('NATIVE_PROVER_REQUEST_INVALID', `${l} must be lowercase SHA-256`); return v; };
 const inputs = (v, l = 'expectedPublicInputs') => { if (!Array.isArray(v) || v.length !== 2 || v.some((x) => typeof x !== 'string' || !DECIMAL.test(x) || BigInt(x) > MAX_U128)) fail('NATIVE_PROVER_REQUEST_INVALID', `${l} must contain exactly two canonical u128 strings`); return Object.freeze([...v]); };
+
+const proofShapeFail = (message) => { throw new V2NativeGroth16ProofShapeError(message); };
+const proofObject = (value, label) => {
+  if (value === null || Array.isArray(value) || typeof value !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) proofShapeFail(`${label} must be an object`);
+  return value;
+};
+function proofRecord(value, { allowRapidsnarkCurveOmission }) {
+  const raw = proofObject(value, 'native Groth16 proof');
+  const actual = Object.keys(raw).sort();
+  const rapid = [...RAPIDSNARK_PROOF_KEYS].sort();
+  const canonical = [...CANONICAL_PROOF_KEYS].sort();
+  const isRapidsnark = actual.length === rapid.length && actual.every((key, index) => key === rapid[index]);
+  const isCanonical = actual.length === canonical.length && actual.every((key, index) => key === canonical[index]);
+  if ((!allowRapidsnarkCurveOmission || !isRapidsnark) && !isCanonical) proofShapeFail('native Groth16 proof must have the exact pinned rapidsnark or canonical snarkjs shape');
+  if (raw.protocol !== 'groth16') proofShapeFail('native Groth16 proof protocol must be groth16');
+  if (isCanonical && raw.curve !== 'bn128') proofShapeFail('native Groth16 proof curve must be bn128');
+  return normalizeSnarkjsBn254Groth16Proof({
+    pi_a: raw.pi_a,
+    pi_b: raw.pi_b,
+    pi_c: raw.pi_c,
+    protocol: 'groth16',
+    curve: 'bn128',
+  });
+}
+
+/** Canonicalize only the exact output shapes of the pinned rapidsnark/snarkjs toolchain. */
+export function normalizeV2RapidsnarkGroth16Proof(value, verificationKey) {
+  const key = proofObject(verificationKey, 'verification key');
+  if (key.protocol !== 'groth16' || key.curve !== 'bn128') proofShapeFail('verification key must identify snarkjs BN254 Groth16');
+  return proofRecord(value, { allowRapidsnarkCurveOmission: true });
+}
+
+/** Revalidate the exact canonical proof contract at the parent-process boundary. */
+export function parseV2CanonicalNativeGroth16Proof(value) {
+  return proofRecord(value, { allowRapidsnarkCurveOmission: false });
+}
 
 function fileIdentity(stat) { return Object.freeze({ dev: stat.dev.toString(), ino: stat.ino.toString(), mode: stat.mode.toString(), uid: stat.uid.toString(), gid: stat.gid.toString(), size: stat.size.toString(), nlink: stat.nlink.toString(), mtimeNs: stat.mtimeNs.toString(), ctimeNs: stat.ctimeNs.toString(), birthtimeNs: stat.birthtimeNs.toString() }); }
 const same = (a, b) => ['dev', 'ino', 'mode', 'uid', 'gid', 'size', 'nlink', 'mtimeNs', 'ctimeNs', 'birthtimeNs'].every((name) => a[name] === b[name]);
@@ -106,7 +145,10 @@ export async function executeV2NativeGroth16ProofRequest(value, { snarkjsApi = s
   // parseStrictJson deliberately produces null-prototype records. Normalize the
   // accepted native proof before placing it in the JCS-serialized result, whose
   // serializer intentionally accepts only ordinary JSON objects.
-  const proof = JSON.parse(JSON.stringify(parseStrictJson(await readFile(r.nativeProofPath), 'native proof'))); const publicInputs = inputs(parseStrictJson(await readFile(r.nativePublicPath), 'native public signals'), 'native public signals'); if (publicInputs.some((x, i) => x !== r.expectedPublicInputs[i])) fail('NATIVE_PROVER_PUBLIC_INPUT_MISMATCH', 'native public inputs differ from the exact expected inputs'); const verifyStarted = performance.now(); if (!await snarkjsApi.groth16.verify(vk, publicInputs, proof)) fail('NATIVE_PROVER_PROOF_INVALID', 'native proof does not verify under the pinned verification key'); const proofVerification = performance.now() - verifyStarted;
+  let proof;
+  try { proof = normalizeV2RapidsnarkGroth16Proof(parseStrictJson(await readFile(r.nativeProofPath), 'native proof'), vk); }
+  catch (error) { fail('NATIVE_PROVER_PROOF_SHAPE_INVALID', `native proof has an invalid producer shape: ${error.message}`, error); }
+  const publicInputs = inputs(parseStrictJson(await readFile(r.nativePublicPath), 'native public signals'), 'native public signals'); if (publicInputs.some((x, i) => x !== r.expectedPublicInputs[i])) fail('NATIVE_PROVER_PUBLIC_INPUT_MISMATCH', 'native public inputs differ from the exact expected inputs'); const verifyStarted = performance.now(); if (!await snarkjsApi.groth16.verify(vk, publicInputs, proof)) fail('NATIVE_PROVER_PROOF_INVALID', 'native proof does not verify under the pinned verification key'); const proofVerification = performance.now() - verifyStarted;
   await Promise.all([...ARTIFACTS.map((name) => unchanged(artifacts[name], `artifact ${name}`)), unchanged(binary, 'native prover'), unchanged(input, 'circuit input', true)]);
   const result = { schema: V2_NATIVE_GROTH16_PROOF_RESULT_SCHEMA, claims: { proofVerified: true, witnessCalculated: true, witnessR1csChecked: false }, sourceHashes: Object.fromEntries(ARTIFACTS.map((name) => [name, artifacts[name].sha256])), nativeProver: { backend: 'rapidsnark', sha256: binary.sha256, ompThreads: native.ompThreads, threads: native.threads, activeCpuThreads: native.activeCpuThreads, peakRssKiB: native.peakRssKiB, userTicks: native.userTicks, systemTicks: native.systemTicks }, inputSha256: input.sha256, proof, publicInputs, timingsMs: { witnessCalculation, proofGeneration: native.elapsedMs, proofVerification, total: performance.now() - started } }; await writeExclusive(r.outputPath, result); return Object.freeze(result);
 }

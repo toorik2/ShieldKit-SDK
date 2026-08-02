@@ -10,6 +10,7 @@ import { loadV2NativeGroth16ProverInstallationForTest } from './native-groth16-p
 import { proveV2DirectNativeGroth16, reapV2NativeGroth16ProofWorkspaces } from './native-groth16-proof-worker.mjs';
 
 const hash = (v) => createHash('sha256').update(v).digest('hex');
+const CANONICAL_PROOF = JSON.parse(await readFile(new URL('../test-fixtures/two-public/proof.json', import.meta.url), 'utf8'));
 async function receipt(filename, bytes) {
   const stat = await lstat(filename, { bigint: true });
   return Object.freeze({ path: filename, sha256: hash(bytes), identity: Object.freeze({ dev: stat.dev.toString(), ino: stat.ino.toString(), mode: stat.mode.toString(), uid: stat.uid.toString(), gid: stat.gid.toString(), size: stat.size.toString(), nlink: stat.nlink.toString(), mtimeNs: stat.mtimeNs.toString(), ctimeNs: stat.ctimeNs.toString(), birthtimeNs: stat.birthtimeNs.toString() }) });
@@ -26,7 +27,7 @@ async function nativeInstallation(root) {
   return loadV2NativeGroth16ProverInstallationForTest({ installationDirectory, policy: { binarySha256, nproc: availableParallelism() } });
 }
 async function artifactsFor(root) { const entries = {}; for (const name of ['r1cs', 'wasm', 'provingKey', 'verificationKey']) { const filename = path.join(root, name); const bytes = Buffer.from(name); await writeFile(filename, bytes, { mode: 0o600 }); await chmod(filename, 0o600); entries[name] = await receipt(filename, bytes); } return Object.freeze({ schema: 'shieldkit-v2-beta-receipt-bound-proof-artifacts-v1', installationReceiptSha256: 'a'.repeat(64), artifacts: Object.freeze(entries) }); }
-async function writeAcceptedResult(requestFilename, mutate = undefined) { const request = JSON.parse(await readFile(requestFilename, 'utf8')); const cores = availableParallelism(); const result = { schema: 'shieldkit-v2-direct-native-groth16-proof-result-v1', claims: { proofVerified: true, witnessCalculated: true, witnessR1csChecked: false }, sourceHashes: Object.fromEntries(Object.entries(request.artifacts.artifacts).map(([name, entry]) => [name, entry.sha256])), nativeProver: { backend: 'rapidsnark', sha256: request.nativeProver.sha256, ompThreads: cores, threads: cores, activeCpuThreads: cores, peakRssKiB: 1, userTicks: 1, systemTicks: 0 }, inputSha256: request.input.sha256, proof: { protocol: 'groth16' }, publicInputs: request.expectedPublicInputs, timingsMs: { witnessCalculation: 0, proofGeneration: 1, proofVerification: 0, total: 1 } }; mutate?.(result); await writeFile(request.outputPath, canonicalizeJcs(result), { mode: 0o600 }); }
+async function writeAcceptedResult(requestFilename, mutate = undefined) { const request = JSON.parse(await readFile(requestFilename, 'utf8')); const cores = availableParallelism(); const result = { schema: 'shieldkit-v2-direct-native-groth16-proof-result-v2', claims: { proofVerified: true, witnessCalculated: true, witnessR1csChecked: false }, sourceHashes: Object.fromEntries(Object.entries(request.artifacts.artifacts).map(([name, entry]) => [name, entry.sha256])), nativeProver: { backend: 'rapidsnark', sha256: request.nativeProver.sha256, ompThreads: cores, threads: cores, activeCpuThreads: cores, peakRssKiB: 1, userTicks: 1, systemTicks: 0 }, inputSha256: request.input.sha256, proof: JSON.parse(JSON.stringify(CANONICAL_PROOF)), publicInputs: request.expectedPublicInputs, timingsMs: { witnessCalculation: 0, proofGeneration: 1, proofVerification: 0, total: 1 } }; mutate?.(result); await writeFile(request.outputPath, canonicalizeJcs(result), { mode: 0o600 }); }
 test('native worker rejects an unbranded native installation before child execution', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-native-worker-')); await chmod(root, 0o700); t.after(async () => { const { rm } = await import('node:fs/promises'); await rm(root, { recursive: true, force: true }); });
   const entries = {}; for (const n of ['r1cs', 'wasm', 'provingKey', 'verificationKey']) { const file = path.join(root, n); const bytes = Buffer.from(n); await writeFile(file, bytes, { mode: 0o600 }); entries[n] = await receipt(file, bytes); }
@@ -74,6 +75,11 @@ test('worker rejects every strict native-result and containment telemetry violat
   const root = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-native-worker-negative-')); await chmod(root, 0o700); t.after(() => rm(root, { recursive: true, force: true }));
   const installation = await nativeInstallation(root); const artifacts = await artifactsFor(root); const value = { artifacts, nativeProverInstallation: installation, circuitInput: { alpha: '1' }, expectedPublicInputs: ['1', '2'], workspaceDirectory: root }; const cores = availableParallelism();
   const cases = [
+    ['proof-missing-curve', result => { delete result.proof.curve; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
+    ['proof-wrong-curve', result => { result.proof.curve = 'bls12381'; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
+    ['proof-wrong-protocol', result => { result.proof.protocol = 'plonk'; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
+    ['proof-non-affine', result => { result.proof.pi_a[2] = '2'; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
+    ['proof-unknown-key', result => { result.proof.unknown = true; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
     ['ompThreads', result => { result.nativeProver.ompThreads = cores + 1; }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
     ['threads', result => { result.nativeProver.threads = Math.max(0, cores - 1); }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],
     ['activeCpuThreads-too-few', result => { result.nativeProver.activeCpuThreads = Math.max(0, cores - 1); }, undefined, 'NATIVE_PROVER_RESULT_INVALID'],

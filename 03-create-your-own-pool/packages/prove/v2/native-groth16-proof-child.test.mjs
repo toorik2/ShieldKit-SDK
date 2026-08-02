@@ -6,8 +6,18 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { executeV2NativeGroth16ProofRequest, V2_NATIVE_GROTH16_PROOF_REQUEST_SCHEMA } from './native-groth16-proof-child.mjs';
+import { parseDirectV2MillerProof } from '../../unlock-builder/v2/identity-aware-miller.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const FIXTURE_PROOF = JSON.parse(await readFile(new URL('../test-fixtures/two-public/proof.json', import.meta.url), 'utf8'));
+const FIXTURE_VK_BYTES = await readFile(new URL('../test-fixtures/two-public/verification_key.json', import.meta.url));
+const RAPIDSNARK_PROOF = Object.freeze({
+  pi_a: FIXTURE_PROOF.pi_a,
+  pi_b: FIXTURE_PROOF.pi_b,
+  pi_c: FIXTURE_PROOF.pi_c,
+  protocol: 'groth16',
+});
+const proverScript = (proof, sleep = true) => `#!/bin/sh\nprintf '%s' '${JSON.stringify(proof)}' > "$3"\nprintf '%s' '["1","2"]' > "$4"\n${sleep ? 'sleep 0.1\n' : ''}`;
 async function receipt(filename, bytes) {
   const stat = await lstat(filename, { bigint: true });
   return Object.freeze({
@@ -34,7 +44,7 @@ test('native child normalizes strict-JSON native proof objects before JCS result
     await writeFile(filename, bytes, { mode: 0o600 });
     artifacts[name] = await receipt(filename, bytes);
   }
-  const vkBytes = Buffer.from('{}');
+  const vkBytes = FIXTURE_VK_BYTES;
   const vk = file('verification-key.json');
   await writeFile(vk, vkBytes, { mode: 0o600 });
   artifacts.verificationKey = await receipt(vk, vkBytes);
@@ -42,7 +52,7 @@ test('native child normalizes strict-JSON native proof objects before JCS result
   const input = file('input.json');
   await writeFile(input, inputBytes, { mode: 0o600 });
   const prover = file('prover');
-  await writeFile(prover, '#!/bin/sh\nprintf \'{"protocol":"groth16"}\' > "$3"\nprintf \'["1","2"]\' > "$4"\nsleep 0.1\n', { mode: 0o700 });
+  await writeFile(prover, proverScript(RAPIDSNARK_PROOF), { mode: 0o700 });
   await chmod(prover, 0o700);
   const outputPath = file('result.json');
   const proofRequest = {
@@ -53,13 +63,47 @@ test('native child normalizes strict-JSON native proof objects before JCS result
     input: { path: input, sha256: hash(inputBytes) },
     witnessPath: file('witness.wtns'), nativeProofPath: file('proof.json'), nativePublicPath: file('public.json'), outputPath, failurePath: file('failure.json'),
   };
+  let verifierProof;
   const result = await executeV2NativeGroth16ProofRequest(proofRequest, {
     nproc: 1,
-    snarkjsApi: { wtns: { calculate: async (_input, _wasm, witness) => writeFile(witness, 'witness', { mode: 0o600 }) }, groth16: { verify: async (_vk, publicInputs, proof) => publicInputs[0] === '1' && proof.protocol === 'groth16' } },
+    snarkjsApi: { wtns: { calculate: async (_input, _wasm, witness) => writeFile(witness, 'witness', { mode: 0o600 }) }, groth16: { verify: async (vkValue, publicInputs, proof) => { verifierProof = proof; return vkValue.protocol === 'groth16' && vkValue.curve === 'bn128' && publicInputs[0] === '1' && proof.protocol === 'groth16' && proof.curve === 'bn128'; } } },
   });
   assert.equal(Object.getPrototypeOf(result.proof), Object.prototype);
-  assert.equal(JSON.parse(await readFile(outputPath, 'utf8')).proof.protocol, 'groth16');
-  await writeFile(prover, '#!/bin/sh\nprintf \'{"protocol":"groth16"}\' > "$3"\nprintf \'["1","2"]\' > "$4"\n', { mode: 0o700 });
+  assert.deepEqual(Object.keys(result.proof).sort(), ['curve', 'pi_a', 'pi_b', 'pi_c', 'protocol']);
+  assert.deepEqual(verifierProof, result.proof);
+  assert.deepEqual(JSON.parse(await readFile(outputPath, 'utf8')).proof, result.proof);
+  assert.doesNotThrow(() => parseDirectV2MillerProof(result.proof));
+
+  const malformed = [
+    { ...RAPIDSNARK_PROOF, protocol: 'plonk' },
+    { ...RAPIDSNARK_PROOF, curve: 'bls12381' },
+    { pi_a: RAPIDSNARK_PROOF.pi_a, pi_b: RAPIDSNARK_PROOF.pi_b, pi_c: RAPIDSNARK_PROOF.pi_c, curve: 'bn128' },
+    { ...RAPIDSNARK_PROOF, unknown: true },
+    { ...RAPIDSNARK_PROOF, pi_a: [RAPIDSNARK_PROOF.pi_a[0], RAPIDSNARK_PROOF.pi_a[1], '2'] },
+  ];
+  for (const [index, invalidProof] of malformed.entries()) {
+    await writeFile(prover, proverScript(invalidProof), { mode: 0o700 });
+    const invalid = {
+      ...proofRequest,
+      nativeProver: await receipt(prover, await readFile(prover)),
+      witnessPath: file(`invalid-${index}.wtns`),
+      nativeProofPath: file(`invalid-${index}-proof.json`),
+      nativePublicPath: file(`invalid-${index}-public.json`),
+      outputPath: file(`invalid-${index}-result.json`),
+      failurePath: file(`invalid-${index}-failure.json`),
+    };
+    let verified = false;
+    await assert.rejects(
+      executeV2NativeGroth16ProofRequest(invalid, {
+        nproc: 1,
+        snarkjsApi: { wtns: { calculate: async (_input, _wasm, witness) => writeFile(witness, 'witness', { mode: 0o600 }) }, groth16: { verify: async () => { verified = true; return true; } } },
+      }),
+      { code: 'NATIVE_PROVER_PROOF_SHAPE_INVALID' },
+    );
+    assert.equal(verified, false);
+  }
+
+  await writeFile(prover, proverScript(RAPIDSNARK_PROOF, false), { mode: 0o700 });
   proofRequest.nativeProver = await receipt(prover, await readFile(prover));
   proofRequest.witnessPath = file('immediate-witness.wtns');
   proofRequest.nativeProofPath = file('immediate-proof.json');

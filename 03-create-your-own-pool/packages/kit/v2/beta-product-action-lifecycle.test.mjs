@@ -59,6 +59,10 @@ import {
 
 const ROOT = path.resolve(import.meta.dirname, '../../../..');
 const TEST_ROOT = path.join(ROOT, '.codex-beta-product-lifecycle-tests');
+const CANONICAL_PROOF = JSON.parse(readFileSync(path.join(
+  ROOT,
+  '03-create-your-own-pool/packages/prove/test-fixtures/two-public/proof.json',
+), 'utf8'));
 const HASH = value => createHash('sha256').update(value).digest('hex');
 const PRIVATE_KEY = Buffer.from(`${'00'.repeat(31)}07`, 'hex');
 const PUBLIC_KEY = Buffer.from(secp256k1.derivePublicKeyCompressed(PRIVATE_KEY));
@@ -281,19 +285,20 @@ function fakeRuntime(maximumLiveNotes = '100000') {
 function canonicalNativeProofResultForTest({
   inputSha256 = 'ee'.repeat(32),
   nativeProver = {},
+  proof = CANONICAL_PROOF,
   resultSha256 = undefined,
   timingsMs = {},
 } = {}) {
   const cores = availableParallelism();
   const value = {
-    schema: 'shieldkit-v2-direct-native-groth16-proof-result-v1',
+    schema: 'shieldkit-v2-direct-native-groth16-proof-result-v2',
     claims: {
       proofVerified: true,
       witnessCalculated: true,
       witnessR1csChecked: false,
     },
     inputSha256,
-    proof: {},
+    proof: JSON.parse(JSON.stringify(proof)),
     publicInputs: ['0', '0'],
     sourceHashes: Object.fromEntries(
       Object.entries(base.proofArtifacts).map(([name, artifact]) => [name, artifact.sha256]),
@@ -635,6 +640,28 @@ test('persisted native proof provenance rejects partial-core and zero-work resul
       lifecycle(subject, fakeRuntime(), injected(
         async () => canonicalNativeProofResultForTest(overrides),
       )).executeDeposit({ operationId: `deposit.proof-all-core-${index}` }),
+      error => error instanceof V2BetaProductActionLifecycleError
+        && error.code === 'BETA_PROOF_ARTIFACT_REJECTED',
+    );
+  }
+});
+
+test('persisted native proof provenance rejects malformed or untagged proof coordinates', async (t) => {
+  const cases = [
+    proof => { delete proof.curve; },
+    proof => { proof.curve = 'bls12381'; },
+    proof => { proof.protocol = 'plonk'; },
+    proof => { proof.pi_b[2][0] = '0'; },
+    proof => { proof.unknown = true; },
+  ];
+  for (const [index, mutate] of cases.entries()) {
+    const subject = await context(t);
+    const proof = JSON.parse(JSON.stringify(CANONICAL_PROOF));
+    mutate(proof);
+    await assert.rejects(
+      lifecycle(subject, fakeRuntime(), injected(
+        async () => canonicalNativeProofResultForTest({ proof }),
+      )).executeDeposit({ operationId: `deposit.proof-shape-${index}` }),
       error => error instanceof V2BetaProductActionLifecycleError
         && error.code === 'BETA_PROOF_ARTIFACT_REJECTED',
     );
