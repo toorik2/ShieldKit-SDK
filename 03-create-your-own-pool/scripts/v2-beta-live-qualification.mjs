@@ -115,7 +115,25 @@ export async function inspectV2BetaLivePoolCreateEvidence(result, fundingOutpoin
 }
 
 function cliRequest(tokens) { return Object.freeze({ executable: process.execPath, args: [path.resolve(import.meta.dirname, 'shieldkit.mjs'), ...tokens], literal: Object.freeze(['shieldkit', ...tokens]) }); }
-function parseCli(value, label) { if (value?.code !== 0) fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} exited unsuccessfully`); try { const body = JSON.parse(value.stdout); if (body?.ok !== true) fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} did not return success JSON`); claims(body, label); return body.result; } catch (error) { if (error instanceof V2BetaLiveQualificationError) throw error; fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} did not return JSON`, { cause: error }); } }
+function parseCli(value, label) {
+  let body;
+  try { body = JSON.parse(value?.stdout); }
+  catch (error) {
+    if (value?.code !== 0) fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} exited unsuccessfully without a JSON error`, { cause: error });
+    fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} did not return JSON`, { cause: error });
+  }
+  if (value?.code !== 0) {
+    const childCode = typeof body?.error?.code === 'string' ? body.error.code : 'UNKNOWN_CHILD_ERROR';
+    const childMessage = typeof body?.error?.message === 'string' ? body.error.message : 'no child error message';
+    fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} failed with ${childCode}: ${childMessage}`);
+  }
+  if (body?.ok !== true) fail('LIVE_QUALIFICATION_CLI_FAILED', `${label} did not return success JSON`);
+  claims(body, label);
+  return body.result;
+}
+
+/** Unit-test seam for secret-free child CLI error propagation. */
+export function parseV2BetaLiveQualificationCliResultForTest(value, label = 'shieldkit') { return parseCli(value, label); }
 
 async function writeCanonicalPrivate(filename, value) {
   try { await writePrivateFile(filename, Buffer.from(canonicalizeJcs(value), 'utf8'), 'qualification journal'); }
@@ -160,7 +178,7 @@ export async function runV2BetaLiveQualification(options, dependencies) {
     if (record.sourceOutpointProvenanceSha256 !== provenance) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'run journal belongs to a different source outpoint');
     if (record.state === 'pool-create-started' && record.pool === null && record.poolCreateCommandDurationMs === null) {
       const commandStarted = deps.now();
-      const created = await inspectV2BetaLivePoolCreateEvidence(await callCli(['pool', 'create', '--data-home', inputs.dataHome, '--funding-wallet', inputs.fundingWallet, '--funding-utxo', `${inputs.fundingUtxo.txid}:${inputs.fundingUtxo.vout}`, '--json'], 'shieldkit pool create'), inputs.fundingUtxo, deps.rpc);
+      const created = await inspectV2BetaLivePoolCreateEvidence(await callCli(['pool', 'create', '--data-home', inputs.dataHome, '--funding-wallet', inputs.fundingWallet, '--funding-utxo', `${inputs.fundingUtxo.txid}:${inputs.fundingUtxo.vout}`, '--json'], 'shieldkit pool create'), inputs.fundingUtxo, deps.rpc, { requireFreshLink: false });
       record = await journal.update(Object.freeze({ ...record, state: 'pool-created', pool: created, poolCreateCommandDurationMs: deps.now() - commandStarted }));
     } else if (record.state === 'pool-create-started') fail('LIVE_QUALIFICATION_RECONCILIATION_REQUIRED', 'pool create may already have been invoked; inspect the chain before starting a new fresh qualification');
     for (const kind of ['deposit', 'withdraw']) for (let ordinal = 1; ordinal <= 5; ordinal += 1) {

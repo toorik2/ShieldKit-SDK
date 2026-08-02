@@ -9,7 +9,9 @@ import {
   loadV2BetaLiveQualificationInputsForTest,
   openV2BetaLiveQualificationRunJournalForTest,
   parseV2BetaLiveQualificationArguments,
+  parseV2BetaLiveQualificationCliResultForTest,
   runV2BetaLiveQualification,
+  sourceOutpointProvenanceSha256,
   V2_BETA_CAPACITY,
 } from './v2-beta-live-qualification.mjs';
 import { readPrivateUtf8, writePrivateFile } from './v2-beta-private-paths.mjs';
@@ -94,6 +96,11 @@ function pool(bad = undefined) {
     transactions: { source: { transactionId: bootstrapSourceTxid, serializedBytes: bootstrapSourceRaw.length / 2, rawTransactionSha256: sha256(bootstrapSourceRaw) }, genesis: { transactionId: genesisTxid, serializedBytes: genesisRaw.length / 2, feeSats: '200', feeRateSatsPerByte: '1', bch2026StandardVmAccepted: true, inputMetrics: [] } },
     timingsMs: { funding: 1, genesis: 1, exactReadback: 1, atomicCommit: 1, actionStoreBootstrap: 1, commandTotal: 1 },
   };
+  if (bad === 'cache-hit') {
+    result.runtimeLinkedDuringCommand = false;
+    result.runtimeWork.counts['instance-specialization'] = 0;
+    result.runtimeWork.events = [{ type: 'linked-runtime-cache-load' }];
+  }
   if (bad === 'legacy') { result.rpc = result.rpcObservation; delete result.rpcObservation; result.cache = { runtimeManifestSha256: result.runtimeManifestSha256, runtimeMaterialSha256: result.runtimeMaterialSha256 }; delete result.runtimeManifestSha256; delete result.runtimeMaterialSha256; }
   return result;
 }
@@ -190,6 +197,18 @@ test('production CLI inputs remain valid across the validation-to-run boundary',
   assert.equal(subject.calls.commands.length, 11);
 });
 
+test('child CLI failures preserve their public error code and message', () => {
+  assert.throws(
+    () => parseV2BetaLiveQualificationCliResultForTest({
+      code: 1,
+      stdout: JSON.stringify({ ok: false, error: { code: 'BETA_POOL_RUNTIME_REJECTED', message: 'runtime observation failed' } }),
+      stderr: 'must not be projected',
+    }, 'shieldkit pool create'),
+    (error) => error?.code === 'LIVE_QUALIFICATION_CLI_FAILED'
+      && error.message === 'shieldkit pool create failed with BETA_POOL_RUNTIME_REJECTED: runtime observation failed',
+  );
+});
+
 test('the real private qualification journal opens from a missing first-run file', async (t) => {
   const dataDirectory = mkdtempSync(path.join(process.cwd(), '.shieldkit-live-journal-'));
   chmodSync(dataDirectory, 0o700);
@@ -263,4 +282,22 @@ test('does not replay an interrupted pool create', async () => {
   const initialRecord = Object.freeze({ schema: 'shieldkit-v2-beta-live-qualification-run-v1', state: 'pool-create-started', installReceiptSha256: H('f'), sourceOutpointProvenanceSha256: H('1'), poolCreateCommandDurationMs: null, pool: null, actions: [] });
   const subject = fixture({ initialRecord }); await assert.rejects(() => runV2BetaLiveQualification(inputs, subject.deps), { code: 'LIVE_QUALIFICATION_JOURNAL_REJECTED' });
   assert.equal(subject.calls.commands.length, 0);
+});
+
+test('an exact interrupted semantic pool create resumes through the inner idempotent journal', async () => {
+  const initialRecord = Object.freeze({
+    schema: 'shieldkit-v2-beta-live-qualification-run-v1',
+    state: 'pool-create-started',
+    installReceiptSha256: H('f'),
+    sourceOutpointProvenanceSha256: sourceOutpointProvenanceSha256(inputs.fundingUtxo),
+    poolCreateCommandDurationMs: null,
+    pool: null,
+    actions: [],
+  });
+  const subject = fixture({ initialRecord, badPool: 'cache-hit' });
+  const result = await runV2BetaLiveQualification(inputs, subject.deps);
+  assert.equal(subject.calls.commands.filter((entry) => entry[1] === 'pool' && entry[2] === 'create').length, 1);
+  assert.equal(result.evidence.pool.runtime.linkedDuringCommand, false);
+  assert.equal(result.evidence.deposits.length, 5);
+  assert.equal(result.evidence.withdrawals.length, 5);
 });
