@@ -687,9 +687,13 @@ async function broadcastStagedOperationLocked({
     mainnetAcknowledged,
     allowDevelopmentOnMainnet,
   });
-  if (!rpc || typeof rpc.testmempoolaccept !== 'function'
-    || typeof rpc.sendrawtransaction !== 'function') {
-    fail('RPC_REQUIRED', 'RPC testmempoolaccept and sendrawtransaction capabilities are required');
+  const publicExactSend = rpc !== null && typeof rpc === 'object'
+    && typeof rpc.submitExactTransaction === 'function';
+  if (!rpc || (!publicExactSend
+    && (typeof rpc.testmempoolaccept !== 'function'
+      || typeof rpc.sendrawtransaction !== 'function'
+      || typeof rpc.getrawtransaction !== 'function'))) {
+    fail('RPC_REQUIRED', 'an exact public send/readback capability or BCHN preflight/send/readback capabilities are required');
   }
   if (afterTransactionBroadcast !== undefined && typeof afterTransactionBroadcast !== 'function') {
     fail('INVALID_CALLBACK', 'afterTransactionBroadcast must be a function when supplied');

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmod, lstat, mkdir, mkdtemp, readFile, stat, symlink, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -430,6 +431,48 @@ test('broadcast and commit are ordered, durable, and idempotent', async (t) => {
   assert.equal((await stat(statePath)).mode & 0o777, 0o600);
   assert.equal((await stat(ledgerPath)).mode & 0o777, 0o600);
   assert.equal((await readFile(ledgerPath, 'utf8')).trim().split('\n').length, 1);
+});
+
+test('staged operation accepts the public exact-send capability without BCHN preflight methods', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'shieldkit-public-staged-send-'));
+  t.after(async () => import('node:fs/promises').then(({ rm }) => rm(root, { recursive: true, force: true })));
+  const txs = [
+    transaction('source-funding', '01000000000000000000'),
+    transaction('beta-genesis', '02000000000000000000'),
+  ];
+  const { journalPath } = stageOperation({
+    poolDirectory: root,
+    kind: 'v2-beta-chipnet-genesis',
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: txs,
+    nextState: {},
+    ledgerRecord: {},
+  });
+  const calls = [];
+  await broadcastStagedOperation({
+    journalPath,
+    rpc: {
+      async submitExactTransaction(rawTransactionHex, expectedTransactionId) {
+        calls.push({ rawTransactionHex, expectedTransactionId });
+        return {
+          transactionId: expectedTransactionId,
+          rawTransaction: { txid: expectedTransactionId, hex: rawTransactionHex },
+        };
+      },
+    },
+  });
+  assert.deepEqual(calls, txs.map((tx) => ({
+    rawTransactionHex: tx.hex,
+    expectedTransactionId: tx.txid,
+  })));
+  const journal = loadPendingOperation(root).journal;
+  assert.equal(journal.status, 'broadcast');
+  assert.deepEqual(journal.transactions.map((tx) => tx.status), ['broadcast', 'broadcast']);
+  assert.deepEqual(
+    journal.transactions.map((tx) => tx.readback.rawTransactionSha256),
+    txs.map((tx) => createHash('sha256').update(Buffer.from(tx.hex, 'hex')).digest('hex')),
+  );
 });
 
 test('atomic commit repairs a pre-existing permissive state mode', async (t) => {
