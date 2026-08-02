@@ -33,6 +33,24 @@ const VALUE_OPTIONS = new Set([
   'attempt-token', 'data-home', 'funding-utxo', 'funding-wallet', 'note', 'operation-id', 'to',
 ]);
 const BOOLEAN_OPTIONS = new Set(['acknowledge-exact-rebroadcast', 'human', 'json', 'resume']);
+const AUTOMATIC_READ_ONLY_RECOVERY_ATTEMPTS = 4;
+const TRANSIENT_READBACK_ERRORS = new Set([
+  'ADMISSION_RAW_READBACK_FAILED',
+  'ADMISSION_STATE_READBACK_FAILED',
+]);
+
+function withRecoveryIdentity(error, operationId, transactionId) {
+  if (error?.operationId === operationId
+    && (transactionId === undefined || error?.transactionId === transactionId)) return error;
+  const wrapped = new V2BetaProductCliError(
+    typeof error?.code === 'string' ? error.code : 'BETA_READ_ONLY_RECOVERY_FAILED',
+    error instanceof Error ? error.message : String(error),
+    { cause: error, exitCode: 1 },
+  );
+  wrapped.operationId = operationId;
+  if (typeof transactionId === 'string') wrapped.transactionId = transactionId;
+  return wrapped;
+}
 
 function parse(tokens) {
   if (!Array.isArray(tokens) || tokens.some((entry) => typeof entry !== 'string')) {
@@ -270,26 +288,37 @@ async function execute(tokens, dependencies) {
         // every first-pass socket, open a fresh pair of the same pinned public
         // providers, and resume the exact operation. Resume is read-only for
         // an indeterminate delivery record and can never broadcast again.
-        try { await rpc?.close?.(); } catch { /* recovery opens an independent capability */ }
-        rpc = await dependencies.createRpc();
-        try {
-          const recovered = await executeNetworkCommand(error.operationId);
-          result = Object.freeze({
-            ...recovered,
-            timingsMs: Object.freeze({
-              ...recovered.timingsMs,
-              commandTotal: performance.now() - commandStarted,
-            }),
-          });
-        } catch (recoveryError) {
-          if (recoveryError !== null && typeof recoveryError === 'object') {
-            if (recoveryError.operationId === undefined) recoveryError.operationId = error.operationId;
-            if (recoveryError.transactionId === undefined
-              && typeof error.transactionId === 'string') {
-              recoveryError.transactionId = error.transactionId;
+        let lastError = error;
+        for (let attempt = 0; attempt < AUTOMATIC_READ_ONLY_RECOVERY_ATTEMPTS; attempt += 1) {
+          try { await rpc?.close?.(); } catch { /* recovery opens an independent capability */ }
+          rpc = await dependencies.createRpc();
+          try {
+            const recovered = await executeNetworkCommand(error.operationId);
+            result = Object.freeze({
+              ...recovered,
+              timingsMs: Object.freeze({
+                ...recovered.timingsMs,
+                commandTotal: performance.now() - commandStarted,
+              }),
+            });
+            break;
+          } catch (recoveryError) {
+            lastError = recoveryError;
+            if (!TRANSIENT_READBACK_ERRORS.has(recoveryError?.code)) {
+              throw withRecoveryIdentity(
+                recoveryError,
+                error.operationId,
+                error.transactionId,
+              );
             }
           }
-          throw recoveryError;
+        }
+        if (result === undefined) {
+          throw withRecoveryIdentity(
+            lastError,
+            error.operationId,
+            error.transactionId,
+          );
         }
       }
     } finally {

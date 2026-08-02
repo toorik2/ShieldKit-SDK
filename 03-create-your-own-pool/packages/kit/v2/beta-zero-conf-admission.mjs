@@ -174,7 +174,13 @@ function observedSatoshis(value) {
 async function exactReadback(input, identity, requestedCrash, admitted = undefined) {
   let raw;
   if (admitted === undefined) {
-    try { raw = await input.rpc.getrawtransaction(identity.txid, true); } catch (error) { fail('ADMISSION_RAW_READBACK_FAILED', error instanceof Error ? error.message : 'Chipnet raw readback failed', { cause: error }); }
+    try { raw = await input.rpc.getrawtransaction(identity.txid, true); } catch (error) {
+      fail(
+        'ADMISSION_RAW_READBACK_FAILED',
+        error instanceof Error ? error.message : 'Chipnet raw readback failed',
+        { cause: error, operationId: input.operationId, transactionId: identity.txid },
+      );
+    }
   } else {
     raw = Object.freeze({
       txid: admitted.transactionId,
@@ -185,7 +191,13 @@ async function exactReadback(input, identity, requestedCrash, admitted = undefin
   crash(requestedCrash, 'admission.after_raw_readback');
   let state;
   if (admitted === undefined) {
-    try { state = await input.rpc.gettxout(identity.txid, 0); } catch (error) { fail('ADMISSION_STATE_READBACK_FAILED', error instanceof Error ? error.message : 'Chipnet state readback failed', { cause: error }); }
+    try { state = await input.rpc.gettxout(identity.txid, 0); } catch (error) {
+      fail(
+        'ADMISSION_STATE_READBACK_FAILED',
+        error instanceof Error ? error.message : 'Chipnet state readback failed',
+        { cause: error, operationId: input.operationId, transactionId: identity.txid },
+      );
+    }
   } else {
     state = admitted.stateOutput;
   }

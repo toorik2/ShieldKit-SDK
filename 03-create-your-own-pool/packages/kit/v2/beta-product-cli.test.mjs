@@ -88,6 +88,13 @@ test('an indeterminate action automatically reopens public reads and resumes the
         error.transactionId = 'ab'.repeat(32);
         throw error;
       }
+      if (value.rpc.index === 2) {
+        const error = new Error('not indexed yet');
+        error.code = 'ADMISSION_RAW_READBACK_FAILED';
+        error.operationId = 'deposit.persisted';
+        error.transactionId = 'ab'.repeat(32);
+        throw error;
+      }
       return {
         status: 'accepted-zero-conf-beta-unqualified',
         transactionId: 'ab'.repeat(32),
@@ -98,13 +105,15 @@ test('an indeterminate action automatically reopens public reads and resumes the
   });
   const envelope = await executeV2BetaProductCliForTest(['deposit'], subject);
   assert.equal(envelope.result.input.operationId, 'deposit.persisted');
-  assert.equal(envelope.result.input.rpc.index, 2);
+  assert.equal(envelope.result.input.rpc.index, 3);
   assert.equal(envelope.result.timingsMs.commandTotal >= 0, true);
   assert.deepEqual(calls, [
     { operationId: undefined, rpc: 1 },
     'close:1',
     { operationId: 'deposit.persisted', rpc: 2 },
     'close:2',
+    { operationId: 'deposit.persisted', rpc: 3 },
+    'close:3',
   ]);
 });
 
