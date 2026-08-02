@@ -7,6 +7,7 @@ import test from 'node:test';
 
 import {
   loadV2BetaLiveQualificationInputsForTest,
+  openV2BetaLiveQualificationRunJournalForTest,
   parseV2BetaLiveQualificationArguments,
   runV2BetaLiveQualification,
   V2_BETA_CAPACITY,
@@ -187,6 +188,15 @@ test('production CLI inputs remain valid across the validation-to-run boundary',
   assert.equal(result.evidence.deposits.length, 5);
   assert.equal(result.evidence.withdrawals.length, 5);
   assert.equal(subject.calls.commands.length, 11);
+});
+
+test('the real private qualification journal opens from a missing first-run file', async (t) => {
+  const dataDirectory = mkdtempSync(path.join(process.cwd(), '.shieldkit-live-journal-'));
+  chmodSync(dataDirectory, 0o700);
+  t.after(() => rmSync(dataDirectory, { recursive: true, force: true }));
+  const journal = await openV2BetaLiveQualificationRunJournalForTest({ dataDirectory });
+  assert.equal(journal.load(), null);
+  journal.close();
 });
 
 test('private wallet and journal helper rejects symlinks and unsafe ancestors', async () => {

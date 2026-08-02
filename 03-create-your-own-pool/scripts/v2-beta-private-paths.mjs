@@ -15,7 +15,10 @@ function privateMode(stat) {
   return ownerAllowed(stat) && (stat.mode & 0o022) === 0;
 }
 async function checked(filename, kind, label, { leaf = false } = {}) {
-  const before = await lstat(filename).catch(() => reject(label));
+  const before = await lstat(filename).catch((error) => {
+    if (leaf && error?.code === 'ENOENT') throw error;
+    return reject(label);
+  });
   if (before.isSymbolicLink() || (kind === 'directory' ? !before.isDirectory() : !before.isFile()) || !privateMode(before)) reject(label);
   const flags = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | (kind === 'directory' ? fsConstants.O_DIRECTORY : 0);
   const handle = await open(filename, flags).catch(() => reject(label));

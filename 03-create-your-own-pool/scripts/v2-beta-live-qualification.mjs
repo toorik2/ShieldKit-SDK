@@ -135,6 +135,9 @@ async function openFileRunJournal({ dataDirectory }) {
   return Object.freeze({ load: () => record, async prepare(value) { if (record !== null) fail('LIVE_QUALIFICATION_JOURNAL_REJECTED', 'run journal already exists'); record = validateRun(value); await save(); return record; }, async update(next) { record = validateRun(next); await save(); return record; }, close() {} });
 }
 
+/** Unit-test seam for the real private first-run journal boundary. */
+export async function openV2BetaLiveQualificationRunJournalForTest(value) { return openFileRunJournal(value); }
+
 export async function validateV2BetaPinnedInstall({ dataHome }) {
   const loaded = loadV2BetaProductConfig({ dataHome }); const installation = await loadV2BetaProductArtifactInstallation({ productDataDirectory: loaded.config.dataDirectory }); const pin = await loadV2BetaProductTrackedReleasePin();
   const journalPath = path.join(loaded.config.dataDirectory, V2_BETA_OFFLINE_BOOTSTRAP_DIRECTORY, 'journal.json'); let journal;
