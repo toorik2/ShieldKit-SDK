@@ -16,11 +16,11 @@ import { parseStrictJson } from '../packages/profile/load.mjs';
 import { CHIPNET_GENESIS_HASH } from '../packages/kit/chipnet-rpc.mjs';
 
 export const V2_BETA_LIVE_EVIDENCE_BUNDLE_MANIFEST_SCHEMA =
-  'shieldkit-v2-beta-live-evidence-bundle-manifest-v1';
+  'shieldkit-v2-beta-live-evidence-bundle-manifest-v2';
 export const V2_BETA_LIVE_SEMANTIC_SCHEMA = 'shieldkit-v2-beta-live-qualification-v2';
-export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v1';
+export const V2_BETA_LIVE_PERFORMANCE_SCHEMA = 'shieldkit-v2-beta-live-performance-v2';
 export const V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA =
-  'shieldkit-v2-beta-live-pool-create-performance-v2';
+  'shieldkit-v2-beta-live-pool-create-performance-v3';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const GIT_ID = /^[0-9a-f]{40}$/u;
@@ -116,6 +116,24 @@ function claims(value, label, { broadcasted = false } = {}) {
   return clone(value);
 }
 
+function release(value, label) {
+  exact(value, ['releaseId', 'releaseManifestSha256'], label);
+  if (typeof value.releaseId !== 'string' || value.releaseId.length === 0) {
+    fail('BUNDLE_INVALID', `${label}.releaseId is invalid`);
+  }
+  hash(value.releaseManifestSha256, `${label}.releaseManifestSha256`);
+  return clone(value);
+}
+
+function requireSemanticRelease(value, semanticInstall, label, code) {
+  const actual = release(value, label);
+  if (actual.releaseId !== semanticInstall.releaseId
+    || actual.releaseManifestSha256 !== semanticInstall.releaseManifestSha256) {
+    fail(code, `${label} differs from the semantic install release`);
+  }
+  return actual;
+}
+
 function runtimeWork(value, linkedDuringCommand = false) {
   exact(value, ['counts', 'events', 'schema'], 'action.runtimeWork');
   if (value.schema !== 'shieldkit-v2-beta-runtime-work-observation-v1' || !Array.isArray(value.events)) {
@@ -187,7 +205,7 @@ function validateRpc(value, multiplier = 1) {
   for (const name of RPC_METHODS) if (value.methodCounts[name] !== expected[name]) fail('BUNDLE_RPC_INVALID', `RPC count ${name} is not exact`);
 }
 
-function validateAction(value, kind, ordinal, cores, { performance = false } = {}) {
+function validateAction(value, kind, ordinal, cores, owningInstanceId, { performance = false } = {}) {
   const prefix = performance
     ? ['actionTotalMs', 'bytes', 'cache', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'poolOrdinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'state', 'store', 'timingsMs', 'transactionId', 'vm']
     : ['actionTotalMs', 'bytes', 'cache', 'claims', 'commandTotalMs', 'feeRateSatsPerByte', 'feeSats', 'kind', 'operationId', 'ordinal', 'proof', 'readback', 'rpcObservation', 'runtimeWork', 'store', 'timingsMs', 'transactionId', 'vm'];
@@ -210,7 +228,12 @@ function validateAction(value, kind, ordinal, cores, { performance = false } = {
   validateVm(value.vm); validateStore(value.store, kind); validateRpc(value.rpcObservation);
   exact(value.readback, ['rawTransactionSha256', 'stateCategoryWire', 'stateCommitmentSha256', 'stateOutpoint'], 'action.readback');
   hash(value.readback.rawTransactionSha256, 'action.readback.rawTransactionSha256'); hash(value.readback.stateCategoryWire, 'action.readback.stateCategoryWire'); hash(value.readback.stateCommitmentSha256, 'action.readback.stateCommitmentSha256'); exact(value.readback.stateOutpoint, ['txid', 'vout'], 'action.readback.stateOutpoint');
-  if (value.readback.stateOutpoint.txid !== value.transactionId || value.readback.stateOutpoint.vout !== 0) fail('BUNDLE_READBACK_INVALID', 'state readback does not bind output zero of the accepted action');
+  const owningCategoryWire = Buffer.from(owningInstanceId, 'hex').reverse().toString('hex');
+  if (value.readback.stateOutpoint.txid !== value.transactionId
+    || value.readback.stateOutpoint.vout !== 0
+    || value.readback.stateCategoryWire !== owningCategoryWire) {
+    fail('BUNDLE_READBACK_INVALID', 'state readback does not bind output zero and the owning pool category of the accepted action');
+  }
   exact(value.timingsMs, ACTION_TIMINGS, 'action.timingsMs'); for (const name of ACTION_TIMINGS) duration(value.timingsMs[name], `action.timingsMs.${name}`);
   if (value.timingsMs.total !== value.actionTotalMs || value.timingsMs.proofGeneration !== value.proof.proofGenerationMs) fail('BUNDLE_ACTION_INVALID', 'action timing summary differs from retained stage telemetry');
 }
@@ -218,7 +241,9 @@ function validateAction(value, kind, ordinal, cores, { performance = false } = {
 function validatePool(value) {
   exact(value, ['acceptance', 'actionFundingOutputs', 'actionFundingSetSha256', 'claims', 'genesisTransactionId', 'instanceId', 'rpcObservation', 'runtime', 'sourceTransactionId', 'timingsMs', 'transactions', 'zeroConfEvidenceSha256'], 'semantic.pool');
   hash(value.instanceId, 'semantic.pool.instanceId'); hash(value.sourceTransactionId, 'semantic.pool.sourceTransactionId'); hash(value.genesisTransactionId, 'semantic.pool.genesisTransactionId'); hash(value.zeroConfEvidenceSha256, 'semantic.pool.zeroConfEvidenceSha256'); hash(value.actionFundingSetSha256, 'semantic.pool.actionFundingSetSha256');
-  if (value.sourceTransactionId === value.genesisTransactionId || value.actionFundingOutputs !== 10) fail('BUNDLE_POOL_INVALID', 'pool bootstrap topology or action funding set is invalid');
+  if (value.sourceTransactionId === value.genesisTransactionId
+    || value.instanceId === value.genesisTransactionId
+    || value.actionFundingOutputs !== 10) fail('BUNDLE_POOL_INVALID', 'pool bootstrap topology or action funding set is invalid');
   claims(value.claims, 'semantic.pool.claims', { broadcasted: true }); validateRpc(value.rpcObservation, 2);
   exact(value.runtime, ['linkedDuringCommand', 'runtimeManifestSha256', 'runtimeMaterialSha256', 'work'], 'semantic.pool.runtime');
   if (typeof value.runtime.linkedDuringCommand !== 'boolean') fail('BUNDLE_POOL_INVALID', 'pool runtime link state is invalid');
@@ -240,13 +265,13 @@ function validateSemantic(value, cores) {
   exact(value, ['capacity', 'claims', 'deposits', 'install', 'pool', 'poolCreate', 'schema', 'scope', 'timingMs', 'withdrawals'], 'semantic evidence');
   if (value.schema !== V2_BETA_LIVE_SEMANTIC_SCHEMA || value.scope !== 'semantic-five-by-five-only-not-performance-qualification' || value.capacity !== '100000') fail('BUNDLE_SEMANTIC_INVALID', 'semantic evidence is not a completed fresh 100000-note semantic run');
   claims(value.claims, 'semantic.claims'); duration(value.timingMs, 'semantic.timingMs');
-  exact(value.install, ['receiptSha256', 'releaseId', 'releaseManifestSha256'], 'semantic.install'); hash(value.install.receiptSha256, 'semantic.install.receiptSha256'); hash(value.install.releaseManifestSha256, 'semantic.install.releaseManifestSha256'); if (typeof value.install.releaseId !== 'string' || value.install.releaseId.length === 0) fail('BUNDLE_SEMANTIC_INVALID', 'semantic install release id is invalid');
+  exact(value.install, ['receiptSha256', 'releaseId', 'releaseManifestSha256'], 'semantic.install'); hash(value.install.receiptSha256, 'semantic.install.receiptSha256'); release({ releaseId: value.install.releaseId, releaseManifestSha256: value.install.releaseManifestSha256 }, 'semantic.install.release');
   exact(value.poolCreate, ['commandDurationMs', 'sourceOutpointProvenanceSha256'], 'semantic.poolCreate'); duration(value.poolCreate.commandDurationMs, 'semantic.poolCreate.commandDurationMs'); hash(value.poolCreate.sourceOutpointProvenanceSha256, 'semantic.poolCreate.sourceOutpointProvenanceSha256');
   validatePool(value.pool);
   for (const [kind, entries] of [['deposit', value.deposits], ['withdraw', value.withdrawals]]) {
     if (!Array.isArray(entries) || entries.length !== 5) fail('BUNDLE_SEMANTIC_INVALID', `semantic evidence requires exactly five ${kind} actions`);
     const ordinals = new Set(); const ids = new Set(); const txids = new Set();
-    entries.forEach((entry) => { validateAction(entry, kind, entry?.ordinal, cores); ordinals.add(entry.ordinal); ids.add(entry.operationId); txids.add(entry.transactionId); });
+    entries.forEach((entry) => { validateAction(entry, kind, entry?.ordinal, cores, value.pool.instanceId); ordinals.add(entry.ordinal); ids.add(entry.operationId); txids.add(entry.transactionId); });
     if (ordinals.size !== 5 || ids.size !== 5 || txids.size !== 5 || [...ordinals].some((ordinal) => ![1, 2, 3, 4, 5].includes(ordinal))) fail('BUNDLE_SEMANTIC_INVALID', `semantic ${kind} identities are not five distinct canonical actions`);
   }
   const all = [...value.deposits, ...value.withdrawals];
@@ -265,19 +290,51 @@ function validateMetrics(value, entries, label) {
   }
 }
 
-function validatePerformance(value, cores, installReceiptSha256, disallowedTxids) {
-  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'samples', 'schema', 'scope'], 'performance evidence');
+function validatePerformance(value, cores, semanticInstall, disallowedTxids, semanticPool) {
+  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'release', 'samples', 'schema', 'scope'], 'performance evidence');
   if (value.schema !== V2_BETA_LIVE_PERFORMANCE_SCHEMA || value.scope !== 'warm-performance-only-explicitly-unqualified') fail('BUNDLE_PERFORMANCE_INVALID', 'performance evidence has an unsupported schema or scope');
   claims(value.claims, 'performance.claims'); duration(value.elapsedMs, 'performance.elapsedMs');
-  if (!Array.isArray(value.pools) || value.pools.length < 4) fail('BUNDLE_PERFORMANCE_INVALID', 'performance evidence requires four installed pools');
-  value.pools.forEach((pool, index) => { exact(pool, ['receiptSha256'], `performance.pools[${index}]`); hash(pool.receiptSha256, `performance.pools[${index}].receiptSha256`); if (pool.receiptSha256 !== installReceiptSha256) fail('BUNDLE_PERFORMANCE_INVALID', 'performance pool receipt differs from the semantic pinned install'); });
+  requireSemanticRelease(value.release, semanticInstall, 'performance.release', 'BUNDLE_PERFORMANCE_INVALID');
+  if (!Array.isArray(value.pools) || value.pools.length !== 4) fail('BUNDLE_PERFORMANCE_INVALID', 'performance evidence requires exactly four warm pools');
+  const pools = new Map(); const poolIdentities = new Set([
+    semanticPool.instanceId, semanticPool.genesisTransactionId,
+  ]);
+  value.pools.forEach((pool, index) => {
+    exact(pool, ['genesisTransactionId', 'installationReceiptSha256', 'instanceId', 'poolOrdinal'], `performance.pools[${index}]`);
+    integer(pool.poolOrdinal, `performance.pools[${index}].poolOrdinal`);
+    hash(pool.installationReceiptSha256, `performance.pools[${index}].installationReceiptSha256`);
+    hash(pool.instanceId, `performance.pools[${index}].instanceId`);
+    hash(pool.genesisTransactionId, `performance.pools[${index}].genesisTransactionId`);
+    const identities = [pool.instanceId, pool.genesisTransactionId];
+    if (pool.poolOrdinal > 3 || pools.has(pool.poolOrdinal)
+      || new Set(identities).size !== identities.length
+      || identities.some((identity) => poolIdentities.has(identity))) {
+      fail('BUNDLE_PERFORMANCE_INVALID', 'warm pools must be four distinct non-semantic pool instance/genesis identities');
+    }
+    pools.set(pool.poolOrdinal, pool); identities.forEach((identity) => poolIdentities.add(identity));
+  });
+  if (pools.size !== 4 || [...pools.keys()].some((ordinal) => ![0, 1, 2, 3].includes(ordinal))) fail('BUNDLE_PERFORMANCE_INVALID', 'warm pool ordinals must be exactly zero through three');
   exact(value.samples, ['deposits', 'withdrawals'], 'performance.samples'); exact(value.metrics, ['deposits', 'withdrawals'], 'performance.metrics');
   const identities = new Set();
   for (const [kind, entries, metric] of [['deposit', value.samples.deposits, value.metrics.deposits], ['withdraw', value.samples.withdrawals, value.metrics.withdrawals]]) {
-    if (!Array.isArray(entries) || entries.length < 20) fail('BUNDLE_PERFORMANCE_INVALID', `performance evidence requires at least twenty ${kind} actions`);
-    const txids = new Set(); const operationIds = new Set();
-    entries.forEach((entry) => { validateAction(entry, kind, entry?.ordinal, cores, { performance: true }); txids.add(entry.transactionId); operationIds.add(entry.operationId); identities.add(entry.transactionId); });
-    if (txids.size !== entries.length || operationIds.size !== entries.length) fail('BUNDLE_PERFORMANCE_INVALID', `performance ${kind} identities are duplicated`);
+    if (!Array.isArray(entries) || entries.length !== 20) fail('BUNDLE_PERFORMANCE_INVALID', `performance evidence requires exactly twenty ${kind} actions`);
+    const txids = new Set(); const operationIds = new Set(); const ordinalsByPool = new Map();
+    entries.forEach((entry) => {
+      const owningPool = pools.get(entry?.poolOrdinal);
+      if (owningPool === undefined
+        || entry.operationId !== `warm.${String(entry.poolOrdinal + 1).padStart(2, '0')}.${kind}.${String(entry.ordinal).padStart(2, '0')}`) {
+        fail('BUNDLE_PERFORMANCE_INVALID', `performance ${kind} operation id is not its canonical warm pool identity`);
+      }
+      validateAction(entry, kind, entry?.ordinal, cores, owningPool.instanceId, { performance: true });
+      txids.add(entry.transactionId); operationIds.add(entry.operationId); identities.add(entry.transactionId);
+      const ordinals = ordinalsByPool.get(entry.poolOrdinal) ?? new Set(); ordinals.add(entry.ordinal); ordinalsByPool.set(entry.poolOrdinal, ordinals);
+    });
+    if (txids.size !== entries.length || operationIds.size !== entries.length
+      || ordinalsByPool.size !== 4
+      || [...ordinalsByPool.entries()].some(([poolOrdinal, ordinals]) => !pools.has(poolOrdinal)
+        || ordinals.size !== 5 || [...ordinals].some((ordinal) => ![1, 2, 3, 4, 5].includes(ordinal)))) {
+      fail('BUNDLE_PERFORMANCE_INVALID', `performance ${kind} samples must cover ordinals one through five for every warm pool`);
+    }
     validateMetrics(metric, entries, kind === 'deposit' ? 'deposits' : 'withdrawals');
   }
   if (identities.size !== value.samples.deposits.length + value.samples.withdrawals.length || [...identities].some((txid) => disallowedTxids.has(txid))) fail('BUNDLE_PERFORMANCE_INVALID', 'performance transactions duplicate another submitted action');
@@ -311,27 +368,31 @@ function validatePoolCreateMetrics(value, samples) {
   }
 }
 
-function validatePoolCreatePerformance(value, disallowedIds, installReceiptSha256) {
-  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'receiptSha256', 'schema', 'scope'], 'pool-create performance evidence');
+function validatePoolCreatePerformance(value, disallowedIds, semanticInstall) {
+  exact(value, ['claims', 'elapsedMs', 'metrics', 'pools', 'release', 'schema', 'scope'], 'pool-create performance evidence');
   if (value.schema !== V2_BETA_LIVE_POOL_CREATE_PERFORMANCE_SCHEMA
     || value.scope !== 'fresh-pool-create-performance-explicitly-unqualified') {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create performance schema or scope is unsupported');
   }
-  hash(value.receiptSha256, 'pool-create performance.receiptSha256');
-  if (value.receiptSha256 !== installReceiptSha256) fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create performance receipt differs from the semantic pinned install');
+  requireSemanticRelease(value.release, semanticInstall, 'pool-create performance.release', 'BUNDLE_POOL_CREATE_PERFORMANCE_INVALID');
   claims(value.claims, 'pool-create performance.claims'); duration(value.elapsedMs, 'pool-create performance.elapsedMs');
   if (!Array.isArray(value.pools) || value.pools.length < 20) {
     fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'at least twenty fresh pool-create samples are required');
   }
-  const ordinals = new Set(); const ids = new Set(disallowedIds);
+  const ordinals = new Set(); const ids = new Set(disallowedIds); const installationReceipts = new Set();
   for (const [index, sample] of value.pools.entries()) {
-    exact(sample, ['actionFundingSetSha256', 'claims', 'commandDurationMs', 'genesisTransactionId', 'instanceId', 'ordinal', 'runtimeWork', 'sourceOutpointProvenanceSha256', 'sourceTransactionId'], `pool-create.pools[${index}]`);
+    exact(sample, ['actionFundingSetSha256', 'claims', 'commandDurationMs', 'genesisTransactionId', 'installationReceiptSha256', 'instanceId', 'ordinal', 'runtimeWork', 'sourceOutpointProvenanceSha256', 'sourceTransactionId'], `pool-create.pools[${index}]`);
     integer(sample.ordinal, `pool-create.pools[${index}].ordinal`, 1);
     if (ordinals.has(sample.ordinal)) fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create sample ordinal is duplicated');
     ordinals.add(sample.ordinal);
     claims(sample.claims, `pool-create.pools[${index}].claims`, { broadcasted: true });
     duration(sample.commandDurationMs, `pool-create.pools[${index}].commandDurationMs`);
     poolCreateRuntimeWork(sample.runtimeWork);
+    hash(sample.installationReceiptSha256, `pool-create.pools[${index}].installationReceiptSha256`);
+    if (installationReceipts.has(sample.installationReceiptSha256)) {
+      fail('BUNDLE_POOL_CREATE_PERFORMANCE_INVALID', 'pool-create installation receipt is reused');
+    }
+    installationReceipts.add(sample.installationReceiptSha256);
     const sampleIds = [sample.sourceOutpointProvenanceSha256, sample.sourceTransactionId, sample.genesisTransactionId, sample.instanceId, sample.actionFundingSetSha256];
     sampleIds.forEach((identifier, identifierIndex) => hash(identifier, `pool-create.pools[${index}].id[${identifierIndex}]`));
     if (new Set(sampleIds).size !== sampleIds.length || sampleIds.some((identifier) => ids.has(identifier))) {
@@ -390,15 +451,16 @@ export function createV2BetaLiveEvidenceBundleManifest({ semanticBytes, performa
   const factValue = facts(verificationFacts);
   const semantic = validateSemantic(semanticFile.value, factValue.host.availableCores);
   const forbiddenTxids = new Set([...semantic.deposits, ...semantic.withdrawals].map((entry) => entry.transactionId));
-  const performance = validatePerformance(performanceFile.value, factValue.host.availableCores, semantic.install.receiptSha256, forbiddenTxids);
+  const performance = validatePerformance(performanceFile.value, factValue.host.availableCores, semantic.install, forbiddenTxids, semantic.pool);
   const disallowedPoolIds = new Set([
     semantic.poolCreate.sourceOutpointProvenanceSha256, semantic.pool.sourceTransactionId,
     semantic.pool.genesisTransactionId, semantic.pool.instanceId,
     semantic.pool.actionFundingSetSha256,
+    ...performance.pools.flatMap((pool) => [pool.instanceId, pool.genesisTransactionId]),
     ...performance.samples.deposits.map((entry) => entry.transactionId),
     ...performance.samples.withdrawals.map((entry) => entry.transactionId),
   ]);
-  const poolCreatePerformance = validatePoolCreatePerformance(poolCreatePerformanceFile.value, disallowedPoolIds, semantic.install.receiptSha256);
+  const poolCreatePerformance = validatePoolCreatePerformance(poolCreatePerformanceFile.value, disallowedPoolIds, semantic.install);
   const core = manifestCore({ semantic: { schema: semantic.schema, sha256: semanticFile.sha256 }, performance: { schema: performance.schema, sha256: performanceFile.sha256 }, poolCreatePerformance: { schema: poolCreatePerformance.schema, sha256: poolCreatePerformanceFile.sha256 }, facts: factValue });
   return Object.freeze({ ...core, manifestSha256: sha256(Buffer.from(canonicalizeJcs(core), 'utf8')) });
 }
