@@ -40,8 +40,8 @@ const rawWithOneInput = (outputs) =>
 
 test('public Chipnet roles pin one sender and two independent read-only witnesses', () => {
   assert.deepEqual(PUBLIC_CHIPNET_ELECTRUM.map(({ host, port, tls }) => ({ host, port, tls })), [
-    { host: 'chipnet.imaginary.cash', port: 50002, tls: true },
     { host: 'chipnet.bch.ninja', port: 50002, tls: true },
+    { host: 'chipnet.imaginary.cash', port: 50002, tls: true },
     { host: 'blackie.c3-soft.com', port: 64002, tls: true },
   ]);
 });

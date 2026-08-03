@@ -39,8 +39,8 @@ export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
   // identical observations form the completion quorum, so either both
   // non-senders can resolve a slow/ambiguous primary or the sender and one
   // non-sender can avoid waiting on the slowest observer. No failover sends.
-  Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
   Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
+  Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
   Object.freeze({ host: 'blackie.c3-soft.com', port: 64002, tls: true, label: 'blackie.c3-soft.com' }),
 ]);
 
