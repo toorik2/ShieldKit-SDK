@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ShieldKit CLI — legacy V1 plus explicit, unqualified V2 Direct local surface.
+ * ShieldKit CLI — V2 beta product, quarantined V1, and a hidden V2 developer surface.
  * Fail-closed: missing required inputs → ok:false, exit ≠ 0 (no false success).
  * Single --mode flag (setupMode). JSON errors only (no raw stacks to users).
  */
@@ -128,20 +128,6 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
   recover --bundle <your-pool> --history <json> --seed-hex <64hex>
   doctor [--pool <dir>] | profile-info | config-check | explorer
 
-  # V2 Direct local surface (explicit opt-in; final qualification is blocked)
-  wallet create|receive --protocol v2-direct
-  pool add <descriptor> --protocol v2-direct
-  sync|recover|status|doctor --protocol v2-direct
-  deposit|transfer|withdraw ... --protocol v2-direct --broadcast
-  operation resume|reconcile|rebroadcast|confirm|rebase|abandon <v2op:64-lowercase-hex> --protocol v2-direct
-  operation resume <id> [--broadcast]              # resume durable local work; no send without --broadcast
-  operation reconcile <id>                          # observe chain/delivery only; never resends
-  operation rebroadcast <id> --broadcast --attempt-token <prior-token> --acknowledgement resubmit-exact-persisted-transaction
-  operation confirm <id>                            # observe and settle an already-broadcast action
-  operation rebase <id>                             # explicit/manual retry with fresh private action
-  operation abandon <id> --reason <printable-text>  # terminal local abandonment
-  (no automatic resend, sponsor, faucet, or batching; V2 final qualification remains blocked)
-
   # Optional live demo (CLI only — not a web wallet)
   npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup
   playground doctor|tip|profile-info|request-template
@@ -150,7 +136,7 @@ Optional demo: 02-use-chipnet-demo-pool/   (live Chipnet instance)
 
 Flags:
   --version
-  --protocol v2-direct|v1-legacy
+  --protocol v1-legacy  (legacy mutation commands only)
   --network chipnet|mainnet
   --mode development-only|local-contribution-simulation
   --pool <pool-dir>   (full act / doctor preflight)
@@ -162,7 +148,30 @@ Flags:
   --allow-development-on-mainnet
 
 Fee keys: policy A feePrivateKey (desktop) · policy B feePublicKey+feeSignature
+Developer-only internals are intentionally omitted. Run: shieldkit dev --help
 Docs: 03-create-your-own-pool/docs/VERSIONING.md · UX_ADVERSARIAL_REDTEAM.md · CHARTER.md
+`);
+}
+
+function developerUsage() {
+  console.log(`ShieldKit developer surface — V2 Direct internals
+
+Explicitly unqualified · Chipnet only · not an end-user workflow
+The dev namespace implies protocol v2-direct; --protocol is forbidden here.
+
+  shieldkit dev wallet create|receive
+  shieldkit dev pool add <descriptor>
+  shieldkit dev sync|recover|status|doctor
+  shieldkit dev deposit|transfer|withdraw ... --broadcast
+  shieldkit dev operation resume <id> [--broadcast]
+  shieldkit dev operation reconcile <id>
+  shieldkit dev operation rebroadcast <id> --broadcast --attempt-token <prior-token> --acknowledgement resubmit-exact-persisted-transaction
+  shieldkit dev operation confirm <id>
+  shieldkit dev operation rebase <id>
+  shieldkit dev operation abandon <id> --reason <printable-text>
+
+No automatic resend, sponsor, faucet, or batching. Final qualification is blocked.
+Use the normal product commands for pool create, deposit, and withdraw.
 `);
 }
 
@@ -945,7 +954,28 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   process.exit(0);
 }
 
-const cliArguments = process.argv.slice(2);
+const rawCliArguments = process.argv.slice(2);
+const developerInvocation = cmd === 'dev';
+if (
+  developerInvocation
+  && (
+    rawCliArguments.length === 1
+    || ['help', '--help', '-h'].includes(rawCliArguments[1])
+  )
+) {
+  developerUsage();
+  process.exit(0);
+}
+if (developerInvocation && rawCliArguments.includes('--protocol')) {
+  failJson(
+    'DEV_PROTOCOL_OPTION_FORBIDDEN',
+    'shieldkit dev already selects the low-level v2-direct protocol; remove --protocol',
+    2,
+  );
+}
+const cliArguments = developerInvocation
+  ? [...rawCliArguments.slice(1), '--protocol', 'v2-direct']
+  : rawCliArguments;
 const protocolOptionIndexes = cliArguments
   .map((value, index) => value === '--protocol' ? index : -1)
   .filter((index) => index !== -1);
@@ -988,6 +1018,18 @@ if (
 ) {
   failJson('OPTION_VALUE_REQUIRED', '--protocol requires one value', 2);
 }
+const formerTopLevelV2Invocation = !developerInvocation && (
+  ['wallet', 'sync', 'status', 'operation'].includes(cmd)
+  || (cmd === 'pool' && process.argv[3] === 'add')
+  || explicitProtocol === 'v2-direct'
+);
+if (formerTopLevelV2Invocation && !betaProductInvocation) {
+  failJson(
+    'DEV_NAMESPACE_REQUIRED',
+    'low-level V2 Direct commands moved behind shieldkit dev; run shieldkit dev --help',
+    2,
+  );
+}
 const directMutation = ['deposit', 'transfer', 'withdraw'].includes(cmd);
 const playgroundMutation = cmd === 'playground'
   && ['deposit', 'transfer', 'withdraw'].includes(process.argv[3]);
@@ -995,10 +1037,11 @@ const legacyMutation = directMutation || playgroundMutation;
 if (legacyMutation && explicitProtocol === undefined && !betaProductInvocation) {
   failJson(
     'PROTOCOL_REQUIRED',
-    'mutation commands require --protocol v1-legacy or explicit --protocol v2-direct; V2 is not the default until qualification',
+    'legacy mutation commands require --protocol v1-legacy; low-level V2 Direct commands require shieldkit dev',
     2,
     {
-      protocols: ['v1-legacy', 'v2-direct'],
+      protocols: ['v1-legacy'],
+      developerNamespace: 'shieldkit dev',
       v2Qualification: 'blocked',
     },
   );
@@ -1076,10 +1119,7 @@ async function dispatchV2BetaProductCli() {
   }
 }
 
-const v2Dispatch = (
-  ['wallet', 'pool', 'sync', 'status', 'operation'].includes(cmd)
-  || explicitProtocol === 'v2-direct'
-);
+const v2Dispatch = developerInvocation;
 
 // playground <sub>  →  bind official Chipnet instance, run sub-verb
 if (betaProductInvocation) {

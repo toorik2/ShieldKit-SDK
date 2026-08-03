@@ -1,24 +1,28 @@
-# ShieldKit V2 Direct
+# ShieldKit
 
-This directory's active product path is the development-only V2 Direct
-surface. Read the [V2 Direct implementation plan](docs/protocol/v2-direct/IMPLEMENTATION_PLAN.md)
-before configuring a local instance or attempting an operation.
+This directory contains the explicitly unqualified V2 beta product CLI. Read
+the [V2 Direct implementation plan](docs/protocol/v2-direct/IMPLEMENTATION_PLAN.md)
+for the underlying protocol and qualification boundaries.
 
 ```bash
 npm test
 node scripts/shieldkit.mjs --help
 
-# Explicit V2 Direct local surface; final qualification remains blocked.
-node scripts/shieldkit.mjs wallet create --protocol v2-direct
-node scripts/shieldkit.mjs pool add <descriptor> --protocol v2-direct
-node scripts/shieldkit.mjs status --protocol v2-direct
-node scripts/shieldkit.mjs deposit|transfer|withdraw ... --protocol v2-direct --broadcast
+# End-user beta product surface.
+node scripts/shieldkit.mjs pool create --funding-wallet <absolute-wallet-path> --funding-utxo <txid:vout>
+node scripts/shieldkit.mjs deposit
+node scripts/shieldkit.mjs withdraw --to <bchtest-p2pkh-address>
+
+# Low-level protocol internals are hidden behind an explicit namespace.
+node scripts/shieldkit.mjs dev --help
 ```
 
 V2 Direct is unaudited, development-only work. It makes no production,
-mainnet, live-chain, BCHN, LeanBCH, or final-qualification claim. The CLI does
-not provide automatic resend, sponsor, faucet, or batching behavior; recovery
-and any broadcast remain explicit operator actions.
+mainnet, BCHN, LeanBCH, or final-qualification claim. Normal help does not list
+its low-level wallet, descriptor, synchronization, or operation-lifecycle
+commands. Those commands require the `shieldkit dev` namespace, which implies
+V2 Direct and rejects `--protocol`. The CLI does not provide automatic resend,
+sponsor, faucet, or batching behavior.
 
 The former V1 `init`/`create-pool` material is quarantined and superseded.
 Archived V1 mutation research remains available only through explicit

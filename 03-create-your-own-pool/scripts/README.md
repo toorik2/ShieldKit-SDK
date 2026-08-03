@@ -47,30 +47,36 @@ npm run test:v2:campaign:depth4
 
 The depth-4 command is the bounded structural campaign only. It is not the forbidden million-entry run and does not claim production qualification.
 
-## V2 Direct operation recovery
+## V2 Direct developer operation recovery
 
-V2 Direct is an explicit, development-only local surface; final qualification remains blocked. Every command below requires `--protocol v2-direct`, a configured V2 data directory (use `--data-dir <directory>` when it is not the default), and an operation id of the form `v2op:<64 lowercase hexadecimal characters>`.
+V2 Direct internals are an explicit, development-only surface; final
+qualification remains blocked. They are intentionally absent from normal
+product help and are available only through `shieldkit dev`. The namespace
+implies V2 Direct and rejects `--protocol`. Every recovery command requires a
+configured V2 data directory (use `--data-dir <directory>` when it is not the
+default) and an operation id of the form `v2op:<64 lowercase hexadecimal
+characters>`.
 
 ```sh
 # Resume durable local work. It proves/signs as needed, but sends nothing
 # unless --broadcast is supplied.
-node scripts/shieldkit.mjs operation resume <operation-id> --protocol v2-direct
-node scripts/shieldkit.mjs operation resume <operation-id> --protocol v2-direct --broadcast
+node scripts/shieldkit.mjs dev operation resume <operation-id>
+node scripts/shieldkit.mjs dev operation resume <operation-id> --broadcast
 
 # Observe a prior broadcast and delivery record; this never resends a transaction.
-node scripts/shieldkit.mjs operation reconcile <operation-id> --protocol v2-direct
+node scripts/shieldkit.mjs dev operation reconcile <operation-id>
 
 # Resubmit only the exact persisted transaction. Use the prior attempt token
 # reported by reconciliation/the durable delivery record, and acknowledge it verbatim.
-node scripts/shieldkit.mjs operation rebroadcast <operation-id> --protocol v2-direct \
+node scripts/shieldkit.mjs dev operation rebroadcast <operation-id> \
   --broadcast --attempt-token <prior-attempt-token> \
   --acknowledgement resubmit-exact-persisted-transaction
 
 # Observe confirmation/settlement, explicitly rebase for a manual retry, or
 # terminate the local operation with an operator-provided reason.
-node scripts/shieldkit.mjs operation confirm <operation-id> --protocol v2-direct
-node scripts/shieldkit.mjs operation rebase <operation-id> --protocol v2-direct
-node scripts/shieldkit.mjs operation abandon <operation-id> --protocol v2-direct \
+node scripts/shieldkit.mjs dev operation confirm <operation-id>
+node scripts/shieldkit.mjs dev operation rebase <operation-id>
+node scripts/shieldkit.mjs dev operation abandon <operation-id> \
   --reason 'operator cancelled after review'
 ```
 

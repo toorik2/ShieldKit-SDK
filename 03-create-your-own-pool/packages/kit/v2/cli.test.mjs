@@ -1964,7 +1964,72 @@ test('script dispatch requires explicit legacy protocol and emits the linkabilit
   assert.match(warning.warning.message, /linkable/i);
 });
 
-test('script dispatches explicit V2 status without creating its missing data directory', async (t) => {
+test('script hides low-level V2 commands from product help and exposes them only in developer help', () => {
+  const script = path.resolve(
+    import.meta.dirname,
+    '../../../scripts/shieldkit.mjs',
+  );
+  const productHelp = spawnSync(
+    process.execPath,
+    [script, '--help'],
+    { encoding: 'utf8' },
+  );
+  assert.equal(productHelp.status, 0);
+  assert.match(productHelp.stdout, /pool create/u);
+  assert.match(productHelp.stdout, /shieldkit dev --help/u);
+  assert.doesNotMatch(productHelp.stdout, /V2 Direct local surface/u);
+  assert.doesNotMatch(productHelp.stdout, /wallet create\|receive/u);
+  assert.doesNotMatch(productHelp.stdout, /--protocol v2-direct/u);
+
+  const developerHelp = spawnSync(
+    process.execPath,
+    [script, 'dev', '--help'],
+    { encoding: 'utf8' },
+  );
+  assert.equal(developerHelp.status, 0);
+  assert.match(developerHelp.stdout, /V2 Direct internals/u);
+  assert.match(developerHelp.stdout, /shieldkit dev wallet create\|receive/u);
+  assert.match(developerHelp.stdout, /shieldkit dev operation reconcile/u);
+  assert.match(developerHelp.stdout, /--protocol is forbidden/u);
+  assert.doesNotMatch(developerHelp.stdout, /pool create --funding-wallet/u);
+});
+
+test('script rejects former top-level V2 routing and an explicit protocol inside dev', () => {
+  const script = path.resolve(
+    import.meta.dirname,
+    '../../../scripts/shieldkit.mjs',
+  );
+  for (const argv of [
+    ['status', '--protocol', 'v2-direct'],
+    ['wallet', 'create'],
+    ['pool', 'add', '/tmp/descriptor.json'],
+    ['deposit', '--protocol', 'v2-direct', '--broadcast'],
+  ]) {
+    const moved = spawnSync(process.execPath, [script, ...argv], {
+      encoding: 'utf8',
+    });
+    assert.equal(moved.status, 2);
+    assert.equal(
+      JSON.parse(moved.stdout).error.code,
+      'DEV_NAMESPACE_REQUIRED',
+    );
+    assert.equal(moved.stderr, '');
+  }
+
+  const duplicateSelection = spawnSync(
+    process.execPath,
+    [script, 'dev', 'status', '--protocol', 'v2-direct'],
+    { encoding: 'utf8' },
+  );
+  assert.equal(duplicateSelection.status, 2);
+  assert.equal(
+    JSON.parse(duplicateSelection.stdout).error.code,
+    'DEV_PROTOCOL_OPTION_FORBIDDEN',
+  );
+  assert.equal(duplicateSelection.stderr, '');
+});
+
+test('script dispatches developer V2 status without creating its missing data directory', async (t) => {
   const root = await createTestRoot('shieldkit-v2-cli-script-');
   t.after(async () => {
     const { rm } = await import('node:fs/promises');
@@ -1979,9 +2044,8 @@ test('script dispatches explicit V2 status without creating its missing data dir
     process.execPath,
     [
       script,
+      'dev',
       'status',
-      '--protocol',
-      'v2-direct',
       '--data-dir',
       dataDirectory,
     ],

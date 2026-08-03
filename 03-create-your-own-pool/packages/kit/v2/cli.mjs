@@ -333,13 +333,13 @@ export function parseV2CliArguments(argv) {
   let rest;
   if (top === 'wallet') {
     if (!['create', 'receive'].includes(argv[1])) {
-      fail('CLI_USAGE', 'usage: shieldkit wallet create|receive');
+      fail('CLI_USAGE', 'usage: shieldkit dev wallet create|receive');
     }
     command = `wallet.${argv[1]}`;
     rest = argv.slice(2);
   } else if (top === 'pool') {
     if (argv[1] !== 'add') {
-      fail('CLI_USAGE', 'usage: shieldkit pool add <descriptor>');
+      fail('CLI_USAGE', 'usage: shieldkit dev pool add <descriptor>');
     }
     command = 'pool.add';
     rest = argv.slice(2);
@@ -347,7 +347,7 @@ export function parseV2CliArguments(argv) {
     if (!OPERATION_COMMANDS.has(argv[1])) {
       fail(
         'CLI_USAGE',
-        'usage: shieldkit operation abandon|confirm|rebase|rebroadcast|reconcile|resume <operation-id>',
+        'usage: shieldkit dev operation abandon|confirm|rebase|rebroadcast|reconcile|resume <operation-id>',
       );
     }
     command = `operation.${argv[1]}`;
@@ -368,13 +368,13 @@ export function parseV2CliArguments(argv) {
     expectPositionals(
       parsed,
       1,
-      'shieldkit pool add <descriptor> --protocol v2-direct',
+      'shieldkit dev pool add <descriptor>',
     );
   } else if (command.startsWith('operation.')) {
     expectPositionals(
       parsed,
       1,
-      `shieldkit ${command.replace('.', ' ')} <operation-id>`,
+      `shieldkit dev ${command.replace('.', ' ')} <operation-id>`,
     );
     if (!/^v2op:[0-9a-f]{64}$/.test(parsed.positionals[0])) {
       fail(
@@ -383,7 +383,7 @@ export function parseV2CliArguments(argv) {
       );
     }
   } else {
-    expectPositionals(parsed, 0, `shieldkit ${command.replace('.', ' ')}`);
+    expectPositionals(parsed, 0, `shieldkit dev ${command.replace('.', ' ')}`);
   }
   return Object.freeze({
     command,
@@ -396,8 +396,8 @@ export function parseV2CliArguments(argv) {
 }
 
 /**
- * Identify commands which belong to the V2 surface. Mutation verbs are routed
- * here only with an explicit V2 protocol; the script separately guards V1.
+ * Identify commands which belong to the internal V2 surface. The public script
+ * invokes this only through `shieldkit dev` and supplies the protocol marker.
  */
 export function isV2CliInvocation(argv) {
   if (!Array.isArray(argv) || argv.length === 0) return false;
@@ -414,7 +414,7 @@ function requireV2Protocol(options) {
   if (protocol === undefined) {
     fail(
       'V2_DEFAULT_NOT_QUALIFIED',
-      'V2 Direct is not the default because final qualification gates are not complete; pass --protocol v2-direct for this development-only local surface',
+      'V2 Direct is not the default because final qualification gates are not complete; use shieldkit dev for this development-only local surface',
       {
         details: {
           defaultProtocol: null,

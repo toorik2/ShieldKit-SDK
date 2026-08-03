@@ -603,22 +603,39 @@ Recovery rules:
 
 ### CLI
 
+The normal explicitly unqualified beta product surface is deliberately small:
+
 ```text
-shieldkit wallet create
-shieldkit wallet receive
-shieldkit pool add <descriptor>
-shieldkit sync
-shieldkit deposit --to <shield-address> --broadcast
-shieldkit transfer --note <id> --to <shield-address> --broadcast
-shieldkit withdraw --note <id> --to <cashaddr> --broadcast
-shieldkit recover
-shieldkit status
-shieldkit doctor
+shieldkit pool create --funding-wallet <absolute-wallet-path> --funding-utxo <txid:vout>
+shieldkit pool add-funding --funding-utxo <txid:vout>
+shieldkit deposit
+shieldkit withdraw --to <cashaddr>
+shieldkit recovery inspect|rebroadcast ...
+```
+
+Until final qualification and an explicit promotion decision, the lower-level
+protocol controls are hidden from normal help and require `shieldkit dev`:
+
+```text
+shieldkit dev wallet create
+shieldkit dev wallet receive
+shieldkit dev pool add <descriptor>
+shieldkit dev sync
+shieldkit dev deposit --to <shield-address> --broadcast
+shieldkit dev transfer --note <id> --to <shield-address> --broadcast
+shieldkit dev withdraw --note <id> --to <cashaddr> --broadcast
+shieldkit dev recover
+shieldkit dev status
+shieldkit dev doctor
 ```
 
 `wallet receive` only shows the address, required UTXO size, and observed balance. It contains no faucet integration or recommendation.
 
-After qualification, V2 Direct becomes the default. V1 mutations require `--protocol v1-legacy` plus an explicit linkability warning.
+The `dev` namespace implies `v2-direct` internally and rejects `--protocol`.
+Former top-level `--protocol v2-direct` commands fail with a migration error.
+After qualification, any promotion of low-level controls requires an explicit
+product decision. V1 mutations require `--protocol v1-legacy` plus an explicit
+linkability warning.
 
 ## 4. Implementation sequence
 

@@ -18,15 +18,20 @@ V2 workflow.
 | **Withdraw** | Unshield one of *your* notes to an address |
 | **Backup** | Keep `state.json` / encrypted note wallet safe |
 
-You do **not** manage fee coin inventories, densFuel, or ECIP by hand — the client handles tip sync and fees.
+You provide owned funding UTXOs; the client authenticates and tracks them,
+handles tip synchronization and fees, and never puts a private key on the
+command line. Consecutive actions require two alternating independent fee
+UTXOs because an action's change transaction is also the current pool tip.
 
 ## Current V2 status
 
-The V2 CLI is an explicit `--protocol v2-direct` development-only surface.
-It is not the default, has no public clean-machine qualification, and must not
-be represented as a public live-pool path. V1 material is distinct and requires
-an explicit `--protocol v1-legacy` mutation invocation with its linkability
-warning; it cannot create or migrate V2 state or artifacts.
+The normal CLI exposes only the explicitly unqualified V2 beta product flow:
+`pool create`, `pool add-funding`, `deposit`, `withdraw`, and bounded recovery.
+Low-level V2 Direct controls are absent from normal help and require the
+unmistakable `shieldkit dev` namespace. That namespace implies V2 Direct and
+rejects `--protocol`; it is not an alternative end-user workflow. V1 material
+is distinct and requires an explicit `--protocol v1-legacy` mutation invocation
+with its linkability warning; it cannot create or migrate V2 state or artifacts.
 
 ## Backup
 
