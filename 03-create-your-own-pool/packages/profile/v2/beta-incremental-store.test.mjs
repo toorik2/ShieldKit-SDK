@@ -195,6 +195,35 @@ test("beta bootstrap funding rolls back every new reserve if one existing row co
   assert.equal(remaining[0].valueSats, "999999");
 }));
 
+test("post-bootstrap funding admission is idempotent and atomic with the active-operation gate", () => withStore(({ store }) => {
+  initialize(store);
+  const admitted = { txid: b(0x73), vout: 2, valueSats: "12000000" };
+  assert.deepEqual(store.admitAvailableFundingUtxo(admitted), { added: true });
+  assert.deepEqual(store.admitAvailableFundingUtxo(admitted), { added: false });
+  assert.throws(
+    () => store.admitAvailableFundingUtxo({ ...admitted, valueSats: "12000001" }),
+    V2BetaIncrementalStoreError,
+  );
+  const reserved = { txid: b(0x74), vout: 0, valueSats: "20000000" };
+  store.putFundingUtxo(reserved);
+  store.reserveOperation({
+    operationId: "funding-admission-race",
+    kind: "deposit",
+    selectedNoteId: null,
+    funding: { txid: reserved.txid, vout: reserved.vout },
+  });
+  assert.throws(
+    () => store.admitAvailableFundingUtxo({ txid: b(0x75), vout: 1, valueSats: "13000000" }),
+    V2BetaIncrementalStoreError,
+  );
+  assert.equal(store.availableFundingUtxos().some(entry => entry.txid.equals(b(0x75))), false);
+  store.rollbackActiveSuffix({ operationId: "funding-admission-race" });
+  assert.deepEqual(
+    store.admitAvailableFundingUtxo({ txid: b(0x75), vout: 1, valueSats: "13000000" }),
+    { added: true },
+  );
+}));
+
 test("beta store only migrates a legacy schema when it is uninitialized", () => {
   const root = mkdtempSync(join(tmpdir(), "shieldkit-beta-migration-"));
   const databasePath = join(root, "private", "store.sqlite");

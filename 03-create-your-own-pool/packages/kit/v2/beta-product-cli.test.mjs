@@ -13,6 +13,11 @@ import {
 function dependencies(events) {
   return {
     createRpc: async () => { events.push('rpc'); return { branded: true }; },
+    fundingAdd: async value => ({
+      status: 'funding-utxo-registered-beta-unqualified',
+      fundingUtxo: { txid: '55'.repeat(32), vout: 1, valueSats: '12000000' },
+      timingsMs: { commandTotal: 2 }, input: value,
+    }),
     loadConfig: () => { events.push('config'); return { config: { persisted: true } }; },
     toContextConfig: () => ({ context: true }),
     deposit: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '11'.repeat(32), timingsMs: { commandTotal: 4 }, input: value }),
@@ -132,6 +137,7 @@ test('a still-indeterminate fresh readback reports the durable operation and tra
 test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['pool', 'create']), true);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'refresh-runtime']), true);
+  assert.equal(isV2BetaProductCliInvocation(['pool', 'add-funding']), true);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'prepare']), false);
   assert.equal(isV2BetaProductCliInvocation(['deposit']), true);
   assert.equal(isV2BetaProductCliInvocation(['withdraw', '--to', 'x']), true);
@@ -139,6 +145,31 @@ test('recognizes only the new exact product invocations', () => {
   assert.equal(isV2BetaProductCliInvocation(['recovery', 'rebroadcast']), true);
   assert.equal(isV2BetaProductCliInvocation(['deposit', '--protocol', 'v1-legacy']), false);
   assert.equal(isV2BetaProductCliInvocation(['pool', 'add']), false);
+});
+
+test('registers one exact existing funding outpoint through a non-action network command', async () => {
+  const events = [];
+  const txid = '55'.repeat(32);
+  const added = await executeV2BetaProductCliForTest(
+    ['pool', 'add-funding', '--funding-utxo', `${txid}:1`, '--data-home', '/tmp/shieldkit-test'],
+    dependencies(events),
+  );
+  assert.equal(added.command, 'pool-add-funding');
+  assert.deepEqual(added.result.input.fundingUtxo, `${txid}:1`);
+  assert.deepEqual(added.result.input.config, { context: true });
+  assert.equal(added.result.input.rpc.branded, true);
+  assert.deepEqual(events, ['config', 'rpc']);
+  assert.match(renderV2BetaProductCliHuman(added), /broadcast: false/u);
+  for (const argv of [
+    ['pool', 'add-funding'],
+    ['pool', 'add-funding', '--funding-utxo', `${txid}:01`],
+    ['pool', 'add-funding', '--funding-utxo', `${txid}:1`, '--funding-wallet', '/tmp/key.json'],
+  ]) {
+    await assert.rejects(
+      executeV2BetaProductCliForTest(argv, dependencies([])),
+      error => error instanceof V2BetaProductCliError,
+    );
+  }
 });
 
 test('dispatches local runtime refresh without loading a Chipnet product capability or action context', async () => {

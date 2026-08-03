@@ -303,6 +303,23 @@ export class V2BetaIncrementalStore {
   putEncryptedRecord({ recordId, record }) { return this.#tx((db) => { const id = text(recordId, "recordId"); const bytes = blob(record, 128, "record"); const old = db.prepare("SELECT record_bytes FROM encrypted_note_records WHERE record_id=?").get(id); if (old && !same(old.record_bytes, bytes)) fail("encrypted record id is immutable"); db.prepare("INSERT INTO encrypted_note_records VALUES(?,?) ON CONFLICT(record_id) DO NOTHING").run(id, bytes); }); }
   putOwnedNote({ noteId, recordId, noteIndex, nullifier }) { return this.#tx((db) => { const id = text(noteId, "noteId"); const record = text(recordId, "recordId"); if (!db.prepare("SELECT 1 FROM encrypted_note_records WHERE record_id=?").get(record)) fail("owned note record is absent"); const index = integer(noteIndex, 0, 0xffff_ffff, "noteIndex"); const key = fr(nullifier, "nullifier"); const old = db.prepare("SELECT * FROM owned_notes WHERE note_id=?").get(id); if (old && (old.record_id !== record || old.note_index !== index || !same(old.nullifier_key, key))) fail("owned note is immutable"); db.prepare("INSERT INTO owned_notes VALUES(?,?,?,?,NULL,0) ON CONFLICT(note_id) DO NOTHING").run(id, record, index, key); }); }
   putFundingUtxo({ txid, vout, valueSats }) { return this.#tx((db) => { const id = blob(txid, 32, "funding txid"); const output = integer(vout, 0, 0xffff_ffff, "funding vout"); const value = money(valueSats, "funding valueSats"); const old = db.prepare("SELECT * FROM funding_utxos WHERE txid=? AND vout=?").get(id, output); if (old && old.value_sats !== value) fail("funding UTXO is immutable"); db.prepare("INSERT INTO funding_utxos VALUES(?,?,?,NULL,0) ON CONFLICT(txid,vout) DO NOTHING").run(id, output, value); }); }
+  admitAvailableFundingUtxo({ txid, vout, valueSats }) {
+    return this.#tx((db) => {
+      const id = blob(txid, 32, "funding txid");
+      const output = integer(vout, 0, 0xffff_ffff, "funding vout");
+      const value = money(valueSats, "funding valueSats");
+      if (db.prepare("SELECT 1 FROM operations WHERE state IN('reserved','staged') OR (state='accepted_zero_conf' AND local_wallet_commit_complete=0)").get()) {
+        fail("funding inventory cannot change while a beta operation is active");
+      }
+      const old = db.prepare("SELECT * FROM funding_utxos WHERE txid=? AND vout=?").get(id, output);
+      if (old && old.value_sats !== value) fail("funding UTXO is immutable");
+      if (old && (old.spent !== 0 || old.reservation_operation_id !== null)) {
+        fail("funding UTXO is already spent or reserved");
+      }
+      if (!old) db.prepare("INSERT INTO funding_utxos VALUES(?,?,?,NULL,0)").run(id, output, value);
+      return Object.freeze({ added: old === undefined });
+    });
+  }
   initializeBootstrapFunding(value) {
     const input = exact(value, ["sourceTransactionId", "utxos"], "bootstrap funding initialization");
     const sourceTransactionId = blob(input.sourceTransactionId, 32, "bootstrap funding sourceTransactionId");

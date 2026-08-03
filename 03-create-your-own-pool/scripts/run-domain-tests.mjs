@@ -117,6 +117,7 @@ const BETA_PRODUCT_PORTABLE_SECURITY_TESTS = new Map([
   ['packages/kit/v2/beta-product-commands.test.mjs', 'product command boundary test'],
   ['packages/kit/v2/beta-product-config.test.mjs', 'product private configuration test'],
   ['packages/kit/v2/beta-product-context.test.mjs', 'product receipt-bound context test'],
+  ['packages/kit/v2/beta-product-funding-add.test.mjs', 'product authenticated funding admission test'],
   ['packages/kit/v2/beta-product-pool-create-action-store.test.mjs', 'product pool-create action-store test'],
   ['packages/kit/v2/beta-product-pool-create-journal.test.mjs', 'product pool-create journal test'],
   ['packages/kit/v2/beta-product-pool-create.test.mjs', 'product pool-create test'],

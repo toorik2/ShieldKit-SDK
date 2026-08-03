@@ -12,6 +12,7 @@ import {
   inspectV2BetaProductRecovery,
   executeV2BetaProductWithdrawal,
 } from './beta-product-commands.mjs';
+import { addV2BetaProductFundingUtxo } from './beta-product-funding-add.mjs';
 
 export const V2_BETA_PRODUCT_CLI_SCHEMA =
   'shieldkit-v2-beta-product-cli-result-v1';
@@ -89,6 +90,9 @@ function parse(tokens) {
   } else if (positionals.length === 2 && positionals[0] === 'pool'
     && positionals[1] === 'refresh-runtime') {
     command = 'pool-refresh-runtime';
+  } else if (positionals.length === 2 && positionals[0] === 'pool'
+    && positionals[1] === 'add-funding') {
+    command = 'pool-add-funding';
   } else if (positionals.length === 1 && ['deposit', 'withdraw'].includes(positionals[0])) {
     command = positionals[0];
   } else if (positionals.length === 2
@@ -98,7 +102,7 @@ function parse(tokens) {
     && positionals[0] === 'recovery' && positionals[1] === 'inspect') {
     command = 'recovery-inspect';
   } else {
-    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, pool refresh-runtime, deposit, withdraw, recovery inspect, or recovery rebroadcast');
+    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, pool refresh-runtime, pool add-funding, deposit, withdraw, recovery inspect, or recovery rebroadcast');
   }
   const allowed = command === 'withdraw'
     ? new Set(['data-home', 'human', 'json', 'note', 'operation-id', 'to'])
@@ -108,6 +112,8 @@ function parse(tokens) {
         ? new Set(['data-home', 'funding-utxo', 'funding-wallet', 'human', 'json', 'resume'])
         : command === 'pool-refresh-runtime'
           ? new Set(['data-home', 'human', 'json'])
+        : command === 'pool-add-funding'
+          ? new Set(['data-home', 'funding-utxo', 'human', 'json'])
         : command === 'recovery-inspect'
           ? new Set(['data-home', 'human', 'json', 'operation-id'])
           : new Set([
@@ -139,12 +145,16 @@ function parse(tokens) {
   if (command === 'recovery-inspect' && options['operation-id'] === undefined) {
     fail('BETA_RECOVERY_INSPECT_OPERATION_REQUIRED', 'recovery inspect requires --operation-id');
   }
+  if (command === 'pool-add-funding' && options['funding-utxo'] === undefined) {
+    fail('BETA_CLI_FUNDING_UTXO_REQUIRED', 'pool add-funding requires --funding-utxo <txid:vout>');
+  }
   if (options['data-home'] !== undefined
     && (!path.isAbsolute(options['data-home'])
       || path.normalize(options['data-home']) !== options['data-home'])) {
       fail('BETA_CLI_DATA_HOME_REJECTED', '--data-home must be a normalized absolute path');
   }
-  const directFunding = options['funding-wallet'] !== undefined || options['funding-utxo'] !== undefined;
+  const directFunding = command === 'pool-create'
+    && (options['funding-wallet'] !== undefined || options['funding-utxo'] !== undefined);
   if (directFunding && (options['funding-wallet'] === undefined || options['funding-utxo'] === undefined)) {
     fail('BETA_CLI_USER_FUNDING_REQUIRED', 'pool create requires both --funding-wallet and --funding-utxo');
   }
@@ -179,6 +189,7 @@ export function isV2BetaProductCliInvocation(tokens) {
   if (!Array.isArray(tokens)) return false;
   return (tokens[0] === 'pool' && tokens[1] === 'create')
     || (tokens[0] === 'pool' && tokens[1] === 'refresh-runtime')
+    || (tokens[0] === 'pool' && tokens[1] === 'add-funding')
     || (tokens[0] === 'recovery' && tokens[1] === 'rebroadcast')
     || (tokens[0] === 'recovery' && tokens[1] === 'inspect')
     || (['deposit', 'withdraw'].includes(tokens[0])
@@ -188,6 +199,7 @@ export function isV2BetaProductCliInvocation(tokens) {
 function productionDependencies() {
   return Object.freeze({
     createRpc: createPublicChipnetFulcrumRpc,
+    fundingAdd: addV2BetaProductFundingUtxo,
     loadConfig: loadV2BetaProductConfig,
     toContextConfig: toV2BetaProductContextConfig,
     deposit: executeV2BetaProductDeposit,
@@ -207,7 +219,7 @@ function productionDependencies() {
 
 function dependenciesForTest(value) {
   const names = [
-    'createRpc', 'deposit', 'inspectRecovery', 'loadConfig', 'poolCreate', 'recovery',
+    'createRpc', 'deposit', 'fundingAdd', 'inspectRecovery', 'loadConfig', 'poolCreate', 'recovery',
     'refreshRuntime',
     'toContextConfig', 'withdrawal',
   ];
@@ -247,7 +259,13 @@ async function execute(tokens, dependencies) {
     const loaded = await dependencies.loadConfig(dataHome === undefined ? {} : { dataHome });
     const config = dependencies.toContextConfig(loaded.config);
     let rpc = await dependencies.createRpc();
-    const executeNetworkCommand = async (operationIdOverride = undefined) => request.command === 'deposit'
+    const executeNetworkCommand = async (operationIdOverride = undefined) => request.command === 'pool-add-funding'
+      ? dependencies.fundingAdd({
+        config,
+        fundingUtxo: request.options['funding-utxo'],
+        rpc,
+      })
+      : request.command === 'deposit'
       ? dependencies.deposit({
         config,
         rpc,
@@ -382,6 +400,15 @@ export function renderV2BetaProductCliHuman(envelope) {
       `ShieldKit V2 beta runtime: ${result.status}`,
       `instance: ${result.instanceId}`,
       `cache installed: ${String(result.cacheInstalled)}`,
+      `total: ${Number(result.timingsMs?.commandTotal).toFixed(1)} ms`,
+    ].join('\n');
+  }
+  if (envelope.command === 'pool-add-funding') {
+    return [
+      `ShieldKit V2 beta funding: ${result.status}`,
+      `outpoint: ${result.fundingUtxo.txid}:${result.fundingUtxo.vout}`,
+      `value: ${result.fundingUtxo.valueSats} sats`,
+      `broadcast: false; production qualified: false`,
       `total: ${Number(result.timingsMs?.commandTotal).toFixed(1)} ms`,
     ].join('\n');
   }
