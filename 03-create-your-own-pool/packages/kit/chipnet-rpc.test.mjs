@@ -600,6 +600,53 @@ test('three-provider admission stays indeterminate if either read-only witness l
   rpc.close();
 });
 
+test('three-provider witness polling keeps the pre-verified read-only sessions instead of reconnecting them', async () => {
+  const fixture = publicElectrumFixture();
+  const endpoints = Object.freeze([
+    ...fixture.endpoints,
+    Object.freeze({ host: 'three.example', port: 50002, tls: true }),
+  ]);
+  const opens = new Map();
+  const rawAttempts = new Map();
+  const openSession = async (endpoint) => {
+    opens.set(endpoint.host, (opens.get(endpoint.host) ?? 0) + 1);
+    const session = await fixture.openSession(endpoint);
+    return Object.freeze({
+      async request(method, params) {
+        if (method === 'blockchain.transaction.get' && endpoint.host !== 'one.example') {
+          const attempts = (rawAttempts.get(endpoint.host) ?? 0) + 1;
+          rawAttempts.set(endpoint.host, attempts);
+          if (attempts === 1) throw new Error('not propagated yet');
+        }
+        return session.request(method, params);
+      },
+      close: session.close,
+    });
+  };
+  const rpc = await createPublicChipnetFulcrumRpcForTest({
+    endpoints,
+    openSession,
+    postBroadcastReadbackAttempts: 2,
+    postBroadcastReadbackDelayMs: 0,
+  });
+  const result = await rpc.submitV2SinglePassAdmission(
+    fixture.transaction.raw,
+    fixture.transaction.transactionId,
+    0,
+  );
+  assert.equal(result.transactionId, fixture.transaction.transactionId);
+  assert.deepEqual(Object.fromEntries(opens), {
+    'one.example': 1,
+    'two.example': 1,
+    'three.example': 1,
+  });
+  assert.deepEqual(Object.fromEntries(rawAttempts), {
+    'two.example': 2,
+    'three.example': 2,
+  });
+  rpc.close();
+});
+
 test('public product transport uses listunspent only for pre-1.5 negotiated providers and derives token state from raw bytes', async () => {
   const fixture = publicElectrumFixture({ negotiatedVersion: '1.4' });
   const rpc = await createPublicChipnetFulcrumRpcForTest(fixture);

@@ -1121,7 +1121,7 @@ async function createPublicBchnChipnetRpcInternal({
     rawReadbacks.set(transactionId, pending);
     return pending;
   };
-  const resolvePostBroadcast = async (readback) => {
+  const resolvePostBroadcast = async (readback, { reconnectAfterFirstFailure = true } = {}) => {
     let lastError;
     let readbackSessions = sessions;
     let replacementSessions;
@@ -1134,7 +1134,7 @@ async function createPublicBchnChipnetRpcInternal({
         // can retain a stale backend view. Reconnect all pinned providers
         // once, read-only, then continue polling those fresh sessions. This
         // never changes the primary endpoint and can never send a second copy.
-        if (attempt === 0) {
+        if (attempt === 0 && reconnectAfterFirstFailure) {
           try {
             replacementSessions = await connectPair();
             readbackSessions = replacementSessions;
@@ -1260,7 +1260,7 @@ async function createPublicBchnChipnetRpcInternal({
             expectedTransactionId,
             outputIndex,
           );
-        }).then(
+        }, { reconnectAfterFirstFailure: false }).then(
           (readback) => Object.freeze({ kind: 'witness', readback }),
           (error) => Object.freeze({ kind: 'witness-error', error }),
         );
