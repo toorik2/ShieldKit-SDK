@@ -506,7 +506,7 @@ test('public product transport pre-verifies two TLS/genesis-pinned providers, br
   );
 });
 
-test('three-provider product admission resolves from two read-only witnesses without waiting for the broadcaster response', async () => {
+test('three-provider product admission resolves from a two-provider exact-readback quorum without waiting for the broadcaster response', async () => {
   const fixture = publicElectrumFixture();
   const endpoints = Object.freeze([
     ...fixture.endpoints,
@@ -565,7 +565,7 @@ test('three-provider product admission resolves from two read-only witnesses wit
       && call.method === 'blockchain.utxo.get_info'), true);
   }
   assert.equal(fixture.calls.some((call) => call.host === 'one.example'
-    && call.method === 'blockchain.transaction.get'), false);
+    && call.method === 'blockchain.transaction.get'), true);
   assert.equal(broadcastCalls, 1);
   releaseBroadcast();
   await new Promise((resolve) => setImmediate(resolve));
@@ -573,10 +573,10 @@ test('three-provider product admission resolves from two read-only witnesses wit
   rpc.close();
 });
 
-test('three-provider admission stays indeterminate if either read-only witness lacks exact visibility after an ambiguous send', async () => {
+test('three-provider admission stays indeterminate when fewer than two providers have exact visibility', async () => {
   const fixture = publicElectrumFixture({
     broadcastError: new Error('transport lost'),
-    outputInfoByHost: { 'three.example': null },
+    outputInfoByHost: { 'one.example': null, 'three.example': null },
   });
   const rpc = await createPublicChipnetFulcrumRpcForTest({
     ...fixture,

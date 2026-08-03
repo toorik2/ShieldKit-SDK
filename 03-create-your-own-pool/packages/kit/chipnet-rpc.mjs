@@ -34,11 +34,11 @@ export const MAINNET_GENESIS_HASH =
 
 /** Public Fulcrum (Electrum) Chipnet endpoints — TLS, no auth. */
 export const PUBLIC_CHIPNET_ELECTRUM = Object.freeze([
-  // Ordered roles: the first provider receives the sole broadcast; the
-  // remaining two independently attest exact raw bytes and the successor
-  // output. Keeping both non-broadcasting witnesses off the mutation path
-  // lets an exact two-provider observation resolve an ambiguous or slow
-  // primary response without ever sending the transaction again.
+  // Ordered roles: the first provider receives the sole broadcast; all three
+  // may then serve read-only exact transaction/state observations. Any two
+  // identical observations form the completion quorum, so either both
+  // non-senders can resolve a slow/ambiguous primary or the sender and one
+  // non-sender can avoid waiting on the slowest observer. No failover sends.
   Object.freeze({ host: 'chipnet.imaginary.cash', port: 50002, tls: true, label: 'chipnet.imaginary.cash' }),
   Object.freeze({ host: 'chipnet.bch.ninja', port: 50002, tls: true, label: 'chipnet.bch.ninja' }),
   Object.freeze({ host: 'blackie.c3-soft.com', port: 64002, tls: true, label: 'blackie.c3-soft.com' }),
@@ -1018,6 +1018,77 @@ async function publicElectrumStateReadback(
   return readbacks[0];
 }
 
+async function publicElectrumStateReadbackQuorum(
+  entries,
+  transactionId,
+  outputIndex,
+  expectedRawTransactionHex,
+  { attempts, delayMs },
+) {
+  if (!Array.isArray(entries) || entries.length < 3
+    || !Number.isSafeInteger(attempts) || attempts < 1
+    || !Number.isSafeInteger(delayMs) || delayMs < 0) {
+    throw new Error('public Chipnet exact-readback quorum policy is invalid');
+  }
+  let settled = false;
+  let completed = 0;
+  const groups = new Map();
+  const failures = [];
+  const poll = async (entry) => {
+    let lastError;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if (settled) return null;
+      try {
+        const readback = await publicElectrumOutputReadback(
+          entry,
+          transactionId,
+          outputIndex,
+        );
+        if (readback.rawTransactionHex !== expectedRawTransactionHex) {
+          throw new Error('public Chipnet provider returned different exact transaction bytes');
+        }
+        return readback;
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt + 1 < attempts && delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    throw lastError ?? new Error('public Chipnet exact-readback provider is unavailable');
+  };
+  return new Promise((resolve, reject) => {
+    for (const entry of entries) {
+      poll(entry).then((readback) => {
+        completed += 1;
+        if (settled || readback === null) return;
+        const key = JSON.stringify(readback.stateOutput);
+        const group = groups.get(key) ?? [];
+        group.push(readback);
+        groups.set(key, group);
+        if (group.length >= 2) {
+          settled = true;
+          resolve(group[0]);
+          return;
+        }
+        if (completed === entries.length) {
+          settled = true;
+          reject(new Error('fewer than two public Chipnet providers agree on exact zero-conf state'));
+        }
+      }, (error) => {
+        completed += 1;
+        failures.push(error);
+        if (!settled && completed === entries.length) {
+          settled = true;
+          reject(new Error('fewer than two public Chipnet providers expose the exact zero-conf transaction and state', {
+            cause: failures[0],
+          }));
+        }
+      });
+    }
+  });
+}
+
 async function createPublicBchnChipnetRpcInternal({
   endpoints,
   openSession,
@@ -1232,12 +1303,14 @@ async function createPublicBchnChipnetRpcInternal({
       methodCounts.sendrawtransaction += 1;
 
       // Production pins three independently operated providers: one receives
-      // the sole mutation, while two read-only witnesses observe the exact
-      // transaction and output concurrently. The broadcast request is issued
-      // first (and writes synchronously to its established TLS session) before
-      // either witness is queried. If both witnesses see the exact bytes and
-      // successor output, zero-conf visibility is established even while the
-      // primary's response remains slow or ambiguous. No observer can send.
+      // the sole mutation, then all three are read-only observers. The
+      // broadcast request is issued first (and writes synchronously to its
+      // established TLS session) before any readback is queried. Any two
+      // providers must independently expose the exact transaction and agree
+      // on the live successor output. A slow sender therefore cannot block the
+      // two non-senders, and a slow non-sender is not on the critical path
+      // when the sender and other witness provide the same exact readback.
+      // No observer route can send.
       //
       // The two-provider test seam retains the older sequential trust split:
       // a successful primary response plus one independent readback, or dual
@@ -1251,18 +1324,15 @@ async function createPublicBchnChipnetRpcInternal({
         );
         methodCounts.getrawtransaction += 1;
         methodCounts.gettxout += 1;
-        const witnessOutcome = resolvePostBroadcast((readbackSessions) => {
-          if (readbackSessions.length < 3) {
-            throw new Error('two independent non-broadcasting Chipnet witnesses are required');
-          }
-          return publicElectrumStateReadback(
-            readbackSessions.slice(1),
-            expectedTransactionId,
-            outputIndex,
-          );
-        }, { reconnectAfterFirstFailure: false }).then(
-          (readback) => Object.freeze({ kind: 'witness', readback }),
-          (error) => Object.freeze({ kind: 'witness-error', error }),
+        const quorumOutcome = publicElectrumStateReadbackQuorum(
+          sessions,
+          expectedTransactionId,
+          outputIndex,
+          rawTransactionHex,
+          {
+            attempts: postBroadcastReadbackAttempts,
+            delayMs: postBroadcastReadbackDelayMs,
+          },
         );
         const witnessedResult = (readback) => {
           if (readback.rawTransactionHex !== rawTransactionHex) {
@@ -1277,38 +1347,15 @@ async function createPublicBchnChipnetRpcInternal({
             stateOutput: readback.stateOutput,
           });
         };
-        const first = await Promise.race([broadcastOutcome, witnessOutcome]);
-        if (first.kind === 'witness') {
-          return witnessedResult(first.readback);
-        }
-        if (first.kind === 'broadcast') {
-          if (typeof first.transactionId !== 'string'
-            || first.transactionId.toLowerCase() !== expectedTransactionId) {
-            throw new Error('public Chipnet broadcast returned a mismatched transaction id');
-          }
-          const witnessed = await witnessOutcome;
-          if (witnessed.kind === 'witness') return witnessedResult(witnessed.readback);
-          throw new Error('independent public Chipnet witness readback is unavailable', {
-            cause: witnessed.error,
+        let readback;
+        try { readback = await quorumOutcome; }
+        catch (error) {
+          throw new Error('public Chipnet broadcast outcome is indeterminate without a two-provider exact-readback quorum', {
+            cause: error,
           });
         }
-        if (first.kind === 'broadcast-error') {
-          const witnessed = await witnessOutcome;
-          if (witnessed.kind === 'witness') return witnessedResult(witnessed.readback);
-          throw new Error('public Chipnet broadcast outcome is indeterminate', {
-            cause: first.error,
-          });
-        }
-        const sent = await broadcastOutcome;
-        if (sent.kind !== 'broadcast' || typeof sent.transactionId !== 'string'
-          || sent.transactionId.toLowerCase() !== expectedTransactionId) {
-          throw new Error('public Chipnet broadcast outcome is indeterminate', {
-            cause: sent.error ?? first.error,
-          });
-        }
-        throw new Error('independent public Chipnet witness readback is unavailable', {
-          cause: first.error,
-        });
+        void broadcastOutcome;
+        return witnessedResult(readback);
       }
 
       let transactionId;
