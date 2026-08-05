@@ -1,0 +1,7 @@
+[
+  "./evidence/refinement/blob.json",
+  "./evidence/refinement/deepquery.json",
+  "./evidence/refinement/aggFRI.json",
+  "./evidence/refinement/comp_trans.json",
+  "./evidence/refinement/comp_final.json"
+]

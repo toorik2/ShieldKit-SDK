@@ -1,0 +1,33 @@
+{
+  "workers": 8,
+  "counts": {
+    "field": 1600,
+    "poseidon": 289,
+    "merkle": 212,
+    "fri": 400,
+    "verify": 13,
+    "statement": 2,
+    "product_kinds": 3,
+    "product_mutations": 6,
+    "stark_prod_proofs": 3
+  },
+  "production": {
+    "blowup": 2048,
+    "queries": 8,
+    "grindBits": 24,
+    "fold": 8
+  },
+  "multi_proof": {
+    "stark_ct": [
+      "vectors/verify/prod_proof_d1.json",
+      "vectors/verify/prod_proof_d2.json",
+      "vectors/verify/prod_proof_d3.json"
+    ],
+    "product_kinds": [
+      "deposit",
+      "transfer",
+      "withdrawal"
+    ],
+    "notes": "All three STARK proofs: blowup=2048 nq=8 grind=24 fold_step=8 deep=True; pure/full IR primary still d2"
+  }
+}

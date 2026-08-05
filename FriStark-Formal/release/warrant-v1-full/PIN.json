@@ -1,0 +1,39 @@
+{
+  "name": "warrant-v1-full",
+  "warrant_content_pin": "03e5fd5a409bf0bb6c1845ab1bb40092f5f2f81a",
+  "phases_0_3_floor_pin": "f867782381e609a60288682718cce8534a3142ba",
+  "toolchain": "leanprover/lean4:v4.31.0",
+  "params": {
+    "BLOWUP": 2048,
+    "QUERIES": 8,
+    "GRIND_BITS": 24,
+    "FOLD": 8,
+    "SECURITY_BITS": 104
+  },
+  "residual": {
+    "eternal_literature": [
+      "CapacityRegimeAtRate",
+      "IndependentFRIQueries"
+    ],
+    "eternal_crypto": [
+      "Sha256RandomOracle",
+      "Sha256CollisionResistance"
+    ],
+    "active_build": []
+  },
+  "spine": [
+    "product_present",
+    "productAir_mem",
+    "unpack_kernel",
+    "phi_forced",
+    "full_ir",
+    "multi_query_ir",
+    "layer_coset_fold8",
+    "full_pure_ir_mandatory",
+    "pure_ir_fragment_freeze",
+    "e2e_namedp_bridges",
+    "m1_residual_freeze",
+    "script_fragment_m4"
+  ],
+  "note": "Content pin 03e5fd5: Accept track = Lean full-IR sample + mandatory full pure multi-query FRI gate; pure Lean-inline remainder frozen with necessity."
+}

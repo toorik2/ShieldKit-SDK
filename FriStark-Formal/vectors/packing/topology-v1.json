@@ -1,0 +1,15 @@
+{
+  "scheme": "deep-ali-fri-stark",
+  "blobIndex": 0,
+  "verifierRoles": [
+    "blob",
+    "deepquery",
+    "aggFRI",
+    "comp_trans",
+    "comp_final"
+  ],
+  "binding": "v2-stark-binding-v1",
+  "state": "v2-stark-state-v1",
+  "funding": "p2pkh-single-v1",
+  "friParamId": "SKFRI1-prod-2048-8-24-8"
+}

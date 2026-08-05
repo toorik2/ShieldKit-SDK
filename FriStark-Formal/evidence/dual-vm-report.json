@@ -1,0 +1,20 @@
+{
+  "libauthAllAccept": true,
+  "leanbchAllAgreeAccept": true,
+  "dualVmAcceptGreen": true,
+  "live_xcheck_idxN": {
+    "ok": 17,
+    "fail": 0,
+    "n": 17,
+    "binary": "vendor/leanbch-host/.lake/build/bin/xcheck_idxN (copied from LeanBCH build)"
+  },
+  "report_fixture": "vectors/xcheck/sound-secure-xcheck-report.json",
+  "live_log_excerpt": [
+    "LIVE dual-vm N=17",
+    "idx=0 code=0 out=ORACLE=reject PREFIX=/home/toorik/Projects/ZK-Proofs/FriStark-Formal/vectors/xcheck/sound-secure IDX=0 leanVerifyInput=t",
+    "idx=1 code=0 out=ORACLE=reject PREFIX=/home/toorik/Projects/ZK-Proofs/FriStark-Formal/vectors/xcheck/sound-secure IDX=1 leanVerifyInput=t",
+    "idx=2 code=0 out=ORACLE=reject PREFIX=/home/toorik/Projects/ZK-Proofs/FriStark-Formal/vectors/xcheck/sound-secure IDX=2 leanVerifyInput=t",
+    "idx=3 code=0 out=ORACLE=reject PREFIX=/home/toorik/Projects/ZK-Proofs/FriStark-Formal/vectors/xcheck/sound-secure IDX=3 leanVerifyInput=t",
+    "LIVE_SUMMARY ok=17 fail=0 n=17"
+  ]
+}

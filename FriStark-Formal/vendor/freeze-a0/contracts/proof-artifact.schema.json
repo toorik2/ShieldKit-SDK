@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit/v2-stark/proof-artifact-v1",
+  "title": "shieldkit-v2-stark-proof-artifact-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "relationId",
+    "friParamId",
+    "airId",
+    "statement",
+    "proofBlobSha256",
+    "proofBlobBytes",
+    "prover"
+  ],
+  "properties": {
+    "schema": { "const": "shieldkit-v2-stark-proof-artifact-v1" },
+    "relationId": { "const": "shieldkit-pool-action-v2-stark" },
+    "friParamId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "airId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "statement": { "$ref": "statement.schema.json" },
+    "proofBlobSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "proofBlobBytes": { "type": "integer", "minimum": 1 },
+    "prover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "codeSha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "codeSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+# LBCH-2026-001 root-cause witness — three-way, vector 0u4tu8
+# "Signature checking: 2-of-15 Schnorr multisig (null signatures) (P2SH20)"
+# unlocking ASM: <0b11 0x00> <0> <0>   (non-empty checkbits => SCHNORR path; both signatures NULL)
+# Sources: BCHN leg (consensus mode) @ 864c53ee34924cca6c6b6d96607ff2cedcdccf02 (v29.0.1);
+#          @bitauth/libauth 3.1.0-next.8 (LeanBCH/optimizer/node_modules);
+#          LeanBCH costprobe @ commit cb73930, LEANBCH_SECP=native.
+# Measured 2026-07-21. Reproduce: see LBCH-2026-001 in FINDINGS.md.
+engine	verdict	instr	sigChecks	hashIters	arith	pushed	opCostConsensus
+bchn-consensus	reject	-	0	0	-	-	-
+libauth-3.1.0-next.8	reject	25	1	22	0	1054	30962
+leanbch	reject	25	0	10	0	1054	4194
+# delta libauth-vs-leanbch: sigChecks +1, hashIters +12, opCost +26768 = 1*26000 + 12*64  (EXACT)
+# BCHN agrees with LeanBCH on sigChecks (0). libauth is the outlier.
+#
+# ---- CORRECTION + CORROBORATION, 2026-07-21 ----
+# The `bchn-consensus` row above is WRONG AS RENDERED. bchn-leg reports 0/0/0 on EVERY reject because
+# BCHN's VerifyScript (interpreter.cpp:2677) copies its local `metrics` into the caller's `metricsOut`
+# only on success (:2745, :2794) and the leg reads a default-constructed object unconditionally
+# (bchn-leg.cpp:315,323-325). 0u4tu8 is a BCHN REJECT, so those zeros are an initializer. The row
+# should read `bchn-consensus  reject  -  null  null  -  -  -`.
+#
+# The CONCLUSION nevertheless SURVIVES, on a real measurement rather than a default. Re-run through
+# conformance/evidence/bchn-partial-probe.cpp (VerifyScript transcribed verbatim, metrics retained on
+# the failure path; validated: 5803/5803 verdicts and all 2350 accept-path metrics identical to the
+# leg), BCHN's ACTUAL accrual on 0u4tu8 is:
+#   bchn-TRUE   reject  -  0  10  -  -  4194     (phase eval_redeem, "Signature must be zero ...")
+# LeanBCH matches BCHN on ALL THREE of sigChecks / hashIters / opCost (0 / 10 / 4194) — one of only
+# 2 vectors out of 2,386 BCHN rejects where that happens (the other is g8xdap). libauth's 1 / 22 is
+# the outlier, because crypto.js:177 bills the sig-check BEFORE the length check at :184 and before
+# verifySignatureSchnorr at :187, whereas BCHN tallies at interpreter.cpp:1616, after both.
+# Full partition + per-vector data: conformance/evidence/LBCH-2026-001-overbill-partition.tsv.

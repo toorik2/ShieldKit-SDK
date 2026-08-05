@@ -1,0 +1,15 @@
+{
+  "bundles": 13,
+  "honest_accept": true,
+  "forge_count": 12,
+  "forge_accepts": 0,
+  "forge_lean_struct_accepts": 0,
+  "honest_n_checks": 86,
+  "no_reject_tags": true,
+  "prod": {
+    "blowup": 2048,
+    "queries": 8,
+    "grind": 24,
+    "fold": 8
+  }
+}

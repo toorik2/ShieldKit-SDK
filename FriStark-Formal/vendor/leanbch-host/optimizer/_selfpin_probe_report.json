@@ -1,0 +1,136 @@
+{
+  "WINS": [
+    [
+      10,
+      24
+    ],
+    [
+      40,
+      54
+    ],
+    [
+      80,
+      94
+    ],
+    [
+      130,
+      144
+    ],
+    [
+      190,
+      204
+    ],
+    [
+      250,
+      264
+    ],
+    [
+      300,
+      314
+    ],
+    [
+      331,
+      345
+    ]
+  ],
+  "rows": [
+    {
+      "lo": 10,
+      "hi": 24,
+      "w": 14,
+      "dOp": 774,
+      "dRed": 42,
+      "noPinOp": 5973800,
+      "pinOp": 5974574,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 40,
+      "hi": 54,
+      "w": 14,
+      "dOp": 838,
+      "dRed": 42,
+      "noPinOp": 5975574,
+      "pinOp": 5976412,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 80,
+      "hi": 94,
+      "w": 14,
+      "dOp": 838,
+      "dRed": 42,
+      "noPinOp": 6162504,
+      "pinOp": 6163342,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 130,
+      "hi": 144,
+      "w": 14,
+      "dOp": 774,
+      "dRed": 42,
+      "noPinOp": 5974593,
+      "pinOp": 5975367,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 190,
+      "hi": 204,
+      "w": 14,
+      "dOp": 838,
+      "dRed": 42,
+      "noPinOp": 5776966,
+      "pinOp": 5777804,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 250,
+      "hi": 264,
+      "w": 14,
+      "dOp": 774,
+      "dRed": 42,
+      "noPinOp": 6012908,
+      "pinOp": 6013682,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 300,
+      "hi": 314,
+      "w": 14,
+      "dOp": 838,
+      "dRed": 42,
+      "noPinOp": 6166529,
+      "pinOp": 6167367,
+      "noPinAcc": true,
+      "pinAcc": true
+    },
+    {
+      "lo": 331,
+      "hi": 345,
+      "w": 14,
+      "dOp": 774,
+      "dRed": 42,
+      "noPinOp": 6714895,
+      "pinOp": 6715669,
+      "noPinAcc": true,
+      "pinAcc": true
+    }
+  ],
+  "dOp": {
+    "min": 774,
+    "mean": 806,
+    "max": 838
+  },
+  "dRed": {
+    "min": 42,
+    "mean": 42,
+    "max": 42
+  }
+}

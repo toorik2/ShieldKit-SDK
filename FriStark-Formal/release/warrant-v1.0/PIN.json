@@ -1,0 +1,26 @@
+{
+  "name": "warrant-name-on-the-line",
+  "warrant_content_pin": "7c48286314da830173dac8fca4b5f54e9dd2f5d3",
+  "phases_0_3_floor_pin": "f867782381e609a60288682718cce8534a3142ba",
+  "upstream_bch_fri_stark": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "toolchain": "leanprover/lean4:v4.31.0",
+  "params": {
+    "BLOWUP": 2048,
+    "QUERIES": 8,
+    "GRIND_BITS": 24,
+    "FOLD": 8,
+    "SECURITY_BITS": 104
+  },
+  "residual_games": [
+    "FriSecurityGame",
+    "FiatShamirROGame",
+    "CollisionResistanceGame"
+  ],
+  "spine": [
+    "product_present",
+    "productAir_mem",
+    "unpack_kernel",
+    "phi_forced"
+  ],
+  "note": "ONE content pin. Mandatory product+binding. Real forge pattern thms. Non-tautological StepAlgebra."
+}

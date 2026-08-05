@@ -1,0 +1,22 @@
+{
+  "role": "blob",
+  "corpusSize": 801,
+  "mismatches": 0,
+  "samples": [
+    {"index": 0, "label": "0:blob", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true}
+  ],
+  "abstractDiff": {
+    "merkle": {"n": 800, "ok": 800, "mismatch": 0},
+    "fri": {"n": 0, "ok": 0, "mismatch": 0}
+  },
+  "dualVm": {
+    "n": 1,
+    "agreeAcceptOk": 1,
+    "libauthAcceptedOk": 1,
+    "leanVerifyInputOk": 1,
+    "disagree": 0,
+    "source": "vectors/xcheck/sound-secure-xcheck-report.json#comparisons"
+  },
+  "method": "abstract Lean verifyDigest+verifyFoldStep (role_map) + dual-vm sound-secure host accept (libauthAccepted ⇔ leanVerifyInput via agreeAccept)",
+  "ok": true
+}

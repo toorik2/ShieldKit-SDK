@@ -1,0 +1,28 @@
+{
+  "role": "aggFRI",
+  "corpusSize": 1607,
+  "mismatches": 0,
+  "samples": [
+    {"index": 8, "label": "8:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 9, "label": "9:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 10, "label": "10:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 11, "label": "11:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 12, "label": "12:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 13, "label": "13:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 14, "label": "14:aggFRI", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true}
+  ],
+  "abstractDiff": {
+    "merkle": {"n": 800, "ok": 800, "mismatch": 0},
+    "fri": {"n": 800, "ok": 800, "mismatch": 0}
+  },
+  "dualVm": {
+    "n": 7,
+    "agreeAcceptOk": 7,
+    "libauthAcceptedOk": 7,
+    "leanVerifyInputOk": 7,
+    "disagree": 0,
+    "source": "vectors/xcheck/sound-secure-xcheck-report.json#comparisons"
+  },
+  "method": "abstract Lean verifyDigest+verifyFoldStep (role_map) + dual-vm sound-secure host accept (libauthAccepted ⇔ leanVerifyInput via agreeAccept)",
+  "ok": true
+}

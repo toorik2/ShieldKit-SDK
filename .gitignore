@@ -6,6 +6,11 @@ dist/
 target/
 *.log
 
+# FriStark-Formal Lean build cache
+FriStark-Formal/.lake/
+FriStark-Formal/**/*.olean
+FriStark-Formal/**/__pycache__/
+
 # Project-local worktrees only — never create worktrees outside this repo
 .worktrees/
 

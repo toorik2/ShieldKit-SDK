@@ -1,0 +1,28 @@
+{
+  "role": "deepquery",
+  "corpusSize": 807,
+  "mismatches": 0,
+  "samples": [
+    {"index": 1, "label": "1:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 2, "label": "2:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 3, "label": "3:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 4, "label": "4:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 5, "label": "5:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 6, "label": "6:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true},
+    {"index": 7, "label": "7:deepquery", "libauthAccepted": true, "leanVerifyInput": true, "agreeAccept": true}
+  ],
+  "abstractDiff": {
+    "merkle": {"n": 800, "ok": 800, "mismatch": 0},
+    "fri": {"n": 0, "ok": 0, "mismatch": 0}
+  },
+  "dualVm": {
+    "n": 7,
+    "agreeAcceptOk": 7,
+    "libauthAcceptedOk": 7,
+    "leanVerifyInputOk": 7,
+    "disagree": 0,
+    "source": "vectors/xcheck/sound-secure-xcheck-report.json#comparisons"
+  },
+  "method": "abstract Lean verifyDigest+verifyFoldStep (role_map) + dual-vm sound-secure host accept (libauthAccepted ⇔ leanVerifyInput via agreeAccept)",
+  "ok": true
+}

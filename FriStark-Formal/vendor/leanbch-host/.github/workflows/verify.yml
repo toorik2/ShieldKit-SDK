@@ -1,0 +1,162 @@
+name: verify
+
+# The LeanBCH verification gate, in CI.
+#
+# This job RUNS THE EXISTING GATE — `tools/opt-ci/verify.sh` — and invents no new verification.
+# The script is the single source of truth for what "verified" means here; if you want a new
+# check, add it to the script (where it also runs locally), not to this file.
+#
+# What the gate covers (6 numbered checks, see the script's own header for the full rationale):
+#   [1/6] lake build: core VM + LeanBCHOpt + LeanBCHValidation + the Meta necessity analyzer
+#   [2/6] zero-sorry
+#   [3/6] axiom hygiene over every declared headline, + an independent #print-axioms anchor
+#   [4/6] fold-table byte-reproducibility (tools/foldgen regenerates FoldTable.lean exactly)
+#   [5/6] necessity-closure byte-identity + the KAT conservation ratchet & vacuity lint
+#   [6/6] codebase-health map + trust manifest
+#
+# MEASURED RUNTIME — derived here, not copied from any document:
+#   249 s wall, from a COLD clone (no .lake present), on a 20-core i9-13900H, 2026-07-20,
+#   running the script unmodified. All 6 checks passed; 41 headlines resolved; 313 KATs;
+#   the working tree was byte-clean afterwards.
+#   The GitHub-hosted-runner time is NOT measured — this workflow has never run. A hosted
+#   runner has far fewer cores than that 20-core laptop and these are private repositories, so
+#   expect SLOWER; by how much is unmeasured, and no factor is asserted here. `timeout-minutes`
+#   below is set with headroom for that and should be tightened to the observed value once a
+#   few runs exist. Add the toolchain download (see the elan step) on top of the build time.
+#
+# "Zero external dependencies" is true in the Lake sense and only that sense: lake-manifest.json
+# has `"packages": []`, so nothing is fetched from a package index (no mathlib). The Lean
+# toolchain itself IS still downloaded — see the elan step.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # Actions are pinned by commit SHA, not by tag: a tag is mutable and this repository's
+      # product is checkable claims. The trailing comment records which tag the SHA was at.
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        # Full history is not needed. Check [5/6] runs `git diff` of the WORKING TREE against
+        # the checked-out commit, which a depth-1 checkout satisfies exactly.
+
+      # No cache is used here, deliberately, and the reasons are different for each thing that
+      # could be cached:
+      #
+      #   .lake  — NOT cached, for CORRECTNESS. Checks [4/6] and [5/6] are byte-identity gates
+      #     over artifacts that are regenerated as a BUILD SIDE EFFECT: `lake build Meta` re-runs
+      #     the necessity analyzer and overwrites Meta/necessity.json, which check [5/6] then
+      #     diffs against the committed baseline. If a restored .lake makes that build a no-op,
+      #     the analyzer never runs, the file is never rewritten, and the gate compares the
+      #     committed file to itself — it would pass unconditionally while checking nothing.
+      #     That is precisely the failure mode this gate exists to catch, so the cache is refused.
+      #     At 249 s cold there is no pressure to take the risk.
+      #
+      #   ~/.elan — NOT cached, for COST. The pinned toolchain unpacks to 2.8 GB (measured
+      #     locally: `du -sh ~/.elan/toolchains/leanprover--lean4---v4.31.0`). Saving and
+      #     restoring that is not usefully cheaper than elan's own download of the compressed
+      #     tarball, and it would consume most of the repository's 10 GB cache budget.
+      #
+      # If CI time ever becomes the binding constraint, cache .lake ONLY together with a step
+      # that forces the analyzer to re-run (e.g. `rm -rf .lake/build/lib/Meta` first).
+
+      - name: Install elan (pinned) and the repo's pinned Lean toolchain
+        run: |
+          set -euo pipefail
+          ELAN_VERSION=v4.2.1
+          # sha256 measured locally on the downloaded asset, 2026-07-20.
+          ELAN_SHA256=4e717523217af592fa2d7b9c479410a31816c065d66ccbf0c2149337cfec0f5c
+          URL="https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o /tmp/elan.tar.gz "$URL"
+          echo "${ELAN_SHA256}  /tmp/elan.tar.gz" | sha256sum -c -
+          tar xzf /tmp/elan.tar.gz -C /tmp   # the archive contains a single file, elan-init
+          # The toolchain to install is READ FROM ./lean-toolchain — this file hardcodes no Lean
+          # version, so the repo's pin is the only pin and cannot drift from what CI builds.
+          # (Passing it explicitly rather than relying on elan's implicit default also avoids
+          # downloading a `stable` toolchain that would never be used.)
+          /tmp/elan-init -y --no-modify-path --default-toolchain "$(cat lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Assert the pinned toolchain is the one that will be used
+        run: |
+          set -euo pipefail
+          PINNED="$(cat lean-toolchain)"
+          echo "lean-toolchain pins: ${PINNED}"
+          # Independent confirmation that the toolchain elan just installed, and that lake will
+          # actually invoke from this directory, is the one the repo pins — rather than trusting
+          # that the install step did what it was told.
+          ACTIVE="$(lean --version)"
+          echo "active: ${ACTIVE}"
+          # leanprover/lean4:v4.31.0 -> 4.31.0
+          WANT="${PINNED##*:v}"
+          case "${ACTIVE}" in
+            *"${WANT}"*) echo "OK: active Lean matches the repo pin (${WANT})" ;;
+            *) echo "FAIL: active Lean does not match the repo pin (${WANT})"; exit 1 ;;
+          esac
+
+      # verify.sh DEGRADES GRACEFULLY when its helper tools are missing: it prints a "⚠ ... not
+      # found — skipping" line and moves on. Locally that is a convenience; in CI it is a
+      # silent hole. Missing python3 would drop the axiom-hygiene check [3/6], the fold-table
+      # reproducibility gate [4/6] and the optimizer-interface check; missing node would drop
+      # the KAT conservation ratchet and its vacuity lint; missing git would drop the necessity
+      # closure gate [5/6]. The job would still go green having verified far less than it claims.
+      # So the preconditions are asserted here, BEFORE the gate runs, and their absence is a
+      # hard failure rather than a warning in a log nobody reads.
+      - name: Assert the gate's helper tools are present (no silently-skipped checks)
+        run: |
+          set -euo pipefail
+          fail=0
+          for tool in python3 node git; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              printf 'OK   %-8s %s\n' "$tool" "$($tool --version 2>&1 | head -1)"
+            else
+              printf 'FAIL %-8s NOT FOUND\n' "$tool"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo
+            echo "A helper tool the gate needs is missing. verify.sh would SKIP the checks that"
+            echo "depend on it and still exit 0. Refusing to run a gate that cannot fail."
+            exit 1
+          fi
+
+      - name: Run the verification gate (tools/opt-ci/verify.sh)
+        run: ./tools/opt-ci/verify.sh
+
+      # Receipts: the artifacts the gate regenerates. Uploaded on success AND failure, because
+      # on failure they are the evidence of what drifted.
+      #
+      # Note on check [6/6]: the script labels it "REPORT ONLY", and the health map and trust
+      # manifest genuinely are — both are invoked as `node ... || echo "⚠ ... (report-only)"`,
+      # so neither can fail the build. That behaviour is preserved here by running the script
+      # unmodified; this workflow adds no gating of its own on top of it. One accuracy note for
+      # whoever reads the "[6/6] REPORT ONLY" banner and trusts it: the optimizer VM-interface
+      # contract check lives inside that same step and DOES `exit 1` on a violation. So step
+      # [6/6] is report-only in its map/manifest outputs but gating in its interface check.
+      - name: Upload verification receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: leanbch-verification-receipts
+          path: |
+            Meta/necessity.json
+            TRUST_MANIFEST.md
+            tools/health/REPORT.md
+            tools/health/index.json
+          if-no-files-found: error

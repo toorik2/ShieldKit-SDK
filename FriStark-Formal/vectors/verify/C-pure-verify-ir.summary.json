@@ -1,0 +1,18 @@
+{
+  "bundles": 13,
+  "honest_accept": true,
+  "forge_count": 12,
+  "forge_accepts": 0,
+  "ir_forge_oks": 0,
+  "honest_steps": 454,
+  "deep_q_term_steps": 8,
+  "fs_ops_honest": 371,
+  "no_fail_theater": true,
+  "prod": {
+    "blowup": 2048,
+    "queries": 8,
+    "grind": 24,
+    "fold": 8
+  },
+  "workers": 8
+}

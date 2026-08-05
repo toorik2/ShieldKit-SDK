@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Generated proof / witness data (regenerable, kept out for auditor clarity)
+*_inputs.json
+stark_proof.json
+verifier_covenants.json
+witness_inputs.json

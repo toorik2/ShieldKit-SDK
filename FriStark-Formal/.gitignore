@@ -1,0 +1,6 @@
+.lake/
+*.olean
+__pycache__/
+*.pyc
+node_modules/
+vendor/bch-fri-stark/cashscript/node_modules/

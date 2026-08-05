@@ -1,0 +1,103 @@
+name = "fristark"
+version = "0.1.0"
+defaultTargets = ["FriStark"]
+
+[[lean_lib]]
+name = "FriStark"
+globs = ["FriStark"]
+
+[[lean_lib]]
+name = "FriStarkVerify"
+globs = ["FriStark.Verify"]
+
+[[lean_lib]]
+name = "FriStarkBinding"
+globs = ["FriStark.Binding"]
+
+[[lean_lib]]
+name = "FriStarkAIR"
+globs = ["FriStark.AIR"]
+
+[[lean_lib]]
+name = "FriStarkHost"
+globs = ["FriStark.Host"]
+
+[[lean_lib]]
+name = "FriStarkSoundness"
+globs = ["FriStark.Soundness"]
+
+[[lean_exe]]
+name = "diff_core"
+root = "harness.DiffCore"
+
+[[lean_exe]]
+name = "diff_verify"
+root = "harness.DiffVerify"
+
+[[lean_exe]]
+name = "diff_statement"
+root = "harness.DiffStatement"
+
+[[lean_exe]]
+name = "diff_verify_prod"
+root = "harness.DiffVerifyProd"
+
+[[lean_exe]]
+name = "diff_refine"
+root = "harness.DiffRefine"
+
+[[lean_exe]]
+name = "diff_product_air"
+root = "harness.DiffProductAir"
+
+[[lean_exe]]
+name = "diff_role_refine"
+root = "harness.DiffRoleRefine"
+
+[[lean_exe]]
+name = "diff_soundness"
+root = "harness.DiffSoundness"
+
+[[lean_exe]]
+name = "diff_t4_soundness"
+root = "harness.DiffT4Soundness"
+
+[[lean_exe]]
+name = "diff_full_verify"
+root = "harness.DiffFullVerify"
+
+[[lean_exe]]
+name = "diff_pure_verify"
+root = "harness.DiffPureVerify"
+
+[[lean_exe]]
+name = "diff_public_lde"
+root = "harness.DiffPublicLde"
+
+[[lean_exe]]
+name = "diff_air_compose"
+root = "harness.DiffAirCompose"
+
+[[lean_exe]]
+name = "diff_full_math"
+root = "harness.DiffFullMath"
+
+[[lean_exe]]
+name = "diff_layout_derive"
+root = "harness.DiffLayoutDerive"
+
+[[lean_exe]]
+name = "diff_horner_lde"
+root = "harness.DiffHornerLde"
+
+[[lean_exe]]
+name = "diff_opening_consistency"
+root = "harness.DiffOpeningConsistency"
+
+[[lean_exe]]
+name = "diff_multi_product"
+root = "harness.DiffMultiProduct"
+
+[[lean_exe]]
+name = "diff_warrant"
+root = "harness.DiffWarrant"

@@ -1,0 +1,9 @@
+{
+  "python_demo_verify": true,
+  "why": "ok",
+  "eligibility": "development-only",
+  "blowup": 8,
+  "queries": 4,
+  "grindBits": 2,
+  "fold": 2
+}

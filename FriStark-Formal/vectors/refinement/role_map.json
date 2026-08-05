@@ -1,0 +1,39 @@
+{
+  "blob": {
+    "corpus": [
+      "merkle"
+    ],
+    "samples": 800,
+    "note": "FS blob commitment + merkle material"
+  },
+  "deepquery": {
+    "corpus": [
+      "merkle"
+    ],
+    "samples": 800,
+    "note": "trace/comp openings"
+  },
+  "aggFRI": {
+    "corpus": [
+      "fri",
+      "merkle"
+    ],
+    "samples": 1600,
+    "note": "FRI fold + layer merkle"
+  },
+  "comp_trans": {
+    "corpus": [
+      "fri"
+    ],
+    "samples": 800,
+    "note": "composition / fold chain"
+  },
+  "comp_final": {
+    "corpus": [
+      "merkle",
+      "fri"
+    ],
+    "samples": 1600,
+    "note": "final root + last fold"
+  }
+}

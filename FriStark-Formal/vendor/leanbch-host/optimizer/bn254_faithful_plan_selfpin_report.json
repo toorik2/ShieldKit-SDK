@@ -1,0 +1,1104 @@
+{
+  "stage": "miller-residue (348 op-blocks)",
+  "policy": "consensus-64 deployed (compileFileBytecode + real BCH-2026 VM covenant tx)",
+  "costModel": {
+    "faithfulness": "per-op-CLASS marginals fit on the DEPLOYED compile; fixes the RAW-compile ~40% under-count in bn254_costvec_v3.json",
+    "interceptTyp": 183668,
+    "marginMean": {
+      "al0": 605746,
+      "alB": 351645,
+      "cf": 517949,
+      "dl0": 554243,
+      "dlB": 351449,
+      "pp": 1287138,
+      "sqr": 374014,
+      "cmul1": 1287138
+    },
+    "marginMax": {
+      "al0": 609955,
+      "alB": 352439,
+      "cf": 520476,
+      "dl0": 557383,
+      "dlB": 356246,
+      "pp": 1288970,
+      "sqr": 377149,
+      "cmul1": 1288970
+    },
+    "redBase": 3913,
+    "redMargin": {
+      "al0": 352,
+      "alB": 233,
+      "cf": 348,
+      "dl0": 68,
+      "dlB": 233,
+      "pp": 581,
+      "sqr": 42,
+      "cmul1": 466
+    },
+    "fit": {
+      "windows": 141,
+      "maxPosResidual": 6113,
+      "maxAbsResidual": 6113
+    },
+    "safety": {
+      "SAFETY_MARGIN": 22113,
+      "effectiveOpBudget": 8010687,
+      "trueOpBudget": 8032800,
+      "guarantee": "realOp <= modelWorstCase + maxPosResidual <= (opBudget-SAFETY_MARGIN) + maxPosResidual < opBudget  (A1-safe by construction)"
+    },
+    "deltaGen": -41461,
+    "finalRealOp": 2069834,
+    "finalForcedCut": 345,
+    "extractCompiles": 154,
+    "extractMs": 84913
+  },
+  "plan": {
+    "chunkCount": 21,
+    "cuts": [
+      0,
+      17,
+      33,
+      51,
+      70,
+      84,
+      102,
+      121,
+      139,
+      157,
+      174,
+      193,
+      210,
+      228,
+      244,
+      260,
+      278,
+      294,
+      313,
+      331,
+      345,
+      348
+    ],
+    "totalRealBytes": 193202,
+    "maxRealWorstOp": 8001521,
+    "a1Certificate": {
+      "claim": "REAL worst-case op of every emitted chunk, measured on the BCH-2026 VM at worst-case inputs, is within the per-input CONSENSUS op budget.",
+      "consensusOpBudget": 8032800,
+      "dpPlanningBudget": 8010687,
+      "maxRealWorstOp": 8001521,
+      "slack": 31279,
+      "pass": true,
+      "infeasibleChunks": []
+    },
+    "modelGap": {
+      "maxAbsByteGap": 2318,
+      "maxAbsOpWorstGap": 70954,
+      "worstByteUnder": -2,
+      "worstOpWorstUnder": 0,
+      "modelNeverUnderCountsWorstOp": true
+    },
+    "dp": {
+      "cuts": [
+        0,
+        17,
+        34,
+        51,
+        69,
+        86,
+        103,
+        121,
+        139,
+        157,
+        174,
+        192,
+        209,
+        226,
+        244,
+        261,
+        278,
+        296,
+        313,
+        329,
+        345,
+        348
+      ],
+      "modelTotalBytes": 195741,
+      "realTotalBytes": 193414,
+      "a1": true,
+      "modelGap": {
+        "maxAbsByteGap": 2318,
+        "maxAbsOpWorstGap": 69436,
+        "worstByteUnder": -3,
+        "worstOpWorstUnder": 0,
+        "modelNeverUnderCountsWorstOp": true
+      }
+    },
+    "localSearch": {
+      "improvedRealBytes": 212,
+      "sweeps": 2,
+      "moves": 10,
+      "k": 2
+    },
+    "timings": {
+      "dpMs": 54.088303,
+      "verifyMs": 15134.531067,
+      "localSearchMs": 157705.360495,
+      "compiles": 236
+    },
+    "modelOnlyDpBytes": 195741
+  },
+  "freshFaithfulnessCheck": [
+    {
+      "name": "fresh-uniform-17",
+      "chunks": 22,
+      "feasibleAll": true,
+      "toolReportedBytes": 196687,
+      "independentBytes": 196687,
+      "independentMinimalBytes": 194744,
+      "mismatches": 0,
+      "overBudget": 0,
+      "maxRealOp": 7677101,
+      "a1Pass": true
+    },
+    {
+      "name": "fresh-width19-phase7",
+      "chunks": 21,
+      "feasibleAll": true,
+      "toolReportedBytes": 193944,
+      "independentBytes": 193944,
+      "independentMinimalBytes": 192337,
+      "mismatches": 0,
+      "overBudget": 0,
+      "maxRealOp": 8029164,
+      "a1Pass": true
+    },
+    {
+      "name": "plan-result",
+      "chunks": 21,
+      "feasibleAll": true,
+      "toolReportedBytes": 193202,
+      "independentBytes": 193202,
+      "independentMinimalBytes": 191475,
+      "mismatches": 0,
+      "overBudget": 0,
+      "maxRealOp": 8001521,
+      "a1Pass": true
+    }
+  ],
+  "headline": {
+    "reportsRealCompileVerifiedBytes": true,
+    "a1SafeByConstruction": true,
+    "a1ConfirmedByMeasurement": true,
+    "faithful_zeroMismatch": true,
+    "modelNeverUnderCountsWorstOp": true
+  },
+  "planPerChunk": [
+    {
+      "lo": 0,
+      "hi": 17,
+      "feasible": true,
+      "realBytes": 9134,
+      "realWorstOp": 7235055,
+      "lockingBytes": 35,
+      "unlockingBytes": 9099,
+      "compileError": null,
+      "modelBytes": 9136,
+      "modelOpWorstCase": 7295737,
+      "modelOp": 7236671,
+      "byteGap": 2,
+      "opWorstGap": 60682
+    },
+    {
+      "lo": 17,
+      "hi": 33,
+      "feasible": true,
+      "realBytes": 8717,
+      "realWorstOp": 6901454,
+      "lockingBytes": 35,
+      "unlockingBytes": 8682,
+      "compileError": null,
+      "modelBytes": 8721,
+      "modelOpWorstCase": 6960049,
+      "modelOp": 6904118,
+      "byteGap": 4,
+      "opWorstGap": 58595
+    },
+    {
+      "lo": 33,
+      "hi": 51,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 7978642,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8037908,
+      "modelOp": 7976310,
+      "byteGap": 0,
+      "opWorstGap": 59266
+    },
+    {
+      "lo": 51,
+      "hi": 70,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 7978736,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8049690,
+      "modelOp": 7981030,
+      "byteGap": 0,
+      "opWorstGap": 70954
+    },
+    {
+      "lo": 70,
+      "hi": 84,
+      "feasible": true,
+      "realBytes": 8135,
+      "realWorstOp": 6435582,
+      "lockingBytes": 35,
+      "unlockingBytes": 8100,
+      "compileError": null,
+      "modelBytes": 8408,
+      "modelOpWorstCase": 6480363,
+      "modelOp": 6432952,
+      "byteGap": 273,
+      "opWorstGap": 44781
+    },
+    {
+      "lo": 84,
+      "hi": 102,
+      "feasible": true,
+      "realBytes": 9600,
+      "realWorstOp": 7607823,
+      "lockingBytes": 35,
+      "unlockingBytes": 9565,
+      "compileError": null,
+      "modelBytes": 9600,
+      "modelOpWorstCase": 7664927,
+      "modelOp": 7607408,
+      "byteGap": 0,
+      "opWorstGap": 57104
+    },
+    {
+      "lo": 102,
+      "hi": 121,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 7980519,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8049690,
+      "modelOp": 7981030,
+      "byteGap": 0,
+      "opWorstGap": 69171
+    },
+    {
+      "lo": 121,
+      "hi": 139,
+      "feasible": true,
+      "realBytes": 9817,
+      "realWorstOp": 7781067,
+      "lockingBytes": 35,
+      "unlockingBytes": 9782,
+      "compileError": null,
+      "modelBytes": 9816,
+      "modelOpWorstCase": 7849623,
+      "modelOp": 7780480,
+      "byteGap": -1,
+      "opWorstGap": 68556
+    },
+    {
+      "lo": 139,
+      "hi": 157,
+      "feasible": true,
+      "realBytes": 9917,
+      "realWorstOp": 7861287,
+      "lockingBytes": 35,
+      "unlockingBytes": 9882,
+      "compileError": null,
+      "modelBytes": 9917,
+      "modelOpWorstCase": 7926250,
+      "modelOp": 7861313,
+      "byteGap": 0,
+      "opWorstGap": 64963
+    },
+    {
+      "lo": 157,
+      "hi": 174,
+      "feasible": true,
+      "realBytes": 9157,
+      "realWorstOp": 7253453,
+      "lockingBytes": 35,
+      "unlockingBytes": 9122,
+      "compileError": null,
+      "modelBytes": 9160,
+      "modelOpWorstCase": 7308681,
+      "modelOp": 7255959,
+      "byteGap": 3,
+      "opWorstGap": 55228
+    },
+    {
+      "lo": 174,
+      "hi": 193,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 7980833,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8049690,
+      "modelOp": 7981030,
+      "byteGap": 0,
+      "opWorstGap": 68857
+    },
+    {
+      "lo": 193,
+      "hi": 210,
+      "feasible": true,
+      "realBytes": 9413,
+      "realWorstOp": 7458197,
+      "lockingBytes": 35,
+      "unlockingBytes": 9378,
+      "compileError": null,
+      "modelBytes": 9413,
+      "modelOpWorstCase": 7521239,
+      "modelOp": 7458165,
+      "byteGap": 0,
+      "opWorstGap": 63042
+    },
+    {
+      "lo": 210,
+      "hi": 228,
+      "feasible": true,
+      "realBytes": 9596,
+      "realWorstOp": 7604061,
+      "lockingBytes": 35,
+      "unlockingBytes": 9561,
+      "compileError": null,
+      "modelBytes": 9600,
+      "modelOpWorstCase": 7668734,
+      "modelOp": 7607212,
+      "byteGap": 4,
+      "opWorstGap": 64673
+    },
+    {
+      "lo": 228,
+      "hi": 244,
+      "feasible": true,
+      "realBytes": 8720,
+      "realWorstOp": 6903735,
+      "lockingBytes": 35,
+      "unlockingBytes": 8685,
+      "compileError": null,
+      "modelBytes": 8721,
+      "modelOpWorstCase": 6960049,
+      "modelOp": 6904118,
+      "byteGap": 1,
+      "opWorstGap": 56314
+    },
+    {
+      "lo": 244,
+      "hi": 260,
+      "feasible": true,
+      "realBytes": 8722,
+      "realWorstOp": 6905285,
+      "lockingBytes": 35,
+      "unlockingBytes": 8687,
+      "compileError": null,
+      "modelBytes": 8721,
+      "modelOpWorstCase": 6960049,
+      "modelOp": 6904118,
+      "byteGap": -1,
+      "opWorstGap": 54764
+    },
+    {
+      "lo": 260,
+      "hi": 278,
+      "feasible": true,
+      "realBytes": 9876,
+      "realWorstOp": 7828586,
+      "lockingBytes": 35,
+      "unlockingBytes": 9841,
+      "compileError": null,
+      "modelBytes": 9881,
+      "modelOpWorstCase": 7894581,
+      "modelOp": 7832375,
+      "byteGap": 5,
+      "opWorstGap": 65995
+    },
+    {
+      "lo": 278,
+      "hi": 294,
+      "feasible": true,
+      "realBytes": 8723,
+      "realWorstOp": 6905970,
+      "lockingBytes": 35,
+      "unlockingBytes": 8688,
+      "compileError": null,
+      "modelBytes": 8721,
+      "modelOpWorstCase": 6960049,
+      "modelOp": 6904118,
+      "byteGap": -2,
+      "opWorstGap": 54079
+    },
+    {
+      "lo": 294,
+      "hi": 313,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 7982001,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8049690,
+      "modelOp": 7981030,
+      "byteGap": 0,
+      "opWorstGap": 67689
+    },
+    {
+      "lo": 313,
+      "hi": 331,
+      "feasible": true,
+      "realBytes": 10035,
+      "realWorstOp": 8001521,
+      "lockingBytes": 35,
+      "unlockingBytes": 10000,
+      "compileError": null,
+      "modelBytes": 10035,
+      "modelOpWorstCase": 8065770,
+      "modelOp": 8005444,
+      "byteGap": 0,
+      "opWorstGap": 64249
+    },
+    {
+      "lo": 331,
+      "hi": 345,
+      "feasible": true,
+      "realBytes": 8485,
+      "realWorstOp": 6715669,
+      "lockingBytes": 35,
+      "unlockingBytes": 8450,
+      "compileError": null,
+      "modelBytes": 8485,
+      "modelOpWorstCase": 6766149,
+      "modelOp": 6715916,
+      "byteGap": 0,
+      "opWorstGap": 50480
+    },
+    {
+      "lo": 345,
+      "hi": 348,
+      "feasible": true,
+      "realBytes": 4980,
+      "realWorstOp": 2069834,
+      "lockingBytes": 35,
+      "unlockingBytes": 4945,
+      "compileError": null,
+      "modelBytes": 7298,
+      "modelOpWorstCase": 2071462,
+      "modelOp": 2071462,
+      "byteGap": 2318,
+      "opWorstGap": 1628
+    }
+  ],
+  "freshRows": [
+    {
+      "name": "fresh-uniform-17",
+      "rows": [
+        {
+          "lo": 0,
+          "hi": 17,
+          "toolBytes": 9134,
+          "indepBytes": 9134,
+          "minimalBytes": 9037,
+          "op10000": 7235055,
+          "match": true
+        },
+        {
+          "lo": 17,
+          "hi": 34,
+          "toolBytes": 9411,
+          "indepBytes": 9411,
+          "minimalBytes": 9314,
+          "op10000": 7456196,
+          "match": true
+        },
+        {
+          "lo": 34,
+          "hi": 51,
+          "toolBytes": 9371,
+          "indepBytes": 9371,
+          "minimalBytes": 9274,
+          "op10000": 7424050,
+          "match": true
+        },
+        {
+          "lo": 51,
+          "hi": 68,
+          "toolBytes": 8949,
+          "indepBytes": 8949,
+          "minimalBytes": 8851,
+          "op10000": 7086667,
+          "match": true
+        },
+        {
+          "lo": 68,
+          "hi": 85,
+          "toolBytes": 9687,
+          "indepBytes": 9687,
+          "minimalBytes": 9590,
+          "op10000": 7677101,
+          "match": true
+        },
+        {
+          "lo": 85,
+          "hi": 102,
+          "toolBytes": 9162,
+          "indepBytes": 9162,
+          "minimalBytes": 9065,
+          "op10000": 7257060,
+          "match": true
+        },
+        {
+          "lo": 102,
+          "hi": 119,
+          "toolBytes": 9161,
+          "indepBytes": 9161,
+          "minimalBytes": 9064,
+          "op10000": 7256314,
+          "match": true
+        },
+        {
+          "lo": 119,
+          "hi": 136,
+          "toolBytes": 8913,
+          "indepBytes": 8913,
+          "minimalBytes": 8816,
+          "op10000": 7058111,
+          "match": true
+        },
+        {
+          "lo": 136,
+          "hi": 153,
+          "toolBytes": 9185,
+          "indepBytes": 9185,
+          "minimalBytes": 9088,
+          "op10000": 7275457,
+          "match": true
+        },
+        {
+          "lo": 153,
+          "hi": 170,
+          "toolBytes": 9659,
+          "indepBytes": 9659,
+          "minimalBytes": 9562,
+          "op10000": 7654655,
+          "match": true
+        },
+        {
+          "lo": 170,
+          "hi": 187,
+          "toolBytes": 9160,
+          "indepBytes": 9160,
+          "minimalBytes": 9063,
+          "op10000": 7255599,
+          "match": true
+        },
+        {
+          "lo": 187,
+          "hi": 204,
+          "toolBytes": 8911,
+          "indepBytes": 8911,
+          "minimalBytes": 8813,
+          "op10000": 7056208,
+          "match": true
+        },
+        {
+          "lo": 204,
+          "hi": 221,
+          "toolBytes": 9687,
+          "indepBytes": 9687,
+          "minimalBytes": 9590,
+          "op10000": 7677009,
+          "match": true
+        },
+        {
+          "lo": 221,
+          "hi": 238,
+          "toolBytes": 8866,
+          "indepBytes": 8866,
+          "minimalBytes": 8768,
+          "op10000": 7020104,
+          "match": true
+        },
+        {
+          "lo": 238,
+          "hi": 255,
+          "toolBytes": 9451,
+          "indepBytes": 9451,
+          "minimalBytes": 9355,
+          "op10000": 7488752,
+          "match": true
+        },
+        {
+          "lo": 255,
+          "hi": 272,
+          "toolBytes": 9156,
+          "indepBytes": 9156,
+          "minimalBytes": 9059,
+          "op10000": 7252621,
+          "match": true
+        },
+        {
+          "lo": 272,
+          "hi": 289,
+          "toolBytes": 9441,
+          "indepBytes": 9441,
+          "minimalBytes": 9344,
+          "op10000": 7480029,
+          "match": true
+        },
+        {
+          "lo": 289,
+          "hi": 306,
+          "toolBytes": 9160,
+          "indepBytes": 9160,
+          "minimalBytes": 9063,
+          "op10000": 7255689,
+          "match": true
+        },
+        {
+          "lo": 306,
+          "hi": 323,
+          "toolBytes": 9158,
+          "indepBytes": 9158,
+          "minimalBytes": 9061,
+          "op10000": 7253817,
+          "match": true
+        },
+        {
+          "lo": 323,
+          "hi": 340,
+          "toolBytes": 9157,
+          "indepBytes": 9157,
+          "minimalBytes": 9059,
+          "op10000": 7252927,
+          "match": true
+        },
+        {
+          "lo": 340,
+          "hi": 345,
+          "toolBytes": 6928,
+          "indepBytes": 6928,
+          "minimalBytes": 6928,
+          "op10000": 3104898,
+          "match": true
+        },
+        {
+          "lo": 345,
+          "hi": 348,
+          "toolBytes": 4980,
+          "indepBytes": 4980,
+          "minimalBytes": 4980,
+          "op10000": 2069834,
+          "match": true
+        }
+      ]
+    },
+    {
+      "name": "fresh-width19-phase7",
+      "rows": [
+        {
+          "lo": 0,
+          "hi": 7,
+          "toolBytes": 4871,
+          "indepBytes": 4871,
+          "minimalBytes": 4871,
+          "op10000": 3219548,
+          "match": true
+        },
+        {
+          "lo": 7,
+          "hi": 25,
+          "toolBytes": 9663,
+          "indepBytes": 9663,
+          "minimalBytes": 9567,
+          "op10000": 7658085,
+          "match": true
+        },
+        {
+          "lo": 25,
+          "hi": 43,
+          "toolBytes": 9853,
+          "indepBytes": 9853,
+          "minimalBytes": 9757,
+          "op10000": 7810208,
+          "match": true
+        },
+        {
+          "lo": 43,
+          "hi": 61,
+          "toolBytes": 9627,
+          "indepBytes": 9627,
+          "minimalBytes": 9530,
+          "op10000": 7628987,
+          "match": true
+        },
+        {
+          "lo": 61,
+          "hi": 79,
+          "toolBytes": 9854,
+          "indepBytes": 9854,
+          "minimalBytes": 9758,
+          "op10000": 7810900,
+          "match": true
+        },
+        {
+          "lo": 79,
+          "hi": 97,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 10031,
+          "op10000": 8029164,
+          "match": true
+        },
+        {
+          "lo": 97,
+          "hi": 116,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9942,
+          "op10000": 7957702,
+          "match": true
+        },
+        {
+          "lo": 116,
+          "hi": 135,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9976,
+          "op10000": 7984964,
+          "match": true
+        },
+        {
+          "lo": 135,
+          "hi": 153,
+          "toolBytes": 9625,
+          "indepBytes": 9625,
+          "minimalBytes": 9528,
+          "op10000": 7627547,
+          "match": true
+        },
+        {
+          "lo": 153,
+          "hi": 171,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 10002,
+          "op10000": 8005713,
+          "match": true
+        },
+        {
+          "lo": 171,
+          "hi": 189,
+          "toolBytes": 9626,
+          "indepBytes": 9626,
+          "minimalBytes": 9530,
+          "op10000": 7628520,
+          "match": true
+        },
+        {
+          "lo": 189,
+          "hi": 207,
+          "toolBytes": 9814,
+          "indepBytes": 9814,
+          "minimalBytes": 9718,
+          "op10000": 7779097,
+          "match": true
+        },
+        {
+          "lo": 207,
+          "hi": 225,
+          "toolBytes": 9662,
+          "indepBytes": 9662,
+          "minimalBytes": 9565,
+          "op10000": 7657076,
+          "match": true
+        },
+        {
+          "lo": 225,
+          "hi": 243,
+          "toolBytes": 9852,
+          "indepBytes": 9852,
+          "minimalBytes": 9755,
+          "op10000": 7809068,
+          "match": true
+        },
+        {
+          "lo": 243,
+          "hi": 261,
+          "toolBytes": 9628,
+          "indepBytes": 9628,
+          "minimalBytes": 9532,
+          "op10000": 7630208,
+          "match": true
+        },
+        {
+          "lo": 261,
+          "hi": 279,
+          "toolBytes": 9849,
+          "indepBytes": 9849,
+          "minimalBytes": 9753,
+          "op10000": 7806896,
+          "match": true
+        },
+        {
+          "lo": 279,
+          "hi": 297,
+          "toolBytes": 9628,
+          "indepBytes": 9628,
+          "minimalBytes": 9532,
+          "op10000": 7630152,
+          "match": true
+        },
+        {
+          "lo": 297,
+          "hi": 315,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9968,
+          "op10000": 7979256,
+          "match": true
+        },
+        {
+          "lo": 315,
+          "hi": 333,
+          "toolBytes": 9657,
+          "indepBytes": 9657,
+          "minimalBytes": 9561,
+          "op10000": 7653383,
+          "match": true
+        },
+        {
+          "lo": 333,
+          "hi": 345,
+          "toolBytes": 7580,
+          "indepBytes": 7580,
+          "minimalBytes": 7481,
+          "op10000": 5991604,
+          "match": true
+        },
+        {
+          "lo": 345,
+          "hi": 348,
+          "toolBytes": 4980,
+          "indepBytes": 4980,
+          "minimalBytes": 4980,
+          "op10000": 2069834,
+          "match": true
+        }
+      ]
+    },
+    {
+      "name": "plan-result",
+      "rows": [
+        {
+          "lo": 0,
+          "hi": 17,
+          "toolBytes": 9134,
+          "indepBytes": 9134,
+          "minimalBytes": 9037,
+          "op10000": 7235055,
+          "match": true
+        },
+        {
+          "lo": 17,
+          "hi": 33,
+          "toolBytes": 8717,
+          "indepBytes": 8717,
+          "minimalBytes": 8620,
+          "op10000": 6901454,
+          "match": true
+        },
+        {
+          "lo": 33,
+          "hi": 51,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9968,
+          "op10000": 7978642,
+          "match": true
+        },
+        {
+          "lo": 51,
+          "hi": 70,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9968,
+          "op10000": 7978736,
+          "match": true
+        },
+        {
+          "lo": 70,
+          "hi": 84,
+          "toolBytes": 8135,
+          "indepBytes": 8135,
+          "minimalBytes": 8036,
+          "op10000": 6435582,
+          "match": true
+        },
+        {
+          "lo": 84,
+          "hi": 102,
+          "toolBytes": 9600,
+          "indepBytes": 9600,
+          "minimalBytes": 9504,
+          "op10000": 7607823,
+          "match": true
+        },
+        {
+          "lo": 102,
+          "hi": 121,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9970,
+          "op10000": 7980519,
+          "match": true
+        },
+        {
+          "lo": 121,
+          "hi": 139,
+          "toolBytes": 9817,
+          "indepBytes": 9817,
+          "minimalBytes": 9720,
+          "op10000": 7781067,
+          "match": true
+        },
+        {
+          "lo": 139,
+          "hi": 157,
+          "toolBytes": 9917,
+          "indepBytes": 9917,
+          "minimalBytes": 9821,
+          "op10000": 7861287,
+          "match": true
+        },
+        {
+          "lo": 157,
+          "hi": 174,
+          "toolBytes": 9157,
+          "indepBytes": 9157,
+          "minimalBytes": 9060,
+          "op10000": 7253453,
+          "match": true
+        },
+        {
+          "lo": 174,
+          "hi": 193,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9970,
+          "op10000": 7980833,
+          "match": true
+        },
+        {
+          "lo": 193,
+          "hi": 210,
+          "toolBytes": 9413,
+          "indepBytes": 9413,
+          "minimalBytes": 9316,
+          "op10000": 7458197,
+          "match": true
+        },
+        {
+          "lo": 210,
+          "hi": 228,
+          "toolBytes": 9596,
+          "indepBytes": 9596,
+          "minimalBytes": 9499,
+          "op10000": 7604061,
+          "match": true
+        },
+        {
+          "lo": 228,
+          "hi": 244,
+          "toolBytes": 8720,
+          "indepBytes": 8720,
+          "minimalBytes": 8622,
+          "op10000": 6903735,
+          "match": true
+        },
+        {
+          "lo": 244,
+          "hi": 260,
+          "toolBytes": 8722,
+          "indepBytes": 8722,
+          "minimalBytes": 8624,
+          "op10000": 6905285,
+          "match": true
+        },
+        {
+          "lo": 260,
+          "hi": 278,
+          "toolBytes": 9876,
+          "indepBytes": 9876,
+          "minimalBytes": 9780,
+          "op10000": 7828586,
+          "match": true
+        },
+        {
+          "lo": 278,
+          "hi": 294,
+          "toolBytes": 8723,
+          "indepBytes": 8723,
+          "minimalBytes": 8625,
+          "op10000": 6905970,
+          "match": true
+        },
+        {
+          "lo": 294,
+          "hi": 313,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9972,
+          "op10000": 7982001,
+          "match": true
+        },
+        {
+          "lo": 313,
+          "hi": 331,
+          "toolBytes": 10035,
+          "indepBytes": 10035,
+          "minimalBytes": 9996,
+          "op10000": 8001521,
+          "match": true
+        },
+        {
+          "lo": 331,
+          "hi": 345,
+          "toolBytes": 8485,
+          "indepBytes": 8485,
+          "minimalBytes": 8387,
+          "op10000": 6715669,
+          "match": true
+        },
+        {
+          "lo": 345,
+          "hi": 348,
+          "toolBytes": 4980,
+          "indepBytes": 4980,
+          "minimalBytes": 4980,
+          "op10000": 2069834,
+          "match": true
+        }
+      ]
+    }
+  ]
+}

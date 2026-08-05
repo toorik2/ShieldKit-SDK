@@ -1,0 +1,111 @@
+{
+  "schema": "verifier.cash/goldilocks/xcheck-fixture/v1",
+  "vectorsPath": "/home/toorik/Projects/ZK-Proofs/verifier.cash/lanes/goldilocks-98k/vectors/sound-secure-vectors.json",
+  "prefix": "test-fixture",
+  "inputCount": 17,
+  "roles": [
+    "blob",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "comp_trans",
+    "comp_final"
+  ],
+  "labels": [
+    "0:blob",
+    "1:deepquery",
+    "2:deepquery",
+    "3:deepquery",
+    "4:deepquery",
+    "5:deepquery",
+    "6:deepquery",
+    "7:deepquery",
+    "8:aggFRI",
+    "9:aggFRI",
+    "10:aggFRI",
+    "11:aggFRI",
+    "12:aggFRI",
+    "13:aggFRI",
+    "14:aggFRI",
+    "15:comp_trans",
+    "16:comp_final"
+  ],
+  "lockingBytes": [
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35,
+    35
+  ],
+  "unlockingBytes": [
+    7897,
+    4725,
+    4731,
+    4729,
+    4728,
+    4725,
+    4727,
+    4723,
+    6216,
+    6219,
+    6213,
+    6215,
+    6219,
+    6219,
+    6215,
+    7546,
+    5383
+  ],
+  "txWireBytes": 98181,
+  "srcoutsWireBytes": 749,
+  "packaging": {
+    "model": "P2SH32 scriptSig = witness || PUSH(redeem); locking = HASH256 <hash> EQUAL unless lockingHex",
+    "defaultOutputs": [
+      "OP_RETURN"
+    ],
+    "estimatedTxBytes": 98181,
+    "underStandardLimit": true,
+    "inputCount": 17
+  },
+  "config": {
+    "nq": 7,
+    "blowup": 2048,
+    "grind_b": 30,
+    "fold_step": 3,
+    "opener_depth": 8,
+    "seed": 62794,
+    "depth": 4
+  },
+  "exportedAt": "2026-07-31T03:27:31.573Z",
+  "leanbch": {
+    "tool": "xcheck_idxN",
+    "args": [
+      "/home/toorik/Projects/ZK-Proofs/verifier.cash/lanes/goldilocks-98k/vectors/xcheck/test-fixture",
+      "<inputIndex>"
+    ],
+    "env": "LEANBCH_ROOT (default: <repo>/../LeanBCH)"
+  }
+}

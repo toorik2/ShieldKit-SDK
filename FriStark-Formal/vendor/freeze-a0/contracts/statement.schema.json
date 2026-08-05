@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit/v2-stark/statement-v1",
+  "title": "shieldkit-v2-stark-statement-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "networkId",
+    "kind",
+    "profileId",
+    "instanceId",
+    "packetCommit",
+    "preState",
+    "postState",
+    "publicNullifier",
+    "outputNoteLeaf",
+    "withdrawalLockingBytecodeHash",
+    "transactionContextHash",
+    "friParamId",
+    "airId"
+  ],
+  "properties": {
+    "schema": { "const": "shieldkit-v2-stark-statement-v1" },
+    "networkId": { "type": "integer", "enum": [1, 2] },
+    "kind": { "type": "integer", "enum": [1, 2, 3] },
+    "profileId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "instanceId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "packetCommit": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "preState": { "type": "string", "pattern": "^[0-9a-f]{256}$" },
+    "postState": { "type": "string", "pattern": "^[0-9a-f]{256}$" },
+    "publicNullifier": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "outputNoteLeaf": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "withdrawalLockingBytecodeHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "transactionContextHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "friParamId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "airId": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

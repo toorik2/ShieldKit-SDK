@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit/v2-stark/packet-v1",
+  "title": "shieldkit-v2-stark-sda3-packet-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "networkId",
+    "kind",
+    "flags",
+    "instanceId",
+    "preState",
+    "postState",
+    "publicNullifier",
+    "outputNoteLeaf",
+    "encryptedRecord",
+    "withdrawalLockingBytecodeHash",
+    "transactionContextHash"
+  ],
+  "properties": {
+    "networkId": { "type": "integer", "enum": [1, 2] },
+    "kind": { "type": "integer", "enum": [1, 2, 3] },
+    "flags": { "const": 0 },
+    "instanceId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "preState": { "$ref": "state.schema.json" },
+    "postState": { "$ref": "state.schema.json" },
+    "publicNullifier": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "outputNoteLeaf": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "encryptedRecord": { "type": "string", "pattern": "^[0-9a-f]{256}$" },
+    "withdrawalLockingBytecodeHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "transactionContextHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
