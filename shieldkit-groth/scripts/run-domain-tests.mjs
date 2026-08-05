@@ -186,6 +186,10 @@ const FILE_TIMEOUT_MS_BY_PATH = new Map([
     'packages/profile/v2/genesis.test.mjs',
     360_000,
   ],
+  [
+    'packages/recover/scale-history-conformance.test.mjs',
+    360_000,
+  ],
   // Q-05 deliberately proves clean-checkout behavior several times: each
   // relevant case performs a fresh immutable npm install and selected cases
   // also compile/run the Rust lane in a fresh target. Keep it mandatory in

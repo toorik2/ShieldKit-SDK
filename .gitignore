@@ -49,3 +49,6 @@ shieldkit-groth/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
 previous-versions/02-use-chipnet-demo-pool/bundle/
+
+# Local research workspace (not part of ShieldKit-Groth Beta product)
+shieldkit-fri-stark/
