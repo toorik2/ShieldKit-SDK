@@ -6,7 +6,6 @@
 coverage/
 node_modules/
 .worktrees/
-legacy-research/
 previous-versions/
 HANDOVER.md
 **/.shieldkit-v2-recovery-target-*/
@@ -41,4 +40,3 @@ wallets.json
 **/typescript/dist/
 shieldkit-groth/crates/**/target/
 shieldkit-groth/packages/unlock-builder/vendor/
-legacy-research/

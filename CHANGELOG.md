@@ -4,7 +4,7 @@
 
 - Product root relocated: `03-create-your-own-pool/` → `shieldkit-groth/`.
 - User-facing identity: ShieldKit-Groth Beta (Chipnet-only, unaudited, zero-conf).
-- PF10-only release closure: legacy seven-carrier research moved to `legacy-research/v1-seven-carrier/`.
+- PF10-only release closure: legacy seven-carrier research moved to `previous-versions/legacy-research/v1-seven-carrier/`.
 - CLI: `shieldkit pool --help` and nested pool create/deposit/withdraw/recover/doctor surfaces.
 - Packaging: explicit `files` allowlist; `npm pack --dry-run` completes with a minimal CLI tarball (~1 MB).
 - Gates: `check:no-pf7-release` / `check:no-seven-carrier-release`, `qualification:beta`.

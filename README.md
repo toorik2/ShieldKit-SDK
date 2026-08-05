@@ -22,7 +22,6 @@ npm run qualification:beta
 
 ### Archives (not the product surface)
 
-- [`previous-versions/`](./previous-versions/) — learn site + V1 Chipnet playground
-- [`legacy-research/`](./legacy-research/) — seven-carrier research (out of release closure)
+- [`previous-versions/`](./previous-versions/) — learn site, V1 Chipnet playground, seven-carrier research
 
 **Mainnet is not a product claim.** No production, audit, or privacy-qualification claim in this beta.

@@ -6,7 +6,9 @@ Material that is **not** the default ShieldKit-Groth product surface.
 |------|------------|
 | **`01-learn-about-this-system/`** | Static HTML learn site (no wallet/chain) |
 | **`02-use-chipnet-demo-pool/`** | V1 Chipnet playground instance + optional large profile bundle |
+| **`legacy-research/v1-seven-carrier/`** | Archived densFuel / seven-carrier research (PF10 product is unrelated) |
 
 **Default product:** [`../shieldkit-groth/`](../shieldkit-groth/) — CLI `shieldkit`.
 
-These trees stay in the git repo for historical playground resolution and docs, but they are excluded from the published CLI pack (see root `.npmignore`).
+These trees stay in git for history and a few path-resolution/tests, but they are
+excluded from the published CLI pack (root `.npmignore` → `previous-versions/`).

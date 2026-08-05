@@ -1,6 +1,6 @@
 /**
  * @shieldkit/unlock-builder — PF10 verifier unlock builder (Node-only).
- * Legacy seven-carrier pin factory lives under legacy-research/v1-seven-carrier/unlock-builder/.
+ * Legacy seven-carrier pin factory lives under previous-versions/legacy-research/v1-seven-carrier/unlock-builder/.
  */
 
 export {

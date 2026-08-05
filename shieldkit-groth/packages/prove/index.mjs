@@ -1,6 +1,6 @@
 /**
  * @shieldkit/prove — Groth16 adapters for ShieldKit-Groth (PF10).
- * Legacy seven-carrier authority helpers live under legacy-research/v1-seven-carrier/.
+ * Legacy seven-carrier authority helpers live under previous-versions/legacy-research/v1-seven-carrier/.
  */
 
 export { adaptSnarkjsGroth16 } from './groth16.mjs';

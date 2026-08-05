@@ -350,7 +350,7 @@ async function cmdTip() {
     const network = instance.network === 'mainnet' ? 'mainnet' : 'chipnet';
     const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
     const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
-    failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to legacy-research/v1-seven-carrier/', 2);
+    failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to previous-versions/legacy-research/v1-seven-carrier/', 2);
     const {
       fetchSettlementLogFromTip,
       settlementLogLooksComplete,
@@ -740,7 +740,7 @@ async function cmdAct(verb) {
     const { spawnSync } = await import('node:child_process');
     const { existsSync } = await import('node:fs');
     const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-    failJson('LEGACY_POOL_ACT_MOVED', 'legacy seven-carrier pool-act moved to legacy-research/v1-seven-carrier/; use shieldkit pool deposit|withdraw for PF10', 2);
+    failJson('LEGACY_POOL_ACT_MOVED', 'legacy seven-carrier pool-act moved to previous-versions/legacy-research/v1-seven-carrier/; use shieldkit pool deposit|withdraw for PF10', 2);
     const script = null;
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
@@ -899,7 +899,7 @@ async function cmdRequestTemplate() {
     let bindingCarrierBaseValueSatoshis = '1000';
     try {
       const raw = await readFile(vsPath, 'utf8');
-      failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to legacy-research/v1-seven-carrier/', 2);
+      failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to previous-versions/legacy-research/v1-seven-carrier/', 2);
       const authority = parsePf7CarrierAuthority(JSON.parse(raw));
       bindingLockingBytecode = authority.settlementKernel.bindingLock.toString('hex');
       bindingCarrierBaseValueSatoshis = authority.settlementKernel.artifact.constants.bindingCarrierBaseSatoshis;

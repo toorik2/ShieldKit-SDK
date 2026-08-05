@@ -64,5 +64,5 @@ export {
 } from './setup/beta-single-contributor-entropy.mjs';
 export { buildVerifierProfileBundle, ProfileBuildError } from './build.mjs';
 // The historical setup-to-profile bridge is quarantined in bridge.mjs.
-// V1 Chipnet seven-carrier genesis helpers moved to legacy-research/v1-seven-carrier/profile/.
+// V1 Chipnet seven-carrier genesis helpers moved to previous-versions/legacy-research/v1-seven-carrier/profile/.
 // PF10 genesis: packages/profile/v2/genesis.mjs
