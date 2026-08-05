@@ -23,7 +23,7 @@
 
 ```sh
 npm ci
-npm run check:no-pf7-release   # alias: check:no-seven-carrier-release
+npm run check:no-seven-carrier-release   # alias: check:no-seven-carrier-release
 npm run check:source
 npm run check:type:v2
 npm audit --omit=dev --audit-level=high
