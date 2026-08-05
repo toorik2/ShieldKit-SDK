@@ -171,6 +171,12 @@ export async function buildV2BetaChipnetFiveByFiveStory(value) {
   const directory = privateDirectory(value.storyDirectory); const sourceHex = hex(value.bootstrapSourceTransactionHex, 'bootstrapSourceTransactionHex'); const genesisHex = hex(value.genesisRawTransactionHex, 'genesisRawTransactionHex');
   if (transactionIdFromHex(sourceHex) !== deployment.sourceTransactionId || transactionIdFromHex(genesisHex) !== deployment.genesisOutpoint.txid) fail('BETA_STORY_BINDING_REJECTED', 'source or genesis raw transaction differs from deployment capability');
   const funding = normalizeFunding(value.funding, sourceHex); const denominationSats = value.profileCore.denominationSats; const pins = settlementPins(runtime); const wallet = loadOrCreateWallet(directory, profileId, deployment.instanceId, funding.lockingBytecodeHex); const withdrawalLockingBytecode = Buffer.from(hex(value.withdrawalLockingBytecode, 'withdrawalLockingBytecode'), 'hex');
+  if (withdrawalLockingBytecode.toString('hex') === funding.lockingBytecodeHex) {
+    fail(
+      'BETA_STORY_WITHDRAWAL_TO_FUNDER_REJECTED',
+      'withdrawalLockingBytecode must not equal the funding fee wallet lock; use a dedicated external payout lock',
+    );
+  }
   const noteAccount = Object.freeze({ address: wallet.address, incomingViewSecret: wallet.incomingViewSecret, spendSecret: wallet.spendSecret });
   let current = createDirectV2PoolModel({ profileId, maximumLiveNotes: value.maximumLiveNotes, denominationSats });
   if (sha256(encodeStateNftCommitment(current.state, { denominationSats })) !== deployment.initialStateSha256) fail('BETA_STORY_BINDING_REJECTED', 'maximumLiveNotes/profile initial model does not equal accepted deployment state');

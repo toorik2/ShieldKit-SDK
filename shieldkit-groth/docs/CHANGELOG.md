@@ -7,7 +7,7 @@
 - PF10-only release closure: legacy seven-carrier research moved to `previous-versions/legacy-research/v1-seven-carrier/`.
 - CLI: `shieldkit pool --help` and nested pool create/deposit/withdraw/recover/doctor surfaces.
 - Packaging: explicit `files` allowlist; `npm pack --dry-run` completes with a minimal CLI tarball (~1 MB).
-- Gates: `check:no-pf7-release` / `check:no-seven-carrier-release`, `qualification:beta`.
+- Gates: `check:no-seven-carrier-release`, `qualification:beta`.
 - Post-beta D-01/D-02 and Q-08/Q-09 remain production gates (not deleted).
 
 
@@ -19,16 +19,23 @@ Toolkit only. Profile pins: [docs/PROFILES.md](shieldkit-groth/docs/PROFILES.md)
 - Playground switched to the real Chipnet-qualified 32-note instance
   (`cfe741f6…`, 3.2 BCH reserve cap) and hash-pinned bundle
   **`playground-bundle-v3`**.
+- Privacy docs split crypto note-unlink from operational identity; fee graph
+  remains a public nonclaim (fee mechanics out of scope for this change).
 
 ### Fixed
 - Custom pool instances now publish their State NFT category and category
   outpoint; tip discovery also recovers this identity from the verified bundle
   manifest for older instance descriptors.
+- Product withdraw refuses payout locks that match this data-home fee keyring
+  or change wallets (`BETA_WITHDRAWAL_TO_FEE_WALLET_REJECTED`).
+- Five-by-five live driver no longer withdraws to the funding hot wallet;
+  uses a dedicated payout wallet (auto-created under the story dir if omitted).
 
 ### Added
 - Real Chipnet 32-note qualification: category/genesis
   `a42804c7…` / `6a9fe6f6…`, deposit settlement `9191f189…`
   (56,964 bytes), and withdrawal settlement `b2fcc9e7…` (56,998 bytes).
+
 
 ## [0.2.0] — 2026-07-27
 
@@ -55,7 +62,7 @@ production-qualified or approved for mainnet use.
 - Fee floors: settlementFeeFunding 100k→59.5k; deposit/withdraw scan floors from exact prep formula (no 1.5M/11.5M lab pads).
 - Blank playground join: auto tip→genesis settlementLog walk + public tipForest rebuild (no residual journal).
 - `install-deps` always pins `action` libauth and hard-gates required modules after install.
-- densFuel unlock phase JSON quiet by default (use `SHIELDKIT_VERBOSE=1` / `--verbose`).
+- Unlock-phase JSON quiet by default (use `SHIELDKIT_VERBOSE=1` / `--verbose`).
 - ECIP diversity uses larger fee-funding steps; short product retry line instead of internal dumps.
 - `wallets.json` gitignored at repo root.
 

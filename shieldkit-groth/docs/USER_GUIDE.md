@@ -15,13 +15,24 @@ V2 workflow.
 |------|---------|
 | **Private balance** | How many of *your* shielded notes you can spend |
 | **Deposit** | Shield coins into the pool |
-| **Withdraw** | Unshield one of *your* notes to an address |
+| **Withdraw** | Unshield one of *your* notes to an **external** address |
 | **Backup** | Keep `state.json` / encrypted note wallet safe |
 
 You provide owned funding UTXOs; the client authenticates and tracks them,
 handles tip synchronization and fees, and never puts a private key on the
 command line. Consecutive actions require two alternating independent fee
 UTXOs because an action's change transaction is also the current pool tip.
+
+### Withdraw destination (privacy)
+
+`shieldkit withdraw --to <bchtest-p2pkh>` is **required**. Use a **fresh external**
+Chipnet P2PKH that is **not** this data-home’s fee keyring or change wallet.
+Product refuses withdraw-to-funder / withdraw-to-local-change
+(`BETA_WITHDRAWAL_TO_FEE_WALLET_REJECTED`).
+
+Fee inputs and change remain public on chain (see
+[`PRIVACY.md`](./PRIVACY.md)). Isolating the payout address does not hide the
+fee graph; it stops the trivial “same hot in and out” identity merge.
 
 ## Current V2 status
 

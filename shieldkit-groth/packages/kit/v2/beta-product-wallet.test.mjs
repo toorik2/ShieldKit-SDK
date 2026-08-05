@@ -59,6 +59,24 @@ test('creates a secret-free public account and a durable 0700/0600 wallet', () =
   } finally { rmSync(fixture.directory, { recursive: true, force: true }); }
 });
 
+test('lists local fee keyring and change locks for withdrawal privacy policy', () => {
+  const fixture = temporaryWallet();
+  try {
+    const wallet = openFixture(fixture.databasePath);
+    const [funding] = wallet.fundingWallets();
+    assert.deepEqual(
+      wallet.localFeeAndChangeLockingBytecodeHexes(),
+      [funding.lockingBytecodeHex],
+    );
+    const change = wallet.stageChangeWallet({ operationId: 'privacy.change.01' });
+    assert.deepEqual(
+      wallet.localFeeAndChangeLockingBytecodeHexes(),
+      [funding.lockingBytecodeHex, change.lockingBytecodeHex].sort(),
+    );
+    wallet.close();
+  } finally { rmSync(fixture.directory, { recursive: true, force: true }); }
+});
+
 test('stages distinct change wallets before signing and attaches only to one accepted outpoint', () => {
   const fixture = temporaryWallet();
   try {

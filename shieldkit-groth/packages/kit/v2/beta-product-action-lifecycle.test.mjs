@@ -46,6 +46,7 @@ import {
 import { openV2DeliveryJournal } from './delivery-journal.mjs';
 import { openV2BetaProductWallet } from './beta-product-wallet.mjs';
 import {
+  assertWithdrawalPayoutNotLocalFeeOrChange,
   createV2BetaProductActionLifecycle,
   createV2BetaProductActionLifecycleForTest,
   deriveV2BetaAcceptedZeroConfClaimsForTest,
@@ -1010,4 +1011,36 @@ test('runtime capacity must equal the immutable capacity in the accepted state',
     error => error?.code === 'BETA_TIP_READBACK_REJECTED',
   );
   assert.equal(subject.wallet.publicSummary().changeWalletCount, 0);
+});
+
+test('withdrawal policy rejects payout locks known as local fee or change wallets', () => {
+  const feeLock = Buffer.from(LOCK);
+  const external = Buffer.concat([
+    Buffer.from([0x76, 0xa9, 0x14]),
+    Buffer.alloc(20, 0xee),
+    Buffer.from([0x88, 0xac]),
+  ]);
+  assert.equal(
+    assertWithdrawalPayoutNotLocalFeeOrChange({
+      payoutLockingBytecode: external,
+      localLockingBytecodeHexes: [feeLock.toString('hex')],
+    }),
+    external.toString('hex'),
+  );
+  assert.throws(
+    () => assertWithdrawalPayoutNotLocalFeeOrChange({
+      payoutLockingBytecode: feeLock,
+      localLockingBytecodeHexes: [feeLock.toString('hex')],
+    }),
+    error => error instanceof V2BetaProductActionLifecycleError
+      && error.code === 'BETA_WITHDRAWAL_TO_FEE_WALLET_REJECTED',
+  );
+  assert.throws(
+    () => assertWithdrawalPayoutNotLocalFeeOrChange({
+      payoutLockingBytecode: 'not-bytes',
+      localLockingBytecodeHexes: [],
+    }),
+    error => error instanceof V2BetaProductActionLifecycleError
+      && error.code === 'BETA_WITHDRAWAL_DESTINATION_REQUIRED',
+  );
 });

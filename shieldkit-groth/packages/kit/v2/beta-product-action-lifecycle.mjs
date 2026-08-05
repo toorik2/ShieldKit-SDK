@@ -117,6 +117,33 @@ const fail = (code, message, options = undefined) => {
   throw new V2BetaProductActionLifecycleError(code, message, options);
 };
 
+/** Product policy: refuse cashing out to this data-home's fee or change locks. */
+export function assertWithdrawalPayoutNotLocalFeeOrChange({
+  payoutLockingBytecode,
+  localLockingBytecodeHexes,
+} = {}) {
+  if (!(payoutLockingBytecode instanceof Uint8Array)) {
+    fail(
+      'BETA_WITHDRAWAL_DESTINATION_REQUIRED',
+      'withdrawal requires a canonical P2PKH payout locking bytecode',
+    );
+  }
+  if (!Array.isArray(localLockingBytecodeHexes)) {
+    fail(
+      'BETA_ACTION_INVALID',
+      'local fee/change lock list is required for withdrawal policy',
+    );
+  }
+  const payoutHex = Buffer.from(payoutLockingBytecode).toString('hex');
+  if (localLockingBytecodeHexes.includes(payoutHex)) {
+    fail(
+      'BETA_WITHDRAWAL_TO_FEE_WALLET_REJECTED',
+      'withdrawal destination must not be this data-home fee keyring or change wallet; use a fresh external Chipnet P2PKH',
+    );
+  }
+  return payoutHex;
+}
+
 function exact(value, keys, label) {
   if (
     value === null
@@ -1358,12 +1385,10 @@ export class V2BetaProductActionLifecycle {
     noteId = undefined,
     payoutLockingBytecode,
   } = {}) {
-    if (!(payoutLockingBytecode instanceof Uint8Array)) {
-      fail(
-        'BETA_WITHDRAWAL_DESTINATION_REQUIRED',
-        'withdrawal requires a canonical P2PKH payout locking bytecode',
-      );
-    }
+    assertWithdrawalPayoutNotLocalFeeOrChange({
+      payoutLockingBytecode,
+      localLockingBytecodeHexes: this.#wallet.localFeeAndChangeLockingBytecodeHexes(),
+    });
     return this.#execute({
       kind: 'withdrawal',
       noteId,

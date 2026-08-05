@@ -686,6 +686,27 @@ export class V2BetaProductWallet {
     })));
   }
 
+  /**
+   * Local fee-keyring and change-wallet P2PKH locks known to this data-home.
+   * Used to refuse withdrawals that cash out to the same identity that funds
+   * fees/change (operator graph collapse). Does not redesign fee selection.
+   */
+  localFeeAndChangeLockingBytecodeHexes() {
+    this.#assertOpen();
+    const locks = new Set();
+    for (const row of this.#db.prepare(
+      'SELECT locking_bytecode_hex FROM funding_keyring',
+    ).all()) {
+      locks.add(row.locking_bytecode_hex);
+    }
+    for (const row of this.#db.prepare(
+      'SELECT locking_bytecode_hex FROM change_wallets',
+    ).all()) {
+      locks.add(row.locking_bytecode_hex);
+    }
+    return Object.freeze([...locks].sort());
+  }
+
   spendableFundingWallets() {
     this.#assertOpen();
     const base = this.#db.prepare(`SELECT wallet_id, compressed_public_key_hex, locking_bytecode_hex, cash_address
@@ -1300,6 +1321,7 @@ export function openV2BetaProductWallet(options = undefined) {
 export function assertV2BetaProductWallet(value) {
   if (!WALLET_BRAND.has(value) || typeof value.stageChangeWallet !== 'function'
     || typeof value.signFunding !== 'function' || typeof value.spendableFundingWallets !== 'function'
+    || typeof value.localFeeAndChangeLockingBytecodeHexes !== 'function'
     || typeof value.stageDepositNote !== 'function'
     || typeof value.reserveOwnedNoteForWithdrawal !== 'function'
     || typeof value.commitAcceptedWithdrawalSpend !== 'function'

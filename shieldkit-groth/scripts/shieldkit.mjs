@@ -122,9 +122,12 @@ function poolUsage(topic = 'pool') {
 
   --note <64-hex-owned-note-id>  --data-home <abs-dir>  --operation-id <id>  --human|--json
 `,
-    withdraw: `shieldkit pool withdraw — withdraw one note to Chipnet P2PKH
+    withdraw: `shieldkit pool withdraw — withdraw one note to an external Chipnet P2PKH
 
   --to <bchtest-p2pkh-address>  --data-home <abs-dir>  --note <id>  --operation-id <id>
+
+  --to must be a fresh external address, not this data-home fee keyring or change wallet
+  (product rejects withdraw-to-funder as BETA_WITHDRAWAL_TO_FEE_WALLET_REJECTED).
 `,
     recover: `shieldkit pool recover — inspect or exact-byte rebroadcast
 
@@ -154,7 +157,7 @@ Optional demo: previous-versions/02-use-chipnet-demo-pool/   (legacy research in
   pool refresh-runtime [--data-home <absolute-directory>] [--human|--json]
   pool add-funding --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]  # register an already-owned live UTXO; never sends; keep two independent fee UTXOs for consecutive actions
   pool deposit | deposit [--data-home <absolute-directory>] [--operation-id <id>] [--human|--json]
-  pool withdraw | withdraw --to <bchtest-p2pkh-address> [--data-home <absolute-directory>] [--note <id>] [--operation-id <id>] [--human|--json]
+  pool withdraw | withdraw --to <bchtest-p2pkh-external-not-fee-wallet> [--data-home <absolute-directory>] [--note <id>] [--operation-id <id>] [--human|--json]
   pool recover inspect | recovery inspect --operation-id <id> [--data-home <absolute-directory>] [--human|--json]
   pool recover rebroadcast | recovery rebroadcast --operation-id <id> --attempt-token <current-token> --acknowledge-exact-rebroadcast [--data-home <absolute-directory>] [--human|--json]
   pool doctor [--data-home <absolute-directory>] [--human|--json]

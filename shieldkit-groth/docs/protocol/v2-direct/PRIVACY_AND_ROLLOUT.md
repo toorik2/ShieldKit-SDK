@@ -17,8 +17,12 @@ production-security guarantee.
 
 - Deposit funding is visible.
 - Every action's transparent fee input and change are visible.
+- Lab single-key bootstrap fanout clusters fee identity for a session (public
+  fee-graph nonclaim; fee mechanics redesign is a separate programme).
 - Transfer publicly pairs one nullifier with one new output.
 - Withdrawal publicly pairs one nullifier with one transparent payout.
+- Cashing out to the same local fee/change wallet as funding **collapses
+  operational identity**; the product path must reject that destination.
 - Timing, amount, action shape, RPC traffic, IP metadata, sender knowledge,
   recipient knowledge, and low pool activity can reduce practical privacy.
 - Live-note count is not a guaranteed anonymity set.

@@ -13,7 +13,7 @@ shieldkit pool create \
   --funding-utxo <64-lowercase-hex-txid:vout>
 shieldkit pool create --resume
 shieldkit deposit
-shieldkit withdraw
+shieldkit withdraw --to <bchtest-p2pkh-external-not-fee-wallet>
 shieldkit recovery inspect --operation-id <operation-id>
 shieldkit recovery rebroadcast --operation-id <operation-id> \
   --attempt-token <current-token> --acknowledge-exact-rebroadcast
