@@ -112,6 +112,7 @@
     "shieldkit-groth/docs/SECURITY.md",
     "shieldkit-groth/docs/CHANGELOG.md",
     "package.json",
+    "package-lock.json",
     "shieldkit-groth/version.mjs",
     "shieldkit-groth/README.md",
     "shieldkit-groth/rust-toolchain.toml",

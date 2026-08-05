@@ -265,6 +265,16 @@ async function loadOrCreateLinkedRuntime({ bootstrap, config }, dependencies) {
       timings: Object.freeze({ ...timings }),
     });
   } catch (error) {
+    // Source-fingerprint failure (e.g. missing package-lock in a packed install)
+    // is not a stale linked cache — surface it before the miss→install path.
+    const code = error?.code ?? error?.cause?.code;
+    if (code === 'BETA_RUNTIME_CACHE_UNAVAILABLE') {
+      fail(
+        'BETA_POOL_RUNTIME_REJECTED',
+        error?.message ?? error?.cause?.message ?? 'runtime source is unavailable for linked-cache fingerprint',
+        { cause: error, recoverable: true },
+      );
+    }
     if (!isLinkedCacheUnavailable(error)) {
       fail('BETA_POOL_RUNTIME_REJECTED', 'the exact linked runtime cache is invalid or stale', {
         cause: error,
