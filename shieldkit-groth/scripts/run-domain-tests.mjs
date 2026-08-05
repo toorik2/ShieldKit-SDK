@@ -176,6 +176,13 @@ const FILE_TIMEOUT_MS_BY_PATH = new Map([
     'packages/unlock-builder/v2/pf10-runtime-bundle-coherence.test.mjs',
     900_000,
   ],
+  // Packaged genesis binding + VM-accepted genesis matrix is CPU-heavy; alone
+  // it is ~2 minutes and can exceed the 180s default supervisor under a full
+  // all-core portable pool without any assertion failure.
+  [
+    'packages/profile/v2/genesis.test.mjs',
+    360_000,
+  ],
   // Q-05 deliberately proves clean-checkout behavior several times: each
   // relevant case performs a fresh immutable npm install and selected cases
   // also compile/run the Rust lane in a fresh target. Keep it mandatory in
