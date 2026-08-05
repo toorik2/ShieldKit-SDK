@@ -1,6 +1,6 @@
 # ShieldKit — ShieldKit-Groth Beta
 
-Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./SECURITY.md)
+Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./shieldkit-groth/docs/SECURITY.md)
 
 **Product:** [`shieldkit-groth/`](./shieldkit-groth/)  
 **CLI:** `shieldkit`  
@@ -18,6 +18,8 @@ npm run qualification:beta
 
 - [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
 - [ARCHITECTURE](./shieldkit-groth/docs/ARCHITECTURE.md)
+- [SECURITY](./shieldkit-groth/docs/SECURITY.md)
+- [CHANGELOG](./shieldkit-groth/docs/CHANGELOG.md)
 - [V2 Direct protocol](./shieldkit-groth/docs/protocol/v2-direct/)
 
 ### Archives (not the product surface)

@@ -12,6 +12,7 @@
 | [PLAYGROUND.md](PLAYGROUND.md) | Demo vs your pool |
 | [PROFILES.md](PROFILES.md) | Playground pin table |
 | [VERSIONING.md](VERSIONING.md) | Toolkit semver vs profile/instance IDs |
-| [../../CHANGELOG.md](../../CHANGELOG.md) | Toolkit changelog |
+| [CHANGELOG.md](CHANGELOG.md) | Toolkit changelog |
+| [SECURITY.md](SECURITY.md) | Security policy and beta non-claims |
 
 `archive/` and package `internal/` notes are historical/lab evidence, not product shelf.
