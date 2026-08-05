@@ -45,7 +45,7 @@ wallets.json
 !**/fixtures/**/inputs_dump.json
 
 # Root workspace lock is authoritative; package-local locks are unsupported.
-03-create-your-own-pool/packages/*/package-lock.json
+shieldkit-groth/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
 02-use-chipnet-demo-pool/bundle/

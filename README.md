@@ -1,35 +1,30 @@
-# ShieldKit — Create and run your own shielded pool on Bitcoin Cash
+# ShieldKit-Groth Beta
 
-Unaudited WIP · **Chipnet first** · [SECURITY](./SECURITY.md)
+Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./SECURITY.md)
 
-### 1 · Learn
-[`01-learn-about-this-system/`](./01-learn-about-this-system/) — static HTML, no wallet/chain.
-
-```bash
-python3 -m http.server 8765 --directory 01-learn-about-this-system
-# http://127.0.0.1:8765/learn-about-this-system.html
-```
-
-### 2 · Legacy playground research
-[`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/) is the existing V1
-Chipnet research instance, not a V2 Direct fallback or qualification result.
-Mutations require explicit `--protocol v1-legacy` and emit a linkability
-warning.
+**Product root:** [`shieldkit-groth/`](./shieldkit-groth/)  
+**Executable:** `shieldkit`  
+**Version:** see root `package.json` (`0.3.0-beta.1` candidate)
 
 ```bash
 npm ci
-npm run fetch-playground-bundle
-npm run unlock-builder:setup
-npm run rpc:probe
-npm run shieldkit -- playground doctor
-npm run shieldkit -- playground tip
-# legacy research only:
-npm run shieldkit -- playground deposit --protocol v1-legacy --wallets ./wallets.json --broadcast
+npm run shieldkit -- --help
+npm run shieldkit -- pool --help
+npm run shieldkit -- pool create --help
+npm run check:no-pf7-release
+npm run qualification:beta   # local/package beta gate (not live Chipnet)
 ```
 
-### 3 · Your pool
-[`03-create-your-own-pool/`](./03-create-your-own-pool/) — product surface (kit · pool · CLI).
+### Learn
+[`01-learn-about-this-system/`](./01-learn-about-this-system/) — static HTML, no wallet/chain.
 
-Docs: [USER_GUIDE](./03-create-your-own-pool/docs/USER_GUIDE.md) · [SHARED_POOL_DESIGN](./03-create-your-own-pool/docs/SHARED_POOL_DESIGN.md) · [V2 Direct protocol boundary](./03-create-your-own-pool/docs/protocol/v2-direct/PROHIBITED_TOPOLOGIES.md)
+### Legacy research (not beta product)
+[`02-use-chipnet-demo-pool/`](./02-use-chipnet-demo-pool/) — V1 playground instance.  
+[`legacy-research/v1-seven-carrier/`](./legacy-research/v1-seven-carrier/) — moved seven-carrier research (out of release closure).
 
-**Mainnet is not a product claim** in this release (unaudited; see SECURITY and red-team docs).
+### Docs
+- [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
+- [ARCHITECTURE](./shieldkit-groth/docs/ARCHITECTURE.md)
+- [V2 Direct protocol](./shieldkit-groth/docs/protocol/v2-direct/)
+
+**Mainnet is not a product claim.** No production, audit, or privacy-qualification claim in this beta.

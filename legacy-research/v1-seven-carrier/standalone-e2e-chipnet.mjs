@@ -1,0 +1,326 @@
+#!/usr/bin/env node
+/**
+ * Standalone Chipnet e2e: deposit → transfer → withdrawal using only product packages.
+ * Unlock builder resolves packages/unlock-builder/vendor/* (no sibling verifier.cash).
+ *
+ * Requires: SSH host `layer1-node` BCHN, wallets, live profile tip (or --state-txid).
+ *
+ * Usage (repo root):
+ *   node shieldkit-groth/scripts/standalone-e2e-chipnet.mjs \
+ *     [--out .cache/standalone-e2e] \
+ *     [--kinds deposit,transfer,withdrawal]
+ */
+import { createHash, randomBytes } from 'node:crypto';
+import {
+  existsSync, mkdirSync, readFileSync,
+} from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadVerifierProfileBundle } from '../packages/profile/load.mjs';
+import { completeAction, PIN_LENS } from '../packages/kit/complete-action.mjs';
+import { createChainRpc } from '../packages/kit/chipnet-rpc.mjs';
+import {
+  broadcastStagedOperation,
+  commitStagedOperation,
+  stageOperation,
+  transactionIdFromHex,
+} from '../packages/kit/transaction-coordinator.mjs';
+import {
+  appendPrivateJsonLine,
+  atomicWriteJson,
+} from '../packages/kit/secure-files.mjs';
+import { resolveUnlockRoot, resolveLeanRoot } from '../packages/unlock-builder/index.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '../..');
+
+function arg(name, def) {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : def;
+}
+
+const OUT = path.resolve(arg('out', path.join(ROOT, '.cache/standalone-e2e')));
+const KINDS = (arg('kinds', 'deposit,transfer,withdrawal')).split(',').map((s) => s.trim());
+const BUNDLE = path.resolve(arg('bundle', path.join(ROOT, '.cache/profile-build-live/profile-bundle')));
+const WALLETS = path.resolve(arg('wallets', path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json')));
+const STATE_FILE = path.resolve(arg('state', path.join(ROOT, '.cache/live-battery/run-20260724/state.json')));
+const STAB = {
+  deposit: path.join(ROOT, '.cache/stabilize-pf7-deposit/build/inputs_dump.json'),
+  transfer: path.join(ROOT, '.cache/stabilize-pf7-transfer/build/inputs_dump.json'),
+  withdrawal: path.join(ROOT, '.cache/stabilize-pf7-withdrawal/build/inputs_dump.json'),
+};
+
+async function broadcastQualificationTransactions(rpc, label, transactions) {
+  const operationRoot = path.join(OUT, '.shieldkit', 'qualification', label);
+  const normalized = transactions.map(({ role, hex }) => ({
+    role,
+    hex,
+    txid: transactionIdFromHex(hex),
+  }));
+  const { journalPath } = stageOperation({
+    poolDirectory: operationRoot,
+    kind: `standalone-chipnet-${label}`,
+    network: 'chipnet',
+    setupMode: 'development-only',
+    transactions: normalized,
+    nextState: {
+      schema: 'shieldkit/chipnet-qualification-state/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+    ledgerRecord: {
+      schema: 'shieldkit/chipnet-qualification-ledger/v1',
+      label,
+      txids: normalized.map(({ role, txid }) => ({ role, txid })),
+    },
+  });
+  await broadcastStagedOperation({ journalPath, rpc });
+  commitStagedOperation({
+    journalPath,
+    statePath: path.join(operationRoot, 'state.json'),
+    ledgerPath: path.join(operationRoot, 'ledger.jsonl'),
+  });
+  return normalized;
+}
+
+async function pickFee(rpc, state, minSats) {
+  const sorted = [...(state.feeUtxos || [])].sort((a, b) => b.sats - a.sats);
+  for (const u of sorted) {
+    if (u.sats < minSats) continue;
+    if (!await rpc.gettxout(u.txid, u.vout)) continue;
+    state.feeUtxos = state.feeUtxos.filter((x) => !(x.txid === u.txid && x.vout === u.vout));
+    return u;
+  }
+  throw new Error(`no fee UTXO ≥ ${minSats}`);
+}
+
+function pushFee(state, u) {
+  if (!state.feeUtxos.some((x) => x.txid === u.txid && x.vout === u.vout)) {
+    state.feeUtxos.push(u);
+  }
+}
+
+function minSatsFor(kind) {
+  // Match pool-act: PF7 7k + binding 1k + settleFeeFunding (59k+546) + prep pad 3k + dust
+  const base = 7_000 + 1_000 + 59_000 + 546 + 3_000 + 546;
+  return kind === 'deposit' ? base + 10_000_000 : base;
+}
+
+function loadStab(kind) {
+  const p = STAB[kind];
+  if (!existsSync(p)) return null;
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+
+async function main() {
+  mkdirSync(OUT, { recursive: true });
+  const rpc = await createChainRpc({ network: 'chipnet' });
+  // Prove vendor resolution (standalone)
+  const unlockRoot = resolveUnlockRoot();
+  const leanRoot = resolveLeanRoot();
+  if (!unlockRoot.includes(`${path.sep}unlock-builder${path.sep}vendor${path.sep}`)) {
+    console.warn(JSON.stringify({ warn: 'unlock root not under vendor', unlockRoot }));
+  }
+  console.log(JSON.stringify({
+    phase: 'start',
+    unlockRoot,
+    leanRoot,
+    pinLens: PIN_LENS,
+    bundle: BUNDLE,
+    kinds: KINDS,
+  }));
+
+  const wallets = JSON.parse(readFileSync(WALLETS, 'utf8'));
+  const hot = wallets.hot;
+  const feePrivateKey = Buffer.from(hot.privateKeyHex, 'hex');
+  const loaded = await loadVerifierProfileBundle(BUNDLE);
+  const expectedProfile = {
+    profileId: loaded.manifest.identity.profileId,
+    instanceId: loaded.manifest.genesis.instanceId,
+    network: 'chipnet',
+  };
+
+  const state = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+  let stateTxid = arg('state-txid', state.stateTxid);
+  if (!stateTxid) throw new Error('no stateTxid');
+
+  // withdrawal script hash from hot p2pkh
+  const wsh = createHash('sha256').update(Buffer.from(hot.lockingBytecodeHex, 'hex')).digest('hex');
+  const withdrawalLockingBytecode = Buffer.from(hot.lockingBytecodeHex, 'hex');
+
+  let digests = state.resumeDigests || {
+    deposit: '00'.repeat(32),
+    transfer: '00'.repeat(32),
+    withdrawal: '00'.repeat(32),
+  };
+  const priorCycles = state.history || [];
+  let witnessSeed = state.resumeSeed || randomBytes(32).toString('hex');
+
+  const ledger = [];
+  const MAX_ATTEMPTS = 4;
+  for (const kind of KINDS) {
+    let result = null;
+    let lastErr = null;
+    const rejected = new Set();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let fee;
+      try {
+        // park rejected fees so pickFee cannot reselect
+        const parked = [];
+        state.feeUtxos = (state.feeUtxos || []).filter((u) => {
+          const k = `${u.txid}:${u.vout}`;
+          if (rejected.has(k)) { parked.push(u); return false; }
+          return true;
+        });
+        fee = await pickFee(rpc, state, minSatsFor(kind));
+        for (const u of parked) pushFee(state, u);
+      } catch (e) {
+        lastErr = e;
+        break;
+      }
+      console.log(JSON.stringify({ fee: true, kind, attempt, txid: fee.txid.slice(0, 16), vout: fee.vout, sats: fee.sats }));
+      const workDir = path.join(OUT, `${kind}-a${attempt}`);
+      mkdirSync(workDir, { recursive: true });
+      const template = loadStab(kind);
+      try {
+        result = await completeAction({
+          kind,
+          bundleDirectory: BUNDLE,
+          expectedProfile,
+          stateTxid,
+          feePrivateKey,
+          funding: {
+            txid: fee.txid,
+            vout: fee.vout,
+            sats: fee.sats,
+            publicKeyHex: hot.publicKeyHex,
+          },
+          workDir,
+          witnessSeed,
+          withdrawalScriptHash: wsh,
+          withdrawalLockingBytecode,
+          priorCycles,
+          transferHops: 1,
+          digests,
+          stabilizeUnlockTemplate: template || undefined,
+        });
+        if (JSON.stringify(result.lens) !== JSON.stringify(PIN_LENS)) {
+          throw new Error(`pin lens mismatch ${JSON.stringify(result.lens)}`);
+        }
+        if (!String(result.unlockRoot).includes(`${path.sep}vendor${path.sep}`)) {
+          throw new Error(`not standalone unlock root: ${result.unlockRoot}`);
+        }
+        // success path continues below
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        // Prefer alternate funding UTXO; if none, reuse same fee with fresh witness seed
+        // (prep not broadcast yet).
+        rejected.add(`${fee.txid}:${fee.vout}`);
+        let otherLarge = false;
+        for (const candidate of state.feeUtxos || []) {
+          if (candidate.sats >= minSatsFor(kind)
+            && !rejected.has(`${candidate.txid}:${candidate.vout}`)
+            && await rpc.gettxout(candidate.txid, candidate.vout)) {
+            otherLarge = true;
+            break;
+          }
+        }
+        if (!otherLarge) {
+          rejected.delete(`${fee.txid}:${fee.vout}`);
+          pushFee(state, fee);
+          witnessSeed = randomBytes(32).toString('hex');
+        }
+        console.log(JSON.stringify({
+          attempt_fail: true, kind, attempt,
+          error: String(e.message || e).slice(0, 160),
+          code: e.code,
+          rotateWitness: !otherLarge,
+        }));
+        // retry unlock/VM class failures
+        if (!/gateOk|OP_VERIFY|GATE_FAIL|BUILD_EXIT|unlock build|libauth|pin lens/i.test(String(e.message || e) + String(e.code || ''))) {
+          throw e;
+        }
+      }
+    }
+    if (!result) throw lastErr || new Error(`${kind} failed after ${MAX_ATTEMPTS} attempts`);
+
+    await broadcastQualificationTransactions(rpc, `${kind}-${Date.now()}`, [
+      { role: 'preparation', hex: result.prepHex },
+      { role: 'settlement', hex: result.settleHex },
+    ]);
+
+    // Harvest settle change + prep change (prep leftover is usually the large fee for next kinds).
+    for (let i = 0; i < result.complete.transaction.outputs.length; i++) {
+      const o = result.complete.transaction.outputs[i];
+      if (Buffer.from(o.lockingBytecode).toString('hex') === hot.lockingBytecodeHex) {
+        pushFee(state, { txid: result.settleTxid, vout: i, sats: Number(o.valueSatoshis) });
+      }
+    }
+    if (Array.isArray(result.prepHotChange)) {
+      for (const u of result.prepHotChange) pushFee(state, u);
+    }
+
+    digests = result.digests;
+    stateTxid = result.settleTxid;
+    state.stateTxid = stateTxid;
+    // Mid-cycle: digests only. Do NOT push history until full cycle completes
+    // (priorCycles must exclude the in-flight witnessSeed or nullifiers collide).
+    state.resumeDigests = digests;
+    state.resumeSeed = witnessSeed;
+    atomicWriteJson(STATE_FILE, state);
+    const row = {
+      kind,
+      prepTxid: result.prepTxid,
+      settleTxid: result.settleTxid,
+      wire: result.wire,
+      maxUnlock: result.maxUnlock,
+      proveMs: result.proveMs,
+      unlockMs: result.unlockMs,
+      lens: result.lens,
+      unlockRoot: result.unlockRoot,
+      digest: result.digest,
+      standalone: true,
+    };
+    ledger.push(row);
+    console.log(JSON.stringify(row));
+    appendPrivateJsonLine(path.join(OUT, 'ledger.jsonl'), row);
+  }
+
+  // Full cycle complete → commit witness seed into history once
+  state.history = state.history || [];
+  if (!state.history.some((h) => h.witnessSeed === witnessSeed)) {
+    state.history.push({
+      witnessSeed,
+      transactionContextDigests: { ...digests },
+    });
+  }
+  delete state.resumeDigests;
+  delete state.resumeSeed;
+  atomicWriteJson(STATE_FILE, state);
+  atomicWriteJson(path.join(OUT, 'result.json'), {
+    ok: true,
+    kinds: KINDS,
+    stateTxid,
+    pinLens: PIN_LENS,
+    unlockRoot,
+    leanRoot,
+    ledger,
+  });
+
+  console.log(JSON.stringify({
+    done: true,
+    stateTxid,
+    kinds: KINDS.length,
+    unlockRoot,
+    standalone: true,
+  }));
+  process.exit(0);
+}
+
+main().catch((e) => {
+  console.error('FAIL', e.message || e);
+  if (e.stack) console.error(e.stack.split('\n').slice(0, 8).join('\n'));
+  process.exit(1);
+});

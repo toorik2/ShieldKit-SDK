@@ -1,0 +1,17 @@
+{
+  "name": "@shieldkit/unlock-builder",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Node-only PF10 verifier unlock builder for ShieldKit-Groth. Required for settlement; not browser-safe.",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "tsx": "4.22.4"
+  }
+}

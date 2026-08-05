@@ -1,14 +1,14 @@
 # Chipnet playground (CLI)
 
 Shared **development-only** Chipnet instance — not a browser app, not hosted SaaS.  
-Your pool: [`../03-create-your-own-pool/`](../03-create-your-own-pool/).
+Your pool: [`../shieldkit-groth/`](../shieldkit-groth/).
 
 | | |
 |--|--|
 | Capacity | 32 live × 0.1 BCH (`reserveCap` = 3.2 BCH) |
 | CLI | `npm run shieldkit -- playground …` |
 | Aliases | `playground`, `chipnet-playground` |
-| Pins | [`instance.json`](./instance.json) · [`docs/PROFILES.md`](../03-create-your-own-pool/docs/PROFILES.md) |
+| Pins | [`instance.json`](./instance.json) · [`docs/PROFILES.md`](../shieldkit-groth/docs/PROFILES.md) |
 
 You only spend notes you create. Other notes in the tip are not yours without their seeds.
 

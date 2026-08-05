@@ -34,7 +34,7 @@ Wallets, pool state, operation journals, ledgers, run inputs, and backups are ge
 
 No hosted provers/indexers/broadcasters. Optional services are untrusted; verify locally.  
 Playground = example instance, not a product pool service.  
-See [docs/PRIVACY.md](03-create-your-own-pool/docs/PRIVACY.md) for claim bounds (RPC query privacy **outside** claim).
+See [docs/PRIVACY.md](shieldkit-groth/docs/PRIVACY.md) for claim bounds (RPC query privacy **outside** claim).
 
 ## Protocol fail-closed (built-in)
 
@@ -71,7 +71,7 @@ CLI errors are **operator-facing** (codes + messages on stderr). Not multi-tenan
 
 Before mainnet or real funds:
 
-1. `development-only` and `local-contribution-simulation` are not production qualification. Production privacy needs independently governed [external contributions](03-create-your-own-pool/docs/EXTERNAL_CONTRIBUTIONS.md), audit, and a new genesis ([CHARTER](03-create-your-own-pool/docs/CHARTER.md)).
+1. `development-only` and `local-contribution-simulation` are not production qualification. Production privacy needs independently governed [external contributions](shieldkit-groth/docs/EXTERNAL_CONTRIBUTIONS.md), audit, and a new genesis ([CHARTER](shieldkit-groth/docs/CHARTER.md)).
 2. Explicit mainnet ack; no accidental broadcast.
 3. Fee keys not in git, not in browser bundle, not in shared screenshots.
 4. Tip path: openNotes + tipForest match chain; doctor/tip before large acts.
