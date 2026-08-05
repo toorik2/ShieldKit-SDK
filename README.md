@@ -1,6 +1,9 @@
-# ShieldKit-Groth Beta
+# ShieldKit (default) — ShieldKit-Groth Beta
 
 Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./SECURITY.md)
+
+This checkout is the **default ShieldKit product** under `ZK-Proofs/shieldkit-sdk/`.  
+Earlier mainline trees live in [`../Previous versions/`](../Previous%20versions/).
 
 **Product root:** [`shieldkit-groth/`](./shieldkit-groth/)  
 **Executable:** `shieldkit`  
