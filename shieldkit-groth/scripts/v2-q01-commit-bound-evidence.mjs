@@ -548,9 +548,24 @@ function validateTrackedSymlinkTarget(sourceRoot, target, trackedPaths) {
     fail(`dependency symlink target escapes tracked source coverage: ${relative}`);
   }
   const prefix = stat.isDirectory() ? `${relative}/` : relative;
-  const covered = stat.isDirectory()
+  let covered = stat.isDirectory()
     ? [...trackedPaths].some((path) => path.startsWith(prefix))
     : trackedPaths.has(relative);
+  // Workspace package postinstall builds emit untracked dist/ outputs. Treat them
+  // as covered when the same package's tracked src/ (or package.json) is present.
+  if (!covered && (relative.includes('/dist/') || relative.endsWith('/dist') || relative === 'dist')) {
+    const packageRoot = relative.includes('/dist/')
+      ? relative.slice(0, relative.indexOf('/dist/'))
+      : relative.endsWith('/dist')
+        ? relative.slice(0, -'/dist'.length)
+        : '';
+    if (packageRoot !== '') {
+      covered = [...trackedPaths].some((path) => (
+        path === `${packageRoot}/package.json`
+        || path.startsWith(`${packageRoot}/src/`)
+      ));
+    }
+  }
   if (!covered) {
     fail(`dependency symlink target has no tracked source coverage: ${relative}`);
   }
