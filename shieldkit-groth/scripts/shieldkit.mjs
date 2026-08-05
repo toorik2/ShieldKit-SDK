@@ -1027,6 +1027,19 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   process.exit(0);
 }
 
+// Product action help surfaces (top-level deposit|transfer|withdraw aliases).
+if (['deposit', 'transfer', 'withdraw'].includes(cmd)
+  && (
+    process.argv.includes('--help')
+    || process.argv.includes('-h')
+    || process.argv[3] === 'help'
+    || process.argv[3] === '--help'
+    || process.argv[3] === '-h'
+  )) {
+  poolUsage(cmd);
+  process.exit(0);
+}
+
 // Product pool help surfaces (must not fall through to UNKNOWN_COMMAND).
 if (cmd === 'pool') {
   const sub = process.argv[3];
@@ -1035,10 +1048,23 @@ if (cmd === 'pool') {
     poolUsage('pool');
     process.exit(0);
   }
-  if (['create', 'deposit', 'withdraw', 'recover', 'doctor'].includes(sub)
+  if ([
+    'create',
+    'refresh-runtime',
+    'add-funding',
+    'deposit',
+    'transfer',
+    'withdraw',
+    'recover',
+    'doctor',
+  ].includes(sub)
     && (topic === 'help' || topic === '--help' || topic === '-h'
       || process.argv.includes('--help') || process.argv.includes('-h'))) {
-    poolUsage(sub === 'recover' ? 'recover' : sub);
+    const topicKey = sub === 'recover' ? 'recover'
+      : sub === 'refresh-runtime' ? 'pool'
+        : sub === 'add-funding' ? 'pool'
+          : sub;
+    poolUsage(topicKey);
     process.exit(0);
   }
   if (sub === 'doctor') {
