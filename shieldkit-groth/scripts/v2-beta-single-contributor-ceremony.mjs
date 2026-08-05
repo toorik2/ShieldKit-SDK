@@ -75,6 +75,13 @@ const BETA_IMPLEMENTATION_SCHEMA =
   'shieldkit/v2-beta-single-contributor-implementation/v1';
 const BETA_IMPLEMENTATION_ENTRYPOINT =
   'shieldkit-groth/scripts/v2-beta-single-contributor-ceremony.mjs';
+/** Pre-relocate product root path retained in pinned historic preparations. */
+const BETA_IMPLEMENTATION_ENTRYPOINT_LEGACY =
+  '03-create-your-own-pool/scripts/v2-beta-single-contributor-ceremony.mjs';
+const BETA_IMPLEMENTATION_ENTRYPOINTS = Object.freeze([
+  BETA_IMPLEMENTATION_ENTRYPOINT,
+  BETA_IMPLEMENTATION_ENTRYPOINT_LEGACY,
+]);
 const GIT_ENVIRONMENT = Object.freeze({
   GIT_CONFIG_COUNT: '0',
   GIT_CONFIG_GLOBAL: '/dev/null',
@@ -274,7 +281,7 @@ function trackedImplementationPaths() {
       || entry.startsWith('../')
       || entry.includes('\\')
       || (index > 0 && entry === paths[index - 1]))
-    || !paths.includes(BETA_IMPLEMENTATION_ENTRYPOINT)) {
+    || !BETA_IMPLEMENTATION_ENTRYPOINTS.some((entry) => paths.includes(entry))) {
     fail('BETA_IMPLEMENTATION_INVALID', 'tracked beta implementation inventory is invalid');
   }
   return paths;
@@ -326,7 +333,7 @@ function validateImplementationManifest(value) {
       fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation file inventory is invalid');
     }
   });
-  if (!value.files.some((file) => file.path === BETA_IMPLEMENTATION_ENTRYPOINT)) {
+  if (!value.files.some((file) => BETA_IMPLEMENTATION_ENTRYPOINTS.includes(file.path))) {
     fail('BETA_IMPLEMENTATION_INVALID', 'beta implementation entrypoint is absent');
   }
   return value;
