@@ -7,6 +7,7 @@
  * loadInstance(ref) resolves either:
  *   - a directory containing instance.json (+ local profile bundle), or
  *   - built-in demo ids: 02-use-chipnet-demo-pool | chipnet-playground | playground
+ *   - folder lives under previous-versions/ (not the product root)
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,17 +30,20 @@ const HASH = /^sha256:[0-9a-f]{64}$/;
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** shieldkit-groth/ (product tree) */
 const productRoot = path.resolve(here, '../..');
-/** monorepo root (sibling of 02-use-chipnet-demo-pool/) */
+/** monorepo root (parent of previous-versions/ and shieldkit-groth/) */
 const monorepoRoot = path.resolve(here, '../../..');
 
-/** Built-in Chipnet demo instance id (folder: 02-use-chipnet-demo-pool/). */
+/** Logical Chipnet playground instance id (stable; not a filesystem path). */
 export const CHIPNET_PLAYGROUND_ID = '02-use-chipnet-demo-pool';
+/** Repo-relative folder for the archived playground tree. */
+export const CHIPNET_PLAYGROUND_DIR = 'previous-versions/02-use-chipnet-demo-pool';
 /** @deprecated alias */
 export const CHIPNET_PLAYGROUND_ID_LEGACY = 'chipnet-playground';
 /** @deprecated pre-numbering folder name */
 export const CHIPNET_PLAYGROUND_ID_LEGACY_FOLDER = 'use-chipnet-demo-pool';
 const PLAYGROUND_REFS = new Set([
   CHIPNET_PLAYGROUND_ID,
+  CHIPNET_PLAYGROUND_DIR,
   CHIPNET_PLAYGROUND_ID_LEGACY,
   CHIPNET_PLAYGROUND_ID_LEGACY_FOLDER,
   'playground',
@@ -63,7 +67,7 @@ const PLAYGROUND_REFS = new Set([
  * Resolve path to the official playground instance.json in this monorepo.
  */
 export function playgroundInstancePath() {
-  return path.join(monorepoRoot, '02-use-chipnet-demo-pool/instance.json');
+  return path.join(monorepoRoot, CHIPNET_PLAYGROUND_DIR, 'instance.json');
 }
 
 /**
@@ -73,7 +77,7 @@ export function playgroundBundleSearchPaths() {
   const env = process.env.SHIELDKIT_PLAYGROUND_BUNDLE;
   const paths = [];
   if (env) paths.push(path.resolve(env));
-  paths.push(path.join(monorepoRoot, '02-use-chipnet-demo-pool/bundle'));
+  paths.push(path.join(monorepoRoot, CHIPNET_PLAYGROUND_DIR, 'bundle'));
   paths.push(path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle'));
   return paths;
 }
@@ -153,8 +157,8 @@ async function resolveBundleDirectory(descriptor, opts) {
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
       'Chipnet demo pool profile bundle not found. Fetch pinned release: '
-        + '`npm run fetch-playground-bundle` (sha256 in 02-use-chipnet-demo-pool/instance.json), '
-        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See 02-use-chipnet-demo-pool/README.md.',
+        + '`npm run fetch-playground-bundle` (sha256 in previous-versions/02-use-chipnet-demo-pool/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See previous-versions/02-use-chipnet-demo-pool/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json
@@ -173,7 +177,7 @@ async function resolveBundleDirectory(descriptor, opts) {
 /**
  * Load a pool instance descriptor and authenticate its profile bundle.
  *
- * @param {string} ref - "02-use-chipnet-demo-pool" | "chipnet-playground" | "playground" | path
+ * @param {string} ref - playground id/alias | path to instance dir or instance.json
  * @param {object} [opts]
  * @param {string} [opts.bundleDirectory] - override profile bundle path
  * @param {boolean} [opts.loadBundle=true] - if false, return descriptor only

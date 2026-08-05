@@ -9,7 +9,7 @@
  *
  * Usage:
  *   node shieldkit-groth/scripts/fetch-playground-bundle.mjs
- *   node shieldkit-groth/scripts/fetch-playground-bundle.mjs --out 02-use-chipnet-demo-pool/bundle
+ *   node shieldkit-groth/scripts/fetch-playground-bundle.mjs --out previous-versions/02-use-chipnet-demo-pool/bundle
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -25,7 +25,7 @@ import { assertSafeReplaceDirectory } from '../packages/kit/safe-paths.mjs';
 
 const execFileAsync = promisify(execFile);
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const instancePath = path.join(monorepoRoot, '02-use-chipnet-demo-pool/instance.json');
+const instancePath = path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool/instance.json');
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -125,7 +125,7 @@ async function main() {
   }
 
   const outDir = assertSafeReplaceDirectory(
-    arg('out', path.join(monorepoRoot, '02-use-chipnet-demo-pool/bundle')),
+    arg('out', path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool/bundle')),
     { repositoryRoot: monorepoRoot },
   );
   const cacheDir = path.join(monorepoRoot, '.cache/playground-download');

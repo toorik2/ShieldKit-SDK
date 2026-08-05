@@ -7,8 +7,7 @@ coverage/
 node_modules/
 .worktrees/
 legacy-research/
-01-learn-about-this-system/
-02-use-chipnet-demo-pool/
+previous-versions/
 HANDOVER.md
 **/.shieldkit-v2-recovery-target-*/
 **/.tmp-scale-history-*/

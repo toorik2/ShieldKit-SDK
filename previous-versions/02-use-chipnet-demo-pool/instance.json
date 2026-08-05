@@ -38,12 +38,12 @@
     "fetch": "npm run fetch-playground-bundle",
     "searchPaths": [
       "SHIELDKIT_PLAYGROUND_BUNDLE env",
-      "02-use-chipnet-demo-pool/bundle",
+      "previous-versions/02-use-chipnet-demo-pool/bundle",
       ".cache/profile-build-live/profile-bundle"
     ]
   },
   "warnings": [
-    "Example instance only \u2014 not a hosted product for third-party apps.",
+    "Example instance only — not a hosted product for third-party apps.",
     "Shared 32-note-cap Chipnet demo; capacity is not the live anonymity set. Use your own fee keys and RPC. Not production privacy.",
     "Existing notes in the set are not yours unless you hold their seeds; deposit/transfer/withdraw only notes you create.",
     "Create your own pool for real use (same kit, your genesis)."

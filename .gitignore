@@ -48,4 +48,4 @@ wallets.json
 shieldkit-groth/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
-02-use-chipnet-demo-pool/bundle/
+previous-versions/02-use-chipnet-demo-pool/bundle/

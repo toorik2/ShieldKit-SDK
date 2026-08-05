@@ -39,7 +39,7 @@ test('loadInstance path to instance.json', async () => {
 test('missing bundle fails closed for playground with clear code', async () => {
   // Force miss by using nonexistent override
   await assert.rejects(
-    () => loadInstance('02-use-chipnet-demo-pool', {
+    () => loadInstance(CHIPNET_PLAYGROUND_ID, {
       bundleDirectory: path.join(root, 'does-not-exist-bundle'),
     }),
     (e) => e instanceof InstanceError && (e.code === 'BUNDLE_AUTH_FAILED' || e.code === 'PLAYGROUND_BUNDLE_MISSING'),
@@ -56,7 +56,7 @@ test('instanceToKitConfig requires loaded bundle', () => {
 test('full playground load when matching profile bundle present', async () => {
   // Prefer playground/local ticket10-shaped bundle (instanceId must match instance.json).
   const candidates = [
-    path.join(root, '02-use-chipnet-demo-pool/bundle'),
+    path.join(root, 'previous-versions/02-use-chipnet-demo-pool/bundle'),
     path.join(root, '.cache/ticket10-e2e-20260726/pool/bundle'),
   ];
   let bundleDir = null;
@@ -74,7 +74,7 @@ test('full playground load when matching profile bundle present', async () => {
     'PREREQUISITE_MISSING: materialize an authenticated playground-matching profile bundle '
       + `at one of: ${candidates.map((candidate) => path.join(candidate, 'manifest.json')).join(', ')}`,
   );
-  const instance = await loadInstance('02-use-chipnet-demo-pool', { bundleDirectory: bundleDir });
+  const instance = await loadInstance(CHIPNET_PLAYGROUND_ID, { bundleDirectory: bundleDir });
   assert.equal(instance.bundleDirectory, bundleDir);
   assert.ok(instance.loaded);
   const cfg = instanceToKitConfig(instance);

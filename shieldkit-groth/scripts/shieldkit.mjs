@@ -146,7 +146,7 @@ ${PRODUCT_STATUS.status} · maturity: ${PRODUCT_STATUS.maturityLabel}
 ${PRODUCT_STATUS.note}
 
 Product root: shieldkit-groth/  (kit · profile · PF10 CLI)
-Optional demo: 02-use-chipnet-demo-pool/   (legacy research instance)
+Optional demo: previous-versions/02-use-chipnet-demo-pool/   (legacy research instance)
 
   # Create and operate your pool (ShieldKit-Groth Beta / PF10 / Chipnet)
   pool create --funding-wallet <absolute-canonical-private-wallet-path> --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]
@@ -239,7 +239,7 @@ function normalizeBetaProductTokens(tokens) {
 }
 
 
-/** When true, openKit uses 02-use-chipnet-demo-pool instance. */
+/** When true, openKit uses the archived Chipnet playground instance. */
 function playgroundMode() {
   return process.argv[2] === 'playground' || flag('playground');
 }
@@ -283,7 +283,7 @@ async function openKit() {
     } catch (e) {
       failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2, {
         hint: 'npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE',
-        docs: '02-use-chipnet-demo-pool/README.md',
+        docs: 'previous-versions/02-use-chipnet-demo-pool/README.md',
       });
     }
   }
@@ -333,14 +333,14 @@ async function cmdTip() {
     const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
-      : path.join(monorepoRoot, '02-use-chipnet-demo-pool');
+      : path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool');
     const { existsSync, readFileSync } = await import('node:fs');
     const { atomicWriteJson, repairPrivateFileMode } = await import('../packages/kit/secure-files.mjs');
     const instancePath = path.join(poolDir, 'instance.json');
     const bundleDir = path.join(poolDir, 'bundle');
     const statePath = path.join(poolDir, 'state.json');
     if (!existsSync(instancePath) || !existsSync(bundleDir)) {
-      failJson('POOL_MISSING', 'need 02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
+      failJson('POOL_MISSING', 'need previous-versions/02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
     }
     const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
     const manifest = JSON.parse(readFileSync(path.join(bundleDir, 'manifest.json'), 'utf8'));
@@ -537,7 +537,7 @@ async function cmdPlaygroundDoctor() {
     }
     const body = {
       ...toolkitIdentity(),
-      story: 'ShieldKit creates shielded pools. Demo is 02-use-chipnet-demo-pool/; product is shieldkit-groth/.',
+      story: 'ShieldKit creates shielded pools. Demo is previous-versions/02-use-chipnet-demo-pool/; product is shieldkit-groth/.',
       product: 'shieldkit-groth/',
       playgroundRole: 'optional-demo-not-hosted-service',
       maturityDisclaimer: [
@@ -744,7 +744,7 @@ async function cmdAct(verb) {
     const script = null;
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
-      : path.join(monorepoRoot, '02-use-chipnet-demo-pool');
+      : path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool');
     if (!existsSync(path.join(poolDir, 'bundle'))) {
       failJson('POOL_BUNDLE', 'pool missing bundle/ — for playground: npm run fetch-playground-bundle', 2, {
         pool: poolDir,
@@ -783,7 +783,7 @@ async function cmdAct(verb) {
         kind: requestKind,
         fullAct: 'npm run shieldkit -- playground deposit --protocol v1-legacy --wallets ./wallets.json --scan-fees --broadcast',
         prepOnly: 'playground deposit --protocol v1-legacy --request prep.json',
-        feeNote: 'Legacy playground deposit needs a large fee UTXO; transfer/withdraw ~71k. See 02-use-chipnet-demo-pool/README.md',
+        feeNote: 'Legacy playground deposit needs a large fee UTXO; transfer/withdraw ~71k. See previous-versions/02-use-chipnet-demo-pool/README.md',
         rpc: 'Public Chipnet Fulcrum used by default; override with SHIELDKIT_RPC_URL or SHIELDKIT_ELECTRUM',
       },
     );

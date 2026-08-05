@@ -216,7 +216,7 @@ async function main() {
   // --- Step 2: bridge profile with real genesis outpoint ---
   const { bridgeLocalSetupToProfile } = await import('../packages/profile/bridge.mjs');
   const setupMeta = path.join(setupDir, 'setup-metadata.json');
-  const demoArt = path.join(monorepoRoot, '02-use-chipnet-demo-pool/bundle/artifacts');
+  const demoArt = path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool/bundle/artifacts');
   const liveArt = path.join(monorepoRoot, '.cache/profile-build-live/artifacts');
   const r1cs = path.join(monorepoRoot, '.cache/dev-setup-v2-strict/g1_relation.r1cs');
   const bundleDir = path.join(outDir, 'pool/bundle');
