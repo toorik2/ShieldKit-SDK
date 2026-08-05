@@ -162,6 +162,9 @@ const BETA_RUNTIME_QUALIFICATION_TESTS = new Map([
 const EXCLUSIVE_DOMAIN_TEST_FILES = new Set([
   'packages/action/v2/circuit-model.test.mjs',
   'packages/prove/v2/native-groth16-proof-child.test.mjs',
+  // Requires a clean Git worktree for the entire file; concurrent domain tests
+  // can write untracked artifacts and trip BETA_IMPLEMENTATION_DIRTY.
+  'scripts/v2-beta-single-contributor-ceremony.test.mjs',
 ]);
 // `node:test` gives the full production depth-4 state-space check five minutes.
 // The process supervisor must permit that declared test timeout plus TAP/SQLite
