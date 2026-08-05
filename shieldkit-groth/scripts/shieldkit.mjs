@@ -102,7 +102,7 @@ function poolUsage(topic = 'pool') {
 
   shieldkit pool create --funding-wallet <abs-wallet> --funding-utxo <txid:vout> [--data-home <abs-dir>]
   shieldkit pool create --resume [--data-home <abs-dir>]
-  shieldkit pool refresh-runtime | add-funding | deposit | withdraw | doctor
+  shieldkit pool refresh-runtime | add-funding | deposit | transfer | withdraw | doctor
   shieldkit pool recover inspect|rebroadcast ...
   Zero-conf only. No automatic resend, sponsor, faucet, or mining wait.
 `,
@@ -117,6 +117,10 @@ function poolUsage(topic = 'pool') {
     deposit: `shieldkit pool deposit — deposit one fixed denomination note
 
   --data-home <abs-dir>  --operation-id <id>  --human|--json
+`,
+    transfer: `shieldkit pool transfer — transfer one owned note to a new self-owned note
+
+  --note <64-hex-owned-note-id>  --data-home <abs-dir>  --operation-id <id>  --human|--json
 `,
     withdraw: `shieldkit pool withdraw — withdraw one note to Chipnet P2PKH
 
@@ -215,11 +219,12 @@ Use the normal product commands for pool create, deposit, and withdraw.
 `);
 }
 
-/** Normalize product CLI tokens: pool deposit|withdraw|recover → flat beta verbs. */
+/** Normalize product CLI tokens: pool deposit|transfer|withdraw|recover → flat beta verbs. */
 function normalizeBetaProductTokens(tokens) {
   if (!Array.isArray(tokens) || tokens.length === 0) return tokens;
   if (tokens[0] !== 'pool') return tokens;
   if (tokens[1] === 'deposit') return ['deposit', ...tokens.slice(2)];
+  if (tokens[1] === 'transfer') return ['transfer', ...tokens.slice(2)];
   if (tokens[1] === 'withdraw') return ['withdraw', ...tokens.slice(2)];
   if (tokens[1] === 'recover' && tokens[2] === 'inspect') {
     return ['recovery', 'inspect', ...tokens.slice(3)];
@@ -1098,12 +1103,12 @@ const hasOnlyBetaProductOptions = cliArguments.slice(1).every((value) => (
 ));
 const poolSub = process.argv[3];
 const betaProductInvocation = (
-  (cmd === 'pool' && ['create', 'refresh-runtime', 'add-funding', 'deposit', 'withdraw'].includes(poolSub))
+  (cmd === 'pool' && ['create', 'refresh-runtime', 'add-funding', 'deposit', 'transfer', 'withdraw'].includes(poolSub))
   || (cmd === 'pool' && poolSub === 'recover' && ['inspect', 'rebroadcast'].includes(process.argv[4]))
   || (cmd === 'pool' && poolSub === 'recovery' && ['inspect', 'rebroadcast'].includes(process.argv[4]))
   || (cmd === 'recovery' && ['inspect', 'rebroadcast'].includes(process.argv[3]))
   || (
-    ['deposit', 'withdraw'].includes(cmd)
+    ['deposit', 'transfer', 'withdraw'].includes(cmd)
     && explicitProtocol === undefined
     && hasOnlyBetaProductOptions
   )

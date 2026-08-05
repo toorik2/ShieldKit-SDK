@@ -196,10 +196,20 @@ function operationId(value) {
 }
 
 function actionKind(value) {
-  if (value !== 'deposit' && value !== 'withdrawal') {
-    fail('INVALID_ACTION_KIND', 'kind must be deposit or withdrawal');
+  if (value !== 'deposit' && value !== 'withdrawal' && value !== 'transfer') {
+    fail('INVALID_ACTION_KIND', 'kind must be deposit, transfer, or withdrawal');
   }
   return value;
+}
+
+/** Output-note staging id for a transfer: spend keeps `operationId`, output uses `:out`. */
+export function transferOutputOperationId(value) {
+  const op = operationId(value);
+  const out = `${op}:out`;
+  if (out.length > 128 || !OPERATION_ID.test(out)) {
+    fail('INVALID_OPERATION_ID', 'transfer output operationId exceeds the canonical bound');
+  }
+  return out;
 }
 
 function noteId(value) {
@@ -820,11 +830,12 @@ export class V2BetaProductWallet {
     try {
       const change = this.#db.prepare('SELECT * FROM change_wallets WHERE operation_id=?').get(operation);
       if (!change) fail('ACTION_CHANGE_UNKNOWN', 'action has no staged change wallet');
-      const note = kind === 'withdrawal'
+      const spendsNote = kind === 'withdrawal' || kind === 'transfer';
+      const note = spendsNote
         ? this.#db.prepare('SELECT * FROM owned_notes WHERE reservation_operation_id=?').get(operation)
         : null;
-      if (kind === 'withdrawal' && !note) {
-        fail('ACTION_NOTE_UNKNOWN', 'withdrawal action has no reserved owned note');
+      if (spendsNote && !note) {
+        fail('ACTION_NOTE_UNKNOWN', `${kind} action has no reserved owned note`);
       }
       const expectedChangeState = nextState === 'sent' ? 'prepared' : 'sent';
       const expectedNotePhase = nextState === 'sent' ? 'prepared' : 'sent';
@@ -845,7 +856,8 @@ export class V2BetaProductWallet {
       this.#db.exec('COMMIT');
     } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
     const changed = this.#db.prepare('SELECT * FROM change_wallets WHERE operation_id=?').get(operation);
-    const changedNote = kind === 'withdrawal'
+    const spendsNote = kind === 'withdrawal' || kind === 'transfer';
+    const changedNote = spendsNote
       ? this.#db.prepare('SELECT * FROM owned_notes WHERE reservation_operation_id=?').get(operation)
       : null;
     return Object.freeze({ change: publicChange(changed), note: changedNote === null ? null : publicNote(changedNote) });
@@ -882,39 +894,66 @@ export class V2BetaProductWallet {
     if (typeof reason !== 'string' || reason.length < 1 || reason.length > 256 || /[\u0000-\u001f\u007f]/.test(reason)) {
       fail('INVALID_ORPHAN_REASON', 'reason must be 1 to 256 printable characters');
     }
+    const outOp = kind === 'transfer' ? transferOutputOperationId(op) : null;
     this.#db.exec('BEGIN IMMEDIATE');
     try {
       const change = this.#db.prepare('SELECT * FROM change_wallets WHERE operation_id=?').get(op);
       if (!change) fail('ACTION_CHANGE_UNKNOWN', 'action has no staged change wallet');
-      const note = kind === 'deposit'
+      const depositNote = kind === 'deposit'
         ? this.#db.prepare('SELECT * FROM owned_notes WHERE deposit_operation_id=?').get(op)
-        : (() => {
+        : kind === 'transfer'
+          ? this.#db.prepare('SELECT * FROM owned_notes WHERE deposit_operation_id=?').get(outOp)
+          : null;
+      const spendNote = kind === 'withdrawal' || kind === 'transfer'
+        ? (() => {
           const operation = this.#db.prepare('SELECT * FROM note_operations WHERE operation_id=?').get(op);
           return operation?.kind === 'withdrawal'
             ? this.#db.prepare('SELECT * FROM owned_notes WHERE note_id=?').get(operation.note_id)
             : null;
-        })();
-      if (!note) fail('ACTION_NOTE_UNKNOWN', 'action has no matching owned-note resource');
+        })()
+        : null;
+      const note = kind === 'deposit' ? depositNote : spendNote;
+      if (!note || (kind === 'transfer' && !depositNote)) {
+        fail('ACTION_NOTE_UNKNOWN', 'action has no matching owned-note resource');
+      }
       const alreadyAborted = change.state === 'orphan-recoverable';
       if (alreadyAborted) {
         const expected = kind === 'deposit'
           ? note.state === 'deposit-rejected'
-          : note.state === 'unspent' && note.reservation_operation_id === null;
+          : kind === 'transfer'
+            ? note.state === 'unspent' && note.reservation_operation_id === null
+              && depositNote.state === 'deposit-rejected'
+            : note.state === 'unspent' && note.reservation_operation_id === null;
         const noteOperation = this.#db.prepare('SELECT state FROM note_operations WHERE operation_id=?').get(op);
+        const outOperation = outOp === null
+          ? null
+          : this.#db.prepare('SELECT state FROM note_operations WHERE operation_id=?').get(outOp);
         const expectedOperation = kind === 'deposit' ? 'deposit-rejected' : 'withdrawal-released';
-        if (change.orphan_reason !== reason || !expected || noteOperation?.state !== expectedOperation) {
+        if (
+          change.orphan_reason !== reason
+          || !expected
+          || noteOperation?.state !== expectedOperation
+          || (kind === 'transfer' && outOperation?.state !== 'deposit-rejected')
+        ) {
           fail('ACTION_ABORT_REPLAY_MISMATCH', 'pre-send abort replay differs from the immutable prior abort');
         }
         this.#db.exec('COMMIT');
-        return Object.freeze({ change: publicChange(change), note: publicNote(note) });
+        return Object.freeze({
+          change: publicChange(change),
+          note: publicNote(note),
+          ...(kind === 'transfer' ? { outputNote: publicNote(depositNote) } : {}),
+        });
       }
       if (change.state !== 'prepared') {
         fail('ACTION_ABORT_NOT_PRE_SEND', 'only a definitely pre-send prepared change wallet may be aborted');
       }
-      const noteReady = kind === 'deposit'
-        ? note.state === 'deposit-staged'
+      const spendReady = kind === 'deposit'
+        ? true
         : note.state === 'reserved' && note.reservation_operation_id === op && note.reservation_phase === 'prepared';
-      if (!noteReady) {
+      const depositReady = kind === 'withdrawal'
+        ? true
+        : (kind === 'deposit' ? note : depositNote).state === 'deposit-staged';
+      if (!spendReady || !depositReady) {
         fail('ACTION_ABORT_NOT_PRE_SEND', 'owned-note resource is sent, indeterminate, attached, or otherwise not safely abortable');
       }
       this.#db.prepare(`UPDATE change_wallets SET state='orphan-recoverable', orphan_reason=?, updated_at_ms=?
@@ -924,6 +963,15 @@ export class V2BetaProductWallet {
         this.#db.prepare(`UPDATE owned_notes SET state='deposit-rejected', updated_at_ms=? WHERE note_id=?`).run(now(), note.note_id);
         this.#db.prepare(`UPDATE note_operations SET state='deposit-rejected'
           WHERE operation_id=? AND kind='deposit'`).run(op);
+      } else if (kind === 'transfer') {
+        this.#db.prepare(`UPDATE owned_notes SET state='unspent', reservation_operation_id=NULL,
+          reservation_phase=NULL, updated_at_ms=? WHERE note_id=?`).run(now(), note.note_id);
+        this.#db.prepare(`UPDATE note_operations SET state='withdrawal-released'
+          WHERE operation_id=? AND kind='withdrawal'`).run(op);
+        this.#db.prepare(`UPDATE owned_notes SET state='deposit-rejected', updated_at_ms=? WHERE note_id=?`)
+          .run(now(), depositNote.note_id);
+        this.#db.prepare(`UPDATE note_operations SET state='deposit-rejected'
+          WHERE operation_id=? AND kind='deposit'`).run(outOp);
       } else {
         this.#db.prepare(`UPDATE owned_notes SET state='unspent', reservation_operation_id=NULL,
           reservation_phase=NULL, updated_at_ms=? WHERE note_id=?`).run(now(), note.note_id);
@@ -939,7 +987,14 @@ export class V2BetaProductWallet {
         const operation = this.#db.prepare('SELECT note_id FROM note_operations WHERE operation_id=?').get(op);
         return this.#db.prepare('SELECT * FROM owned_notes WHERE note_id=?').get(operation.note_id);
       })();
-    return Object.freeze({ change: publicChange(changed), note: publicNote(changedNote) });
+    const changedOutput = kind === 'transfer'
+      ? this.#db.prepare('SELECT * FROM owned_notes WHERE deposit_operation_id=?').get(outOp)
+      : null;
+    return Object.freeze({
+      change: publicChange(changed),
+      note: publicNote(changedNote),
+      ...(changedOutput === null ? {} : { outputNote: publicNote(changedOutput) }),
+    });
   }
 
   markChangeOrphanRecoverable({ operationId: requestedOperationId, reason } = {}) {

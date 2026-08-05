@@ -10,6 +10,7 @@ import {
   executeV2BetaProductDeposit,
   executeV2BetaProductExactRebroadcastRecovery,
   inspectV2BetaProductRecovery,
+  executeV2BetaProductTransfer,
   executeV2BetaProductWithdrawal,
 } from './beta-product-commands.mjs';
 import { addV2BetaProductFundingUtxo } from './beta-product-funding-add.mjs';
@@ -93,7 +94,7 @@ function parse(tokens) {
   } else if (positionals.length === 2 && positionals[0] === 'pool'
     && positionals[1] === 'add-funding') {
     command = 'pool-add-funding';
-  } else if (positionals.length === 1 && ['deposit', 'withdraw'].includes(positionals[0])) {
+  } else if (positionals.length === 1 && ['deposit', 'transfer', 'withdraw'].includes(positionals[0])) {
     command = positionals[0];
   } else if (positionals.length === 2
     && positionals[0] === 'recovery' && positionals[1] === 'rebroadcast') {
@@ -102,10 +103,12 @@ function parse(tokens) {
     && positionals[0] === 'recovery' && positionals[1] === 'inspect') {
     command = 'recovery-inspect';
   } else {
-    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, pool refresh-runtime, pool add-funding, deposit, withdraw, recovery inspect, or recovery rebroadcast');
+    fail('BETA_CLI_UNKNOWN_COMMAND', 'expected pool create, pool refresh-runtime, pool add-funding, deposit, transfer, withdraw, recovery inspect, or recovery rebroadcast');
   }
   const allowed = command === 'withdraw'
     ? new Set(['data-home', 'human', 'json', 'note', 'operation-id', 'to'])
+    : command === 'transfer'
+      ? new Set(['data-home', 'human', 'json', 'note', 'operation-id'])
     : command === 'deposit'
       ? new Set(['data-home', 'human', 'json', 'operation-id'])
       : command === 'pool-create'
@@ -125,6 +128,12 @@ function parse(tokens) {
   }
   if (command === 'withdraw' && options.to === undefined) {
     fail('BETA_WITHDRAWAL_ADDRESS_REQUIRED', 'withdraw requires --to <bchtest P2PKH cash address>');
+  }
+  if (command === 'transfer') {
+    if (typeof options.note !== 'string'
+      || !/^[0-9a-f]{64}$/u.test(options.note)) {
+      fail('BETA_TRANSFER_NOTE_REQUIRED', 'transfer requires --note <64-hex owned note id>');
+    }
   }
   if (command === 'recover-exact-rebroadcast') {
     if (options['acknowledge-exact-rebroadcast'] !== true) {
@@ -192,7 +201,7 @@ export function isV2BetaProductCliInvocation(tokens) {
     || (tokens[0] === 'pool' && tokens[1] === 'add-funding')
     || (tokens[0] === 'recovery' && tokens[1] === 'rebroadcast')
     || (tokens[0] === 'recovery' && tokens[1] === 'inspect')
-    || (['deposit', 'withdraw'].includes(tokens[0])
+    || (['deposit', 'transfer', 'withdraw'].includes(tokens[0])
       && !tokens.includes('--protocol'));
 }
 
@@ -205,6 +214,7 @@ function productionDependencies() {
     deposit: executeV2BetaProductDeposit,
     inspectRecovery: inspectV2BetaProductRecovery,
     recovery: executeV2BetaProductExactRebroadcastRecovery,
+    transfer: executeV2BetaProductTransfer,
     withdrawal: executeV2BetaProductWithdrawal,
     poolCreate: async (value) => {
       const module = await import('./beta-product-pool-create.mjs');
@@ -221,7 +231,7 @@ function dependenciesForTest(value) {
   const names = [
     'createRpc', 'deposit', 'fundingAdd', 'inspectRecovery', 'loadConfig', 'poolCreate', 'recovery',
     'refreshRuntime',
-    'toContextConfig', 'withdrawal',
+    'toContextConfig', 'transfer', 'withdrawal',
   ];
   if (value === null || Array.isArray(value) || typeof value !== 'object'
     || Object.getPrototypeOf(value) !== Object.prototype
@@ -272,6 +282,14 @@ async function execute(tokens, dependencies) {
         ...((operationIdOverride ?? request.options['operation-id']) === undefined
           ? {} : { operationId: operationIdOverride ?? request.options['operation-id'] }),
       })
+      : request.command === 'transfer'
+        ? dependencies.transfer({
+          config,
+          rpc,
+          noteId: request.options.note,
+          ...((operationIdOverride ?? request.options['operation-id']) === undefined
+            ? {} : { operationId: operationIdOverride ?? request.options['operation-id'] }),
+        })
       : request.command === 'withdraw'
         ? dependencies.withdrawal({
           config,
@@ -298,7 +316,7 @@ async function execute(tokens, dependencies) {
       try {
         result = await executeNetworkCommand();
       } catch (error) {
-        const recoverableAction = ['deposit', 'withdraw'].includes(request.command)
+        const recoverableAction = ['deposit', 'transfer', 'withdraw'].includes(request.command)
           && error?.code === 'ADMISSION_SEND_INDETERMINATE'
           && typeof error?.operationId === 'string';
         if (!recoverableAction) throw error;

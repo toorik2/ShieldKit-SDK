@@ -38,7 +38,7 @@ export const V2_DELIVERY_JOURNAL_CRASH_STAGES = Object.freeze([
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS delivery_journal_metadata (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1),
-  schema_version INTEGER NOT NULL CHECK(schema_version=3)
+  schema_version INTEGER NOT NULL CHECK(schema_version IN (3,4))
 ) STRICT;
 INSERT INTO delivery_journal_metadata(singleton,schema_version)
 VALUES(1,3) ON CONFLICT(singleton) DO NOTHING;
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS delivery_records (
 ) STRICT;
 CREATE TABLE IF NOT EXISTS safe_pre_send_abort_markers (
   operation_id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK(kind IN ('deposit','withdrawal')),
+  kind TEXT NOT NULL CHECK(kind IN ('deposit','transfer','withdrawal')),
   reason TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL
 ) STRICT;
@@ -440,7 +440,7 @@ export class V2DeliveryJournal {
         'SELECT schema_version FROM delivery_journal_metadata WHERE singleton=1',
       )
       .get();
-    if (metadata?.schema_version !== 3) {
+    if (metadata?.schema_version !== 3 && metadata?.schema_version !== 4) {
       this.#db.close();
       this.#db = null;
       fail(
@@ -448,7 +448,51 @@ export class V2DeliveryJournal {
         'delivery journal schema version is unsupported',
       );
     }
-    this.#db.exec('PRAGMA user_version=3');
+    if (metadata?.schema_version === 3) {
+      // v4 admits transfer on safe pre-send abort markers. Existing rows are
+      // deposit/withdrawal only; rebuild constrained tables without data loss.
+      // Metadata CHECK may still be schema_version=3 from the original create.
+      this.#db.exec('BEGIN IMMEDIATE');
+      try {
+        this.#db.exec(`
+          CREATE TABLE safe_pre_send_abort_markers_v4 (
+            operation_id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL CHECK(kind IN ('deposit','transfer','withdrawal')),
+            reason TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL
+          ) STRICT;
+        `);
+        this.#db.exec(`
+          INSERT INTO safe_pre_send_abort_markers_v4
+            SELECT operation_id, kind, reason, created_at_ms FROM safe_pre_send_abort_markers;
+          DROP TABLE safe_pre_send_abort_markers;
+          ALTER TABLE safe_pre_send_abort_markers_v4 RENAME TO safe_pre_send_abort_markers;
+        `);
+        this.#db.exec(`
+          CREATE TABLE delivery_journal_metadata_v4 (
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+            schema_version INTEGER NOT NULL CHECK(schema_version IN (3,4))
+          ) STRICT;
+        `);
+        this.#db.exec(`
+          INSERT INTO delivery_journal_metadata_v4 VALUES(1,4);
+          DROP TABLE delivery_journal_metadata;
+          ALTER TABLE delivery_journal_metadata_v4 RENAME TO delivery_journal_metadata;
+        `);
+        this.#db.exec('COMMIT');
+      } catch (error) {
+        try { this.#db.exec('ROLLBACK'); } catch { /* preserve migration error */ }
+        this.#db.close();
+        this.#db = null;
+        fail(
+          'DELIVERY_SCHEMA_MISMATCH',
+          `delivery journal could not migrate to transfer-capable schema: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    this.#db.exec('PRAGMA user_version=4');
     secureSidecars(this.#path);
     Object.defineProperty(this, DELIVERY_JOURNAL_BRAND, { value: true });
   }
@@ -495,7 +539,9 @@ export class V2DeliveryJournal {
   markSafePreSendAbort(value) {
     exact(value, ['kind', 'operationId', 'reason'], 'markSafePreSendAbort');
     const id = operationId(value.operationId);
-    if (!['deposit', 'withdrawal'].includes(value.kind)) fail('INVALID_DELIVERY_RECORD', 'safe pre-send abort kind is invalid');
+    if (!['deposit', 'transfer', 'withdrawal'].includes(value.kind)) {
+      fail('INVALID_DELIVERY_RECORD', 'safe pre-send abort kind is invalid');
+    }
     const why = reason(value.reason);
     return this.#transaction((db) => {
       if (db.prepare('SELECT 1 FROM delivery_records WHERE operation_id=?').get(id)) {

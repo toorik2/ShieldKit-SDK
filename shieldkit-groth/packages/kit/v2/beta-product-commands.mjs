@@ -247,23 +247,27 @@ async function execute(value, dependencies) {
     } else {
       action = await session.lifecycle.recoverOrResumeActive(intent);
     }
-    if (action === undefined) {
-      action = kind === 'deposit'
-        ? await session.lifecycle.executeDeposit({ operationId: operation })
-        : await session.lifecycle.executeWithdrawal({
+    const startFresh = async () => {
+      if (kind === 'deposit') {
+        return session.lifecycle.executeDeposit({ operationId: operation });
+      }
+      if (kind === 'transfer') {
+        return session.lifecycle.executeTransfer({
           operationId: operation,
           ...(value.noteId === undefined ? {} : { noteId: value.noteId }),
-          payoutLockingBytecode: withdrawalLockingBytecode,
         });
+      }
+      return session.lifecycle.executeWithdrawal({
+        operationId: operation,
+        ...(value.noteId === undefined ? {} : { noteId: value.noteId }),
+        payoutLockingBytecode: withdrawalLockingBytecode,
+      });
+    };
+    if (action === undefined) {
+      action = await startFresh();
     }
     if (action === null) {
-      action = kind === 'deposit'
-        ? await session.lifecycle.executeDeposit({ operationId: operation })
-        : await session.lifecycle.executeWithdrawal({
-          operationId: operation,
-          ...(value.noteId === undefined ? {} : { noteId: value.noteId }),
-          payoutLockingBytecode: withdrawalLockingBytecode,
-        });
+      action = await startFresh();
     }
     operation = action.operationId;
     inspectActionResult(action, kind, operation);
@@ -277,7 +281,7 @@ async function execute(value, dependencies) {
   runtimeWork = assertV2BetaWarmActionRuntimeWork(observed.observation);
   return Object.freeze({
     schema: V2_BETA_PRODUCT_COMMAND_RESULT_SCHEMA,
-    command: kind === 'withdrawal' ? 'withdraw' : kind,
+    command: kind === 'withdrawal' ? 'withdraw' : kind === 'transfer' ? 'transfer' : kind,
     status: action.status,
     operationId: operation,
     transactionId: action.transactionId,
@@ -447,6 +451,11 @@ function depositInput(value) {
   return Object.freeze({ ...value, kind: 'deposit' });
 }
 
+function transferInput(value) {
+  exactOptional(value, ['config', 'noteId', 'operationId', 'rpc'], ['config', 'noteId', 'rpc'], 'beta transfer options');
+  return Object.freeze({ ...value, kind: 'transfer' });
+}
+
 function withdrawalInput(value) {
   exactOptional(value, ['config', 'noteId', 'operationId', 'rpc', 'toCashAddress'], ['config', 'rpc', 'toCashAddress'], 'beta withdrawal options');
   return Object.freeze({ ...value, kind: 'withdrawal' });
@@ -476,6 +485,10 @@ export async function executeV2BetaProductDeposit(value) {
   return execute(depositInput(value), productionDependencies());
 }
 
+export async function executeV2BetaProductTransfer(value) {
+  return execute(transferInput(value), productionDependencies());
+}
+
 export async function executeV2BetaProductWithdrawal(value) {
   return execute(withdrawalInput(value), productionDependencies());
 }
@@ -490,6 +503,10 @@ export async function inspectV2BetaProductRecovery(value) {
 
 export async function executeV2BetaProductDepositForTest(value, dependencies) {
   return execute(depositInput(value), testDependencies(dependencies));
+}
+
+export async function executeV2BetaProductTransferForTest(value, dependencies) {
+  return execute(transferInput(value), testDependencies(dependencies));
 }
 
 export async function executeV2BetaProductWithdrawalForTest(value, dependencies) {

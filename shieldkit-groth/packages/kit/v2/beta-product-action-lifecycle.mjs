@@ -697,7 +697,7 @@ function parseArtifact(bytesValue) {
   );
   if (
     value.schema !== V2_BETA_PRODUCT_ACTION_ARTIFACT_SCHEMA
-    || !['deposit', 'withdrawal'].includes(value.kind)
+    || !['deposit', 'transfer', 'withdrawal'].includes(value.kind)
     || value.claims?.confirmed !== false
     || value.claims?.mined !== false
     || value.claims?.productionQualified !== false
@@ -1051,6 +1051,18 @@ function inspectOutputNote(value, kind) {
   return value;
 }
 
+function actionKinds() {
+  return ['deposit', 'transfer', 'withdrawal'];
+}
+
+function spendsOwnedNote(kind) {
+  return kind === 'transfer' || kind === 'withdrawal';
+}
+
+function producesOwnedNote(kind) {
+  return kind === 'deposit' || kind === 'transfer';
+}
+
 function inspectChange(value, transaction) {
   exact(
     value,
@@ -1329,6 +1341,18 @@ export class V2BetaProductActionLifecycle {
     });
   }
 
+  async executeTransfer({
+    operationId: requestedOperationId,
+    noteId = undefined,
+  } = {}) {
+    return this.#execute({
+      kind: 'transfer',
+      noteId,
+      operationId: operationId(requestedOperationId),
+      payoutLockingBytecode: null,
+    });
+  }
+
   async executeWithdrawal({
     operationId: requestedOperationId,
     noteId = undefined,
@@ -1370,40 +1394,47 @@ export class V2BetaProductActionLifecycle {
     const change = this.#wallet.stageChangeWallet({ operationId: id });
     let reserved = false;
     try {
-      let note;
-      if (kind === 'deposit') {
-        note = this.#wallet.stageDepositNote({
-          operationId: id,
-          postActionSequence: String(tipRead.tip.actionSequence + 1),
+      let depositNote = null;
+      let spendNote = null;
+      const postActionSequence = String(tipRead.tip.actionSequence + 1);
+      if (kind === 'deposit' || kind === 'transfer') {
+        const depositOperationId = kind === 'transfer'
+          ? `${id}:out`
+          : id;
+        depositNote = this.#wallet.stageDepositNote({
+          operationId: depositOperationId,
+          postActionSequence,
         });
         this.#store.putEncryptedRecord({
-          recordId: note.privateStoreMaterial.recordId,
-          record: note.privateStoreMaterial.encryptedRecord,
+          recordId: depositNote.privateStoreMaterial.recordId,
+          record: depositNote.privateStoreMaterial.encryptedRecord,
         });
-      } else {
-        note = this.#wallet.reserveOwnedNoteForWithdrawal({
+      }
+      if (kind === 'withdrawal' || kind === 'transfer') {
+        spendNote = this.#wallet.reserveOwnedNoteForWithdrawal({
           operationId: id,
           ...(noteId === undefined ? {} : { noteId }),
         });
       }
+      const note = spendNote ?? depositNote;
       this.#store.reserveOperation({
         operationId: id,
         kind,
-        selectedNoteId: kind === 'withdrawal' ? note.note.noteId : null,
+        selectedNoteId: spendsOwnedNote(kind) ? spendNote.note.noteId : null,
         funding: { txid: funding.txidBytes, vout: funding.vout },
       });
       reserved = true;
 
       const successorInput = Object.freeze({
       operationId: id,
-      outputNoteLeaf: kind === 'deposit'
-        ? Buffer.from(note.publicOutput.outputNoteLeaf, 'hex')
+      outputNoteLeaf: producesOwnedNote(kind)
+        ? Buffer.from(depositNote.publicOutput.outputNoteLeaf, 'hex')
         : null,
-      encryptedRecord: kind === 'deposit'
-        ? note.publicOutput.encryptedRecord
+      encryptedRecord: producesOwnedNote(kind)
+        ? depositNote.publicOutput.encryptedRecord
         : null,
-      publicNullifier: kind === 'withdrawal'
-        ? Buffer.from(note.publicSpend.publicNullifier, 'hex')
+      publicNullifier: spendsOwnedNote(kind)
+        ? Buffer.from(spendNote.publicSpend.publicNullifier, 'hex')
         : null,
       withdrawalLockingBytecodeHash: kind === 'withdrawal'
         ? createHash('sha256').update(payoutLockingBytecode).digest()
@@ -1445,9 +1476,8 @@ export class V2BetaProductActionLifecycle {
     const circuitInput = buildDirectV2CircuitInput({
       transition,
       denominationSats: this.#identity.denominationSats,
-      ...(kind === 'deposit'
-        ? { output: note.circuitOutput }
-        : { spend: note.circuitSpend }),
+      ...(producesOwnedNote(kind) ? { output: depositNote.circuitOutput } : {}),
+      ...(spendsOwnedNote(kind) ? { spend: spendNote.circuitSpend } : {}),
     });
     const proofStarted = now();
     const proofResult = await this.#dependencies.prove({
@@ -1523,8 +1553,8 @@ export class V2BetaProductActionLifecycle {
       signingAndVm: signingAndVmMs,
       localVm: vmMs,
     });
-    const privateOutput = kind === 'deposit'
-      ? note.privateStoreMaterial
+    const privateOutput = producesOwnedNote(kind)
+      ? depositNote.privateStoreMaterial
       : null;
     const persisted = transactionArtifact({
       change: changeOutput,
@@ -1692,9 +1722,10 @@ export class V2BetaProductActionLifecycle {
       );
     }
     let depositMaterial = null;
-    if (artifact.kind === 'deposit') {
+    if (producesOwnedNote(artifact.kind)) {
+      const depositOperationId = artifact.kind === 'transfer' ? `${id}:out` : id;
       depositMaterial = this.#wallet.stageDepositNote({
-        operationId: id,
+        operationId: depositOperationId,
         postActionSequence: packet.postState.actionSequence,
       }).privateStoreMaterial;
       if (
@@ -1813,14 +1844,15 @@ export class V2BetaProductActionLifecycle {
       valueSats: change.valueSats,
       acceptedCommit: true,
     });
-    if (artifact.kind === 'deposit') {
+    if (producesOwnedNote(artifact.kind)) {
       this.#wallet.attachAcceptedDeposit({
-        operationId: id,
+        operationId: artifact.kind === 'transfer' ? `${id}:out` : id,
         noteIndex: Number(packet.preState.noteCount),
         txid: artifact.transactionId,
         acceptedCommit: true,
       });
-    } else {
+    }
+    if (spendsOwnedNote(artifact.kind)) {
       this.#wallet.commitAcceptedWithdrawalSpend({
         operationId: id,
         txid: artifact.transactionId,
@@ -1951,8 +1983,8 @@ export class V2BetaProductActionLifecycle {
     );
     const id = operationId(options.operationId);
     const expectedKind = options.expectedKind;
-    if (expectedKind !== undefined && !['deposit', 'withdrawal'].includes(expectedKind)) {
-      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit or withdrawal');
+    if (expectedKind !== undefined && !actionKinds().includes(expectedKind)) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit, transfer, or withdrawal');
     }
     const expectedNoteId = options.expectedNoteId === undefined
       ? undefined : hash(options.expectedNoteId, 'expectedNoteId');
@@ -1964,8 +1996,14 @@ export class V2BetaProductActionLifecycle {
           'expectedWithdrawalLockingBytecodeHash',
         );
     if (
-      (expectedNoteId !== undefined
-        || expectedWithdrawalLockingBytecodeHash !== undefined)
+      expectedNoteId !== undefined
+      && expectedKind !== 'withdrawal'
+      && expectedKind !== 'transfer'
+    ) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'note intent may only accompany expectedKind transfer or withdrawal');
+    }
+    if (
+      expectedWithdrawalLockingBytecodeHash !== undefined
       && expectedKind !== 'withdrawal'
     ) {
       fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'withdrawal intent may only accompany expectedKind withdrawal');
@@ -2021,8 +2059,8 @@ export class V2BetaProductActionLifecycle {
     }
     const id = operationId(options.operationId);
     const expectedKind = options.expectedKind;
-    if (expectedKind !== undefined && !['deposit', 'withdrawal'].includes(expectedKind)) {
-      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit or withdrawal');
+    if (expectedKind !== undefined && !actionKinds().includes(expectedKind)) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit, transfer, or withdrawal');
     }
     const expectedNoteId = options.expectedNoteId === undefined
       ? undefined : hash(options.expectedNoteId, 'expectedNoteId');
@@ -2033,9 +2071,17 @@ export class V2BetaProductActionLifecycle {
           options.expectedWithdrawalLockingBytecodeHash,
           'expectedWithdrawalLockingBytecodeHash',
         );
-    if ((expectedNoteId !== undefined
-      || expectedWithdrawalLockingBytecodeHash !== undefined)
-      && expectedKind !== 'withdrawal') {
+    if (
+      expectedNoteId !== undefined
+      && expectedKind !== 'withdrawal'
+      && expectedKind !== 'transfer'
+    ) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'note intent may only accompany expectedKind transfer or withdrawal');
+    }
+    if (
+      expectedWithdrawalLockingBytecodeHash !== undefined
+      && expectedKind !== 'withdrawal'
+    ) {
       fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'withdrawal intent may only accompany expectedKind withdrawal');
     }
     if (this.#recoverSafePreSendAbort(id)) {
@@ -2125,8 +2171,8 @@ export class V2BetaProductActionLifecycle {
       'beta active action recovery options',
     );
     const expectedKind = options.expectedKind;
-    if (expectedKind !== undefined && !['deposit', 'withdrawal'].includes(expectedKind)) {
-      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit or withdrawal');
+    if (expectedKind !== undefined && !actionKinds().includes(expectedKind)) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'expectedKind must be deposit, transfer, or withdrawal');
     }
     const expectedOperationId = options.expectedOperationId === undefined
       ? undefined : operationId(options.expectedOperationId);
@@ -2140,8 +2186,14 @@ export class V2BetaProductActionLifecycle {
           'expectedWithdrawalLockingBytecodeHash',
         );
     if (
-      (expectedNoteId !== undefined
-        || expectedWithdrawalLockingBytecodeHash !== undefined)
+      expectedNoteId !== undefined
+      && expectedKind !== 'withdrawal'
+      && expectedKind !== 'transfer'
+    ) {
+      fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'note intent may only accompany expectedKind transfer or withdrawal');
+    }
+    if (
+      expectedWithdrawalLockingBytecodeHash !== undefined
       && expectedKind !== 'withdrawal'
     ) {
       fail('BETA_ACTION_RECOVERY_KIND_INVALID', 'withdrawal intent may only accompany expectedKind withdrawal');

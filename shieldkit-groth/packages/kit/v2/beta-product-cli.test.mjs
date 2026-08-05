@@ -29,6 +29,7 @@ function dependencies(events) {
       }, input: value,
     }),
     recovery: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '33'.repeat(32), timingsMs: { commandTotal: 6 }, input: value }),
+    transfer: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '44'.repeat(32), timingsMs: { commandTotal: 5 }, input: value }),
     withdrawal: async value => ({ status: 'accepted-zero-conf-beta-unqualified', transactionId: '22'.repeat(32), timingsMs: { commandTotal: 5 }, input: value }),
     poolCreate: async value => ({ status: 'accepted-zero-conf-beta-unqualified', input: value }),
     refreshRuntime: async value => ({
