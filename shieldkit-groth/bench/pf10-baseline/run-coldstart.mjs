@@ -151,10 +151,9 @@ function timeCommand(cmd, args, cwd, env = process.env) {
   };
 }
 
-async function measureProves(session) {
-  const cold = await proveDepositOnce(session);
-  const warm = await proveDepositOnce(session);
-  return { cold, warm };
+/** Cold-start measures one cold prove only. Warm/steady is S0. */
+async function measureColdProve(session) {
+  return proveDepositOnce(session);
 }
 
 /**
@@ -315,16 +314,15 @@ async function timedCdnPinDownload({ repoDir, sandboxRoot }) {
   }
 }
 
-/** Prove using modules loaded from a sandbox repo (sandbox node_modules). */
-async function measureProvesFromSandbox(sandboxRepo, liveDataHome) {
+/** One cold prove using modules loaded from a sandbox repo (sandbox node_modules). */
+async function measureColdProveFromSandbox(sandboxRepo, liveDataHome) {
   const proveUrl = pathToFileURL(
     path.join(sandboxRepo, 'shieldkit-groth/bench/pf10-baseline/product-prove.mjs'),
   ).href;
   const mod = await import(proveUrl);
   const session = await mod.loadProductSession(liveDataHome);
   const cold = await mod.proveDepositOnce(session);
-  const warm = await mod.proveDepositOnce(session);
-  return { cold, warm, instanceId: session.instanceId };
+  return { cold, instanceId: session.instanceId };
 }
 
 async function runSandboxMode(args, root, commit) {
@@ -542,35 +540,23 @@ async function runSandboxMode(args, root, commit) {
     detail: `live pool runtime-cache (not rebuilt): ${liveCache}`,
   });
 
-  // 6–7 prove from sandbox code against live pool
+  // 7) one cold prove from sandbox code against live pool (warm/steady = S0)
   if (npmResult.status === 0 && args.timeProve) {
     try {
-      const { cold, warm, instanceId } = await measureProvesFromSandbox(repoDir, liveHome);
+      const { cold, instanceId } = await measureColdProveFromSandbox(repoDir, liveHome);
       steps.push({
         id: 'first_prove_cold',
         ms: cold.wallMs,
         ok: true,
-        detail: `sandbox code + live pool instance=${instanceId}; proofGen=${Math.round(cold.proofGenerationMs)}ms`,
+        detail: `cold only; sandbox code + live pool instance=${instanceId}; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → S0)`,
       });
-      steps.push({
-        id: 'second_prove_warm',
-        ms: warm.wallMs,
-        ok: true,
-        detail: `proofGen=${Math.round(warm.proofGenerationMs)}ms`,
-      });
-      timedMs += cold.wallMs + warm.wallMs;
+      timedMs += cold.wallMs;
     } catch (error) {
       steps.push({
         id: 'first_prove_cold',
         ms: null,
         ok: false,
         detail: `${error.code || 'ERROR'}: ${error.message}`,
-      });
-      steps.push({
-        id: 'second_prove_warm',
-        ms: null,
-        ok: false,
-        detail: 'skipped after cold prove failure',
       });
     }
   } else {
@@ -579,12 +565,6 @@ async function runSandboxMode(args, root, commit) {
       ms: null,
       ok: null,
       detail: npmResult.status === 0 ? 'prove skipped' : 'skipped (npm ci failed)',
-    });
-    steps.push({
-      id: 'second_prove_warm',
-      ms: null,
-      ok: null,
-      detail: 'skipped',
     });
   }
 
@@ -822,20 +802,14 @@ async function main(argv) {
       const session = liveHome
         ? await loadProductSession(liveHome)
         : await resolveFirstUsableDataHome();
-      const { cold, warm } = await measureProves(session);
+      const cold = await measureColdProve(session);
       steps.push({
         id: 'first_prove_cold',
         ms: cold.wallMs,
         ok: true,
-        detail: `proofGen=${Math.round(cold.proofGenerationMs)}ms`,
+        detail: `cold only; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → S0)`,
       });
-      steps.push({
-        id: 'second_prove_warm',
-        ms: warm.wallMs,
-        ok: true,
-        detail: `proofGen=${Math.round(warm.proofGenerationMs)}ms`,
-      });
-      timedMs += cold.wallMs + warm.wallMs;
+      timedMs += cold.wallMs;
     } catch (error) {
       steps.push({
         id: 'first_prove_cold',
@@ -843,25 +817,13 @@ async function main(argv) {
         ok: false,
         detail: error.message,
       });
-      steps.push({
-        id: 'second_prove_warm',
-        ms: null,
-        ok: false,
-        detail: 'skipped after cold prove failure',
-      });
     }
   } else {
     steps.push({
       id: 'first_prove_cold',
       ms: null,
       ok: null,
-      detail: 'pass --time-prove or --sandbox to measure',
-    });
-    steps.push({
-      id: 'second_prove_warm',
-      ms: null,
-      ok: null,
-      detail: 'pass --time-prove or --sandbox to measure',
+      detail: 'pass --time-prove or --sandbox to measure (cold prove only; warm → S0)',
     });
   }
 

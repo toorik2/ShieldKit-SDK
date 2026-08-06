@@ -12,7 +12,7 @@ This is a **measurement** tool. It does **not** claim that pool capacity equals 
 | **S1** | Ladder | `N` sequential deposit-shaped proves (local load) | No |
 | **S2** | Smoke | Optional Chipnet 5 deposit + 1 transfer + 5 withdraw via product CLI | Yes |
 | **Pipeline** | Full chain | Step timings tip → fee → prove → assemble → VM → **admission/mempool** → commit | Store or live |
-| **Cold-start** | Blank machine | Optional pre-steps: clone, npm ci, prover, artifacts, first prove cold/warm, disk | Optional |
+| **Cold-start** | Blank machine | Optional pre-steps: clone, npm ci, CDN, prover, artifacts, **one cold prove**, disk | Optional |
 
 ### Blank-machine cold-start (optional pre-story)
 
@@ -26,7 +26,7 @@ Beyond “download repo” and “first build”, a realistic first machine also
 | **Native prover** | rapidsnark binary (not just JS) |
 | **PF10 / ceremony artifacts** | zkey/r1cs/wasm/runtime — often **~1.5 GiB** |
 | **First runtime link** | linked cache after instance specialization |
-| **First prove cold vs warm** | page cache / steady S0 |
+| **Cold prove only** | first prove after install (warm/steady is **S0**, not this story) |
 | **Disk footprint** | can you even fit the machine? |
 
 Also worth tracking later (documented, not always timed): Rust toolchain, OS build deps, first **pool create**, fee UTXO prep, RPC path smoke, `doctor`.

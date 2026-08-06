@@ -48,17 +48,11 @@ export const COLDSTART_STEPS = Object.freeze([
   Object.freeze({
     n: 7,
     id: 'first_prove_cold',
-    label: 'First prove (cold caches)',
-    why: 'disk/page-cache cold; often slower than steady S0',
+    label: 'Cold prove (first after install)',
+    why: 'first prove after cold-start only — warm/steady prove is S0, not this story',
   }),
   Object.freeze({
     n: 8,
-    id: 'second_prove_warm',
-    label: 'Second prove (warm)',
-    why: 'steady-state prove cost ≈ S0',
-  }),
-  Object.freeze({
-    n: 9,
     id: 'disk_footprint',
     label: 'Disk footprint (repo + deps + artifacts)',
     why: 'blank machine capacity planning',
@@ -89,13 +83,15 @@ export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
   'Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).',
   'Full product ceremony/runtime has no public CDN yet — only the pin package is the published network hop.',
   'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
-  'Timed: clone + npm ci + CDN pin download + native prover + empty-data-home artifact install + cold/warm prove.',
+  'Cold prove only (one first prove after install). Warm/steady prove is S0 — not part of cold-start.',
+  'Timed: clone + npm ci + CDN pin download + native prover + empty-data-home artifact install + cold prove.',
 ]);
 
 export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
   'Artifact source / prover: reused from live data-home (not reinstalled, not timed).',
   'CDN pin download not timed in tool mode (use --machine for CDN + empty install).',
-  'Still times clean clone + npm ci + prove against live pool.',
+  'Still times clean clone + npm ci + one cold prove against live pool.',
+  'Warm/steady prove is S0 — not part of cold-start.',
   'Fair claim: tool cold-start only — not machine CDN/install cost (use --machine for that).',
 ]);
 
@@ -198,7 +194,7 @@ export function formatColdstartTable(report) {
     lines.push(`notes: ${report.notes}`);
   }
   lines.push('');
-  lines.push('After cold-start, run S0/S1 (steady prove) and pipeline/S2 (full act).');
+  lines.push('After cold-start, run S0 (warm/steady prove), S1 (ladder), and pipeline/S2 (full act).');
   return lines.join('\n');
 }
 

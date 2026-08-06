@@ -23,19 +23,21 @@ test('coldstart report and table include clone/build ladder', () => {
       { id: 'npm_ci', ms: 45_000, bytes: 280_000_000, ok: true },
       { id: 'cdn_download', ms: 22_000, bytes: 197_212_683, ok: true, detail: 'HTTPS pin tar' },
       { id: 'first_prove_cold', ms: 4000, ok: true },
-      { id: 'second_prove_warm', ms: 3200, ok: true },
       { id: 'disk_footprint', bytes: 2_000_000_000, ok: true },
     ],
     totals: { timedMs: 83_000, diskBytes: 2_000_000_000 },
   });
   assert.equal(report.schema, COLDSTART_SCHEMA);
+  assert.ok(!COLDSTART_STEPS.some((s) => s.id === 'second_prove_warm'));
   const table = formatColdstartTable(report);
   assert.match(table, /Download \/ clone repo/);
   assert.match(table, /Install JS deps/);
   assert.match(table, /CDN download pin artifacts/);
-  assert.match(table, /First prove/);
+  assert.match(table, /Cold prove/);
+  assert.doesNotMatch(table, /Second prove \(warm\)/);
   assert.match(table, /Disk footprint/);
   assert.match(table, /Also consider/);
+  assert.match(table, /S0 \(warm\/steady prove\)/);
 });
 
 test('machine cold-start fairness includes timed CDN + empty install', () => {
