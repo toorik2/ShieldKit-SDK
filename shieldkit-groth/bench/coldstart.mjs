@@ -112,7 +112,7 @@ export function formatColdstartTable(report) {
   for (const row of report.rows) {
     const time = row.ms === null ? 'n/a' : `~${formatDuration(row.ms)}`;
     const size = row.bytes === null ? '' : `  disk=${formatBytes(row.bytes)}`;
-    const ok = row.ok === null ? '' : row.ok ? '  ok' : '  FAIL';
+    const ok = row.ok === true ? '  ok' : row.ok === false ? '  FAIL' : '';
     const detail = row.detail ? `  (${row.detail})` : '';
     lines.push(
       `${String(row.n).padStart(2)}. ${row.label.padEnd(42)} ${time.padStart(12)}${size}${ok}${detail}`,
