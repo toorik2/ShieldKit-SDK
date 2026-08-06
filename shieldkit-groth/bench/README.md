@@ -1,185 +1,68 @@
-# ShieldKit scalability bench (simple)
+# ShieldKit bench
 
-Three stories. One JSON scorecard. Thin adapters. Compare deltas.
+Two modes. One command.
 
-This is a **measurement** tool. It does **not** claim that pool capacity equals an anonymity set, and it does not rank multi-writer tip designs in v1.
+This is a **measurement** tool. It does **not** claim that pool capacity equals an anonymity set.
 
-## Stories
+## Modes
 
-| ID | Name | What it measures | Network |
-|----|------|------------------|---------|
-| **S0** | Micro | One deposit-shaped **native prove** on the shipped PF10 path + designed max unlock | No |
-| **S1** | Ladder | `N` sequential deposit-shaped proves (local load) | No |
-| **S2** | Smoke | Optional Chipnet 5 deposit + 1 transfer + 5 withdraw via product CLI | Yes |
-| **Pipeline** | Full chain | Step timings tip → fee → prove → assemble → VM → **admission/mempool** → commit | Store or live |
-| **Cold-start** | Blank machine | Optional pre-steps: clone, npm ci, CDN, prover, artifacts, **one cold prove**, disk | Optional |
+| Flag | What it measures | Network |
+|------|------------------|---------|
+| *(default)* | **Pipeline** — one live act tip → prove → **mempool admit** → commit | Yes (live) |
+| `--cold-start` | **Machine cold-start** — clone, npm ci, CDN pin, native, empty install, **one cold prove** | CDN + live pool for prove |
 
-### Blank-machine cold-start (optional pre-story)
-
-Beyond “download repo” and “first build”, a realistic first machine also pays for:
-
-| Step | Why it matters here |
-|------|---------------------|
-| **Clone / pack download** | Source size |
-| **npm ci + postinstall** | `node_modules` + vendored cashc build |
-| **CDN pin download** | Published pin tar from GitHub releases (~188 MiB compressed) |
-| **Native prover** | rapidsnark binary (not just JS) |
-| **PF10 / ceremony artifacts** | zkey/r1cs/wasm/runtime — often **~1.5 GiB** |
-| **First runtime link** | linked cache after instance specialization |
-| **Cold prove only** | first prove after install (warm/steady is **S0**, not this story) |
-| **Disk footprint** | can you even fit the machine? |
-
-Also worth tracking later (documented, not always timed): Rust toolchain, OS build deps, first **pool create**, fee UTXO prep, RPC path smoke, `doctor`.
-
-```bash
-# Tool cold-start: clean clone + npm ci, prove vs LIVE pool (artifacts reused)
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
-  --sandbox /home/toorik/.cache/shieldkit-bench-sandbox \
-  --data-home /absolute/path/to/.../v2-beta-product
-
-# Machine cold-start: + timed CDN pin download + timed artifact/prover install
-# into EMPTY data-home, then prove vs LIVE pool (no pool create)
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
-  --sandbox /home/toorik/.cache/shieldkit-bench-machine \
-  --machine \
-  --data-home /absolute/path/to/.../v2-beta-product \
-  --json-out shieldkit-groth/bench/results/coldstart-machine.json
-
-# Inventory only / partial timers
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --data-home …
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-home …
-```
-
-| Mode | Fair claim |
-|------|------------|
-| `--sandbox` | Tool cold-start (code+deps) |
-| `--sandbox --machine` | Machine cold-start (code+deps+**CDN pin download**+**artifact/prover install**) |
-| inventory | Disk footprint only |
-
-`--machine` times:
-1. **CDN download** — fresh HTTPS fetch of the pin tar from the trust-manifest URL (~188 MiB compressed), sha256-checked
-2. **Native prover** — separate wall clock: copy live pin-tree + pin-verify (load/consume)
-3. **Empty data-home artifact install** — separate wall clock: runtime/ceremony verify+copy (~1.4 GiB; no public product CDN yet)
-
-Prove still uses the live pool session. Keep sandbox: `--keep`.
-
-Every machine (and tool) cold-start report **always prints a Fairness note in the output** (and in JSON under `fairness[]`), e.g.:
-
-```text
-Fairness note (in the output):
-  - CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).
-  - Native prover is timed separately: copy live pin-tree + pin-verify (load/consume).
-  - Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).
-  …
-```
-
-That disclosure is what makes M **100% fair**: CDN pin network hop, native prover, and empty install are each timed; product CDN absence is stated.
-
-### Pipeline breakdown (per act)
-
-```bash
-# From last accepted ops in a data-home store (no new spend)
-node shieldkit-groth/bench/pf10-baseline/run-pipeline.mjs --from-store \
-  --data-home /absolute/path/to/data-home \
-  --limit 1 \
-  --json-out shieldkit-groth/bench/results/pipeline.json
-
-# Live one act (full admission timings when success)
-node shieldkit-groth/bench/pf10-baseline/run-pipeline.mjs --live \
-  --data-home /absolute/path/to/data-home \
-  --kind deposit
-```
-
-Prints:
-
-```text
- 1. Look up tip on network           stateRead        ~440 ms
- 2. Find fee coin                    fundingRead      ~440 ms
- …
- 5. Make ZK proof                    proofGen        ~2544 ms   ← bench S0/S1
- …
- 8. Sign + Libauth VM                signing/localVm  ~234 ms
-    -------- local work done (~5.5 s) --------
- 9. Broadcast + mempool/readback     admission       ~… ms
-10. Save local state                 commit          ~… ms
-    -------- total ~9–12 s --------
-```
-
-Store snapshots often omit `admission`/`commit` (pre-send artifact). Use `--live` for the full chain.
-
-## Scorecard fields (`shieldkit-bench-scorecard-v1`)
-
-`design`, `commit` (full 40-char sha), `story`, `N`, `ok`, `first_try`, `prove_ms_p50`, `prove_ms_p95`, `total_ms_p95`, `tx_bytes`, `max_unlock_bytes`, `unlock_margin` (= `10000 - max_unlock_bytes` when known), `notes`.
-
-Success requires `ok: true` and `first_try: true` (no multi-retry).
-
-## Prerequisites (S0 / S1)
-
-A product **data-home** with:
-
-- offline pin / product artifact install (`v2-beta-product-artifacts`)
-- linked runtime cache for an instance
-- native prover under `…/native`
-- deposit qualification `input.json` / `public.json`
-
-Default discovery paths are tried automatically. Override:
-
-```bash
-export SHIELDKIT_BENCH_DATA_HOME=/absolute/path/to/.../v2-beta-product
-# only if instance cannot be read from wallet.sqlite:
-export SHIELDKIT_BENCH_INSTANCE_ID=<64-hex>
-```
-
-Refuse ambient `NODE_OPTIONS` / `NODE_PATH` (native prover policy).
-
-## Run baseline (pf10)
+## Run
 
 From monorepo root (`shieldkit-sdk/`):
 
 ```bash
-# S0
-node shieldkit-groth/bench/pf10-baseline/run-s0.mjs \
-  --out shieldkit-groth/bench/results/s0.json
+# Default: full pipeline (live deposit → mempool)
+node shieldkit-groth/bench/pf10-baseline/run-bench.mjs \
+  --data-home /absolute/path/to/.../v2-beta-product
 
-# S1 (N=10)
-node shieldkit-groth/bench/pf10-baseline/run-s1.mjs --N 10 \
-  --out shieldkit-groth/bench/results/s1-n10.json
-
-# Compare two scorecards
-node shieldkit-groth/bench/compare.mjs \
-  shieldkit-groth/bench/results/s0.json \
-  shieldkit-groth/bench/results/s0.json
+# Cold-start: machine blank install + cold prove (no pool create)
+node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --cold-start \
+  --data-home /absolute/path/to/.../v2-beta-product
 ```
 
-## S2 (optional Chipnet)
+Shared:
 
-```bash
-export SHIELDKIT_BENCH_DATA_HOME=...
-export SHIELDKIT_BENCH_PAYOUT=bchtest:q...   # external, not fee wallet
-export SHIELDKIT_BENCH_NOTE_ID=<64-hex>     # owned note for transfer
-node shieldkit-groth/bench/pf10-baseline/run-s2.mjs \
-  --out shieldkit-groth/bench/results/s2.json
-```
+| Flag | Meaning |
+|------|---------|
+| `--data-home ABS` | Product data-home (`…/v2-beta-product`). Or `SHIELDKIT_BENCH_DATA_HOME`. |
+| `--json-out FILE` | Write report JSON (defaults under `bench/results/`). |
 
-If env/funds/RPC are missing, S2 emits **one** `ok: false` scorecard with a single blocker in `notes` (no retry loop). S0/S1 stay the daily tools.
+Pipeline only:
 
-## Adding another design
+| Flag | Meaning |
+|------|---------|
+| `--kind deposit\|transfer\|withdraw` | Default `deposit` |
+| `--to` / `--note` | Withdraw payout / transfer note |
 
-Copy `pf10-baseline/`, change `design` id in the runners, point prove/assemble at that design’s shipped path. Keep the same scorecard fields so `compare.mjs` works.
+Cold-start only:
 
-## Unit tests
+| Flag | Meaning |
+|------|---------|
+| `--sandbox DIR` | Default `~/.cache/shieldkit-bench` |
+| `--keep` | Keep sandbox after run (default: delete) |
 
-```bash
-node --test shieldkit-groth/bench/scorecard.test.mjs
-```
+### Defaults
 
-## Layout
+- **Pipeline** writes `bench/results/pipeline.json`
+- **Cold-start** writes `bench/results/coldstart.json` and uses **machine** path (CDN download + native pin-verify + empty data-home install + one cold prove)
+- Cold-start proves against the **live** pool session; it never creates a pool
+- Warm/steady prove is not a separate bench mode — pipeline’s prove step is the warm path in context of a full act
 
-```text
-bench/
-  README.md
-  scorecard.mjs / scorecard.schema.json / scorecard.test.mjs
-  compare.mjs
-  pf10-baseline/run-s0.mjs run-s1.mjs run-s2.mjs product-prove.mjs
-  results/          # gitignored
-```
+### Fairness (cold-start)
+
+Machine cold-start always prints a **Fairness note** in the table and JSON (`fairness[]`): CDN pin is timed; native is timed separately; product install into empty data-home is timed; full product ceremony has no public CDN yet.
+
+## Prerequisites
+
+A product **data-home** with session, artifacts, linked runtime, native prover, and (for pipeline live) funds + RPC path.
+
+Refuse ambient `NODE_OPTIONS` / `NODE_PATH` when the native prover loads.
+
+## Internal runners
+
+`run-pipeline.mjs` and `run-coldstart.mjs` implement the two modes. Prefer `run-bench.mjs`. Older S0/S1/S2 scripts are not part of the public two-mode surface.

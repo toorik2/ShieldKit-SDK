@@ -26,6 +26,8 @@
     "postinstall": "npm run build:vendored-cashc && node shieldkit-groth/scripts/install-deps.mjs",
     "build:vendored-cashc": "npm run build --workspace @cashscript/utils && npm run build --workspace cashc",
     "install:deps": "npm ci --include-workspace-root",
+    "bench": "node shieldkit-groth/bench/pf10-baseline/run-bench.mjs",
+    "bench:cold-start": "node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --cold-start",
     "test": "node shieldkit-groth/scripts/run-domain-tests.mjs --suite portable",
     "test:beta-product:security": "node shieldkit-groth/scripts/run-domain-tests.mjs --suite beta-product-security",
     "test:qualification:beta-runtime": "node shieldkit-groth/scripts/run-domain-tests.mjs --suite beta-runtime-qualification",
