@@ -52,3 +52,6 @@ previous-versions/02-use-chipnet-demo-pool/bundle/
 
 # Local research workspace (not part of ShieldKit-Groth Beta product)
 shieldkit-fri-stark/
+
+# Scalability bench runtime outputs (never commit)
+shieldkit-groth/bench/results/

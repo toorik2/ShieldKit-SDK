@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit-bench-scorecard-v1",
+  "title": "ShieldKit bench scorecard v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "design",
+    "commit",
+    "story",
+    "N",
+    "ok",
+    "first_try",
+    "prove_ms_p50",
+    "prove_ms_p95",
+    "total_ms_p95",
+    "tx_bytes",
+    "max_unlock_bytes",
+    "unlock_margin",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "shieldkit-bench-scorecard-v1" },
+    "design": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "story": { "enum": ["S0", "S1", "S2"] },
+    "N": { "type": "integer", "minimum": 0 },
+    "ok": { "type": "boolean" },
+    "first_try": { "type": "boolean" },
+    "prove_ms_p50": { "type": ["number", "null"], "minimum": 0 },
+    "prove_ms_p95": { "type": ["number", "null"], "minimum": 0 },
+    "total_ms_p95": { "type": ["number", "null"], "minimum": 0 },
+    "tx_bytes": { "type": ["integer", "null"], "minimum": 0 },
+    "max_unlock_bytes": { "type": ["integer", "null"], "minimum": 0 },
+    "unlock_margin": { "type": ["integer", "null"] },
+    "notes": { "type": "string" }
+  }
+}
