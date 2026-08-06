@@ -86,7 +86,7 @@ export function buildColdstartReport({
       why: def.why,
       ms: typeof hit.ms === 'number' && Number.isFinite(hit.ms) ? hit.ms : null,
       bytes: typeof hit.bytes === 'number' && Number.isFinite(hit.bytes) ? hit.bytes : null,
-      ok: hit.ok === undefined ? null : hit.ok === true,
+      ok: hit.ok === true ? true : hit.ok === false ? false : null,
       detail: typeof hit.detail === 'string' ? hit.detail : '',
     });
   });
