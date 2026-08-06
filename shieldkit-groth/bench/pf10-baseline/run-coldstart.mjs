@@ -158,6 +158,59 @@ async function measureProves(session) {
 }
 
 /**
+ * Timed native prover install: copy live pin-tree + pin-verify (load/consume).
+ * Separate wall clock from product artifact install (runtime/ceremony).
+ * Verify runs in a clean child (no NODE_OPTIONS) — same rules as product install.
+ */
+async function timedNativeProverInstall({ repoDir, sourceNative, destNative, env }) {
+  await rm(destNative, { recursive: true, force: true }).catch(() => undefined);
+  await mkdir(path.dirname(destNative), { recursive: true, mode: 0o700 });
+  const started = performance.now();
+  const copy = timeCommand('cp', ['-a', sourceNative, destNative], path.dirname(destNative), env);
+  if (copy.status !== 0 || !existsSync(path.join(destNative, 'bin', 'prover'))) {
+    return {
+      ok: false,
+      ms: performance.now() - started,
+      bytes: null,
+      detail: `native copy failed: ${(copy.stderr || copy.stdout || '').slice(0, 240)}`,
+    };
+  }
+  const modHref = pathToFileURL(
+    path.join(repoDir, 'shieldkit-groth/packages/prove/v2/native-groth16-prover-installation.mjs'),
+  ).href;
+  const verify = timeCommand(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { loadV2NativeGroth16ProverInstallation, consumeV2NativeGroth16ProverInstallation } from ${JSON.stringify(modHref)};
+const installation = await loadV2NativeGroth16ProverInstallation({ installationDirectory: ${JSON.stringify(destNative)} });
+await consumeV2NativeGroth16ProverInstallation(installation);
+process.stdout.write(JSON.stringify({ ok: true }) + '\\n');`,
+    ],
+    repoDir,
+    env,
+  );
+  const ms = performance.now() - started;
+  const bytes = await dirBytes(destNative);
+  if (verify.status !== 0) {
+    return {
+      ok: false,
+      ms,
+      bytes,
+      detail: `native pin-verify failed: ${(verify.stderr || verify.stdout || '').slice(0, 280)}`,
+    };
+  }
+  return {
+    ok: true,
+    ms,
+    bytes,
+    destNative,
+    detail: `cp -a + pin-verify → ${destNative}`,
+  };
+}
+
+/**
  * Timed HTTPS download of the published pin tar from the trust-manifest CDN URL.
  * Always fetches fresh (no local cache hit) so machine cold-start includes real network cost.
  * Verifies size + sha256 against the repo-tracked manifest.
@@ -360,17 +413,21 @@ async function runSandboxMode(args, root, commit) {
     });
   }
 
-  // 4–5) Machine mode: timed install into empty data-home (from live sources).
-  //     Tool mode: only inventory live footprints (no reinstall).
+  // 4) Machine: timed native prover copy + pin-verify (own wall clock).
+  // 5) Machine: timed product artifact install into empty data-home (runtime/ceremony;
+  //    product API also copies native into the package — reported on this step's wall).
+  // Tool mode: inventory only.
   const liveArt = path.join(liveHome, 'v2-beta-product-artifacts');
   const liveNative = path.join(liveArt, 'native');
   const liveCache = path.join(liveHome, 'runtime-cache');
   let emptyHome = null;
   let installedArtBytes = null;
   let installedNativeBytes = null;
+  let stagedNative = null;
 
   if (args.machine && npmResult.status === 0) {
     emptyHome = path.join(sandboxRoot, 'machine-data-home');
+    stagedNative = path.join(sandboxRoot, 'native-prover');
     await rm(emptyHome, { recursive: true, force: true }).catch(() => undefined);
     await mkdir(emptyHome, { recursive: true, mode: 0o700 });
     await chmod(emptyHome, 0o700);
@@ -391,49 +448,68 @@ async function runSandboxMode(args, root, commit) {
         detail: 'cannot install without live runtime/ceremony/native sources',
       });
     } else {
-      const installScript = path.join(
+      process.stdout.write('Native prover install (copy + pin-verify)…\n');
+      const native = await timedNativeProverInstall({
         repoDir,
-        'shieldkit-groth/scripts/install-v2-beta-product-artifacts.mjs',
-      );
-      // Product installer refuses NODE_OPTIONS / loaders.
-      const install = timeCommand(
-        process.execPath,
-        [
-          installScript,
-          emptyHome,
-          path.join(liveArt, 'runtime'),
-          path.join(liveArt, 'ceremony'),
-          liveNative,
-        ],
-        repoDir,
-        npmEnv,
-      );
-      const installedRoot = path.join(emptyHome, 'v2-beta-product-artifacts');
-      installedArtBytes = await dirBytes(installedRoot);
-      installedNativeBytes = await dirBytes(path.join(installedRoot, 'native'));
-      const installOk = install.status === 0 && existsSync(installedRoot);
-      if (installOk) timedMs += install.ms;
-
-      // Native is part of the same product install; report shared wall clock once
-      // on artifact_install, and size on both rows.
+        sourceNative: liveNative,
+        destNative: stagedNative,
+        env: npmEnv,
+      });
       steps.push({
         id: 'native_prover',
-        ms: null,
-        bytes: installedNativeBytes,
-        ok: installOk && existsSync(path.join(installedRoot, 'native', 'bin', 'prover')),
-        detail: installOk
-          ? `installed into empty data-home (timed under artifact_install): ${path.join(installedRoot, 'native')}`
-          : `install failed: ${install.stderr.slice(0, 280) || install.stdout.slice(0, 280)}`,
+        ms: native.ms,
+        bytes: native.bytes,
+        ok: native.ok,
+        detail: native.detail,
       });
-      steps.push({
-        id: 'artifact_install',
-        ms: install.ms,
-        bytes: installedArtBytes,
-        ok: installOk,
-        detail: installOk
-          ? `installV2BetaProductArtifacts → ${installedRoot} (source=live tree install/verify; CDN pin timed separately)`
-          : `install exit=${install.status}: ${install.stderr.slice(0, 280)}`,
-      });
+      if (native.ok && typeof native.ms === 'number') timedMs += native.ms;
+      installedNativeBytes = native.bytes;
+
+      if (!native.ok) {
+        steps.push({
+          id: 'artifact_install',
+          ms: null,
+          ok: false,
+          detail: 'skipped after native prover install failure',
+        });
+      } else {
+        process.stdout.write('Product artifact install (runtime/ceremony + package native)…\n');
+        const installScript = path.join(
+          repoDir,
+          'shieldkit-groth/scripts/install-v2-beta-product-artifacts.mjs',
+        );
+        // Product installer refuses NODE_OPTIONS / loaders.
+        // Use the staged native as source so step 4 is a real prerequisite.
+        const install = timeCommand(
+          process.execPath,
+          [
+            installScript,
+            emptyHome,
+            path.join(liveArt, 'runtime'),
+            path.join(liveArt, 'ceremony'),
+            stagedNative,
+          ],
+          repoDir,
+          npmEnv,
+        );
+        const installedRoot = path.join(emptyHome, 'v2-beta-product-artifacts');
+        installedArtBytes = await dirBytes(installedRoot);
+        const packagedNativeBytes = await dirBytes(path.join(installedRoot, 'native'));
+        const installOk = install.status === 0 && existsSync(installedRoot);
+        if (installOk) timedMs += install.ms;
+
+        steps.push({
+          id: 'artifact_install',
+          ms: install.ms,
+          bytes: installedArtBytes,
+          ok: installOk,
+          detail: installOk
+            ? `installV2BetaProductArtifacts → ${installedRoot} `
+              + `(runtime+ceremony from live tree; native source=${stagedNative}; `
+              + `packaged native=${formatShortBytes(packagedNativeBytes)})`
+            : `install exit=${install.status}: ${install.stderr.slice(0, 280)}`,
+        });
+      }
     }
   } else {
     const nativeBytes = await dirBytes(liveNative);
@@ -456,7 +532,7 @@ async function runSandboxMode(args, root, commit) {
     installedNativeBytes = nativeBytes;
   }
 
-  // 5) runtime link always from live pool (no pool create / specialize here)
+  // 6) runtime link always from live pool (no pool create / specialize here)
   const cacheBytes = await dirBytes(liveCache);
   steps.push({
     id: 'runtime_link',
@@ -605,8 +681,9 @@ async function main(argv) {
       + 'Never creates a pool. Prove always uses the live data-home session.\n'
       + '--machine times:\n'
       + '  (1) HTTPS CDN download of pin tar (trust-manifest URL, fresh, sha256-checked)\n'
-      + '  (2) installV2BetaProductArtifacts into sandbox/machine-data-home\n'
-      + '      (full product ceremony/runtime from live tree — install/verify cost)\n'
+      + '  (2) native prover copy + pin-verify (own wall clock)\n'
+      + '  (3) installV2BetaProductArtifacts into sandbox/machine-data-home\n'
+      + '      (runtime/ceremony from live tree — install/verify cost; own wall clock)\n'
       + 'Keep sandbox: --keep or SHIELDKIT_BENCH_KEEP_COLDSTART=1\n',
     );
     return;

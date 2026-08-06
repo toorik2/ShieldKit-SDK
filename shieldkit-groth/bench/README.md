@@ -58,7 +58,8 @@ node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-h
 
 `--machine` times:
 1. **CDN download** — fresh HTTPS fetch of the pin tar from the trust-manifest URL (~188 MiB compressed), sha256-checked
-2. **Empty data-home install** — full product ceremony/runtime/native from the live tree (install/verify/copy ~1.4 GiB; no public product CDN yet)
+2. **Native prover** — separate wall clock: copy live pin-tree + pin-verify (load/consume)
+3. **Empty data-home artifact install** — separate wall clock: runtime/ceremony verify+copy (~1.4 GiB; no public product CDN yet)
 
 Prove still uses the live pool session. Keep sandbox: `--keep`.
 
@@ -67,11 +68,12 @@ Every machine (and tool) cold-start report **always prints a Fairness note in th
 ```text
 Fairness note (in the output):
   - CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).
-  - Product install into empty data-home is also timed (local install/verify/copy ~1.4 GiB from live tree).
+  - Native prover is timed separately: copy live pin-tree + pin-verify (load/consume).
+  - Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).
   …
 ```
 
-That disclosure is what makes M **100% fair**: CDN pin network hop is timed; empty install cost is timed; product CDN absence is stated.
+That disclosure is what makes M **100% fair**: CDN pin network hop, native prover, and empty install are each timed; product CDN absence is stated.
 
 ### Pipeline breakdown (per act)
 

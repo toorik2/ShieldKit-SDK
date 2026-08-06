@@ -55,8 +55,9 @@ test('machine cold-start fairness includes timed CDN + empty install', () => {
   assert.match(table, /CDN pin download/);
   assert.match(table, /Fairness note \(in the output\):/);
   assert.match(table, /CDN download is timed/);
-  assert.match(table, /empty data-home is also timed/);
+  assert.match(table, /Native prover is timed separately/);
+  assert.match(table, /Product artifact install is timed separately/);
   assert.equal(report.fairness.length, MACHINE_COLDSTART_FAIRNESS.length);
   assert.ok(MACHINE_COLDSTART_FAIRNESS[0].includes('CDN download is timed'));
-  assert.ok(MACHINE_COLDSTART_FAIRNESS.some((line) => line.includes('empty data-home')));
+  assert.ok(MACHINE_COLDSTART_FAIRNESS.some((line) => line.includes('Native prover is timed separately')));
 });

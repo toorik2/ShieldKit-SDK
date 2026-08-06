@@ -85,10 +85,11 @@ export const COLDSTART_OPTIONAL = Object.freeze([
  */
 export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
   'CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).',
-  'Product install into empty data-home is also timed (local install/verify/copy ~1.4 GiB from live tree).',
+  'Native prover is timed separately: copy live pin-tree + pin-verify (load/consume).',
+  'Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).',
   'Full product ceremony/runtime has no public CDN yet — only the pin package is the published network hop.',
   'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
-  'Timed: clone + npm ci + CDN pin download + empty-data-home artifact/prover install + cold/warm prove.',
+  'Timed: clone + npm ci + CDN pin download + native prover + empty-data-home artifact install + cold/warm prove.',
 ]);
 
 export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
