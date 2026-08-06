@@ -47,8 +47,10 @@ test('machine cold-start table prints fairness note about live-tree artifact sou
   });
   const table = formatColdstartTable(report);
   assert.match(table, /Machine cold-start story/);
-  assert.match(table, /Fairness note:/);
+  assert.match(table, /Fairness note \(in the output/);
   assert.match(table, /not a CDN download/);
   assert.match(table, /empty data-home/);
+  assert.match(table, /live tree \(local install\/verify\/copy ~1\.4 GiB\)/);
   assert.equal(report.fairness.length, MACHINE_COLDSTART_FAIRNESS.length);
+  assert.ok(MACHINE_COLDSTART_FAIRNESS[0].includes('not a CDN download'));
 });

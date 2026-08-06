@@ -69,17 +69,23 @@ export const COLDSTART_OPTIONAL = Object.freeze([
   'Doctor / config-check smoke after install',
 ]);
 
-/** Standard fairness lines for machine cold-start (artifact install from live tree). */
+/**
+ * Standard fairness lines for machine cold-start.
+ * These are always printed so the run is 100% fair by disclosure:
+ * what is timed vs what is reused is explicit in the output.
+ */
 export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
-  'Artifact source is the live tree (local install/verify/copy of PF10/ceremony/native, typically ~1.4 GiB), not a CDN download.',
-  'That is still a real first-time install cost into an empty data-home (verify + private copy + receipt).',
+  'Artifact source is the live tree (local install/verify/copy ~1.4 GiB), not a CDN download.',
+  'Still a real first-time install cost into an empty data-home.',
   'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
-  'Fair claim: machine cold-start of code+deps+artifact install; not a full virgin-network blank box.',
+  'Timed: clone + npm ci + empty-data-home artifact/prover install + cold/warm prove.',
+  'Not timed as network download: zkey/runtime/native source bytes (already on disk as live tree).',
 ]);
 
 export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
-  'Artifacts and native prover are reused from the live data-home (not reinstalled or timed).',
-  'Fair claim: tool cold-start (clone + npm ci + prove); not machine install cost.',
+  'Artifact source / prover: reused from live data-home (not reinstalled, not timed).',
+  'Still times clean clone + npm ci + prove against live pool.',
+  'Fair claim: tool cold-start only — not machine artifact-install cost (use --machine for that).',
 ]);
 
 export function buildColdstartReport({
@@ -152,7 +158,7 @@ export function formatColdstartTable(report) {
   }
   if (Array.isArray(report.fairness) && report.fairness.length > 0) {
     lines.push('');
-    lines.push('Fairness note:');
+    lines.push('Fairness note (in the output — always included for this mode):');
     for (const line of report.fairness) {
       lines.push(`  - ${line}`);
     }
