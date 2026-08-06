@@ -12,8 +12,41 @@ This is a **measurement** tool. It does **not** claim that pool capacity equals 
 | **S1** | Ladder | `N` sequential deposit-shaped proves (local load) | No |
 | **S2** | Smoke | Optional Chipnet 5 deposit + 1 transfer + 5 withdraw via product CLI | Yes |
 | **Pipeline** | Full chain | Step timings tip → fee → prove → assemble → VM → **admission/mempool** → commit | Store or live |
+| **Cold-start** | Blank machine | Optional pre-steps: clone, npm ci, prover, artifacts, first prove cold/warm, disk | Optional |
 
-### Pipeline breakdown (what you asked for)
+### Blank-machine cold-start (optional pre-story)
+
+Beyond “download repo” and “first build”, a realistic first machine also pays for:
+
+| Step | Why it matters here |
+|------|---------------------|
+| **Clone / pack download** | Source size |
+| **npm ci + postinstall** | `node_modules` + vendored cashc build |
+| **Native prover** | rapidsnark binary (not just JS) |
+| **PF10 / ceremony artifacts** | zkey/r1cs/wasm/runtime — often **~1.5 GiB** |
+| **First runtime link** | linked cache after instance specialization |
+| **First prove cold vs warm** | page cache / steady S0 |
+| **Disk footprint** | can you even fit the machine? |
+
+Also worth tracking later (documented, not always timed): Rust toolchain, OS build deps, first **pool create**, fee UTXO prep, RPC path smoke, `doctor`.
+
+```bash
+# Safe inventory (disk sizes of existing tree/data-home)
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
+  --data-home /absolute/path/to/data-home \
+  --json-out shieldkit-groth/bench/results/coldstart.json
+
+# Opt-in timers
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
+  --time-prove \
+  --data-home /absolute/path/to/data-home
+
+# Opt-in npm ci in a throwaway work root (expensive)
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
+  --time-npm-ci --work-root /absolute/tmp/bench-cold
+```
+
+### Pipeline breakdown (per act)
 
 ```bash
 # From last accepted ops in a data-home store (no new spend)
