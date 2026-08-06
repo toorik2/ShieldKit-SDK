@@ -31,20 +31,23 @@ Beyond “download repo” and “first build”, a realistic first machine also
 Also worth tracking later (documented, not always timed): Rust toolchain, OS build deps, first **pool create**, fee UTXO prep, RPC path smoke, `doctor`.
 
 ```bash
-# Safe inventory (disk sizes of existing tree/data-home)
+# Temporary clean sandbox: git clone + npm ci, then prove against LIVE pool
+# (does NOT create a pool)
 node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
-  --data-home /absolute/path/to/data-home \
-  --json-out shieldkit-groth/bench/results/coldstart.json
+  --sandbox /home/toorik/.cache/shieldkit-bench-sandbox \
+  --data-home /absolute/path/to/.../v2-beta-product \
+  --json-out shieldkit-groth/bench/results/coldstart-sandbox.json
 
-# Opt-in timers
+# Safe inventory only
 node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
-  --time-prove \
-  --data-home /absolute/path/to/data-home
+  --data-home /absolute/path/to/.../v2-beta-product
 
-# Opt-in npm ci in a throwaway work root (expensive)
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
-  --time-npm-ci --work-root /absolute/tmp/bench-cold
+# Opt-in pieces without full sandbox
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-home …
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-npm-ci --work-root …
 ```
+
+Keep the sandbox dir: `--keep` or `SHIELDKIT_BENCH_KEEP_COLDSTART=1`.
 
 ### Pipeline breakdown (per act)
 
