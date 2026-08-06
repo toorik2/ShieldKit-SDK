@@ -11,6 +11,39 @@ This is a **measurement** tool. It does **not** claim that pool capacity equals 
 | **S0** | Micro | One deposit-shaped **native prove** on the shipped PF10 path + designed max unlock | No |
 | **S1** | Ladder | `N` sequential deposit-shaped proves (local load) | No |
 | **S2** | Smoke | Optional Chipnet 5 deposit + 1 transfer + 5 withdraw via product CLI | Yes |
+| **Pipeline** | Full chain | Step timings tip → fee → prove → assemble → VM → **admission/mempool** → commit | Store or live |
+
+### Pipeline breakdown (what you asked for)
+
+```bash
+# From last accepted ops in a data-home store (no new spend)
+node shieldkit-groth/bench/pf10-baseline/run-pipeline.mjs --from-store \
+  --data-home /absolute/path/to/data-home \
+  --limit 1 \
+  --json-out shieldkit-groth/bench/results/pipeline.json
+
+# Live one act (full admission timings when success)
+node shieldkit-groth/bench/pf10-baseline/run-pipeline.mjs --live \
+  --data-home /absolute/path/to/data-home \
+  --kind deposit
+```
+
+Prints:
+
+```text
+ 1. Look up tip on network           stateRead        ~440 ms
+ 2. Find fee coin                    fundingRead      ~440 ms
+ …
+ 5. Make ZK proof                    proofGen        ~2544 ms   ← bench S0/S1
+ …
+ 8. Sign + Libauth VM                signing/localVm  ~234 ms
+    -------- local work done (~5.5 s) --------
+ 9. Broadcast + mempool/readback     admission       ~… ms
+10. Save local state                 commit          ~… ms
+    -------- total ~9–12 s --------
+```
+
+Store snapshots often omit `admission`/`commit` (pre-send artifact). Use `--live` for the full chain.
 
 ## Scorecard fields (`shieldkit-bench-scorecard-v1`)
 
