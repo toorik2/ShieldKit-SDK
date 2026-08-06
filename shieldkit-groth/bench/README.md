@@ -22,6 +22,7 @@ Beyond “download repo” and “first build”, a realistic first machine also
 |------|---------------------|
 | **Clone / pack download** | Source size |
 | **npm ci + postinstall** | `node_modules` + vendored cashc build |
+| **CDN pin download** | Published pin tar from GitHub releases (~188 MiB compressed) |
 | **Native prover** | rapidsnark binary (not just JS) |
 | **PF10 / ceremony artifacts** | zkey/r1cs/wasm/runtime — often **~1.5 GiB** |
 | **First runtime link** | linked cache after instance specialization |
@@ -36,8 +37,8 @@ node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
   --sandbox /home/toorik/.cache/shieldkit-bench-sandbox \
   --data-home /absolute/path/to/.../v2-beta-product
 
-# Machine cold-start: + timed artifact/prover install into EMPTY data-home,
-# then prove vs LIVE pool (no pool create)
+# Machine cold-start: + timed CDN pin download + timed artifact/prover install
+# into EMPTY data-home, then prove vs LIVE pool (no pool create)
 node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
   --sandbox /home/toorik/.cache/shieldkit-bench-machine \
   --machine \
@@ -52,21 +53,25 @@ node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-h
 | Mode | Fair claim |
 |------|------------|
 | `--sandbox` | Tool cold-start (code+deps) |
-| `--sandbox --machine` | Machine cold-start (code+deps+**artifact/prover install**) |
+| `--sandbox --machine` | Machine cold-start (code+deps+**CDN pin download**+**artifact/prover install**) |
 | inventory | Disk footprint only |
 
-`--machine` install sources runtime/ceremony/native from the live tree (times **install/verify/copy**, not a fresh CDN download). Prove still uses the live pool session. Keep sandbox: `--keep`.
+`--machine` times:
+1. **CDN download** — fresh HTTPS fetch of the pin tar from the trust-manifest URL (~188 MiB compressed), sha256-checked
+2. **Empty data-home install** — full product ceremony/runtime/native from the live tree (install/verify/copy ~1.4 GiB; no public product CDN yet)
+
+Prove still uses the live pool session. Keep sandbox: `--keep`.
 
 Every machine (and tool) cold-start report **always prints a Fairness note in the output** (and in JSON under `fairness[]`), e.g.:
 
 ```text
 Fairness note (in the output):
-  - Artifact source is the live tree (local install/verify/copy ~1.4 GiB), not a CDN download.
-  - Still a real first-time install cost into an empty data-home.
+  - CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).
+  - Product install into empty data-home is also timed (local install/verify/copy ~1.4 GiB from live tree).
   …
 ```
 
-That disclosure is what makes M **100% fair**: install cost into empty data-home is timed; CDN download is not claimed.
+That disclosure is what makes M **100% fair**: CDN pin network hop is timed; empty install cost is timed; product CDN absence is stated.
 
 ### Pipeline breakdown (per act)
 

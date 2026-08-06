@@ -23,41 +23,50 @@ export const COLDSTART_STEPS = Object.freeze([
   }),
   Object.freeze({
     n: 3,
+    id: 'cdn_download',
+    label: 'CDN download pin artifacts (HTTPS)',
+    why: 'published pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL)',
+  }),
+  Object.freeze({
+    n: 4,
     id: 'native_prover',
     label: 'Native prover binary (rapidsnark install)',
     why: 'compile or pin-verify host prover; not in npm pack alone',
   }),
   Object.freeze({
-    n: 4,
+    n: 5,
     id: 'artifact_install',
     label: 'Install PF10 / ceremony / proof artifacts',
     why: 'zkey/r1cs/wasm/runtime ~GBs; pin-authenticated offline install',
   }),
   Object.freeze({
-    n: 5,
+    n: 6,
     id: 'runtime_link',
     label: 'First pool runtime link / specialization',
     why: 'linked runtime cache for instance (after pool create or first act)',
   }),
   Object.freeze({
-    n: 6,
+    n: 7,
     id: 'first_prove_cold',
     label: 'First prove (cold caches)',
     why: 'disk/page-cache cold; often slower than steady S0',
   }),
   Object.freeze({
-    n: 7,
+    n: 8,
     id: 'second_prove_warm',
     label: 'Second prove (warm)',
     why: 'steady-state prove cost ≈ S0',
   }),
   Object.freeze({
-    n: 8,
+    n: 9,
     id: 'disk_footprint',
     label: 'Disk footprint (repo + deps + artifacts)',
     why: 'blank machine capacity planning',
   }),
 ]);
+
+/** Repo-relative path to the pin trust manifest (source of CDN URL + hashes). */
+export const PIN_ARTIFACTS_MANIFEST_REL = 'shieldkit-groth/pins/shieldkit-pin-artifacts-v1.manifest.json';
 
 /** Extra blank-machine costs (document; optional later timers). */
 export const COLDSTART_OPTIONAL = Object.freeze([
@@ -75,17 +84,18 @@ export const COLDSTART_OPTIONAL = Object.freeze([
  * what is timed vs what is reused is explicit in the output.
  */
 export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
-  'Artifact source is the live tree (local install/verify/copy ~1.4 GiB), not a CDN download.',
-  'Still a real first-time install cost into an empty data-home.',
+  'CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).',
+  'Product install into empty data-home is also timed (local install/verify/copy ~1.4 GiB from live tree).',
+  'Full product ceremony/runtime has no public CDN yet — only the pin package is the published network hop.',
   'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
-  'Timed: clone + npm ci + empty-data-home artifact/prover install + cold/warm prove.',
-  'Not timed as network download: zkey/runtime/native source bytes (already on disk as live tree).',
+  'Timed: clone + npm ci + CDN pin download + empty-data-home artifact/prover install + cold/warm prove.',
 ]);
 
 export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
   'Artifact source / prover: reused from live data-home (not reinstalled, not timed).',
+  'CDN pin download not timed in tool mode (use --machine for CDN + empty install).',
   'Still times clean clone + npm ci + prove against live pool.',
-  'Fair claim: tool cold-start only — not machine artifact-install cost (use --machine for that).',
+  'Fair claim: tool cold-start only — not machine CDN/install cost (use --machine for that).',
 ]);
 
 /** Resolve fairness lines: explicit list wins; else mode defaults (always for machine/tool). */
@@ -142,7 +152,7 @@ export function buildColdstartReport({
 export function formatColdstartTable(report) {
   const lines = [];
   const title = report.mode === 'machine-cold-start'
-    ? 'Machine cold-start story (sandbox + empty artifact install + live prove)'
+    ? 'Machine cold-start story (sandbox + CDN pin download + empty install + live prove)'
     : report.mode === 'tool-cold-start'
       ? 'Tool cold-start story (sandbox clone/npm + live prove)'
       : 'Blank-machine cold-start story (optional pre-steps)';

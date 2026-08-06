@@ -6,16 +6,19 @@
  *   (default)              Inventory + disk sizes
  *   --sandbox DIR          Tool cold-start: clone + npm ci + prove vs live pool
  *   --sandbox DIR --machine
- *                          Machine cold-start: clone + npm ci + timed artifact/prover
- *                          install into empty data-home, then prove vs **live** pool
- *                          (no pool create)
+ *                          Machine cold-start: clone + npm ci + timed CDN pin
+ *                          download + timed artifact/prover install into empty
+ *                          data-home, then prove vs **live** pool (no pool create)
  *   --time-npm-ci / --time-prove   Partial timers without full sandbox
  *
  * Cleanup: sandbox removed unless --keep or SHIELDKIT_BENCH_KEEP_COLDSTART=1
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
-import { chmod, mkdir, readdir, rm, writeFile, cp } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { createWriteStream, existsSync, statSync } from 'node:fs';
+import { chmod, mkdir, readFile, readdir, rm, writeFile, cp } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
+import { Readable, Transform } from 'node:stream';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -26,6 +29,7 @@ import {
 import {
   MACHINE_COLDSTART_FAIRNESS,
   TOOL_COLDSTART_FAIRNESS,
+  PIN_ARTIFACTS_MANIFEST_REL,
   buildColdstartReport,
   formatColdstartTable,
 } from '../coldstart.mjs';
@@ -153,6 +157,111 @@ async function measureProves(session) {
   return { cold, warm };
 }
 
+/**
+ * Timed HTTPS download of the published pin tar from the trust-manifest CDN URL.
+ * Always fetches fresh (no local cache hit) so machine cold-start includes real network cost.
+ * Verifies size + sha256 against the repo-tracked manifest.
+ */
+async function timedCdnPinDownload({ repoDir, sandboxRoot }) {
+  const manifestPath = path.join(repoDir, PIN_ARTIFACTS_MANIFEST_REL);
+  if (!existsSync(manifestPath)) {
+    return {
+      ok: false,
+      ms: null,
+      bytes: null,
+      detail: `pin trust manifest missing: ${manifestPath}`,
+    };
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  } catch (error) {
+    return {
+      ok: false,
+      ms: null,
+      bytes: null,
+      detail: `pin trust manifest unreadable: ${error.message}`,
+    };
+  }
+  const url = manifest?.source?.url;
+  const expectedBytes = manifest?.tar?.bytes;
+  const expectedSha = manifest?.tar?.sha256;
+  const fileName = manifest?.tar?.fileName;
+  if (typeof url !== 'string' || !/^https:\/\//.test(url)
+    || !Number.isSafeInteger(expectedBytes) || expectedBytes <= 0
+    || typeof expectedSha !== 'string' || !expectedSha.startsWith('sha256:')
+    || typeof fileName !== 'string' || fileName.length === 0) {
+    return {
+      ok: false,
+      ms: null,
+      bytes: null,
+      detail: 'pin trust manifest missing HTTPS url / tar identity',
+    };
+  }
+
+  const destDir = path.join(sandboxRoot, 'cdn-download');
+  await rm(destDir, { recursive: true, force: true }).catch(() => undefined);
+  await mkdir(destDir, { recursive: true, mode: 0o700 });
+  const tarPath = path.join(destDir, fileName);
+  // 30 min hard cap — ~188 MiB pin tar on a slow link
+  const timeoutMs = 30 * 60 * 1000;
+  const started = performance.now();
+  try {
+    const response = await fetch(url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok || !response.body) {
+      return {
+        ok: false,
+        ms: performance.now() - started,
+        bytes: null,
+        detail: `CDN HTTP ${response.status} for ${url}`,
+      };
+    }
+    const hash = createHash('sha256');
+    const hasher = new Transform({
+      transform(chunk, _enc, cb) {
+        hash.update(chunk);
+        cb(null, chunk);
+      },
+    });
+    await pipeline(
+      Readable.fromWeb(response.body),
+      hasher,
+      createWriteStream(tarPath, { flags: 'wx', mode: 0o600 }),
+    );
+    const ms = performance.now() - started;
+    const bytes = statSync(tarPath).size;
+    const actualSha = `sha256:${hash.digest('hex')}`;
+    if (bytes !== expectedBytes || actualSha !== expectedSha) {
+      await rm(tarPath, { force: true }).catch(() => undefined);
+      return {
+        ok: false,
+        ms,
+        bytes,
+        detail: `CDN identity mismatch: expected ${expectedBytes} ${expectedSha}, got ${bytes} ${actualSha}`,
+      };
+    }
+    return {
+      ok: true,
+      ms,
+      bytes,
+      tarPath,
+      url,
+      detail: `HTTPS ${url} → ${tarPath} (${bytes} bytes, sha256 ok)`,
+    };
+  } catch (error) {
+    await rm(tarPath, { force: true }).catch(() => undefined);
+    return {
+      ok: false,
+      ms: performance.now() - started,
+      bytes: null,
+      detail: `CDN download failed: ${error.message || error}`,
+    };
+  }
+}
+
 /** Prove using modules loaded from a sandbox repo (sandbox node_modules). */
 async function measureProvesFromSandbox(sandboxRepo, liveDataHome) {
   const proveUrl = pathToFileURL(
@@ -226,7 +335,32 @@ async function runSandboxMode(args, root, commit) {
   });
   if (npmResult.status === 0) timedMs += npmResult.ms;
 
-  // 3–4) Machine mode: timed install into empty data-home (from live sources).
+  // 3) Machine mode: timed CDN download of published pin tar (real network hop).
+  //    Tool mode: CDN not timed.
+  if (args.machine && npmResult.status === 0) {
+    process.stdout.write('CDN pin download (HTTPS, fresh, trust-manifest)…\n');
+    const cdn = await timedCdnPinDownload({ repoDir, sandboxRoot });
+    steps.push({
+      id: 'cdn_download',
+      ms: cdn.ms,
+      bytes: cdn.bytes,
+      ok: cdn.ok,
+      detail: cdn.detail,
+    });
+    if (cdn.ok && typeof cdn.ms === 'number') timedMs += cdn.ms;
+  } else {
+    steps.push({
+      id: 'cdn_download',
+      ms: null,
+      bytes: null,
+      ok: null,
+      detail: args.machine
+        ? 'skipped (npm ci failed)'
+        : 'tool cold-start: CDN not timed (use --machine for CDN + empty install)',
+    });
+  }
+
+  // 4–5) Machine mode: timed install into empty data-home (from live sources).
   //     Tool mode: only inventory live footprints (no reinstall).
   const liveArt = path.join(liveHome, 'v2-beta-product-artifacts');
   const liveNative = path.join(liveArt, 'native');
@@ -297,7 +431,7 @@ async function runSandboxMode(args, root, commit) {
         bytes: installedArtBytes,
         ok: installOk,
         detail: installOk
-          ? `installV2BetaProductArtifacts → ${installedRoot} (source=live tree, not network download)`
+          ? `installV2BetaProductArtifacts → ${installedRoot} (source=live tree install/verify; CDN pin timed separately)`
           : `install exit=${install.status}: ${install.stderr.slice(0, 280)}`,
       });
     }
@@ -316,7 +450,7 @@ async function runSandboxMode(args, root, commit) {
       ms: null,
       bytes: artBytes,
       ok: existsSync(liveArt),
-      detail: `tool cold-start: live pool not reinstalled (${liveArt}); use --machine for timed empty install`,
+      detail: `tool cold-start: live pool not reinstalled (${liveArt}); use --machine for CDN + empty install`,
     });
     installedArtBytes = artBytes;
     installedNativeBytes = nativeBytes;
@@ -461,7 +595,7 @@ async function main(argv) {
       + '  node run-coldstart.mjs --sandbox /abs/empty/dir \\\n'
       + '    [--data-home /abs/.../v2-beta-product] [--json-out file] [--keep]\n'
       + '\n'
-      + '  # machine cold-start: + timed artifact/prover install into empty data-home\n'
+      + '  # machine cold-start: + CDN pin download + timed empty data-home install\n'
       + '  node run-coldstart.mjs --sandbox /abs/empty/dir --machine \\\n'
       + '    [--data-home /abs/.../v2-beta-product] [--json-out file] [--keep]\n'
       + '\n'
@@ -469,8 +603,10 @@ async function main(argv) {
       + '  node run-coldstart.mjs [--data-home ABS] [--time-prove] [--json-out file]\n'
       + '\n'
       + 'Never creates a pool. Prove always uses the live data-home session.\n'
-      + '--machine times installV2BetaProductArtifacts into sandbox/machine-data-home\n'
-      + '(source = live runtime/ceremony/native trees — install/verify cost, not CDN).\n'
+      + '--machine times:\n'
+      + '  (1) HTTPS CDN download of pin tar (trust-manifest URL, fresh, sha256-checked)\n'
+      + '  (2) installV2BetaProductArtifacts into sandbox/machine-data-home\n'
+      + '      (full product ceremony/runtime from live tree — install/verify cost)\n'
       + 'Keep sandbox: --keep or SHIELDKIT_BENCH_KEEP_COLDSTART=1\n',
     );
     return;
@@ -556,6 +692,14 @@ async function main(argv) {
     });
     if (nmBytes) diskBytes += nmBytes;
   }
+
+  // inventory / partial timer mode — no timed CDN (use --sandbox --machine)
+  steps.push({
+    id: 'cdn_download',
+    ms: null,
+    ok: null,
+    detail: 'inventory mode: CDN not timed (use --sandbox DIR --machine)',
+  });
 
   const productDir = liveHome;
   if (productDir) {
