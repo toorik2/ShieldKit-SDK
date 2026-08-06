@@ -2,6 +2,8 @@
  * Human + machine pipeline breakdown for one product act
  * (tip read → … → admission/mempool → commit).
  */
+import { formatSubjectHeader, resolveBenchSubject } from './identity.mjs';
+
 export const PIPELINE_SCHEMA = 'shieldkit-bench-pipeline-v1';
 
 /** Ordered steps matching operator-facing labels. */
@@ -35,7 +37,7 @@ export const PIPELINE_STEPS = Object.freeze([
     key: 'proofGeneration',
     label: 'Make ZK proof',
     short: 'proofGen',
-    note: 'bench S0/S1',
+    note: 'native prove',
   }),
   Object.freeze({
     n: 6,
@@ -109,6 +111,7 @@ export function buildPipelineReport({
   operationId = null,
   source = {},
   notes = '',
+  subject = null,
 } = {}) {
   const extracted = extractPipelineTimings(source);
   const rows = PIPELINE_STEPS.map((step) => Object.freeze({
@@ -140,10 +143,15 @@ export function buildPipelineReport({
     ?? extracted.actionTotal
     ?? null;
 
+  const resolvedSubject = subject && typeof subject === 'object'
+    ? Object.freeze({ ...resolveBenchSubject({ design, commit }), ...subject })
+    : resolveBenchSubject({ design, commit });
+
   return Object.freeze({
     schema: PIPELINE_SCHEMA,
-    design,
-    commit,
+    design: resolvedSubject.design,
+    commit: resolvedSubject.commit,
+    subject: resolvedSubject,
     kind,
     transactionId,
     operationId,
@@ -169,6 +177,10 @@ export function buildPipelineReport({
 export function formatPipelineTable(report) {
   const lines = [];
   lines.push('Pipeline timings (start → mempool acceptance)');
+  lines.push(formatSubjectHeader(report.subject ?? resolveBenchSubject({
+    design: report.design,
+    commit: report.commit,
+  })));
   if (report.kind || report.transactionId) {
     lines.push(
       `kind=${report.kind ?? '?'} txid=${report.transactionId ?? 'n/a'}`,

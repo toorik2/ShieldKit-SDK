@@ -38,6 +38,9 @@ test('coldstart report and table include clone/build ladder', () => {
   assert.match(table, /Disk footprint/);
   assert.match(table, /Also consider/);
   assert.match(table, /S0 \(warm\/steady prove\)/);
+  assert.match(table, /ShieldKit-Groth/);
+  assert.match(table, /verifier=DIRECT_V2_PF10/);
+  assert.equal(report.subject.verifier, 'DIRECT_V2_PF10');
 });
 
 test('machine cold-start fairness includes timed CDN + empty install', () => {

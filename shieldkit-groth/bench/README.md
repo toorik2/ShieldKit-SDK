@@ -4,6 +4,14 @@ Two modes. One command.
 
 This is a **measurement** tool. It does **not** claim that pool capacity equals an anonymity set.
 
+Every report includes a **subject** block (table header + JSON `subject`) so results are self-describing:
+
+```text
+ShieldKit-Groth 0.3.0-beta.1  (shieldkit-v2-beta-chipnet)
+design=pf10-baseline  verifier=DIRECT_V2_PF10  (PF10 Groth16 (BN254) on-chain unlock)  network=chipnet
+commit=<40-char-sha>
+```
+
 ## Modes
 
 | Flag | What it measures | Network |

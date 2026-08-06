@@ -49,6 +49,11 @@ test('extractPipelineTimings and format drive real helpers', () => {
   assert.match(table, /Broadcast \+ mempool/);
   assert.match(table, /local work done/);
   assert.match(table, /total ~/);
+  assert.match(table, /ShieldKit-Groth/);
+  assert.match(table, /verifier=DIRECT_V2_PF10/);
+  assert.equal(report.subject.product, 'ShieldKit-Groth');
+  assert.equal(report.subject.verifier, 'DIRECT_V2_PF10');
+  assert.ok(typeof report.subject.version === 'string' && report.subject.version.length > 0);
 });
 
 test('pipelineSourceFromCliResult reads product envelope', () => {

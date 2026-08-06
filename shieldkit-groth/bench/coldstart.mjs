@@ -2,6 +2,8 @@
  * Blank-machine / cold-start story for ShieldKit bench.
  * Optional pre-steps before S0/S1/S2 — separate from per-act pipeline.
  */
+import { formatSubjectHeader, resolveBenchSubject } from './identity.mjs';
+
 export const COLDSTART_SCHEMA = 'shieldkit-bench-coldstart-v1';
 
 /**
@@ -114,6 +116,7 @@ export function buildColdstartReport({
   totals = {},
   fairness = [],
   notes = '',
+  subject = null,
 } = {}) {
   const byId = new Map(steps.map((s) => [s.id, s]));
   const rows = COLDSTART_STEPS.map((def) => {
@@ -130,10 +133,14 @@ export function buildColdstartReport({
     });
   });
   const fairnessLines = resolveFairness({ mode, fairness });
+  const resolvedSubject = subject && typeof subject === 'object'
+    ? Object.freeze({ ...resolveBenchSubject({ design, commit }), ...subject })
+    : resolveBenchSubject({ design, commit });
   return Object.freeze({
     schema: COLDSTART_SCHEMA,
-    design,
-    commit,
+    design: resolvedSubject.design,
+    commit: resolvedSubject.commit,
+    subject: resolvedSubject,
     mode: typeof mode === 'string' ? mode : null,
     rows,
     optionalNotes: COLDSTART_OPTIONAL,
@@ -154,7 +161,11 @@ export function formatColdstartTable(report) {
       ? 'Tool cold-start story (sandbox clone/npm + live prove)'
       : 'Blank-machine cold-start story (optional pre-steps)';
   lines.push(title);
-  lines.push(`design=${report.design} commit=${report.commit ?? 'n/a'}${report.mode ? ` mode=${report.mode}` : ''}`);
+  lines.push(formatSubjectHeader(report.subject ?? resolveBenchSubject({
+    design: report.design,
+    commit: report.commit,
+  })));
+  if (report.mode) lines.push(`mode=${report.mode}`);
   lines.push('');
   for (const row of report.rows) {
     const time = row.ms === null ? 'n/a' : `~${formatDuration(row.ms)}`;
