@@ -62,20 +62,40 @@ function parseArgs(argv) {
   return out;
 }
 
+/**
+ * Product session dir (…/v2-beta-product) — used by cold-start prove path.
+ * CLI --data-home is often the outer private root (…/shieldkit-packed-…), not nested.
+ */
 function normalizeProductDataHome(home) {
   if (typeof home !== 'string' || home.length === 0) return null;
   const abs = path.resolve(home);
-  if (abs.endsWith(`${path.sep}v2-beta-product`)) return abs;
+  if (abs.endsWith(`${path.sep}v2-beta-product`)
+    && existsSync(path.join(abs, 'session.json'))) {
+    return abs;
+  }
   const nested = path.join(abs, 'shieldkit', 'v2-beta-product');
   if (existsSync(path.join(nested, 'session.json'))) return nested;
   if (existsSync(path.join(abs, 'session.json'))) return abs;
+  return null;
+}
+
+/** Outer data-home for product CLI (parent of shieldkit/v2-beta-product when nested). */
+function cliDataHomeFromProduct(productHome) {
+  const abs = path.resolve(productHome);
+  if (abs.endsWith(`${path.sep}shieldkit${path.sep}v2-beta-product`)) {
+    return path.dirname(path.dirname(abs));
+  }
+  if (path.basename(abs) === 'v2-beta-product'
+    && path.basename(path.dirname(abs)) === 'shieldkit') {
+    return path.dirname(path.dirname(abs));
+  }
   return abs;
 }
 
 function resolveDataHome(explicit) {
   if (explicit) {
     const n = normalizeProductDataHome(explicit);
-    if (!n || !existsSync(path.join(n, 'session.json'))) {
+    if (!n) {
       throw new Error(`--data-home must point at a product data-home with session.json (got ${explicit})`);
     }
     return n;
@@ -86,8 +106,14 @@ function resolveDataHome(explicit) {
   for (const c of DEFAULT_DATA_HOMES) {
     if (existsSync(path.join(c, 'session.json'))) return c;
   }
+  // also accept outer packed roots in the default list parents
+  for (const c of DEFAULT_DATA_HOMES) {
+    const outer = cliDataHomeFromProduct(c);
+    const n = normalizeProductDataHome(outer);
+    if (n) return n;
+  }
   throw new Error(
-    'no data-home: pass --data-home …/v2-beta-product or set SHIELDKIT_BENCH_DATA_HOME',
+    'no data-home: pass --data-home …/v2-beta-product (or outer packed root) or set SHIELDKIT_BENCH_DATA_HOME',
   );
 }
 
@@ -136,6 +162,7 @@ async function main(argv) {
   if (args.coldStart) {
     const jsonOut = args.jsonOut || path.join(RESULTS, 'coldstart.json');
     const script = path.join(HERE, 'run-coldstart.mjs');
+    // cold-start prove loaders want …/v2-beta-product
     const childArgs = [
       '--sandbox', args.sandbox,
       '--machine',
@@ -151,18 +178,20 @@ async function main(argv) {
   }
 
   // default: pipeline (live act → mempool)
+  // product CLI wants the outer private root when session lives under shieldkit/v2-beta-product
+  const cliHome = cliDataHomeFromProduct(dataHome);
   const jsonOut = args.jsonOut || path.join(RESULTS, 'pipeline.json');
   const script = path.join(HERE, 'run-pipeline.mjs');
   const childArgs = [
     '--live',
-    '--data-home', dataHome,
+    '--data-home', cliHome,
     '--kind', args.kind,
     '--json-out', jsonOut,
   ];
   if (args.to) childArgs.push('--to', args.to);
   if (args.note) childArgs.push('--note', args.note);
   process.stdout.write(
-    `bench mode=pipeline (live ${args.kind} → mempool) data-home=${dataHome}\n\n`,
+    `bench mode=pipeline (live ${args.kind} → mempool) data-home=${cliHome}\n\n`,
   );
   runNode(script, childArgs);
 }
