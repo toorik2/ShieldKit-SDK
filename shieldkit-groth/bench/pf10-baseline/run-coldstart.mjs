@@ -3,20 +3,19 @@
  * Optional blank-machine cold-start story.
  *
  * Modes:
- *   (default)           Inventory + disk sizes of current tree / live data-home
- *   --sandbox DIR       Temporary clean sandbox: git clone + npm ci, then
- *                       optional proves against the **live** data-home (no pool setup)
- *   --time-npm-ci       Legacy: npm ci into --work-root without full clone
- *   --time-prove        Two deposit-shaped proves against --data-home (live pool)
+ *   (default)              Inventory + disk sizes
+ *   --sandbox DIR          Tool cold-start: clone + npm ci + prove vs live pool
+ *   --sandbox DIR --machine
+ *                          Machine cold-start: clone + npm ci + timed artifact/prover
+ *                          install into empty data-home, then prove vs **live** pool
+ *                          (no pool create)
+ *   --time-npm-ci / --time-prove   Partial timers without full sandbox
  *
- * Live pool (default if unset):
- *   SHIELDKIT_BENCH_DATA_HOME or packed-live / final-ready candidates
- *
- * Cleanup: sandbox removed unless SHIELDKIT_BENCH_KEEP_COLDSTART=1
+ * Cleanup: sandbox removed unless --keep or SHIELDKIT_BENCH_KEEP_COLDSTART=1
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { mkdir, readdir, rm, writeFile, cp } from 'node:fs/promises';
+import { chmod, mkdir, readdir, rm, writeFile, cp } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -48,6 +47,7 @@ function parseArgs(argv) {
     timeProve: false,
     workRoot: null,
     sandbox: null,
+    machine: false,
     keep: process.env.SHIELDKIT_BENCH_KEEP_COLDSTART === '1',
     jsonOut: null,
   };
@@ -58,13 +58,17 @@ function parseArgs(argv) {
     else if (a === '--time-prove') out.timeProve = true;
     else if (a === '--work-root') out.workRoot = path.resolve(argv[++i] ?? '');
     else if (a === '--sandbox') out.sandbox = path.resolve(argv[++i] ?? '');
+    else if (a === '--machine' || a === '--machine-cold-start') out.machine = true;
     else if (a === '--keep') out.keep = true;
     else if (a === '--json-out') out.jsonOut = path.resolve(argv[++i] ?? '');
     else if (a === '--help' || a === '-h') out.help = true;
     else throw new Error(`unknown argument: ${a}`);
   }
+  if (out.machine && !out.sandbox) {
+    throw new Error('--machine requires --sandbox DIR');
+  }
   if (out.sandbox) {
-    // Sandbox mode implies clone + npm ci + prove against live pool
+    // Sandbox / machine modes always prove against live pool
     out.timeProve = true;
   }
   return out;
@@ -220,34 +224,110 @@ async function runSandboxMode(args, root, commit) {
   });
   if (npmResult.status === 0) timedMs += npmResult.ms;
 
-  // 3–5 live pool footprints (not reinstalled — by design)
-  const nativeDir = path.join(liveHome, 'v2-beta-product-artifacts', 'native');
-  const artDir = path.join(liveHome, 'v2-beta-product-artifacts');
-  const cacheDir = path.join(liveHome, 'runtime-cache');
-  const nativeBytes = await dirBytes(nativeDir);
-  const artBytes = await dirBytes(artDir);
-  const cacheBytes = await dirBytes(cacheDir);
+  // 3–4) Machine mode: timed install into empty data-home (from live sources).
+  //     Tool mode: only inventory live footprints (no reinstall).
+  const liveArt = path.join(liveHome, 'v2-beta-product-artifacts');
+  const liveNative = path.join(liveArt, 'native');
+  const liveCache = path.join(liveHome, 'runtime-cache');
+  let emptyHome = null;
+  let installedArtBytes = null;
+  let installedNativeBytes = null;
 
-  steps.push({
-    id: 'native_prover',
-    ms: null,
-    bytes: nativeBytes,
-    ok: existsSync(path.join(nativeDir, 'bin', 'prover')),
-    detail: `live pool (not reinstalled): ${nativeDir}`,
-  });
-  steps.push({
-    id: 'artifact_install',
-    ms: null,
-    bytes: artBytes,
-    ok: existsSync(artDir),
-    detail: `live pool artifacts (not reinstalled): ${artDir}`,
-  });
+  if (args.machine && npmResult.status === 0) {
+    emptyHome = path.join(sandboxRoot, 'machine-data-home');
+    await rm(emptyHome, { recursive: true, force: true }).catch(() => undefined);
+    await mkdir(emptyHome, { recursive: true, mode: 0o700 });
+    await chmod(emptyHome, 0o700);
+
+    if (!existsSync(path.join(liveArt, 'runtime'))
+      || !existsSync(path.join(liveArt, 'ceremony'))
+      || !existsSync(liveNative)) {
+      steps.push({
+        id: 'native_prover',
+        ms: null,
+        ok: false,
+        detail: `live artifact sources incomplete under ${liveArt}`,
+      });
+      steps.push({
+        id: 'artifact_install',
+        ms: null,
+        ok: false,
+        detail: 'cannot install without live runtime/ceremony/native sources',
+      });
+    } else {
+      const installScript = path.join(
+        repoDir,
+        'shieldkit-groth/scripts/install-v2-beta-product-artifacts.mjs',
+      );
+      // Product installer refuses NODE_OPTIONS / loaders.
+      const install = timeCommand(
+        process.execPath,
+        [
+          installScript,
+          emptyHome,
+          path.join(liveArt, 'runtime'),
+          path.join(liveArt, 'ceremony'),
+          liveNative,
+        ],
+        repoDir,
+        npmEnv,
+      );
+      const installedRoot = path.join(emptyHome, 'v2-beta-product-artifacts');
+      installedArtBytes = await dirBytes(installedRoot);
+      installedNativeBytes = await dirBytes(path.join(installedRoot, 'native'));
+      const installOk = install.status === 0 && existsSync(installedRoot);
+      if (installOk) timedMs += install.ms;
+
+      // Native is part of the same product install; report shared wall clock once
+      // on artifact_install, and size on both rows.
+      steps.push({
+        id: 'native_prover',
+        ms: null,
+        bytes: installedNativeBytes,
+        ok: installOk && existsSync(path.join(installedRoot, 'native', 'bin', 'prover')),
+        detail: installOk
+          ? `installed into empty data-home (timed under artifact_install): ${path.join(installedRoot, 'native')}`
+          : `install failed: ${install.stderr.slice(0, 280) || install.stdout.slice(0, 280)}`,
+      });
+      steps.push({
+        id: 'artifact_install',
+        ms: install.ms,
+        bytes: installedArtBytes,
+        ok: installOk,
+        detail: installOk
+          ? `installV2BetaProductArtifacts → ${installedRoot} (source=live tree, not network download)`
+          : `install exit=${install.status}: ${install.stderr.slice(0, 280)}`,
+      });
+    }
+  } else {
+    const nativeBytes = await dirBytes(liveNative);
+    const artBytes = await dirBytes(liveArt);
+    steps.push({
+      id: 'native_prover',
+      ms: null,
+      bytes: nativeBytes,
+      ok: existsSync(path.join(liveNative, 'bin', 'prover')),
+      detail: `tool cold-start: live pool not reinstalled (${liveNative})`,
+    });
+    steps.push({
+      id: 'artifact_install',
+      ms: null,
+      bytes: artBytes,
+      ok: existsSync(liveArt),
+      detail: `tool cold-start: live pool not reinstalled (${liveArt}); use --machine for timed empty install`,
+    });
+    installedArtBytes = artBytes;
+    installedNativeBytes = nativeBytes;
+  }
+
+  // 5) runtime link always from live pool (no pool create / specialize here)
+  const cacheBytes = await dirBytes(liveCache);
   steps.push({
     id: 'runtime_link',
     ms: null,
     bytes: cacheBytes,
-    ok: existsSync(cacheDir),
-    detail: `live pool runtime-cache: ${cacheDir}`,
+    ok: existsSync(liveCache),
+    detail: `live pool runtime-cache (not rebuilt): ${liveCache}`,
   });
 
   // 6–7 prove from sandbox code against live pool
@@ -297,24 +377,36 @@ async function runSandboxMode(args, root, commit) {
   }
 
   const sandboxBytes = await dirBytes(sandboxRoot);
-  // Avoid double-counting live artifacts inside sandbox total: report sandbox + live art
-  const diskBytes = (sandboxBytes || 0) + (artBytes || 0);
+  const liveArtBytes = await dirBytes(liveArt);
+  // Footprint: sandbox (repo+nm [+empty install]) + live artifacts used for prove
+  const diskBytes = (sandboxBytes || 0)
+    + (args.machine ? 0 : (liveArtBytes || 0));
+  // In machine mode sandboxBytes already includes machine-data-home install
+  const footprintDetail = args.machine
+    ? `sandbox+empty-install=${formatShortBytes(sandboxBytes)} (live pool only for prove session)`
+    : `sandbox=${formatShortBytes(sandboxBytes)} + live artifacts=${formatShortBytes(liveArtBytes)}`;
+
   steps.push({
     id: 'disk_footprint',
     ms: null,
-    bytes: diskBytes,
+    bytes: args.machine ? sandboxBytes : diskBytes,
     ok: true,
-    detail: `sandbox=${formatShortBytes(sandboxBytes)} + live artifacts=${formatShortBytes(artBytes)}`,
+    detail: footprintDetail,
   });
 
+  const modeLabel = args.machine ? 'machine-cold-start' : 'tool-cold-start';
   const report = await finishReport({
     commit,
     steps,
     timedMs,
-    diskBytes,
+    diskBytes: args.machine ? (sandboxBytes || 0) : diskBytes,
     args,
     liveHome,
-    notes: `sandbox at ${sandboxRoot}; live pool ${liveHome}; pool setup not performed`,
+    notes: `${modeLabel}; sandbox=${sandboxRoot}; live pool=${liveHome}; `
+      + (args.machine
+        ? `empty install=${emptyHome}; artifact source=live tree (install/verify timed, not CDN download); `
+        : 'artifacts/prover reused from live (not timed); ')
+      + 'pool setup not performed',
   });
 
   if (!args.keep) {
@@ -359,18 +451,20 @@ async function main(argv) {
   if (args.help) {
     process.stdout.write(
       'usage:\n'
-      + '  # temporary clean sandbox (clone + npm ci + prove vs live pool)\n'
+      + '  # tool cold-start: clone + npm ci + prove vs live pool\n'
       + '  node run-coldstart.mjs --sandbox /abs/empty/dir \\\n'
       + '    [--data-home /abs/.../v2-beta-product] [--json-out file] [--keep]\n'
       + '\n'
-      + '  # inventory only\n'
-      + '  node run-coldstart.mjs [--data-home ABS] [--json-out file]\n'
+      + '  # machine cold-start: + timed artifact/prover install into empty data-home\n'
+      + '  node run-coldstart.mjs --sandbox /abs/empty/dir --machine \\\n'
+      + '    [--data-home /abs/.../v2-beta-product] [--json-out file] [--keep]\n'
       + '\n'
-      + '  # opt-in pieces without full sandbox\n'
-      + '  node run-coldstart.mjs --time-prove --data-home ABS\n'
-      + '  node run-coldstart.mjs --time-npm-ci --work-root ABS\n'
+      + '  # inventory / partial timers\n'
+      + '  node run-coldstart.mjs [--data-home ABS] [--time-prove] [--json-out file]\n'
       + '\n'
-      + 'Sandbox does NOT create a pool; it uses the default/live data-home for prove.\n'
+      + 'Never creates a pool. Prove always uses the live data-home session.\n'
+      + '--machine times installV2BetaProductArtifacts into sandbox/machine-data-home\n'
+      + '(source = live runtime/ceremony/native trees — install/verify cost, not CDN).\n'
       + 'Keep sandbox: --keep or SHIELDKIT_BENCH_KEEP_COLDSTART=1\n',
     );
     return;

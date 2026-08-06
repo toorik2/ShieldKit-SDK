@@ -31,23 +31,31 @@ Beyond “download repo” and “first build”, a realistic first machine also
 Also worth tracking later (documented, not always timed): Rust toolchain, OS build deps, first **pool create**, fee UTXO prep, RPC path smoke, `doctor`.
 
 ```bash
-# Temporary clean sandbox: git clone + npm ci, then prove against LIVE pool
-# (does NOT create a pool)
+# Tool cold-start: clean clone + npm ci, prove vs LIVE pool (artifacts reused)
 node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
   --sandbox /home/toorik/.cache/shieldkit-bench-sandbox \
-  --data-home /absolute/path/to/.../v2-beta-product \
-  --json-out shieldkit-groth/bench/results/coldstart-sandbox.json
-
-# Safe inventory only
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
   --data-home /absolute/path/to/.../v2-beta-product
 
-# Opt-in pieces without full sandbox
+# Machine cold-start: + timed artifact/prover install into EMPTY data-home,
+# then prove vs LIVE pool (no pool create)
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs \
+  --sandbox /home/toorik/.cache/shieldkit-bench-machine \
+  --machine \
+  --data-home /absolute/path/to/.../v2-beta-product \
+  --json-out shieldkit-groth/bench/results/coldstart-machine.json
+
+# Inventory only / partial timers
+node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --data-home …
 node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-home …
-node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-npm-ci --work-root …
 ```
 
-Keep the sandbox dir: `--keep` or `SHIELDKIT_BENCH_KEEP_COLDSTART=1`.
+| Mode | Fair claim |
+|------|------------|
+| `--sandbox` | Tool cold-start (code+deps) |
+| `--sandbox --machine` | Machine cold-start (code+deps+**artifact/prover install**) |
+| inventory | Disk footprint only |
+
+`--machine` install sources runtime/ceremony/native from the live tree (times **install/verify/copy**, not a fresh CDN download). Prove still uses the live pool session. Keep sandbox: `--keep`.
 
 ### Pipeline breakdown (per act)
 
