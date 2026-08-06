@@ -29,17 +29,20 @@ const fail = (code, message, cause) => {
   throw new BenchProductProveError(code, message, cause === undefined ? undefined : { cause });
 };
 
-/** Default data-home candidates (private product installs). Override with SHIELDKIT_BENCH_DATA_HOME. */
+/**
+ * Env-only data-home (no author/machine defaults).
+ * Prefer requireProductDataHome from ../data-home.mjs for path validation.
+ */
 export function resolveBenchDataHome() {
   if (typeof process.env.SHIELDKIT_BENCH_DATA_HOME === 'string'
     && process.env.SHIELDKIT_BENCH_DATA_HOME.length > 0) {
     return path.resolve(process.env.SHIELDKIT_BENCH_DATA_HOME);
   }
-  const candidates = [
-    '/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product',
-    '/home/toorik/.local/share/shieldkit-final-ready-140c183/shieldkit/v2-beta-product',
-  ];
-  return candidates;
+  if (typeof process.env.SHIELDKIT_DATA_HOME === 'string'
+    && process.env.SHIELDKIT_DATA_HOME.length > 0) {
+    return path.resolve(process.env.SHIELDKIT_DATA_HOME);
+  }
+  return null;
 }
 
 export async function loadProductSession(dataDirectory) {
@@ -176,19 +179,21 @@ export function productRootFromBench() {
 
 export async function resolveFirstUsableDataHome() {
   const home = resolveBenchDataHome();
-  const list = Array.isArray(home) ? home : [home];
-  const errors = [];
-  for (const candidate of list) {
-    try {
-      return await loadProductSession(candidate);
-    } catch (error) {
-      errors.push(`${candidate}: ${error.code || error.message}`);
-    }
+  if (home === null) {
+    fail(
+      'BENCH_DATA_HOME_REQUIRED',
+      'set SHIELDKIT_BENCH_DATA_HOME (or SHIELDKIT_DATA_HOME) to an absolute product data-home with session.json',
+    );
   }
-  fail(
-    'BENCH_DATA_HOME_UNAVAILABLE',
-    `no usable product data-home; tried: ${errors.join(' | ')}`,
-  );
+  try {
+    return await loadProductSession(home);
+  } catch (error) {
+    fail(
+      'BENCH_DATA_HOME_UNAVAILABLE',
+      `no usable product data-home at ${home}: ${error.code || error.message}`,
+      error,
+    );
+  }
 }
 
 export async function writeJson(filename, value) {

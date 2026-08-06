@@ -37,14 +37,9 @@ import {
   productRootFromBench,
   proveDepositOnce,
   resolveFirstUsableDataHome,
-  resolveBenchDataHome,
   loadProductSession,
 } from './product-prove.mjs';
-
-const DEFAULT_LIVE_DATA_HOMES = Object.freeze([
-  '/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product',
-  '/home/toorik/.local/share/shieldkit-final-ready-140c183/shieldkit/v2-beta-product',
-]);
+import { findProductDataHome } from '../data-home.mjs';
 
 function parseArgs(argv) {
   const out = {
@@ -80,31 +75,13 @@ function parseArgs(argv) {
   return out;
 }
 
-function normalizeProductDataHome(home) {
-  if (typeof home !== 'string' || home.length === 0) return null;
-  const abs = path.resolve(home);
-  if (abs.endsWith(`${path.sep}v2-beta-product`)) return abs;
-  const nested = path.join(abs, 'shieldkit', 'v2-beta-product');
-  if (existsSync(path.join(nested, 'session.json'))) return nested;
-  if (existsSync(path.join(abs, 'session.json'))) return abs;
-  return abs;
-}
-
 function resolveLiveDataHome(explicit) {
-  if (explicit) return normalizeProductDataHome(explicit);
-  if (process.env.SHIELDKIT_BENCH_DATA_HOME) {
-    return normalizeProductDataHome(process.env.SHIELDKIT_BENCH_DATA_HOME);
-  }
-  for (const c of DEFAULT_LIVE_DATA_HOMES) {
-    if (existsSync(path.join(c, 'session.json'))) return c;
-  }
-  const list = resolveBenchDataHome();
-  const arr = Array.isArray(list) ? list : [list];
-  for (const c of arr) {
-    const n = normalizeProductDataHome(c);
-    if (n && existsSync(path.join(n, 'session.json'))) return n;
-  }
-  return null;
+  const input = explicit
+    || process.env.SHIELDKIT_BENCH_DATA_HOME
+    || process.env.SHIELDKIT_DATA_HOME
+    || null;
+  if (!input) return null;
+  return findProductDataHome(input);
 }
 
 async function dirBytes(root) {
@@ -548,7 +525,7 @@ async function runSandboxMode(args, root, commit) {
         id: 'first_prove_cold',
         ms: cold.wallMs,
         ok: true,
-        detail: `cold only; sandbox code + live pool instance=${instanceId}; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → S0)`,
+        detail: `cold only; sandbox code + live pool instance=${instanceId}; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → pipeline)`,
       });
       timedMs += cold.wallMs;
     } catch (error) {
@@ -807,7 +784,7 @@ async function main(argv) {
         id: 'first_prove_cold',
         ms: cold.wallMs,
         ok: true,
-        detail: `cold only; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → S0)`,
+        detail: `cold only; proofGen=${Math.round(cold.proofGenerationMs)}ms (warm → pipeline)`,
       });
       timedMs += cold.wallMs;
     } catch (error) {
@@ -823,7 +800,7 @@ async function main(argv) {
       id: 'first_prove_cold',
       ms: null,
       ok: null,
-      detail: 'pass --time-prove or --sandbox to measure (cold prove only; warm → S0)',
+      detail: 'pass --time-prove or --sandbox to measure (cold prove only; warm → pipeline)',
     });
   }
 

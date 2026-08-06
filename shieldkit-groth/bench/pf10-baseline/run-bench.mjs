@@ -1,43 +1,36 @@
 #!/usr/bin/env node
 /**
- * ShieldKit bench — two modes only.
+ * ShieldKit public bench — two modes only.
  *
- *   (default)       Pipeline: one live deposit act tip → mempool admit → commit
+ *   (default)       Pipeline: live deposit tip → prove → mempool admit → commit
  *   --cold-start    Machine cold-start: CDN + native + empty install + cold prove
  *
- * Shared:
- *   --data-home ABS   (or SHIELDKIT_BENCH_DATA_HOME / default live installs)
- *   --json-out FILE
- *   --help
- *
- * Cold-start only:
- *   --sandbox DIR   (default: ~/.cache/shieldkit-bench)
- *   --keep          keep sandbox after run
- *
- * Pipeline only:
- *   --kind deposit|transfer|withdraw   (default deposit)
- *   --to / --note   (withdraw / transfer)
+ * Requires an absolute product data-home (--data-home or SHIELDKIT_BENCH_DATA_HOME).
+ * No author-specific default paths.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+  BenchDataHomeError,
+  cliDataHomeFromProduct,
+  requireProductDataHome,
+} from '../data-home.mjs';
+import { formatSubjectHeader, resolveBenchSubject } from '../identity.mjs';
+import { resolveGitCommit } from '../scorecard.mjs';
+import { productRootFromBench } from './product-prove.mjs';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RESULTS = path.resolve(HERE, '../results');
-const DEFAULT_SANDBOX = path.join(homedir(), '.cache/shieldkit-bench');
-const DEFAULT_DATA_HOMES = Object.freeze([
-  '/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product',
-  '/home/toorik/.local/share/shieldkit-final-ready-140c183/shieldkit/v2-beta-product',
-]);
+const DEFAULT_SANDBOX = path.join(homedir(), '.cache', 'shieldkit-bench');
+const KINDS = new Set(['deposit', 'transfer', 'withdraw']);
 
-function parseArgs(argv) {
+export function parseBenchArgs(argv) {
   const out = {
     coldStart: false,
-    dataHome: process.env.SHIELDKIT_BENCH_DATA_HOME
-      || process.env.SHIELDKIT_DATA_HOME
-      || null,
+    dataHome: null,
     jsonOut: null,
     sandbox: DEFAULT_SANDBOX,
     keep: process.env.SHIELDKIT_BENCH_KEEP_COLDSTART === '1',
@@ -49,72 +42,55 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--cold-start' || a === '--coldstart') out.coldStart = true;
-    else if (a === '--data-home') out.dataHome = path.resolve(argv[++i] ?? '');
-    else if (a === '--json-out') out.jsonOut = path.resolve(argv[++i] ?? '');
-    else if (a === '--sandbox') out.sandbox = path.resolve(argv[++i] ?? '');
-    else if (a === '--keep') out.keep = true;
-    else if (a === '--kind') out.kind = argv[++i];
-    else if (a === '--to') out.to = argv[++i];
-    else if (a === '--note') out.note = argv[++i];
-    else if (a === '--help' || a === '-h') out.help = true;
-    else throw new Error(`unknown argument: ${a} (only default pipeline or --cold-start)`);
+    else if (a === '--data-home') {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('-')) {
+        throw new Error('--data-home requires an absolute path argument');
+      }
+      out.dataHome = path.resolve(v);
+    } else if (a === '--json-out') {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('-')) {
+        throw new Error('--json-out requires a path argument');
+      }
+      out.jsonOut = path.resolve(v);
+    } else if (a === '--sandbox') {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('-')) {
+        throw new Error('--sandbox requires an absolute path argument');
+      }
+      out.sandbox = path.resolve(v);
+    } else if (a === '--keep') out.keep = true;
+    else if (a === '--kind') {
+      const v = argv[++i];
+      if (v === undefined || !KINDS.has(v)) {
+        throw new Error('--kind must be deposit|transfer|withdraw');
+      }
+      out.kind = v;
+    } else if (a === '--to') {
+      const v = argv[++i];
+      if (v === undefined) throw new Error('--to requires an address');
+      out.to = v;
+    } else if (a === '--note') {
+      const v = argv[++i];
+      if (v === undefined) throw new Error('--note requires a 64-hex note id');
+      out.note = v;
+    } else if (a === '--help' || a === '-h') out.help = true;
+    else {
+      throw new Error(
+        `unknown argument: ${a}\n`
+        + 'public surface is only: (default pipeline) or --cold-start\n'
+        + 'try: node run-bench.mjs --help',
+      );
+    }
+  }
+  if (out.kind === 'withdraw' && !out.help && !out.coldStart && !out.to) {
+    throw new Error('withdraw requires --to (or SHIELDKIT_BENCH_PAYOUT)');
+  }
+  if (out.kind === 'transfer' && !out.help && !out.coldStart && !out.note) {
+    throw new Error('transfer requires --note (or SHIELDKIT_BENCH_NOTE_ID)');
   }
   return out;
-}
-
-/**
- * Product session dir (…/v2-beta-product) — used by cold-start prove path.
- * CLI --data-home is often the outer private root (…/shieldkit-packed-…), not nested.
- */
-function normalizeProductDataHome(home) {
-  if (typeof home !== 'string' || home.length === 0) return null;
-  const abs = path.resolve(home);
-  if (abs.endsWith(`${path.sep}v2-beta-product`)
-    && existsSync(path.join(abs, 'session.json'))) {
-    return abs;
-  }
-  const nested = path.join(abs, 'shieldkit', 'v2-beta-product');
-  if (existsSync(path.join(nested, 'session.json'))) return nested;
-  if (existsSync(path.join(abs, 'session.json'))) return abs;
-  return null;
-}
-
-/** Outer data-home for product CLI (parent of shieldkit/v2-beta-product when nested). */
-function cliDataHomeFromProduct(productHome) {
-  const abs = path.resolve(productHome);
-  if (abs.endsWith(`${path.sep}shieldkit${path.sep}v2-beta-product`)) {
-    return path.dirname(path.dirname(abs));
-  }
-  if (path.basename(abs) === 'v2-beta-product'
-    && path.basename(path.dirname(abs)) === 'shieldkit') {
-    return path.dirname(path.dirname(abs));
-  }
-  return abs;
-}
-
-function resolveDataHome(explicit) {
-  if (explicit) {
-    const n = normalizeProductDataHome(explicit);
-    if (!n) {
-      throw new Error(`--data-home must point at a product data-home with session.json (got ${explicit})`);
-    }
-    return n;
-  }
-  if (process.env.SHIELDKIT_BENCH_DATA_HOME) {
-    return resolveDataHome(process.env.SHIELDKIT_BENCH_DATA_HOME);
-  }
-  for (const c of DEFAULT_DATA_HOMES) {
-    if (existsSync(path.join(c, 'session.json'))) return c;
-  }
-  // also accept outer packed roots in the default list parents
-  for (const c of DEFAULT_DATA_HOMES) {
-    const outer = cliDataHomeFromProduct(c);
-    const n = normalizeProductDataHome(outer);
-    if (n) return n;
-  }
-  throw new Error(
-    'no data-home: pass --data-home …/v2-beta-product (or outer packed root) or set SHIELDKIT_BENCH_DATA_HOME',
-  );
 }
 
 function runNode(script, args) {
@@ -124,62 +100,101 @@ function runNode(script, args) {
     env: { ...process.env },
     maxBuffer: 64 * 1024 * 1024,
   });
+  if (result.error) {
+    process.stderr.write(`${result.error.message}\n`);
+    process.exitCode = 1;
+    return false;
+  }
   if (result.status !== 0) {
     process.exitCode = result.status === null ? 1 : result.status;
+    return false;
   }
-  return result.status === 0;
+  return true;
 }
 
-function printHelp() {
-  process.stdout.write(
+export function printHelp(stream = process.stdout) {
+  let subjectLine = '';
+  try {
+    const commit = resolveGitCommit(productRootFromBench());
+    subjectLine = `${formatSubjectHeader(resolveBenchSubject({ commit }))}\n\n`;
+  } catch {
+    subjectLine = `${formatSubjectHeader(resolveBenchSubject())}\n\n`;
+  }
+
+  stream.write(
     'ShieldKit bench — two modes only\n'
     + '\n'
+    + subjectLine
     + '  (default)       Pipeline: live deposit tip → prove → mempool admit → commit\n'
-    + '  --cold-start    Machine cold-start: CDN + native + empty install + cold prove\n'
+    + '  --cold-start    Machine cold-start: CDN pin + native + empty install + cold prove\n'
     + '\n'
     + 'usage:\n'
-    + '  node run-bench.mjs [--data-home ABS] [--json-out file] [--kind deposit]\n'
-    + '  node run-bench.mjs --cold-start [--data-home ABS] [--sandbox DIR] [--json-out file] [--keep]\n'
+    + '  npm run bench -- --data-home /abs/path/to/install-or-v2-beta-product\n'
+    + '  npm run bench:cold-start -- --data-home /abs/path/to/install-or-v2-beta-product\n'
     + '\n'
-    + 'defaults:\n'
-    + `  data-home   first usable live install (or SHIELDKIT_BENCH_DATA_HOME)\n`
-    + `  sandbox     ${DEFAULT_SANDBOX}  (cold-start only)\n`
-    + `  json-out    ${path.join(RESULTS, 'pipeline.json')}  |  ${path.join(RESULTS, 'coldstart.json')}\n`
+    + '  node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --data-home ABS [options]\n'
+    + '  node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --cold-start --data-home ABS [options]\n'
     + '\n'
-    + 'pipeline is a real live act (spends/broadcasts). cold-start never creates a pool.\n',
+    + 'required:\n'
+    + '  --data-home ABS   product install root or …/v2-beta-product (session.json required)\n'
+    + '                    or set SHIELDKIT_BENCH_DATA_HOME\n'
+    + '\n'
+    + 'shared options:\n'
+    + '  --json-out FILE   default: bench/results/pipeline.json | coldstart.json\n'
+    + '  --help\n'
+    + '\n'
+    + 'pipeline options:\n'
+    + '  --kind deposit|transfer|withdraw   (default deposit)\n'
+    + '  --to ADDRESS                       (withdraw)\n'
+    + '  --note 64hex                       (transfer)\n'
+    + '\n'
+    + 'cold-start options:\n'
+    + `  --sandbox DIR     default: ${DEFAULT_SANDBOX}\n`
+    + '  --keep            keep sandbox after run (default: delete)\n'
+    + '\n'
+    + 'notes:\n'
+    + '  • pipeline is a real Chipnet act (spends/broadcasts). Fund the pool first.\n'
+    + '  • cold-start never creates a pool; cold prove uses the live session.\n'
+    + '  • results include subject (product version, DIRECT_V2_PF10, commit).\n'
+    + '  • refuse ambient NODE_OPTIONS / NODE_PATH for native prover policy.\n'
+    + '  • see shieldkit-groth/bench/README.md and USER_GUIDE for pool setup.\n',
   );
 }
 
-async function main(argv) {
-  const args = parseArgs(argv);
+export async function runBench(argv, deps = {}) {
+  const args = parseBenchArgs(argv);
   if (args.help) {
-    printHelp();
-    return;
+    printHelp(deps.stdout ?? process.stdout);
+    return { ok: true, mode: 'help' };
   }
 
-  const dataHome = resolveDataHome(args.dataHome);
+  const productHome = requireProductDataHome(args.dataHome, {
+    env: deps.env ?? process.env,
+    existsSync: deps.existsSync,
+  });
 
   if (args.coldStart) {
     const jsonOut = args.jsonOut || path.join(RESULTS, 'coldstart.json');
     const script = path.join(HERE, 'run-coldstart.mjs');
-    // cold-start prove loaders want …/v2-beta-product
     const childArgs = [
       '--sandbox', args.sandbox,
       '--machine',
-      '--data-home', dataHome,
+      '--data-home', productHome,
       '--json-out', jsonOut,
     ];
     if (args.keep) childArgs.push('--keep');
-    process.stdout.write(
-      `bench mode=cold-start data-home=${dataHome} sandbox=${args.sandbox}\n\n`,
+    const banner = deps.stdout ?? process.stdout;
+    banner.write(
+      `bench mode=cold-start\n`
+      + `product-home=${productHome}\n`
+      + `sandbox=${args.sandbox}\n`
+      + `json-out=${jsonOut}\n\n`,
     );
-    runNode(script, childArgs);
-    return;
+    const ok = (deps.runNode ?? runNode)(script, childArgs);
+    return { ok, mode: 'cold-start', productHome, jsonOut };
   }
 
-  // default: pipeline (live act → mempool)
-  // product CLI wants the outer private root when session lives under shieldkit/v2-beta-product
-  const cliHome = cliDataHomeFromProduct(dataHome);
+  const cliHome = cliDataHomeFromProduct(productHome);
   const jsonOut = args.jsonOut || path.join(RESULTS, 'pipeline.json');
   const script = path.join(HERE, 'run-pipeline.mjs');
   const childArgs = [
@@ -190,15 +205,30 @@ async function main(argv) {
   ];
   if (args.to) childArgs.push('--to', args.to);
   if (args.note) childArgs.push('--note', args.note);
-  process.stdout.write(
-    `bench mode=pipeline (live ${args.kind} → mempool) data-home=${cliHome}\n\n`,
+  const banner = deps.stdout ?? process.stdout;
+  banner.write(
+    `bench mode=pipeline (live ${args.kind} → mempool)\n`
+    + `cli-data-home=${cliHome}\n`
+    + `product-home=${productHome}\n`
+    + `json-out=${jsonOut}\n\n`,
   );
-  runNode(script, childArgs);
+  const ok = (deps.runNode ?? runNode)(script, childArgs);
+  return { ok, mode: 'pipeline', productHome, cliHome, jsonOut };
+}
+
+async function main(argv) {
+  try {
+    await runBench(argv);
+  } catch (error) {
+    if (error instanceof BenchDataHomeError) {
+      process.stderr.write(`${error.code}: ${error.message}\n`);
+    } else {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    }
+    process.exitCode = 1;
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  });
+  main(process.argv.slice(2));
 }

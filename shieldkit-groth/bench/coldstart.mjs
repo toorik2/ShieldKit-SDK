@@ -51,7 +51,7 @@ export const COLDSTART_STEPS = Object.freeze([
     n: 7,
     id: 'first_prove_cold',
     label: 'Cold prove (first after install)',
-    why: 'first prove after cold-start only — warm/steady prove is S0, not this story',
+    why: 'first prove after cold-start only — warm prove-in-context is pipeline, not this story',
   }),
   Object.freeze({
     n: 8,
@@ -85,7 +85,7 @@ export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
   'Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).',
   'Full product ceremony/runtime has no public CDN yet — only the pin package is the published network hop.',
   'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
-  'Cold prove only (one first prove after install). Warm/steady prove is S0 — not part of cold-start.',
+  'Cold prove only (one first prove after install). Warm prove-in-context is the pipeline bench, not cold-start.',
   'Timed: clone + npm ci + CDN pin download + native prover + empty-data-home artifact install + cold prove.',
 ]);
 
@@ -93,7 +93,7 @@ export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
   'Artifact source / prover: reused from live data-home (not reinstalled, not timed).',
   'CDN pin download not timed in tool mode (use --machine for CDN + empty install).',
   'Still times clean clone + npm ci + one cold prove against live pool.',
-  'Warm/steady prove is S0 — not part of cold-start.',
+  'Warm prove-in-context is the pipeline bench, not cold-start.',
   'Fair claim: tool cold-start only — not machine CDN/install cost (use --machine for that).',
 ]);
 
@@ -205,7 +205,7 @@ export function formatColdstartTable(report) {
     lines.push(`notes: ${report.notes}`);
   }
   lines.push('');
-  lines.push('After cold-start, run S0 (warm/steady prove), S1 (ladder), and pipeline/S2 (full act).');
+  lines.push('After cold-start, run the default pipeline bench (live act → mempool) for warm prove-in-context.');
   return lines.join('\n');
 }
 

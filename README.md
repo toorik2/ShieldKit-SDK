@@ -14,6 +14,21 @@ npm run check:no-pf7-release
 npm run qualification:beta
 ```
 
+### Run the benchmark (any machine)
+
+Two modes only. Requires your own Chipnet **data-home** (no author defaults).
+
+```bash
+# Full act tip → mempool (live spend)
+npm run bench -- --data-home /absolute/path/to/your/install-or-v2-beta-product
+
+# First-machine install cost + one cold prove
+npm run bench:cold-start -- --data-home /absolute/path/to/your/install-or-v2-beta-product
+```
+
+Reports include product version, `DIRECT_V2_PF10` verifier, network, and full git commit.  
+Details: [`shieldkit-groth/bench/README.md`](./shieldkit-groth/bench/README.md) · pool setup: [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
+
 ### Docs
 
 - [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
@@ -21,6 +36,7 @@ npm run qualification:beta
 - [SECURITY](./shieldkit-groth/docs/SECURITY.md)
 - [CHANGELOG](./shieldkit-groth/docs/CHANGELOG.md)
 - [V2 Direct protocol](./shieldkit-groth/docs/protocol/v2-direct/)
+- [Bench](./shieldkit-groth/bench/README.md)
 
 ### Archives (not the product surface)
 
