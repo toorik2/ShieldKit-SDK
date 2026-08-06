@@ -24,6 +24,8 @@ import {
   resolveGitCommit,
 } from '../scorecard.mjs';
 import {
+  MACHINE_COLDSTART_FAIRNESS,
+  TOOL_COLDSTART_FAIRNESS,
   buildColdstartReport,
   formatColdstartTable,
 } from '../coldstart.mjs';
@@ -397,15 +399,17 @@ async function runSandboxMode(args, root, commit) {
   const modeLabel = args.machine ? 'machine-cold-start' : 'tool-cold-start';
   const report = await finishReport({
     commit,
+    mode: modeLabel,
     steps,
     timedMs,
     diskBytes: args.machine ? (sandboxBytes || 0) : diskBytes,
     args,
     liveHome,
+    fairness: args.machine ? MACHINE_COLDSTART_FAIRNESS : TOOL_COLDSTART_FAIRNESS,
     notes: `${modeLabel}; sandbox=${sandboxRoot}; live pool=${liveHome}; `
       + (args.machine
-        ? `empty install=${emptyHome}; artifact source=live tree (install/verify timed, not CDN download); `
-        : 'artifacts/prover reused from live (not timed); ')
+        ? `empty install=${emptyHome}; `
+        : '')
       + 'pool setup not performed',
   });
 
@@ -425,12 +429,14 @@ function formatShortBytes(n) {
 }
 
 async function finishReport({
-  commit, steps, timedMs, diskBytes, args, liveHome, notes,
+  commit, mode = null, steps, timedMs, diskBytes, args, liveHome, fairness = [], notes,
 }) {
   const report = buildColdstartReport({
     design: DESIGN_PF10_BASELINE,
     commit,
+    mode,
     steps,
+    fairness,
     totals: {
       timedMs: timedMs || null,
       diskBytes: diskBytes || null,

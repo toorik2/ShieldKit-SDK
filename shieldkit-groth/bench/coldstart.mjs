@@ -69,11 +69,26 @@ export const COLDSTART_OPTIONAL = Object.freeze([
   'Doctor / config-check smoke after install',
 ]);
 
+/** Standard fairness lines for machine cold-start (artifact install from live tree). */
+export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
+  'Artifact source is the live tree (local install/verify/copy of PF10/ceremony/native, typically ~1.4 GiB), not a CDN download.',
+  'That is still a real first-time install cost into an empty data-home (verify + private copy + receipt).',
+  'Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.',
+  'Fair claim: machine cold-start of code+deps+artifact install; not a full virgin-network blank box.',
+]);
+
+export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
+  'Artifacts and native prover are reused from the live data-home (not reinstalled or timed).',
+  'Fair claim: tool cold-start (clone + npm ci + prove); not machine install cost.',
+]);
+
 export function buildColdstartReport({
   design = 'pf10-baseline',
   commit = null,
+  mode = null,
   steps = [],
   totals = {},
+  fairness = [],
   notes = '',
 } = {}) {
   const byId = new Map(steps.map((s) => [s.id, s]));
@@ -90,12 +105,17 @@ export function buildColdstartReport({
       detail: typeof hit.detail === 'string' ? hit.detail : '',
     });
   });
+  const fairnessLines = Array.isArray(fairness)
+    ? fairness.filter((line) => typeof line === 'string' && line.length > 0)
+    : [];
   return Object.freeze({
     schema: COLDSTART_SCHEMA,
     design,
     commit,
+    mode: typeof mode === 'string' ? mode : null,
     rows,
     optionalNotes: COLDSTART_OPTIONAL,
+    fairness: Object.freeze([...fairnessLines]),
     totals: Object.freeze({
       timedMs: typeof totals.timedMs === 'number' ? totals.timedMs : null,
       diskBytes: typeof totals.diskBytes === 'number' ? totals.diskBytes : null,
@@ -106,8 +126,13 @@ export function buildColdstartReport({
 
 export function formatColdstartTable(report) {
   const lines = [];
-  lines.push('Blank-machine cold-start story (optional pre-steps)');
-  lines.push(`design=${report.design} commit=${report.commit ?? 'n/a'}`);
+  const title = report.mode === 'machine-cold-start'
+    ? 'Machine cold-start story (sandbox + empty artifact install + live prove)'
+    : report.mode === 'tool-cold-start'
+      ? 'Tool cold-start story (sandbox clone/npm + live prove)'
+      : 'Blank-machine cold-start story (optional pre-steps)';
+  lines.push(title);
+  lines.push(`design=${report.design} commit=${report.commit ?? 'n/a'}${report.mode ? ` mode=${report.mode}` : ''}`);
   lines.push('');
   for (const row of report.rows) {
     const time = row.ms === null ? 'n/a' : `~${formatDuration(row.ms)}`;
@@ -124,6 +149,13 @@ export function formatColdstartTable(report) {
   }
   if (report.totals.diskBytes != null) {
     lines.push(`disk footprint:    ${formatBytes(report.totals.diskBytes)}`);
+  }
+  if (Array.isArray(report.fairness) && report.fairness.length > 0) {
+    lines.push('');
+    lines.push('Fairness note:');
+    for (const line of report.fairness) {
+      lines.push(`  - ${line}`);
+    }
   }
   lines.push('');
   lines.push('Also consider (not always timed):');

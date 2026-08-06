@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   COLDSTART_SCHEMA,
   COLDSTART_STEPS,
+  MACHINE_COLDSTART_FAIRNESS,
   buildColdstartReport,
   formatColdstartTable,
 } from './coldstart.mjs';
@@ -31,4 +32,23 @@ test('coldstart report and table include clone/build ladder', () => {
   assert.match(table, /First prove/);
   assert.match(table, /Disk footprint/);
   assert.match(table, /Also consider/);
+});
+
+test('machine cold-start table prints fairness note about live-tree artifact source', () => {
+  const report = buildColdstartReport({
+    design: 't',
+    commit: 'b'.repeat(40),
+    mode: 'machine-cold-start',
+    fairness: MACHINE_COLDSTART_FAIRNESS,
+    steps: [
+      { id: 'artifact_install', ms: 120_000, bytes: 1.4e9, ok: true },
+    ],
+    totals: { timedMs: 120_000, diskBytes: 1.4e9 },
+  });
+  const table = formatColdstartTable(report);
+  assert.match(table, /Machine cold-start story/);
+  assert.match(table, /Fairness note:/);
+  assert.match(table, /not a CDN download/);
+  assert.match(table, /empty data-home/);
+  assert.equal(report.fairness.length, MACHINE_COLDSTART_FAIRNESS.length);
 });
