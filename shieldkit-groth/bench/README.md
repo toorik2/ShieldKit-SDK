@@ -57,6 +57,17 @@ node shieldkit-groth/bench/pf10-baseline/run-coldstart.mjs --time-prove --data-h
 
 `--machine` install sources runtime/ceremony/native from the live tree (times **install/verify/copy**, not a fresh CDN download). Prove still uses the live pool session. Keep sandbox: `--keep`.
 
+Every machine (and tool) cold-start report **always prints a Fairness note in the output** (and in JSON under `fairness[]`), e.g.:
+
+```text
+Fairness note (in the output):
+  - Artifact source is the live tree (local install/verify/copy ~1.4 GiB), not a CDN download.
+  - Still a real first-time install cost into an empty data-home.
+  …
+```
+
+That disclosure is what makes M **100% fair**: install cost into empty data-home is timed; CDN download is not claimed.
+
 ### Pipeline breakdown (per act)
 
 ```bash

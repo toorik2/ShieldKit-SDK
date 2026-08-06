@@ -34,12 +34,12 @@ test('coldstart report and table include clone/build ladder', () => {
   assert.match(table, /Also consider/);
 });
 
-test('machine cold-start table prints fairness note about live-tree artifact source', () => {
+test('machine cold-start table always prints fairness note (live-tree, not CDN)', () => {
+  // Even without an explicit fairness array, machine mode injects the lines.
   const report = buildColdstartReport({
     design: 't',
     commit: 'b'.repeat(40),
     mode: 'machine-cold-start',
-    fairness: MACHINE_COLDSTART_FAIRNESS,
     steps: [
       { id: 'artifact_install', ms: 120_000, bytes: 1.4e9, ok: true },
     ],
@@ -47,10 +47,16 @@ test('machine cold-start table prints fairness note about live-tree artifact sou
   });
   const table = formatColdstartTable(report);
   assert.match(table, /Machine cold-start story/);
-  assert.match(table, /Fairness note \(in the output/);
-  assert.match(table, /not a CDN download/);
-  assert.match(table, /empty data-home/);
-  assert.match(table, /live tree \(local install\/verify\/copy ~1\.4 GiB\)/);
+  assert.match(table, /Fairness note \(in the output\):/);
+  assert.match(table, /Artifact source is the live tree \(local install\/verify\/copy ~1\.4 GiB\), not a CDN download\./);
+  assert.match(table, /Still a real first-time install cost into an empty data-home\./);
   assert.equal(report.fairness.length, MACHINE_COLDSTART_FAIRNESS.length);
-  assert.ok(MACHINE_COLDSTART_FAIRNESS[0].includes('not a CDN download'));
+  assert.equal(
+    report.fairness[0],
+    'Artifact source is the live tree (local install/verify/copy ~1.4 GiB), not a CDN download.',
+  );
+  assert.equal(
+    report.fairness[1],
+    'Still a real first-time install cost into an empty data-home.',
+  );
 });

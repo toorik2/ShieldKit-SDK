@@ -71,7 +71,7 @@ export const COLDSTART_OPTIONAL = Object.freeze([
 
 /**
  * Standard fairness lines for machine cold-start.
- * These are always printed so the run is 100% fair by disclosure:
+ * Always printed so machine mode is 100% fair by disclosure:
  * what is timed vs what is reused is explicit in the output.
  */
 export const MACHINE_COLDSTART_FAIRNESS = Object.freeze([
@@ -87,6 +87,17 @@ export const TOOL_COLDSTART_FAIRNESS = Object.freeze([
   'Still times clean clone + npm ci + prove against live pool.',
   'Fair claim: tool cold-start only — not machine artifact-install cost (use --machine for that).',
 ]);
+
+/** Resolve fairness lines: explicit list wins; else mode defaults (always for machine/tool). */
+export function resolveFairness({ mode = null, fairness = [] } = {}) {
+  const explicit = Array.isArray(fairness)
+    ? fairness.filter((line) => typeof line === 'string' && line.length > 0)
+    : [];
+  if (explicit.length > 0) return explicit;
+  if (mode === 'machine-cold-start') return [...MACHINE_COLDSTART_FAIRNESS];
+  if (mode === 'tool-cold-start') return [...TOOL_COLDSTART_FAIRNESS];
+  return [];
+}
 
 export function buildColdstartReport({
   design = 'pf10-baseline',
@@ -111,9 +122,7 @@ export function buildColdstartReport({
       detail: typeof hit.detail === 'string' ? hit.detail : '',
     });
   });
-  const fairnessLines = Array.isArray(fairness)
-    ? fairness.filter((line) => typeof line === 'string' && line.length > 0)
-    : [];
+  const fairnessLines = resolveFairness({ mode, fairness });
   return Object.freeze({
     schema: COLDSTART_SCHEMA,
     design,
@@ -156,10 +165,15 @@ export function formatColdstartTable(report) {
   if (report.totals.diskBytes != null) {
     lines.push(`disk footprint:    ${formatBytes(report.totals.diskBytes)}`);
   }
-  if (Array.isArray(report.fairness) && report.fairness.length > 0) {
+  // Always show fairness for machine/tool modes (100% fair by disclosure).
+  const fairnessLines = resolveFairness({
+    mode: report.mode,
+    fairness: report.fairness,
+  });
+  if (fairnessLines.length > 0) {
     lines.push('');
-    lines.push('Fairness note (in the output — always included for this mode):');
-    for (const line of report.fairness) {
+    lines.push('Fairness note (in the output):');
+    for (const line of fairnessLines) {
       lines.push(`  - ${line}`);
     }
   }
