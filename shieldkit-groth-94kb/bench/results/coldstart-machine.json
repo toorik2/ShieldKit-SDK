@@ -1,0 +1,119 @@
+{
+  "schema": "shieldkit-bench-coldstart-v1",
+  "design": "pf10-baseline",
+  "commit": "e101024f4f5873d282ee1cc1dd5b0042e362178a",
+  "mode": "machine-cold-start",
+  "rows": [
+    {
+      "n": 1,
+      "id": "clone",
+      "label": "Download / clone repo",
+      "why": "source bytes + git history over network",
+      "ms": 160.406246,
+      "bytes": 96158144,
+      "ok": true,
+      "detail": "git clone --depth 1 → /home/toorik/.cache/shieldkit-bench-machine/repo"
+    },
+    {
+      "n": 2,
+      "id": "npm_ci",
+      "label": "Install JS deps (npm ci + postinstall)",
+      "why": "node_modules + vendored cashc build",
+      "ms": 4412.812507,
+      "bytes": 279403546,
+      "ok": true,
+      "detail": "npm ci in sandbox repo (full postinstall)"
+    },
+    {
+      "n": 3,
+      "id": "cdn_download",
+      "label": "CDN download pin artifacts (HTTPS)",
+      "why": "published pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL)",
+      "ms": 7236.516957999999,
+      "bytes": 197212683,
+      "ok": true,
+      "detail": "HTTPS https://github.com/toorik2/ShieldKit-SDK/releases/download/shieldkit-pin-v1/shieldkit-pin-artifacts-v1.tar.gz → /home/toorik/.cache/shieldkit-bench-machine/cdn-download/shieldkit-pin-artifacts-v1.tar.gz (197212683 bytes, sha256 ok)"
+    },
+    {
+      "n": 4,
+      "id": "native_prover",
+      "label": "Native prover binary (rapidsnark install)",
+      "why": "compile or pin-verify host prover; not in npm pack alone",
+      "ms": 87.11159699999916,
+      "bytes": 702993,
+      "ok": true,
+      "detail": "cp -a + pin-verify → /home/toorik/.cache/shieldkit-bench-machine/native-prover"
+    },
+    {
+      "n": 5,
+      "id": "artifact_install",
+      "label": "Install PF10 / ceremony / proof artifacts",
+      "why": "zkey/r1cs/wasm/runtime ~GBs; pin-authenticated offline install",
+      "ms": 154787.84030799998,
+      "bytes": 1520573432,
+      "ok": true,
+      "detail": "installV2BetaProductArtifacts → /home/toorik/.cache/shieldkit-bench-machine/machine-data-home/v2-beta-product-artifacts (runtime+ceremony from live tree; native source=/home/toorik/.cache/shieldkit-bench-machine/native-prover; packaged native=686.5 KiB)"
+    },
+    {
+      "n": 6,
+      "id": "runtime_link",
+      "label": "First pool runtime link / specialization",
+      "why": "linked runtime cache for instance (after pool create or first act)",
+      "ms": null,
+      "bytes": 86502,
+      "ok": true,
+      "detail": "live pool runtime-cache (not rebuilt): /home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product/runtime-cache"
+    },
+    {
+      "n": 7,
+      "id": "first_prove_cold",
+      "label": "First prove (cold caches)",
+      "why": "disk/page-cache cold; often slower than steady S0",
+      "ms": 3046.6164449999924,
+      "bytes": null,
+      "ok": true,
+      "detail": "sandbox code + live pool instance=e5b310e8bdb4e666cf9acfddf5bf5e15a55373f2038b206f7fb53f04d610c6c4; proofGen=2017ms"
+    },
+    {
+      "n": 8,
+      "id": "second_prove_warm",
+      "label": "Second prove (warm)",
+      "why": "steady-state prove cost ≈ S0",
+      "ms": 3354.775946000009,
+      "bytes": null,
+      "ok": true,
+      "detail": "proofGen=2331ms"
+    },
+    {
+      "n": 9,
+      "id": "disk_footprint",
+      "label": "Disk footprint (repo + deps + artifacts)",
+      "why": "blank machine capacity planning",
+      "ms": null,
+      "bytes": 2095292849,
+      "ok": true,
+      "detail": "sandbox+empty-install=1.95 GiB (live pool only for prove session)"
+    }
+  ],
+  "optionalNotes": [
+    "Rust toolchain + cargo for recovery/codec crates (if you build from source tests)",
+    "OS packages: build-essential, cmake, etc. for native prover",
+    "First pool create (genesis/source + bootstrap fanout) on Chipnet",
+    "Funding / UTXO prep (wallet + independent fee UTXOs)",
+    "Public Fulcrum / RPC latency baseline (network path only)",
+    "Doctor / config-check smoke after install"
+  ],
+  "fairness": [
+    "CDN download is timed: pin tar from GitHub releases (~188 MiB compressed; trust-manifest URL + sha256).",
+    "Native prover is timed separately: copy live pin-tree + pin-verify (load/consume).",
+    "Product artifact install is timed separately: runtime/ceremony verify+copy into empty data-home (~1.4 GiB).",
+    "Full product ceremony/runtime has no public CDN yet — only the pin package is the published network hop.",
+    "Prove uses the live pool session (no pool create). Runtime-link cache is not rebuilt.",
+    "Timed: clone + npm ci + CDN pin download + native prover + empty-data-home artifact install + cold/warm prove."
+  ],
+  "totals": {
+    "timedMs": 173086.08000699998,
+    "diskBytes": 2095292849
+  },
+  "notes": "machine-cold-start; sandbox=/home/toorik/.cache/shieldkit-bench-machine; live pool=/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product; empty install=/home/toorik/.cache/shieldkit-bench-machine/machine-data-home; pool setup not performed; liveDataHome=/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product"
+}

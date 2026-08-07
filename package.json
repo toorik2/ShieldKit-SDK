@@ -2,10 +2,10 @@
   "name": "shieldkit",
   "private": true,
   "version": "0.3.0-beta.1",
-  "description": "ShieldKit-Groth Beta 0.3.0-beta.1 — Unaudited Chipnet PF10 shielded pool CLI. Semver is code only; profiles/instances are content IDs.",
+  "description": "ShieldKit-Groth Beta 0.3.0-beta.1 \u2014 Unaudited Chipnet PF10 shielded pool CLI. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "bin": {
-    "shieldkit": "shieldkit-groth/scripts/shieldkit.mjs"
+    "shieldkit": "shieldkit-groth-94kb/scripts/shieldkit.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

@@ -13,7 +13,7 @@ actions, ~91 KB verifier bytecode). Target = PairFold-6 dens-rich a3
 ## Isolation rules (hard)
 
 - **All work and all writes happen under this folder.** No writes to
-  `../shieldkit-groth/`, `../verifier.cash/`, `../Groth16-Formal/`, or
+  `../shieldkit-groth-94kb/`, `../verifier.cash/`, `../Groth16-Formal/`, or
   `../../ZK-Proofs` siblings, except read-only reference.
 - Vendored/pinned inputs are copied in with SHA-256 recorded under `vendor/`
   (the pf6 lane is already vendored inside shieldkit-groth at

@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T08:41:25",
+ "generated": "2026-08-07T09:08:13",
  "entries": [
   {
    "wp": 0,
@@ -216,6 +216,11 @@
    "wp": 3,
    "id": "03-implementation/cli-hoist.json",
    "what": "UNIFIED CLI hoisted to shieldkit-sdk/cli with the pool-design registry + profile manifests; one CLI for all designs"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/pf10-size-rename.json",
+   "what": "PF10 measured at 94,622 script bytes; shieldkit-groth -> shieldkit-groth-94kb (compat symlink; nothing broke)"
   }
  ],
  "vendorPins": [

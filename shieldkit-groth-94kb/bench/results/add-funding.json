@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "toolkitVersion": "0.3.0-beta.1",
+  "product": "shieldkit-v2-beta-chipnet",
+  "productionQualified": false,
+  "confirmed": false,
+  "mined": false,
+  "schema": "shieldkit-v2-beta-product-cli-result-v1",
+  "format": "json",
+  "command": "pool-add-funding",
+  "result": {
+    "schema": "shieldkit-v2-beta-product-funding-add-v1",
+    "status": "funding-utxo-registered-beta-unqualified",
+    "profileId": "e06136b49440652d6a00d28ed01bdac64e9709257f20a58350729436ada0dc67",
+    "instanceId": "e5b310e8bdb4e666cf9acfddf5bf5e15a55373f2038b206f7fb53f04d610c6c4",
+    "network": "chipnet",
+    "fundingUtxo": {
+      "txid": "0bb8a535bd9a134ad6b5ab9f19143e9dbdc341aaebde791e9853c8c9a049ef08",
+      "vout": 11,
+      "valueSats": "43404562"
+    },
+    "broadcasted": false,
+    "confirmed": false,
+    "productionQualified": false,
+    "timingsMs": {
+      "contextOpen": 417.814523,
+      "readback": 421.813001,
+      "localCommit": 7.875234000000091,
+      "commandTotal": 847.7514299999998
+    }
+  }
+}

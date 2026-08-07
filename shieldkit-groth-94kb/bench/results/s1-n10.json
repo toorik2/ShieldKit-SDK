@@ -1,0 +1,16 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf10-baseline",
+  "commit": "701826f1deb092714f10243e754bd37627080c1a",
+  "story": "S1",
+  "N": 10,
+  "ok": true,
+  "first_try": true,
+  "prove_ms_p50": 2403.741293,
+  "prove_ms_p95": 2474.759391,
+  "total_ms_p95": 3597.916869,
+  "tx_bytes": null,
+  "max_unlock_bytes": 10000,
+  "unlock_margin": 0,
+  "notes": "N=10 sequential deposit-shaped native proves; instance=e5b310e8bdb4e666cf9acfddf5bf5e15a55373f2038b206f7fb53f04d610c6c4"
+}

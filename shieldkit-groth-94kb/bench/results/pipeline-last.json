@@ -1,0 +1,102 @@
+{
+  "schema": "shieldkit-bench-pipeline-v1",
+  "design": "pf10-baseline",
+  "commit": "7111ebb037b0bc5d95a9cb6c821458d756a87611",
+  "kind": "withdraw",
+  "transactionId": "323ab967c35aaaabffe48db6882a22e10df4acc4d63a10487050308dd7273b8c",
+  "operationId": "withdrawal.e6bc0086560805a945b71a9205df6a94ec4a28cf73302bd02027afb42b929b2c",
+  "rows": [
+    {
+      "n": 1,
+      "key": "stateRead",
+      "label": "Look up tip on network",
+      "short": "stateRead",
+      "ms": 1136.421,
+      "note": null
+    },
+    {
+      "n": 2,
+      "key": "fundingRead",
+      "label": "Find fee coin",
+      "short": "fundingRead",
+      "ms": 1135.726,
+      "note": null
+    },
+    {
+      "n": 3,
+      "key": "treeAndPreparation",
+      "label": "Prep trees",
+      "short": "treeAndPrep",
+      "ms": 46.479,
+      "note": null
+    },
+    {
+      "n": 4,
+      "key": "witnessCalculation",
+      "label": "Build witness",
+      "short": "witnessCalc",
+      "ms": 667.719647,
+      "note": null
+    },
+    {
+      "n": 5,
+      "key": "proofGeneration",
+      "label": "Make ZK proof",
+      "short": "proofGen",
+      "ms": 2472.611302,
+      "note": "bench S0/S1"
+    },
+    {
+      "n": 6,
+      "key": "proofVerification",
+      "label": "Check proof",
+      "short": "proofVerify",
+      "ms": 209.72992999999997,
+      "note": null
+    },
+    {
+      "n": 7,
+      "key": "witnessAssembly",
+      "label": "Build big unlock scripts",
+      "short": "witnessAssembly",
+      "ms": 970.698,
+      "note": null
+    },
+    {
+      "n": 8,
+      "key": "signingAndVm",
+      "label": "Sign + Libauth VM",
+      "short": "signing/localVm",
+      "ms": 260.842,
+      "note": null
+    },
+    {
+      "n": 9,
+      "key": "admission",
+      "label": "Broadcast + mempool/readback",
+      "short": "admission",
+      "ms": null,
+      "note": null
+    },
+    {
+      "n": 10,
+      "key": "commit",
+      "label": "Save local state",
+      "short": "commit",
+      "ms": null,
+      "note": null
+    }
+  ],
+  "sums": {
+    "localWorkMs": 7162.871,
+    "admissionMs": null,
+    "commitMs": null,
+    "actionTotalMs": null,
+    "sessionOpenMs": null,
+    "commandTotalMs": null,
+    "proofGenerationMs": 2472.611302,
+    "proofTotalMs": 3612.705,
+    "localVmMs": 240.664
+  },
+  "notes": "from store transaction_artifact (admission/commit usually absent pre-send snapshot)"
+}

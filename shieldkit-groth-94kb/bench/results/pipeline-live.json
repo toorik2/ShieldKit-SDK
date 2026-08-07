@@ -1,0 +1,102 @@
+{
+  "schema": "shieldkit-bench-pipeline-v1",
+  "design": "pf10-baseline",
+  "commit": "7111ebb037b0bc5d95a9cb6c821458d756a87611",
+  "kind": "deposit",
+  "transactionId": "a555062fcfb7438d18783f3d24ba4a666d98673f58bfb0b83891dd0c14c6c724",
+  "operationId": "deposit.ff4daeb286b988b58d0959aeee88101ca15ec89841ad99e334afe6fe0a159bd6",
+  "rows": [
+    {
+      "n": 1,
+      "key": "stateRead",
+      "label": "Look up tip on network",
+      "short": "stateRead",
+      "ms": 1097.975,
+      "note": null
+    },
+    {
+      "n": 2,
+      "key": "fundingRead",
+      "label": "Find fee coin",
+      "short": "fundingRead",
+      "ms": 1097.99,
+      "note": null
+    },
+    {
+      "n": 3,
+      "key": "treeAndPreparation",
+      "label": "Prep trees",
+      "short": "treeAndPrep",
+      "ms": 20.432,
+      "note": null
+    },
+    {
+      "n": 4,
+      "key": "witnessCalculation",
+      "label": "Build witness",
+      "short": "witnessCalc",
+      "ms": 661.1136650000001,
+      "note": null
+    },
+    {
+      "n": 5,
+      "key": "proofGeneration",
+      "label": "Make ZK proof",
+      "short": "proofGen",
+      "ms": 2375.503834,
+      "note": "bench S0/S1"
+    },
+    {
+      "n": 6,
+      "key": "proofVerification",
+      "label": "Check proof",
+      "short": "proofVerify",
+      "ms": 218.0031839999997,
+      "note": null
+    },
+    {
+      "n": 7,
+      "key": "witnessAssembly",
+      "label": "Build big unlock scripts",
+      "short": "witnessAssembly",
+      "ms": 800.981,
+      "note": null
+    },
+    {
+      "n": 8,
+      "key": "signingAndVm",
+      "label": "Sign + Libauth VM",
+      "short": "signing/localVm",
+      "ms": 337.012,
+      "note": null
+    },
+    {
+      "n": 9,
+      "key": "admission",
+      "label": "Broadcast + mempool/readback",
+      "short": "admission",
+      "ms": 4077.04,
+      "note": null
+    },
+    {
+      "n": 10,
+      "key": "commit",
+      "label": "Save local state",
+      "short": "commit",
+      "ms": 102.4,
+      "note": null
+    }
+  ],
+  "sums": {
+    "localWorkMs": 6871.891,
+    "admissionMs": 4077.04,
+    "commitMs": 102.4,
+    "actionTotalMs": 10208.219,
+    "sessionOpenMs": 410.54398100000003,
+    "commandTotalMs": 10627.688916000001,
+    "proofGenerationMs": 2375.503834,
+    "proofTotalMs": 3517.501,
+    "localVmMs": 314.634
+  },
+  "notes": "live product CLI (full admission+commit when present)"
+}

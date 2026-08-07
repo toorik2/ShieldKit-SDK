@@ -1,0 +1,100 @@
+{
+  "schema": "shieldkit-bench-coldstart-v1",
+  "design": "pf10-baseline",
+  "commit": "ba1652517e9cb74d6e2e397f895c3446cfdfaf51",
+  "rows": [
+    {
+      "n": 1,
+      "id": "clone",
+      "label": "Download / clone repo",
+      "why": "source bytes + git history over network",
+      "ms": null,
+      "bytes": 3548766205,
+      "ok": true,
+      "detail": "existing checkout (clone not re-timed; use external timed git clone for first download)"
+    },
+    {
+      "n": 2,
+      "id": "npm_ci",
+      "label": "Install JS deps (npm ci + postinstall)",
+      "why": "node_modules + vendored cashc build",
+      "ms": null,
+      "bytes": 279407910,
+      "ok": true,
+      "detail": "node_modules present (not re-timed; pass --time-npm-ci --work-root …)"
+    },
+    {
+      "n": 3,
+      "id": "native_prover",
+      "label": "Native prover binary (rapidsnark install)",
+      "why": "compile or pin-verify host prover; not in npm pack alone",
+      "ms": null,
+      "bytes": 702993,
+      "ok": true,
+      "detail": "/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product/v2-beta-product-artifacts/native"
+    },
+    {
+      "n": 4,
+      "id": "artifact_install",
+      "label": "Install PF10 / ceremony / proof artifacts",
+      "why": "zkey/r1cs/wasm/runtime ~GBs; pin-authenticated offline install",
+      "ms": null,
+      "bytes": 1520573432,
+      "ok": true,
+      "detail": "/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product/v2-beta-product-artifacts (install time: run offline installer separately to time)"
+    },
+    {
+      "n": 5,
+      "id": "runtime_link",
+      "label": "First pool runtime link / specialization",
+      "why": "linked runtime cache for instance (after pool create or first act)",
+      "ms": null,
+      "bytes": 86502,
+      "ok": true,
+      "detail": "/home/toorik/.local/share/shieldkit-packed-live-d06632c/shieldkit/v2-beta-product/runtime-cache"
+    },
+    {
+      "n": 6,
+      "id": "first_prove_cold",
+      "label": "First prove (cold caches)",
+      "why": "disk/page-cache cold; often slower than steady S0",
+      "ms": 2964.552363,
+      "bytes": null,
+      "ok": true,
+      "detail": "proofGen=1908ms"
+    },
+    {
+      "n": 7,
+      "id": "second_prove_warm",
+      "label": "Second prove (warm)",
+      "why": "steady-state prove cost ≈ S0",
+      "ms": 3576.5220310000004,
+      "bytes": null,
+      "ok": true,
+      "detail": "proofGen=2476ms"
+    },
+    {
+      "n": 8,
+      "id": "disk_footprint",
+      "label": "Disk footprint (repo + deps + artifacts)",
+      "why": "blank machine capacity planning",
+      "ms": null,
+      "bytes": 5348834049,
+      "ok": true,
+      "detail": "sum of measured roots (approx; nested dirs adjusted when possible)"
+    }
+  ],
+  "optionalNotes": [
+    "Rust toolchain + cargo for recovery/codec crates (if you build from source tests)",
+    "OS packages: build-essential, cmake, etc. for native prover",
+    "First pool create (genesis/source + bootstrap fanout) on Chipnet",
+    "Funding / UTXO prep (wallet + independent fee UTXOs)",
+    "Public Fulcrum / RPC latency baseline (network path only)",
+    "Doctor / config-check smoke after install"
+  ],
+  "totals": {
+    "timedMs": 6541.074394,
+    "diskBytes": 5348834049
+  },
+  "notes": "includes opt-in timers"
+}

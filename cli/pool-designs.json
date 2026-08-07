@@ -7,7 +7,7 @@
     {
       "id": "pf10",
       "displayName": "ShieldKit-Groth PF10 (original, ~91 KB unlocks)",
-      "root": "../shieldkit-groth",
+      "root": "../shieldkit-groth-94kb",
       "manifest": "profile.json",
       "kind": "original-cli",
       "capability": {

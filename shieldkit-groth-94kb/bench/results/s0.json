@@ -1,0 +1,16 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf10-baseline",
+  "commit": "2f415061aa15da1737aab5aa43acd4e2027ca29f",
+  "story": "S0",
+  "N": 1,
+  "ok": true,
+  "first_try": true,
+  "prove_ms_p50": 2158.0856129999997,
+  "prove_ms_p95": 2158.0856129999997,
+  "total_ms_p95": 3471.263155,
+  "tx_bytes": null,
+  "max_unlock_bytes": 10000,
+  "unlock_margin": 0,
+  "notes": "deposit-shaped native prove instance=e5b310e8bdb4e666cf9acfddf5bf5e15a55373f2038b206f7fb53f04d610c6c4; unlock=max(DIRECT_V2_PF10_VERIFIER_UNLOCK_BYTES)"
+}
