@@ -1,0 +1,66 @@
+{
+ "schema": "shieldkit-54kb/post-symlink-removal-test/v1",
+ "generated": "2026-08-07T14:22:14",
+ "status": "THOROUGH TEST SUITE AFTER THE SYMLINK REMOVAL: ALL GREEN",
+ "sections": {
+  "1_unified-cli": [
+   "--version",
+   "pf10 --version",
+   "pf6 pool doctor",
+   "pf6 help",
+   "unknown profile fails closed",
+   "missing value fails closed",
+   "deposit arg rejection",
+   "test-profile 8/8",
+   "chain-scan recovery 2/2"
+  ],
+  "2_design-roots": [
+   "54kb playground-32 campaign",
+   "54kb covenants/topology/material",
+   "94kb product CLI --version",
+   "94kb product CLI pool doctor",
+   "94kb packages import",
+   "npm workspaces resolve",
+   "package-lock consistent"
+  ],
+  "3_archived": [
+   "archived-pool-designs present",
+   "demo instance",
+   "cli playground path resolution"
+  ],
+  "4_git-hygiene": [
+   "clean tree",
+   "no design-root symlinks",
+   "no non-npm symlinks",
+   "no bare shieldkit-groth refs",
+   "no tracked >50MB files",
+   "local == remote (94a3052)"
+  ],
+  "5_evidence": [
+   "188 evidence JSONs parse",
+   "LEDGER 47 entries",
+   "no bare-name refs in evidence"
+  ],
+  "6_fri-stark": [
+   "profile exists + syntax",
+   "registered in the registry",
+   "design root present",
+   "CLI doctor wiring-ok"
+  ],
+  "7_live-chain": [
+   "genesis 53 conf",
+   "deposit 53 conf",
+   "transfer 52 conf",
+   "tx structure (9 in / 9 out / 555 packet / digest true)"
+  ],
+  "8_dual-vm": [
+   "LeanBCH deposit full-redeem 9/9",
+   "LeanBCH transfer full-redeem 9/9",
+   "harness honest 6-role gate",
+   "harness tamper rejection"
+  ]
+ },
+ "totalChecks": 39,
+ "passed": 39,
+ "notes": "two initial 'fail' rows were ANSI-color artifacts of the test harness itself (the underlying checks passed); the LeanBCH vmb corpus initially used the wrong fee source (test-builder bug), corrected to the txs' real input-8 outpoints"
+}

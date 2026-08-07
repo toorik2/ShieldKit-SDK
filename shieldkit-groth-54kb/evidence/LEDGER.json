@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T14:17:48",
+ "generated": "2026-08-07T14:22:14",
  "entries": [
   {
    "wp": 0,
@@ -236,6 +236,11 @@
    "wp": 9,
    "id": "03-implementation/symlink-removal.json",
    "what": "symlink shieldkit-groth removed; 1,611 files fixed to shieldkit-groth-94kb; verified"
+  },
+  {
+   "wp": 9,
+   "id": "03-implementation/post-symlink-test.json",
+   "what": "Post-symlink-removal thorough test suite: 39/39 green (CLI, design roots, archives, git hygiene, evidence, fri-stark, live chain, dual-VM)"
   }
  ],
  "vendorPins": [
