@@ -1,0 +1,60 @@
+{
+ "schema": "shieldkit-cli/bench-comparative-table/v1",
+ "generated": "2026-08-07T16:39:01",
+ "axisA": [
+  {
+   "design": "pf10",
+   "proofSystem": "Groth16",
+   "scriptBytes": 94622,
+   "roles": 10,
+   "inputs": 13,
+   "txBytes": 97844,
+   "maxUnlock": 10000,
+   "maxOpCost": 58073984
+  },
+  {
+   "design": "pf6-a3-direct-v1",
+   "proofSystem": "Groth16",
+   "scriptBytes": 54671,
+   "roles": 6,
+   "inputs": 9,
+   "txBytes": 59241,
+   "maxUnlock": 9853,
+   "maxOpCost": 7093421
+  },
+  {
+   "design": "fri-stark-96kb",
+   "proofSystem": "FRI-STARK",
+   "scriptBytes": 96734,
+   "roles": 17,
+   "inputs": 18,
+   "txBytes": 96734,
+   "maxUnlock": 7898,
+   "maxOpCost": "pending"
+  }
+ ],
+ "axisB": {
+  "pf10": {
+   "prove": "2.16-2.40 (recorded)",
+   "endToEnd": "10.3-10.6s (recorded command total)",
+   "cold": "6.54s"
+  },
+  "pf6-a3-direct-v1": {
+   "prove": "2.20-2.27 FRESH (deposit/transfer/withdrawal)",
+   "endToEnd": "~32s FRESH (lane build 29.6s + prove 2.2s + packet 0.3s)",
+   "cold": "2.44s"
+  },
+  "fri-stark-96kb": {
+   "prove": "27.57-34.62 (recorded medians of 32)",
+   "endToEnd": "~28-35s (prove-dominated)",
+   "cold": "81.85s"
+  }
+ },
+ "ratios": {
+  "scriptBytes pf6 vs pf10": "0.58x (54,671 vs 94,622)",
+  "scriptBytes pf6 vs fri": "0.57x (54,671 vs 96,734)",
+  "maxOpCost pf6 vs pf10": "0.12x (7.09M vs 58.07M)",
+  "prove pf6 vs fri": "0.08x (2.2s vs 27.6s median)",
+  "endToEnd pf6 vs pf10": "~3.1x (32s vs 10.5s \u2014 the pf6 lane-build assembly dominates)"
+ }
+}

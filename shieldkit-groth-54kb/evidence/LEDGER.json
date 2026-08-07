@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T16:05:56",
+ "generated": "2026-08-07T16:39:01",
  "entries": [
   {
    "wp": 0,
@@ -281,6 +281,11 @@
    "wp": 3,
    "id": "03-implementation/e2e-story-suite.json",
    "what": "CLI E2E story suite on all three verifiers: pf6 5/5 green LIVE (withdraw GREEN this time), fri-stark 5/5 green (proofs verifyOk), pf10 blocked by the missing data-home (recorded live evidence)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-comparative-table.json",
+   "what": "Bench comparative table across all three designs (Axis A + Axis B + ratios)"
   }
  ],
  "vendorPins": [
