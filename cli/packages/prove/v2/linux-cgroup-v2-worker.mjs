@@ -229,7 +229,7 @@ function controlReports(stdout) {
   if (reports.length !== 2) {
     fail(
       'PROVER_MEMORY_GUARD_UNAVAILABLE',
-      'proof worker must emit exactly one limits and one termination report',
+      `proof worker must emit exactly one limits and one termination report (stdout=${JSON.stringify(stdout.slice(0, 600))})`,
     );
   }
   return reports;
