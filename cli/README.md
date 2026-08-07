@@ -13,7 +13,7 @@ ships a `profile.json` manifest describing its capability + machinery paths:
 ```
 
 Adding a future pool design (e.g. a FRI-STARK pool):
-1. create the design root (e.g. `shieldkit-sdk/shieldkit-fri-stark/`)
+1. create the design root (e.g. `shieldkit-sdk/shieldkit-fri-stark-96kb/`)
 2. ship `profile.json` (id, capability, machinery paths)
 3. add a `profile-module` entry to `cli/pool-designs.json`
 4. the profile module lives at `cli/profiles/<id>.mjs` and reads

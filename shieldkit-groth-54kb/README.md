@@ -9,7 +9,8 @@ for the PF10 verifier (the sibling design root `../shieldkit-groth-94kb/`,
 ## Status (2026-08-07)
 
 **PRODUCTION-READY (chipnet-scoped, per the revised goal: no soak, no new
-ceremony).** All ten work packages WP-0..WP-9 are closed with host-observable
+ceremony).** Unqualified beta: single-contributor ceremony (d38f3cfc VK),
+`productionQualified: false` throughout the runtime claims; see docs/STATUS.md. All ten work packages WP-0..WP-9 are closed with host-observable
 evidence:
 
 - WP-1 pin reproduction: scriptBytes 54,671 / score 54,949 / 6 in / 1 tx;
