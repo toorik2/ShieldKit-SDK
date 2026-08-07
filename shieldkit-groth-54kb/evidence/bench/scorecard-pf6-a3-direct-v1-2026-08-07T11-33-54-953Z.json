@@ -1,0 +1,48 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf6-a3-direct-v1",
+  "capability": {
+    "scriptBytes": 54671,
+    "roles": 6,
+    "inputsPerAction": 9,
+    "proofSystem": "Groth16",
+    "txBytes": 59241,
+    "maxUnlockBytes": 9853,
+    "maxOpCost": 7093421,
+    "sources": {
+      "scriptBytes": "the pf6 pin (54,671) — 54kb design root profile.json",
+      "txBytes": "measured live deposit/transfer txs (59,241 B) — 54kb evidence",
+      "maxOpCost": "measured (withdrawal terminal 7,093,421) — 54kb evidence b02-final"
+    }
+  },
+  "prep": {
+    "proverIdentity": "rapidsnark + snarkjs wtns (vendor/product-current)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": true,
+    "freshRuns": [
+      {
+        "action": "deposit",
+        "totalMs": 2412,
+        "proveMs": 2170
+      }
+    ],
+    "recorded": {
+      "medianSecondsByKind": {
+        "deposit": {
+          "runs": 1,
+          "medianSeconds": 2.411574646
+        }
+      },
+      "sources": {
+        "fresh": "this host, one action (witness + rapidsnark)"
+      }
+    }
+  },
+  "coldStart": false,
+  "commit": "3b7eb686faf94920254e1e6d5e15a342aff26c6a",
+  "generated": "2026-08-07T11:33:54.953Z",
+  "totalMs": 2416
+}

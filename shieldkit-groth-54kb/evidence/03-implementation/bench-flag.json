@@ -1,0 +1,52 @@
+{
+ "schema": "shieldkit-cli/bench-flag/v1",
+ "generated": "2026-08-07T14:34:05",
+ "status": "the unified --bench flag implemented and tested on all three pool designs",
+ "flag": "shieldkit --profile <id> --bench [--cold-start] [--json] | --compare <id2>",
+ "axes": {
+  "A": "on-chain verifier surface: scriptBytes, roles, inputsPerAction, txBytes, maxUnlockBytes, maxOpCost \u2014 identical measurement for all designs (sources named per row)",
+  "B": "prep time: prover identity + host + runs + median; fresh measurement for the pf6 (rapidsnark), recorded samples for the fri-stark (P5), recorded bench for the pf10"
+ },
+ "results": {
+  "pf10": {
+   "AxisA": {
+    "scriptBytes": 94622,
+    "roles": 10,
+    "inputs": 13,
+    "txBytes": 97844,
+    "maxOpCost": 58073984
+   },
+   "AxisB": "recorded bench (live re-measure needs the funded data-home + prover material)"
+  },
+  "pf6-a3-direct-v1": {
+   "AxisA": {
+    "scriptBytes": 54671,
+    "roles": 6,
+    "inputs": 9,
+    "txBytes": 59241,
+    "maxOpCost": 7093421
+   },
+   "AxisB": "FRESH measured on this host: deposit witness+prove 2.35 s (rapidsnark)"
+  },
+  "fri-stark-96kb": {
+   "AxisA": {
+    "scriptBytes": 96734,
+    "roles": 17,
+    "inputs": 18,
+    "txBytes": 96734,
+    "maxUnlockBytes": 7898
+   },
+   "AxisB": "recorded: P5 32 samples per action, deposit median 27.6 s (Rust prover)"
+  }
+ },
+ "persistence": "each bench run saves evidence/bench/scorecard-<id>-<stamp>.json with the sha256 under the design root",
+ "compare": "--bench --compare <id2> emits the overlap table (shieldkit-bench-overlap-v1) with the different-prover marker",
+ "verified": [
+  "bench default pf10",
+  "pf6 fresh prove",
+  "fri-stark recorded",
+  "unknown fails closed",
+  "compare 2 rows",
+  "CLI surface regression (version/doctor/tests 8/8)"
+ ]
+}
