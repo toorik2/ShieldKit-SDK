@@ -1,0 +1,64 @@
+{
+  "built": true,
+  "gateOk": false,
+  "wire": 54738,
+  "score": 54948,
+  "sigmaLock": 210,
+  "sigmaUnlock": 54460,
+  "seamChains": true,
+  "bothUnder": true,
+  "gateThrow": "[REALITY GATE — c7 vkx-into-genesis (6, MERGED+terminal-fusion)] 1/6 input(s) REJECT — this measurement is NOT real, it is a PROJECTION:\n  input[5] (8538 B unlock): VM REJECT: Program failed an OP_VERIFY operation.\n  Fix: every input must be a real redeem that VM-accepts against its real siblings (pass a token{} for a covenant input). No mkTail, no zero-fill, no length-model, no component sums.",
+  "manual": [
+    {
+      "i": 0,
+      "name": "exec0",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9853,
+      "operationCost": 6883774
+    },
+    {
+      "i": 1,
+      "name": "exec1",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9848,
+      "operationCost": 6746993
+    },
+    {
+      "i": 2,
+      "name": "exec2",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9877,
+      "operationCost": 6754288
+    },
+    {
+      "i": 3,
+      "name": "exec3",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8893,
+      "operationCost": 6724156
+    },
+    {
+      "i": 4,
+      "name": "genesis",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 7451,
+      "operationCost": 5632029
+    },
+    {
+      "i": 5,
+      "name": "terminal",
+      "accepts": false,
+      "error": "Program failed an OP_VERIFY operation.",
+      "unlockLen": 8538,
+      "operationCost": 892643
+    }
+  ],
+  "perInput": null,
+  "verifierInputCount": 6,
+  "structuralRoleCount": 0
+}

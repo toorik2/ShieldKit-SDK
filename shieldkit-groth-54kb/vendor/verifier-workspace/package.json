@@ -1,0 +1,27 @@
+{
+  "name": "verifier-cash-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#repo-paths": "./tools/repo-paths.mjs"
+  },
+  "description": "Local harness for measuring/optimizing the Groth16-on-BCH verifier (verifier.cash). Provides libauth (BCH-2026 VM) + noble curves so the groth16_cashscript graders run on Linux.",
+  "packageManager": "npm@11.12.1",
+  "scripts": {
+    "check": "node packages/cli/src/with-lease.mjs repository-check -- npm run check:serial",
+    "check:serial": "npm run check:paths && npm run check:architecture && npm run check:frontiers && npm run check:catalogue && npm run check:harness && npm run check:build",
+    "check:paths": "node tools/check-portable-paths.mjs",
+    "check:architecture": "node --test lanes/*/test/*.test.mjs packages/contracts/test/*.test.mjs packages/cli/test/*.test.mjs && node packages/cli/src/check-architecture.mjs",
+    "check:frontiers": "node packages/cli/src/check-frontiers.mjs",
+    "check:catalogue": "node tools/catalogue-schema-audit.mjs && node tools/compact-catalogue-index.mjs",
+    "check:harness": "cd harness && corepack pnpm typecheck",
+    "check:build": "cd build && corepack pnpm test",
+    "check:lean": "lake build",
+    "vc": "node packages/cli/src/vc.mjs"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
+    "@noble/curves": "^1.9.0"
+  }
+}

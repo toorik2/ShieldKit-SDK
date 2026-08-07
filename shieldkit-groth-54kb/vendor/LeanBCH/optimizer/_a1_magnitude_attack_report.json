@@ -1,0 +1,91 @@
+{
+  "chunk": [
+    52,
+    71
+  ],
+  "opBudget": 8032800,
+  "committedOp": 8010157,
+  "results": [
+    {
+      "name": "committed",
+      "op": 8010157,
+      "completed": true,
+      "accepted": true,
+      "error": null,
+      "argBytes": 1716,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": false,
+      "deltaVsCommitted": 0
+    },
+    {
+      "name": "p_minus_1 (all-bits-set in-field)",
+      "op": 7932026,
+      "completed": false,
+      "accepted": false,
+      "error": "Program failed an OP_VERIFY operation.",
+      "argBytes": 1716,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": false,
+      "deltaVsCommitted": -78131
+    },
+    {
+      "name": "two256_minus_1 (32B 0xFF, over-field)",
+      "op": 7975465,
+      "completed": false,
+      "accepted": false,
+      "error": "Program failed an OP_VERIFY operation.",
+      "argBytes": 1768,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": false,
+      "deltaVsCommitted": -34692
+    },
+    {
+      "name": "two312_minus_1 (39B over-wide)",
+      "op": 8033772,
+      "completed": false,
+      "accepted": false,
+      "error": "Program attempted an operation that would exceed the operation cost density limit. Maximum",
+      "argBytes": 2132,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": true,
+      "deltaVsCommitted": 23615
+    },
+    {
+      "name": "two319 (40B, max toPaddedBytes width)",
+      "op": 28799,
+      "completed": false,
+      "accepted": false,
+      "error": "Program called an OP_NUM2BIN operation with an insufficient byte length to re-encode the p",
+      "argBytes": 2184,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": false,
+      "deltaVsCommitted": -7981358
+    },
+    {
+      "name": "field_pminus1_points_committed",
+      "op": 7943932,
+      "completed": false,
+      "accepted": false,
+      "error": "Program failed an OP_VERIFY operation.",
+      "argBytes": 1716,
+      "tail": 5349,
+      "padTarget": 10000,
+      "overBudget": false,
+      "deltaVsCommitted": -66225
+    }
+  ],
+  "committedFeasible": true,
+  "A1_BUSTED": true,
+  "busters": [
+    {
+      "name": "two312_minus_1 (39B over-wide)",
+      "op": 8033772,
+      "over": 972
+    }
+  ]
+}

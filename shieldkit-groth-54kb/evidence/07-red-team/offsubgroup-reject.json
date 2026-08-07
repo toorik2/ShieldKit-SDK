@@ -1,0 +1,40 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp7-offsubgroup/v1",
+ "generated": "2026-08-07T03:12:54",
+ "status": "OFF-SUBGROUP FIXTURE REJECTED by the lane C7 build (gateOk=false; exec0-4 all reject)",
+ "fixture": {
+  "path": "vendor/verifier-workspace/lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json",
+  "sha256": "bb6513dd14487f6774af9fe51af2371e9a899c191d73ded80de8b455c7e9f58b"
+ },
+ "command": "cd vendor/verifier-workspace && LEANBCH_ROOT=/home/toorik/Projects/ZK-Proofs/LeanBCH C7_FIXTURE=lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json C7_TMP=/tmp/offsub C7_GEN=/tmp/offsub-gen ./harness/node_modules/.bin/tsx lanes/bn254-onetx/src/c7/build.ts",
+ "result": {
+  "gateOk": false,
+  "roles": [
+   [
+    "lib",
+    true
+   ],
+   [
+    "exec0",
+    false
+   ],
+   [
+    "exec1",
+    false
+   ],
+   [
+    "exec2",
+    false
+   ],
+   [
+    "exec3",
+    false
+   ],
+   [
+    "exec4",
+    false
+   ]
+  ]
+ },
+ "note": "the honest product material's accept is evidenced by the run gates (pf6-a3-deposit-v13/transfer-v13/withdrawal-v2: gateOk=true) and the formal DiffVerify honest=3; the off-subgroup reject closes the WP-1 dual-VM fixture gate"
+}

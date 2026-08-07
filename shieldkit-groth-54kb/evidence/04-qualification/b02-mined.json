@@ -1,0 +1,29 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp4-b02-mined/v1",
+ "generated": "2026-08-07T02:04:07",
+ "status": "MINED-BCHN CONFIRMED: the full pf6 lifecycle chain is mined on chipnet (transfer + withdrawal at 12 confirmations; deposit mined, consumed by the transfer)",
+ "chain": [
+  {
+   "action": "genesis",
+   "txid": "c01883940aab713d2986190be37ab0a76c6e3a8fdc5813ede754d1b20d1c7a76",
+   "note": "pool 11 (source 96e25629)"
+  },
+  {
+   "action": "deposit",
+   "txid": "a9f3ee0adbce454058c43ae5a992deefd5dab0866f866c75cde4ec416d543709",
+   "note": "mined, spent by the transfer"
+  },
+  {
+   "action": "transfer",
+   "txid": "242c669ca3f8d25ccdd7a4e9bde4127811215100acd62e3b7744f60f21aeeb08",
+   "confirmations": 12
+  },
+  {
+   "action": "withdrawal",
+   "txid": "fff3e5c313146cfcaa56b9cb228dd86368ac5b20f66386dc4c2c169409b16213",
+   "confirmations": 12
+  }
+ ],
+ "blockHeight": 317864,
+ "note": "pool 12 deposit fdb0e2f5 (1 conf) and pool 13 deposit 3cf93182 (mempool) also live; the mined chain above is the canonical B-02 lifecycle evidence"
+}

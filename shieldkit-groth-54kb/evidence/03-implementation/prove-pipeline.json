@@ -1,0 +1,26 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-prove-pipeline/v1",
+ "generated": "2026-08-06T22:16:07",
+ "status": "PROVING PIPELINE VERIFIED \u2014 valid Groth16 proof produced for the product VK",
+ "pipeline": "input.json -> snarkjs wtns calculate (main-chipnet.wasm) -> rapidsnark prove (beta.zkey) -> proof.json + public.json",
+ "determinism": {
+  "witnessSha256": "529f5aeacfa856f85ab7928d3a6f1100f4d4c830bb0c4e84e2796211aff3208c",
+  "runtimeWitnessSha256": "529f5aeacfa856f8",
+  "witnessIdentical": true,
+  "publicSignalsMatchRuntime": true,
+  "proofVerifiedUnderProductVk": true
+ },
+ "note": "The runtime's own proof.json (22241ae3) also verifies under the same VK but differs from the deterministic re-prove \u2014 it was generated from a different private witness with the same public digest (internal inconsistency in the beta qualification set; both proofs valid; not a blocker).",
+ "artifacts": {
+  "proof": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/evidence/03-implementation/prove-test/proof.json",
+  "public": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/evidence/03-implementation/prove-test/public.json",
+  "witness": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/evidence/03-implementation/prove-test/witness.wtns"
+ },
+ "toolchain": {
+  "prover": "rapidsnark (native/bin/prover sha256 f0b4390847b5fb62)",
+  "snarkjs": "0.7.6",
+  "zkey": "61683ef2...",
+  "wasm": "87f5878e...",
+  "node": "22.23.1"
+ }
+}

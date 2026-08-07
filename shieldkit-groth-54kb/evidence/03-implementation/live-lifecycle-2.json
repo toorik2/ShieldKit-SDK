@@ -1,0 +1,18 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-lifecycle-2/v1",
+ "generated": "2026-08-07T02:13:39",
+ "status": "SECOND FULL LIFECYCLE LIVE (pool 13): deposit + transfer + withdrawal accepted + broadcast on chipnet; recovery demonstrated (each action recovered the prior note from the chain)",
+ "chain": {
+  "source": "5e9098494663a865e015c1ff0e1bbdcc682428ddc1c",
+  "genesis": "26b5e5faf10140ebc0296ef8783a3b88492e3fff9fe67a60689b2d5523a3f0b3",
+  "deposit": "3cf93182fa28768e446bd2335bc627b0a2ad124515b9e3927f811652f8818220",
+  "transfer": "f1963e483c165707410079ffa6c45e5448490e777130d81f60f7824614d42636",
+  "withdrawal": "a7608f8fd34c0343a95a695af62becfeaacb72d7b7a64733db5c03cfa0592d67"
+ },
+ "notes": "transfer recovered the deposit note (nullifier 1e1d3d9a...); withdrawal recovered the transfer note (nullifier 1af00a2f...) from the chain packets \u2014 the recover + recovered-note spend path",
+ "bytes": {
+  "deposit": 59241,
+  "transfer": 59241,
+  "withdrawal": 59275
+ }
+}

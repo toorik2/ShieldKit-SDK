@@ -1,0 +1,203 @@
+{
+  "schema": "verifier.cash/candidate-bundle/v1",
+  "runId": "pf6-a3-r1-recon-2",
+  "candidateId": "bn254-onetx-pf6-a3-r1",
+  "lane": "bn254-onetx",
+  "candidateManifest": ".vc/runs/pf6-a3-r1-recon-2/candidate.json",
+  "candidateManifestSha256": "ab74b984c9b4149eb511922ed72a11887f198282602e9d5d05b74da8aeff3395",
+  "sourceCommit": "current-worktree",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+    "bch": "BCH-2026"
+  },
+  "provenance": {
+    "sourceCommit": "current-worktree",
+    "scope": "[pf6-a3] six-input dens-rich scalar PairFold-6; selector-bound cubic-class terminal and authenticated BQ residual"
+  },
+  "judge": {
+    "profile": "pairfold-6-p2shchain-research",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "expected": {
+      "scriptBytes": 54671,
+      "txOverheadBytes": 278,
+      "score": 54949,
+      "inputCount": 6,
+      "transactionCount": 1
+    }
+  },
+  "files": {
+    "result": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/result.json",
+      "sha256": "b7a39a531807502746ba40bb98cf2346851d00e1b11319e358e83ecc0c0664e7",
+      "bytes": 2028
+    },
+    "inputs": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/inputs_dump.json",
+      "sha256": "8bd43217e6060a720c2fda4afafc07b4ea4d04608d4db3259b2b2749e656b398",
+      "bytes": 109727
+    },
+    "transaction": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_candidate_tx.hex",
+      "sha256": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+      "bytes": 109478
+    },
+    "source-outputs": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_candidate_srcouts.hex",
+      "sha256": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02",
+      "bytes": 530
+    },
+    "boundary-parts": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/boundary_parts.json",
+      "sha256": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c",
+      "bytes": 665
+    },
+    "op-margin": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_opmargin.json",
+      "sha256": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77",
+      "bytes": 53
+    },
+    "build-log": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/build.log",
+      "sha256": "575fea059e33ae55a8733f8c13a0f0da0bd937da5f856bd3aa1e8eb3e46987c9",
+      "bytes": 5313
+    },
+    "vectors": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam/vectors.json",
+      "sha256": "d5fecc2ec7fe0cf23197e6ec36a3f4ea3f8c619f216304a688affcc0023fa4fd",
+      "bytes": 1758443
+    },
+    "input-redteam": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam/input-redteam.json",
+      "sha256": "308dd08cd165b4fe445d459a231af5901ffc14058dc71b3da9653c96088254c9",
+      "bytes": 16787
+    },
+    "offsubgroup-result": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/offsubgroup/result.json",
+      "sha256": "35259cd5030533575153c5ec6f24c30ceaffb55f5dd3d583b6dc235d2a79c6b3",
+      "bytes": 1606
+    },
+    "input-redteam-log": {
+      "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam.log",
+      "sha256": "8819958add1fa6fa51dba95968bc4268ffddf6198a60197c1ba72918b8b12f6f",
+      "bytes": 900
+    }
+  },
+  "buildResult": {
+    "built": true,
+    "gateOk": true,
+    "wire": 54739,
+    "score": 54949,
+    "sigmaLock": 210,
+    "sigmaUnlock": 54461,
+    "seamChains": true,
+    "bothUnder": true,
+    "gateThrow": "",
+    "manual": [
+      {
+        "i": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 9853,
+        "operationCost": 6933105
+      },
+      {
+        "i": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 9848,
+        "operationCost": 6788181
+      },
+      {
+        "i": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 9877,
+        "operationCost": 6796055
+      },
+      {
+        "i": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 8893,
+        "operationCost": 6766182
+      },
+      {
+        "i": 4,
+        "name": "genesis",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 7452,
+        "operationCost": 5675144
+      },
+      {
+        "i": 5,
+        "name": "terminal",
+        "accepts": true,
+        "error": "",
+        "unlockLen": 8538,
+        "operationCost": 6733475
+      }
+    ],
+    "perInput": [
+      {
+        "index": 0,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 9853,
+        "looksFiller": false
+      },
+      {
+        "index": 1,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 9848,
+        "looksFiller": false
+      },
+      {
+        "index": 2,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 9877,
+        "looksFiller": false
+      },
+      {
+        "index": 3,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 8893,
+        "looksFiller": false
+      },
+      {
+        "index": 4,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 7452,
+        "looksFiller": false
+      },
+      {
+        "index": 5,
+        "accepts": true,
+        "reason": "real+VM-accepts",
+        "unlockingLen": 8538,
+        "looksFiller": false
+      }
+    ],
+    "verifierInputCount": 6,
+    "structuralRoleCount": 0
+  }
+}

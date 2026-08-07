@@ -1,0 +1,121 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bn254-onetx-pf7-sub55-r1",
+  "lane": "bn254-onetx",
+  "status": "research",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "identity": {
+    "humanName": "BN254 PairFold-7 sub55 size hunt",
+    "construction": "pf7-sub55",
+    "topology": 7,
+    "stateModel": "p2shchain",
+    "revision": "r1",
+    "slug": "bn254-pf7-sub55-r1"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+    "bch": "BCH-2026"
+  },
+  "build": {
+    "adapter": "lane-module",
+    "module": "lanes/bn254-onetx/src/build-adapter.mjs",
+    "entrypoint": "lanes/bn254-onetx/src/c7/build.ts",
+    "fixture": "harness/src/checkpoints/dense-proof-candidate-25.json",
+    "fixedG2Static": true,
+    "pairfoldTopology": 7,
+    "inputValidationFixture": "lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json",
+    "runtimeCorpus": {
+      "extraMultiproofIndices": [
+        0,
+        1,
+        2
+      ],
+      "worstCase": true
+    },
+    "profile": {
+      "schema": "verifier.cash/bn254-onetx-c7-profile/v1",
+      "generator": {
+        "allAffine": true,
+        "selectL17": true,
+        "narrowSeam": true,
+        "specializeK": true,
+        "siblingRead": true,
+        "fixedWitnessData": true,
+        "dynamicPacking": true,
+        "deriveMode": true,
+        "rescheduleStacks": true
+      },
+      "mode": {
+        "directPort": true,
+        "striped": true,
+        "stripeBoundary": true,
+        "directFinalizeState": true,
+        "strictDeployment": true,
+        "publicBenchContext": true,
+        "driverPackDerived": true,
+        "driverWindowDerived": true
+      },
+      "layout": {
+        "windowSize": 13,
+        "stripedFragments": 5
+      },
+      "packing": {
+        "stateWidth": 32,
+        "consensusNarrowLimbs": 1,
+        "consensusWidth": 34,
+        "narrowWitnessLimbs": 16,
+        "witnessWidth": 32,
+        "wideWitnessPositions": [],
+        "retainConsensusData": false,
+        "retainWitnessData": false,
+        "finalPadding": [],
+        "enforceInputExhaustion": true,
+        "stripedNoForward": false,
+        "stripedNoWindow": false,
+        "stripedWindowTest": false,
+        "stripedNoDriver": false,
+        "stripedNoHash": false
+      },
+      "optimization": {
+        "foldOnly": false,
+        "disableFold": false,
+        "disableOptimize": false,
+        "disableStrip": false,
+        "disableConstantSeed": false,
+        "disableH1": false,
+        "disableParameterAlias": false,
+        "disableMultiplyByOne": false,
+        "keepNodeBake": false,
+        "maxTry": 2
+      }
+    },
+    "idealVariant": "gen6-7in",
+    "fixedG2WitnessTableBytes": "0,1536,2460,2427,2304",
+    "scalarEndpoint": true
+  },
+  "judge": {
+    "profile": "pairfold-6-p2shchain-research",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "expected": {
+      "scriptBytes": 55612,
+      "txOverheadBytes": 321,
+      "score": 55933,
+      "inputCount": 7,
+      "transactionCount": 1
+    }
+  },
+  "provenance": {
+    "sourceCommit": "current-worktree",
+    "scope": "[pf7-sub55] dens-rich tip @ 55933 (qual sound path)"
+  }
+}

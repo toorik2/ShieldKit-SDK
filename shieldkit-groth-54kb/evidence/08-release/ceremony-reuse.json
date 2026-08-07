@@ -1,0 +1,110 @@
+{
+ "schema": "shieldkit-54kb/evidence/ceremony-reuse/v1",
+ "generated": "2026-08-06T22:12:14",
+ "status": "single-contributor ceremony chain documented (reuse; no new ceremony)",
+ "eligibility": "beta-single-contributor-unqualified; ceremonyQualified=false; d01Qualified=false",
+ "chain": {
+  "powersOfTau": {
+   "bytes": 603981216,
+   "sha256": "e7aec1da821adb84ce4e3945419c2faeedd7f183922341f3492fc0ecd38372f4"
+  },
+  "initialZkey": {
+   "bytes": 226816012,
+   "sha256": "59baab0b56fde465c14ebe8dffede82ec287da899b0a8661f5cec471baec105e"
+  },
+  "preparation": {
+   "bytes": 491636,
+   "sha256": "0d0d04a2c8378120d748cf369d5b302396ebd38ec4832b62e85550cf73b92385"
+  },
+  "relationR1cs": {
+   "bytes": 90298572,
+   "sha256": "077f58f5deee5ae38455af3d6c0a647383b24b455e26156585d5a17b7b5b00ed"
+  },
+  "resultDir": {
+   "beta-proving-key.zkey": {
+    "bytes": 226816412,
+    "sha256": "61683ef21b497625aba4db6568406c8b4b78faee01cf3e73a14739ae88b8e3f3"
+   },
+   "receipt.json": {
+    "bytes": 1089,
+    "sha256": "2c7a7a784e623933777195bc681fccf77e2691fc15c55d311aef8c7341e13d90"
+   },
+   "result.json": {
+    "bytes": 2236,
+    "sha256": "ce224db2b7b1cabda47ea353542ec75df0c557ae60534cfe4e37dd2445d5acf7"
+   },
+   "transcript.json": {
+    "bytes": 2445,
+    "sha256": "ed39e97ed94a2a56e6d4319bfed1096e95de70ddc1b568ae198830f7b4e2aecd"
+   },
+   "verification-key.json": {
+    "bytes": 2765,
+    "sha256": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef"
+   }
+  },
+  "transcript": {
+   "betaProvingKeySha256": "sha256:61683ef21b497625aba4db6568406c8b4b78faee01cf3e73a14739ae88b8e3f3",
+   "ceremonyId": "shieldkit-v2-beta-20260731-r3",
+   "contributorCount": 1,
+   "entropyPolicySha256": "sha256:db1a47a3e615380f806e144eee6f852274aa37f291cd2103c8efc59392835098",
+   "implementationSha256": "sha256:fc5fc4a915c0687b67822dbe6b9354379c7266e76a14f6bb339da088399e5095",
+   "initialZkeySha256": "sha256:59baab0b56fde465c14ebe8dffede82ec287da899b0a8661f5cec471baec105e",
+   "profile": {
+    "claims": {
+     "b02Qualified": false,
+     "ceremonyQualified": false,
+     "d01Qualified": false,
+     "d02Qualified": false,
+     "finalKey": false,
+     "participantIndependenceEstablished": false,
+     "production": false,
+     "q01FinalReplayQualified": false,
+     "q02Qualified": false,
+     "q03Qualified": false,
+     "q07Qualified": false,
+     "q08Qualified": false,
+     "q09Qualified": false,
+     "releaseQualified": false
+    },
+    "contributorCount": 1,
+    "id": "beta-single-contributor",
+    "mode": "beta-single-contributor",
+    "schema": "shieldkit/v2-beta-single-contributor-ceremony-profile/v2"
+   },
+   "ptauSha256": "sha256:e7aec1da821adb84ce4e3945419c2faeedd7f183922341f3492fc0ecd38372f4",
+   "r1csSha256": "sha256:077f58f5deee5ae38455af3d6c0a647383b24b455e26156585d5a17b7b5b00ed",
+   "receipts": [
+    {
+     "contributedZkeySha256": "sha256:61683ef21b497625aba4db6568406c8b4b78faee01cf3e73a14739ae88b8e3f3",
+     "entropyCommitment": "sha256:86b59a84c324b4c279015279c19793cf68d84aadb8d442e9753b94f92e1f0a22",
+     "participant": {
+      "id": "toorik",
+      "publicKeySpkiBase64": "MCowBQYDK2VwAyEAz/azvnmRlumXLG3KnZxkErhTzbNDnvEnl+7g9hImcQ0="
+     },
+     "request": {
+      "ceremonyId": "shieldkit-v2-beta-20260731-r3",
+      "entropyPolicySha256": "sha256:db1a47a3e615380f806e144eee6f852274aa37f291cd2103c8efc59392835098",
+      "implementationSha256": "sha256:fc5fc4a915c0687b67822dbe6b9354379c7266e76a14f6bb339da088399e5095",
+      "previousZkeySha256": "sha256:59baab0b56fde465c14ebe8dffede82ec287da899b0a8661f5cec471baec105e",
+      "ptauSha256": "sha256:e7aec1da821adb84ce4e3945419c2faeedd7f183922341f3492fc0ecd38372f4",
+      "r1csSha256": "sha256:077f58f5deee5ae38455af3d6c0a647383b24b455e26156585d5a17b7b5b00ed",
+      "schema": "shieldkit/v2-beta-single-contributor-contribution-request/v2",
+      "sequence": "1"
+     },
+     "schema": "shieldkit/v2-beta-single-contributor-contribution-receipt/v2",
+     "signature": "SbCulDviU1dIYjIO1AR8HNf/8H4ttYP7aAkbf5FJXrWZcAe7ZDiMlyIy4G8alzbsoQiMqTIJ9hris59ViKjIBQ=="
+    }
+   ],
+   "schema": "shieldkit/v2-beta-single-contributor-ceremony-transcript/v2",
+   "status": "beta-single-contributor-unqualified",
+   "transcriptSha256": "sha256:616ed1493775742e6c3496b99d0d86eb7b9c02b40c575450f6303a511513a206"
+  },
+  "finalBetaZkey": {
+   "sha256": "61683ef21b497625aba4db6568406c8b4b78faee01cf3e73a14739ae88b8e3f3"
+  },
+  "verificationKey": {
+   "sha256": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef"
+  }
+ },
+ "note": "Phase-1 ptau circuit-independent (reused); phase-2 zkey circuit-bound (circuit unchanged by verifier swap \u2014 keys reused unchanged). Full ceremony chain incl. transcript + receipt in the beta runtime dir; hashes pinned here."
+}

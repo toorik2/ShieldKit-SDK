@@ -1,0 +1,144 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-settlement-formats/v1",
+ "generated": "2026-08-06T22:25:56",
+ "source": "Live PF10 deposit on chipnet (txid a2004161...); pool covenants from its source UTXOs",
+ "formats": {
+  "packetInput": {
+   "unlock": "exactly 555 B = 4d 28 02 + SDA2[552] (terminal guard)",
+   "lock": "OP_1 (51) bare carrier \u2014 binding enforced by terminal"
+  },
+  "bindingRedeemPf10": {
+   "bytes": 2198,
+   "note": "PF10 binding input redeem; NOT used in pf6 (terminal guard replaces it)"
+  },
+  "stateUnlock": {
+   "bytes": 2677,
+   "head": "4d720a",
+   "note": "PUSHDATA2 + 2674 B SKS2 payload (product codec, unchanged)"
+  },
+  "feeUnlock": {
+   "bytes": 100,
+   "note": "P2PKH signature (hot wallet)"
+  },
+  "stateCovenantLock": {
+   "bytes": 88,
+   "sample": "74519dc0...",
+   "note": "product state covenant (pool-specific commitment)"
+  },
+  "verifierLocks": {
+   "bytes": 35,
+   "note": "P2SH32 covenant locks, pool-fixed"
+  }
+ },
+ "poolCovenants": {
+  "pool": [
+   {
+    "input": 0,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 1,
+    "lockLen": 35,
+    "lock": "aa208706bfe90a80caf7b6a225518523801b0171574af8e7fa2dd7c70de33e6e897a87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 1,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 2,
+    "lockLen": 35,
+    "lock": "aa208706bfe90a80caf7b6a225518523801b0171574af8e7fa2dd7c70de33e6e897a87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 2,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 3,
+    "lockLen": 35,
+    "lock": "aa208706bfe90a80caf7b6a225518523801b0171574af8e7fa2dd7c70de33e6e897a87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 3,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 4,
+    "lockLen": 35,
+    "lock": "aa208706bfe90a80caf7b6a225518523801b0171574af8e7fa2dd7c70de33e6e897a87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 4,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 5,
+    "lockLen": 35,
+    "lock": "aa208706bfe90a80caf7b6a225518523801b0171574af8e7fa2dd7c70de33e6e897a87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 5,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 6,
+    "lockLen": 35,
+    "lock": "aa206cc24a6b1dc736123b6195b84cd2998cc68b6a09bccde509320983d461ac9a3887",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 6,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 7,
+    "lockLen": 35,
+    "lock": "aa20260ae494d528d87210d57e7bfbd8e8628bfbada6f60a0593273cc15923a1d18e87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 7,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 8,
+    "lockLen": 35,
+    "lock": "aa203392e676b88791efbb312f6e1efefa36a170c992b5b6f8c911e0409c8a2cc52287",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 8,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 9,
+    "lockLen": 35,
+    "lock": "aa207ca0bb1be77a9ebefc99c23c34138edd663f96cbc6df8b2fbdcef4b85655936887",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 9,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 10,
+    "lockLen": 35,
+    "lock": "aa20bf598e411a1a1b979756c02dbb7b174148f0a991b545a920e7620deb16d3dd7487",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 10,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 11,
+    "lockLen": 35,
+    "lock": "aa200260babd1bdbe2bc006bac3d9e6601460b4a10d9a7d4dd3634cbb6f48ae7569b87",
+    "sats": 1.2e-05
+   },
+   {
+    "input": 11,
+    "txid": "947172d7338cc265ad01632efd01eb49e78783b5fce653267118ea83277f27d3",
+    "vout": 0,
+    "lockLen": 88,
+    "lock": "74519dc05b9dc100cd885ac7a8205e58fa7c1ebc0164d626b6543f47f1e346fb82d963a60c479e6564429ee8f94c885bcaa820bfe8d66e87c5f7f2acfee7cea26d304f65770ccbef7edef87bdb3b9fb4d4f57988007d898a",
+    "sats": 2.5e-05
+   },
+   {
+    "input": 12,
+    "txid": "86d68f0fe983654549afdb32eae58ee22b0cf65d9e9b9a9018a2f06387e1c659",
+    "vout": 1,
+    "lockLen": 25,
+    "lock": "76a914233c0f9b7593aecb09dca11931965a16b90548c288ac",
+    "sats": 0.10100546
+   }
+  ]
+ },
+ "hashes": {
+  "pf10-deposit.hex": "cf65f1bfca003e732cf7cf69717e64ac4fbf3d042e62fda71bc547f1604ef9aa"
+ }
+}

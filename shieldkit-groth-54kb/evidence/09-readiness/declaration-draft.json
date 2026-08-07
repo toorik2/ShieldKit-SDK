@@ -1,0 +1,20 @@
+{
+ "schema": "shieldkit-54kb/readiness-declaration/v1",
+ "generated": "2026-08-07T02:37:39",
+ "releaseId": "shieldkit-54kb-pf6-20260807-r1",
+ "status": "DRAFT-PENDING-GATES",
+ "gates": {
+  "WP-0 containment": "DONE",
+  "WP-1 pin reproduction": "DONE",
+  "WP-2 design freeze": "DONE",
+  "WP-3 lifecycle": "DONE (three mined/live chains incl. recovery)",
+  "WP-4 B-02": "DONE (libauth+BCHN+mined+LeanBCH 27/27)",
+  "WP-5 clean hosts": "DONE (2 hosts; 32-note playground; soak revised out)",
+  "WP-6 formal": "DONE (9 diff gates; forge 0; dual-VM oracle)",
+  "WP-7 red team": "IN PROGRESS (child)",
+  "WP-8 release": "DONE (pin + bundle + scans)",
+  "WP-9 declaration": "this file"
+ },
+ "ceremony": "reuse single-contributor (ceremonyQualified=false) per revised goal; chain pinned in evidence/08-release/ceremony-reuse.json",
+ "audits": "4 scopes pending red-team closure (protocol/implementation/formal/ops)"
+}

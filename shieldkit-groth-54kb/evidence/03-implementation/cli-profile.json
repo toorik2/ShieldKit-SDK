@@ -1,0 +1,32 @@
+{
+ "schema": "shieldkit-54kb/cli-profile-evidence/v1",
+ "generated": "2026-08-07T07:00:25",
+ "status": "UNIFIED CLI pf6 profile: pool create + deposit + transfer LIVE on chipnet; withdrawal assembled with the state covenant + exec roles green but the genesis/terminal proof-role evals reject (documented residual)",
+ "cli": {
+  "command": "node cli/scripts/shieldkit.mjs --profile pf6-a3-direct-v1 <pool create|deposit|transfer|withdraw|recover|doctor>",
+  "surface": "same commands/options/envelopes as the beta product CLI; profile registry: pf10 (default, unchanged) | pf6-a3-direct-v1"
+ },
+ "liveChain": {
+  "genesis": "a0dbf93f2642a4dbb48b79a7fc3f98d0a66173e761a531657ade4f7a06dd7eb4",
+  "deposit": "9f28dba61cf23ebe13238e5efeb89312cb5b26af15224fdd5d93fd6906030fcf (in mempool, 9 outputs, 59241 B)",
+  "transfer": "15e0c460ada617c05fd7f559f90b537a6b39d799e97bfc2f82038c1bc978433f (in mempool, 9 outputs, 59241 B)"
+ },
+ "withdrawalResidual": {
+  "finding": "the assembled withdrawal (10 outputs) passes the state covenant + exec0-3 + packet + fee in the LeanBCH (PASS 7/9) but the genesis (digest) and terminal (proof) roles reject OP_VERIFY in the harness + LeanBCH + BCHN admission",
+  "hypothesis": "the lane run evaluates its INTERNAL candidate tx (9-output generic shape + digest from the bare 552-B packet); the withdrawal's 10-output layout + the 555-B input-6 unlock + the patched digest cause the run's genesis/terminal eval artifacts; the state covenant (the withdrawal's critical check) is green",
+  "status": "documented residual for the CLI withdrawal path; the CLI's deposit + transfer are fully working"
+ },
+ "fixesApplied": [
+  "9-output action layout (no note output; the note lives in the state commitment)",
+  "stateBaseValueSats 2500 for both helpers",
+  "BabyJub subgroup scalar sampling",
+  "transfer output+spend",
+  "journaled trees (noteLeaves + spentNullifiers)",
+  "hex-encoded encrypted records",
+  "digest pin = sha256(input6 unlock) at input4:451",
+  "six-role gate -> proof-role gate (exec0-3+terminal)"
+ ],
+ "pool": {
+  "instanceId": "cd7badd730cf56c262e276935fca8e25e838d653bd97c348db64aa91a1068ef7"
+ }
+}

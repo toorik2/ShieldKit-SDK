@@ -1,0 +1,37 @@
+{
+ "schema": "shieldkit-54kb/deployment/pf6-pool/v1",
+ "generated": "2026-08-06T22:51:36",
+ "status": "pool funding + genesis broadcast (zero-conf)",
+ "instanceId": "b35e2532b1e5637423131649f67cd5eb5c7ce574900ef4dcf16bcd6af64c0ad6",
+ "profileId": "0342b922d7ea4a4246f1d127fb5f34da2242435c5dd14cfad8cff40ce261e1d2",
+ "source": {
+  "txid": "b35e2532b1e5637423131649f67cd5eb5c7ce574900ef4dcf16bcd6af64c0ad6",
+  "bytes": 219
+ },
+ "genesis": {
+  "txid": "dc6634d89ca251ceb0517c094f0b4594c18093488b3dc465394f47cf8d61b8b3",
+  "bytes": 719
+ },
+ "poolOutputs": {
+  "state": {
+   "index": 0,
+   "valueSats": 2500,
+   "lock": "88B state covenant"
+  },
+  "verifier": {
+   "indices": "1-6",
+   "valueSats": 1200,
+   "locks": "6 pf6 P2SH32"
+  },
+  "carrier": {
+   "index": 7,
+   "valueSats": 1200,
+   "lock": "OP_1"
+  },
+  "change": {
+   "index": 8,
+   "lock": "hot P2PKH"
+  }
+ },
+ "next": "deposit: 9-input tx (6 pf6 unlocks + packet + state + fee) spending genesis outputs 0-7"
+}

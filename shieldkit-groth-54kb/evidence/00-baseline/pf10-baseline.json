@@ -1,0 +1,97 @@
+{
+ "schema": "shieldkit-54kb/baseline-pf10/v1",
+ "generated": "2026-08-06T20:52:45",
+ "source": "shieldkit-groth docs + code (read-only, verified 2026-08-06)",
+ "currentProductVerifier": {
+  "topologyId": "pf10-fused-q-genesis-v1",
+  "roles": [
+   "exec0",
+   "exec1",
+   "exec2",
+   "exec3",
+   "exec4",
+   "msm5",
+   "msm6",
+   "msm7",
+   "fused-q-genesis8",
+   "terminal9"
+  ],
+  "roleCount": 10,
+  "inputs": 13,
+  "layout": {
+   "bindingInputIndex": 10,
+   "stateInputIndex": 11,
+   "fundingInputIndex": 12,
+   "depositTransferOutputs": 13,
+   "withdrawalOutputs": 14
+  },
+  "verifierUnlockBytes": [
+   9411,
+   8451,
+   8643,
+   8642,
+   9602,
+   9024,
+   9009,
+   9017,
+   9178,
+   10000
+  ],
+  "verifierUnlockTotal": 90977,
+  "stateUnlockBytes": 2677,
+  "maxUnlockBytes": 10000,
+  "serializedTxBytes": {
+   "deposit": 97844,
+   "transfer": 97844,
+   "withdrawal": 97878
+  },
+  "unlockOrderWithdrawal": [
+   9411,
+   8451,
+   8643,
+   8642,
+   9602,
+   9024,
+   9009,
+   9017,
+   9170,
+   10000,
+   2753,
+   2677,
+   100
+  ],
+  "qualificationClass": "candidate-local-libauth-hard-limit-pass",
+  "status": "provisional local pass, release qualification OPEN"
+ },
+ "targetVerifier": {
+  "candidateId": "bn254-onetx-pf6-a3-r1",
+  "scriptBytes": 54671,
+  "score": 54949,
+  "inputCount": 6,
+  "transactionCount": 1,
+  "roles": [
+   "genesis",
+   "exec0",
+   "exec1",
+   "exec2",
+   "exec3",
+   "terminal"
+  ],
+  "expectedActionsLayout": {
+   "verifierInputs": 6,
+   "bindingInputIndex": 6,
+   "stateInputIndex": 7,
+   "fundingInputIndex": 8,
+   "totalInputs": 9,
+   "depositTransferOutputs": 9,
+   "withdrawalOutputs": 10
+  },
+  "status": "research (formally verified layers 1-5 in Groth16-Formal; artifact not yet materialized)"
+ },
+ "hardCeilings": {
+  "serializedTransactionBytes": 100000,
+  "everyInputUnlockingBytecodeBytes": 10000,
+  "everyVmResourcePercent": 100
+ },
+ "notes": "Baseline for A/B comparison. PF10 numbers from VERIFIER_FOUNDATION_DECISION.md table + pf10-action-witness.mjs constants + topology.mjs materialize(). Target layout mirrors materialize() rule: binding=carrierCount, state=carrierCount+1, funding=carrierCount+2, outputs=carrierCount+3/+4."
+}

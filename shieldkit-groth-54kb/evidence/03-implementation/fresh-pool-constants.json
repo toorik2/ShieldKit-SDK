@@ -1,0 +1,28 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-fresh-pool-constants/v1",
+ "generated": "2026-08-06T22:44:45",
+ "status": "Fresh-pool deterministic construction validated against the product's own qualification deposit",
+ "profileId": "0342b922d7ea4a4246f1d127fb5f34da2242435c5dd14cfad8cff40ce261e1d",
+ "profileCore": "src/pf6-profile-core.json (PF10 core with pf6 baseVerifierArtifacts; circuit/VK/trees unchanged)",
+ "initialSks2": {
+  "bytes": 128,
+  "magic": "SKS2",
+  "roundTrip": "verified",
+  "reserveSats": "0",
+  "noteCount": "0",
+  "actionSequence": "0"
+ },
+ "treeValidation": {
+  "emptyAppendPathMatchesVendoredDepositSiblings": true,
+  "matchCount": "32/32"
+ },
+ "noteTreeRoot": "12378948075505220989...",
+ "nullifierTreeRoot": "12664281133148472406...",
+ "constantsFile": "src/fresh-pool-constants.json",
+ "insight": "The vendored qualification deposit (instance 3e52ade6, never deployed) was the FIRST deposit on a fresh pool \u2014 its noteAppendSiblings ARE the empty-tree defaults. The pf6 first deposit uses the identical deterministic tree data.",
+ "remainingForDeposit": [
+  "derive an address from a fresh seed (constructDirectV2Output)",
+  "encodeActionPacket(pf6 instance + contextHash)",
+  "applyDirectV2Transition -> buildDirectV2CircuitInput -> prove -> pf6 build -> assemble"
+ ]
+}

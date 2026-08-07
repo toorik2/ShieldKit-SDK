@@ -1,0 +1,10 @@
+pragma cashscript ^0.13.0;
+import "./lib/Fp12.cash";
+contract H() {
+  function spend(int a0,int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9,int a10,int a11) {
+    (int c0,int c1,int c2,int c3,int c4,int c5,int c6,int c7,int c8,int c9,int c10,int c11) =
+      fp12Mul(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11, a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11);
+    require(c0==1);require(c1==0);require(c2==0);require(c3==0);require(c4==0);require(c5==0);
+    require(c6==0);require(c7==0);require(c8==0);require(c9==0);require(c10==0);require(c11==0);
+  }
+}

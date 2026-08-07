@@ -1,0 +1,35 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-covenant-port/v1",
+ "generated": "2026-08-06T22:37:39",
+ "status": "pf6 state covenant machinery ported and validated",
+ "port": {
+  "modules": [
+   "src/product-port/structural-covenants.mjs (patched: pf6 topology routing + OP_1 binding lock)",
+   "src/product-port/binding-unlock.mjs (patched: ACTION_PACKET_BYTES inlined, libauth path)",
+   "src/product-port/dust-policy.mjs (patched: libauth path)",
+   "src/topology-pf6.mjs (added bindingOutputIndex/withdrawalOutputIndex/changeOutputIndex)"
+  ],
+  "patches": [
+   "verifierTopology routes pf6-a3-direct-v1 to the pf6 resolver",
+   "exactP2sh32Lock accepts the OP_1 carrier (design 01 v2)"
+  ]
+ },
+ "validation": {
+  "provisionalStateLockBytes": 88,
+  "finalStateLockBytes": 88,
+  "pf10LiveStateLockBytes": 88,
+  "structureMatch": "prefix 74519dc0... identical to the live PF10 state covenant",
+  "helperBytes": 2198,
+  "stateUnlockBytes": 2201,
+  "rollingBaseSats": 2500
+ },
+ "instanceIdRule": "instanceId = reversed funding-tx txid (product genesis.mjs); stateNftCategory = instanceId",
+ "deploymentFlow": [
+  "1. pick hot-wallet UTXO; build source (funding) tx -> txid -> instanceId",
+  "2. build state covenant: buildDirectV2StateHelper(category=instanceId, pf6 topology) -> 88B lock; rolling base 2500",
+  "3. build genesis (pool-create) tx: 1 in (source out0) -> out0 state covenant(88B) + out1-6 pf6 verifier locks + out7 OP_1 carrier + change",
+  "4. broadcast source + genesis (zero-conf chain)",
+  "5. deposit: 9-input tx (6 pf6 unlocks + packet + state + fee) spending genesis outputs -> testmempoolaccept -> broadcast",
+  "6. transfer / withdrawal: same pipeline"
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp6-diff-gates/v1",
+ "generated": "2026-08-07T02:15:25",
+ "status": "ALL NINE Groth16-Formal diff_* gates GREEN on the pinned pf6 material (re-run this session via the project's own lake env lean interface)",
+ "gates": [
+  {
+   "gate": "DiffBinding",
+   "result": "DIFF_BINDING_OK",
+   "checks": "candidateId=bn254-onetx-pf6-a3-r1, inputCount=6, topology=6, fixedVk, publicInputCount=2, roles=6, presence"
+  },
+  {
+   "gate": "DiffPacking",
+   "result": "DIFF_PACKING_OK",
+   "checks": "topologyOk fail-closed, dense [1,64) coverage, TxModel wellFormed pin"
+  },
+  {
+   "gate": "DiffForge",
+   "result": "DIFF_FORGE_OK forge_count=48 reject=48 accept=0 honest=3",
+   "checks": "forge accepts 0"
+  },
+  {
+   "gate": "DiffHost",
+   "result": "DIFF_HOST_OK dual_path_roles diverge=0 lean=6 py=6 full_forge_accept=0",
+   "checks": "dual-VM role oracle 6/6"
+  },
+  {
+   "gate": "DiffRefine",
+   "result": "DIFF_REFINE_OK roles=6 lean_refine=6 forge_window_reject=1"
+  },
+  {
+   "gate": "DiffVerify",
+   "result": "DIFF_VERIFY_OK honest=3 forge_reject=48 forge_count=48"
+  },
+  {
+   "gate": "DiffCore",
+   "result": "DIFF_CORE_OK"
+  },
+  {
+   "gate": "DiffField",
+   "result": "DIFF_FIELD_OK checked=717"
+  },
+  {
+   "gate": "DiffCurve",
+   "result": "DIFF_CURVE_OK checked=261"
+  },
+  {
+   "gate": "DiffPairing",
+   "result": "DIFF_PAIRING_OK checked=14"
+  }
+ ],
+ "command": "cd /home/toorik/Projects/ZK-Proofs/Groth16-Formal && PATH=$HOME/.elan/bin:$PATH lake env lean --run harness/Diff{*}.lean (project's own interface; no source writes)",
+ "dualVmFullRedeem": "LeanBCH full-redeem PASS 27/27 on the mined pool-11 chain (evidence: 04-qualification/leanbch-full-redeem-mined.log + b02-final.json) \u2014 the formal tree's documented 'residual-not-run' is now RUN and GREEN"
+}

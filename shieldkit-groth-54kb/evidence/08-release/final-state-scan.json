@@ -1,0 +1,278 @@
+{
+ "schema": "shieldkit-54kb/evidence/08-release/final-state-scan/v1",
+ "generated": "2026-08-06T23:26:19.701896Z",
+ "command": [
+  "node scripts/check-no-seven-carrier-54kb.mjs",
+  "node scripts/check-source-policy-54kb.mjs",
+  "node scripts/verify-pf6-release-pin.mjs"
+ ],
+ "cwd": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+ "sha256": "e237ab4481c43305792efc05d9e20a3ac82c0e90607322574728f6dbfc799314",
+ "result": {
+  "noSevenCarrier": {
+   "ok": true,
+   "schema": "shieldkit-54kb/release-scan/no-seven-carrier/v1",
+   "root": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+   "label": "shieldkit-groth-54kb",
+   "filesScanned": 159,
+   "binarySkipped": 5,
+   "provenanceLinesAllowed": 24,
+   "frozenSchemaLinesAllowed": 2,
+   "frozenSchemaAllowlist": [
+    "shield.cash/snarkjs-groth16-pf7-adapter/v1"
+   ],
+   "provenanceMarkers": [
+    "verifier-pf7-sub62",
+    "pf7-sub62",
+    "pf7-54326",
+    "densFuel-DROP",
+    "PF7/densFuel/pairfold-7",
+    "PF7 shield packet digest"
+   ]
+  },
+  "sourcePolicy": {
+   "ok": true,
+   "schema": "shieldkit-54kb/release-scan/source-policy/v1",
+   "root": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+   "syntaxChecked": 31,
+   "policyChecked": 30,
+   "allowedRawSenders": [],
+   "allowedNetworkModules": [],
+   "lockfile": "none (no package-local lockfiles)",
+   "nonBlockingTelemetry": [
+    {
+     "file": "scripts/emit-external-gate-boundaries-54kb.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [],
+     "childProcessCalls": [
+      "spawnSync("
+     ]
+    },
+    {
+     "file": "scripts/pack-pf6-offline-bundle.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [],
+     "childProcessCalls": [
+      "spawnSync("
+     ]
+    },
+    {
+     "file": "scripts/verify-pf6-release-pin.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [],
+     "childProcessCalls": [
+      "spawnSync("
+     ]
+    },
+    {
+     "file": "src/deploy-pf6-genesis.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-source-txid.json",
+      "/tmp/pf6-genesis.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/deploy-pf6.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-funding-utxo.json",
+      "/tmp/pf6-source-txid.json",
+      "/tmp/pf6-instance.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/deposit-pf6-assemble.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-poststate.json",
+      "/tmp/pf6-deposit-tx.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/deposit-pf6-build.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-poststate.json",
+      "/tmp/pf6-deposit-input.json",
+      "/tmp/pf6-deposit-adapter.json",
+      "/tmp/pf6-deposit-packet.bin",
+      "/tmp/pf6-deposit-run"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/deposit-pf6.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-poststate.json",
+      "/tmp/pf6-state-tokenprefix.bin",
+      "/tmp/pf6-deposit-packet.bin",
+      "/tmp/pf6-deposit-input.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/leanbch-vmb-live.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-",
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-fee-source.hex",
+      "/tmp/pf6-vmb-live.txt"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/leanbch-vmb-mined.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-mined-",
+      "/tmp/pf6-mined-fee-",
+      "/tmp/pf6-vmb-mined.txt"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/playground-32.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-playground-32.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/product-port/binding-unlock.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [
+      "from 'file:///home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/build/node_modules/@bitauth/libauth/build/index.js'"
+     ],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/product-port/dust-policy.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [
+      "from 'file:///home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/build/node_modules/@bitauth/libauth/build/index.js'"
+     ],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/prove-pf6.mjs",
+     "tmpScratchPaths": [],
+     "absoluteFileImports": [],
+     "childProcessCalls": [
+      "spawnSync("
+     ]
+    },
+    {
+     "file": "src/transfer-pf6-assemble.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-deposit-tx.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-transfer-meta.json",
+      "/tmp/pf6-transfer-tx.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/transfer-pf6-build.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-deposit-tx.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-transfer-meta.json",
+      "/tmp/pf6-transfer-input.json",
+      "/tmp/pf6-transfer-adapter.json",
+      "/tmp/pf6-transfer-packet.bin",
+      "/tmp/pf6-transfer-run"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/transfer-pf6.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-deposit-tx.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-deposit-packet.bin",
+      "/tmp/pf6-transfer-packet.bin",
+      "/tmp/pf6-transfer-input.json",
+      "/tmp/pf6-transfer-meta.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/withdrawal-pf6-assemble.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-transfer-tx.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-withdrawal-meta.json",
+      "/tmp/pf6-withdrawal-tx.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/withdrawal-pf6-build.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-withdrawal-input.json",
+      "/tmp/pf6-withdrawal-adapter.json",
+      "/tmp/pf6-withdrawal-packet.bin",
+      "/tmp/pf6-withdrawal-run"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    },
+    {
+     "file": "src/withdrawal-pf6.mjs",
+     "tmpScratchPaths": [
+      "/tmp/pf6-genesis.json",
+      "/tmp/pf6-deposit-tx.json",
+      "/tmp/pf6-transfer-tx.json",
+      "/tmp/pf6-fee-utxo.json",
+      "/tmp/pf6-deposit-packet.bin",
+      "/tmp/pf6-withdrawal-packet.bin",
+      "/tmp/pf6-withdrawal-input.json",
+      "/tmp/pf6-withdrawal-meta.json"
+     ],
+     "absoluteFileImports": [],
+     "childProcessCalls": []
+    }
+   ]
+  },
+  "releasePinVerify": {
+   "ok": true,
+   "schema": "shieldkit-54kb/evidence/release-pin-verify/v1",
+   "releaseId": "shieldkit-54kb-pf6-20260807-r1",
+   "releaseManifestSha256": "9b3d3d2641c6d4bed80719f04ddbf4f9806c72aa3bf93d564ba441a47d90b59a",
+   "bundleTar": "pins/shieldkit-54kb-pf6-20260807-r1.tar.gz",
+   "bundleBytes": 22451933,
+   "bundleSha256": "082654f81657544cf0425e010e2bf8bdfa4516b221c0e1e4e79ffb325ce1d5d5",
+   "artifactCount": 213,
+   "totalUnpackedBytes": 62502566,
+   "scan": {
+    "filesScanned": 153,
+    "binarySkipped": 4,
+    "provenanceLinesAllowed": 18,
+    "frozenSchemaLinesAllowed": 1
+   }
+  }
+ }
+}

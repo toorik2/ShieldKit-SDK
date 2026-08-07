@@ -1,0 +1,14 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-live-transfer/v1",
+ "generated": "2026-08-07T00:17:55",
+ "status": "PF6 9-INPUT TRANSFER ACCEPTED BY BCHN + BROADCAST",
+ "transferTxid": "242c669ca3f8d25ccdd7a4e9bde4127811215100acd62e3b7744f60f21aeeb08",
+ "chain": {
+  "source": "96e25629...",
+  "genesis": "c0188394...",
+  "deposit": "a9f3ee0a...",
+  "transfer": "242c669ca3f8d25ccdd7a4e9bde4127811215100acd62e3b7744f60f21aeeb08"
+ },
+ "txBytes": 59241,
+ "layout": "outputs mirror the pool: verifier@0-5, carrier@6, state@7, change@8"
+}

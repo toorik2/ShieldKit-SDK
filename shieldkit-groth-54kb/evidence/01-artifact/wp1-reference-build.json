@@ -1,0 +1,74 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp1-reference-build/v1",
+ "generated": "2026-08-06T21:32:05",
+ "status": "PIN REPRODUCED \u2014 judge green, exact pin numbers",
+ "candidateId": "bn254-onetx-pf6-a3-r1",
+ "pin": {
+  "scriptBytes": 54671,
+  "txOverheadBytes": 278,
+  "score": 54949,
+  "inputCount": 6,
+  "transactionCount": 1
+ },
+ "judge": {
+  "scriptBytes": 54671,
+  "txOverheadBytes": 278,
+  "score": 54949,
+  "inputCount": 6,
+  "transactionCount": 1,
+  "totalOperationCost": 39692142,
+  "maxInputOperationCost": 6933105,
+  "validPassed": true,
+  "invalidRejected": 6,
+  "invalidTotal": 6,
+  "proofsPassed": 4,
+  "proofsTested": 4,
+  "runtimeGeneral": true,
+  "worstCaseAccepted": true,
+  "bchCompatible": true,
+  "fitsStandardBudget": true
+ },
+ "judgeVerdict": "green",
+ "buildConfig": {
+  "runId": "pf6-a3-r1-recon-2",
+  "env": {
+   "C7_UNLOCK_LENGTH_STABILIZE": "0"
+  },
+  "codeSource": "verifier-pf7-sub62 worktree @ 507d08f6b0134a68802397bf2d35313c0a34d80c (research/bn254-unlock-length-stabilize), synced into vendor/verifier-workspace",
+  "candidate": "vendor/pf6-lane/candidates/bn254-onetx-pf6-a3-r1.json (hash 191fe41461e43ed9fcd174ffb93ba7e748ab7483c8987dadf01b4368030762df, matches Groth16-Formal SHA256SUMS)",
+  "toolchain": {
+   "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+   "libauth": "3.1.0-next.8",
+   "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+   "bch": "BCH-2026",
+   "node": "22.23.1"
+  },
+  "fixture": "harness/src/checkpoints/dense-proof-candidate-25.json",
+  "offsubgroupFixture": "lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json"
+ },
+ "gates": {
+  "realGate": "gateOk=true, all 6 inputs accept (exec0 9853, exec1 9848, exec2 9877, exec3 8893, genesis 7452, terminal 8538 unlock bytes)",
+  "offsubgroupReject": "gateOk=false, terminal OP_VERIFY reject (expected reject)",
+  "inputRedteam": "topology 6, steps + invalid vectors present",
+  "judgeFast": "verdict green; validPassed 4/4; invalidRejected 6/6; runtimeGeneral; worstCaseAccepted; bchCompatible; fitsStandardBudget; totalOperationCost 39692142; maxInputOperationCost 6933105 (<=100% ceiling)",
+  "dualVmLibauth": "real-gate libauth VM accept (this build); LeanBCH atom-level oracle green in Groth16-Formal evidence/dual-vm-role-oracle.json (allHonestAccept=true); full-redeem LeanBCH residual scheduled in WP-6"
+ },
+ "reconciliation": {
+  "divergence": "stabilized default build measured 55699 wire / 55909 score (genesis 7600, terminal 9350 padded)",
+  "rootCause": "commit 507d08f (2026-07-25) 'densFuel-DROP unlock length stabilize for SCCT pins' made C7_UNLOCK_LENGTH_STABILIZE default ON after the pin was measured; pin predates stabilization",
+  "resolution": "reference build runs with C7_UNLOCK_LENGTH_STABILIZE=0 (natural lengths) \u2014 judge reports scriptBytes 54671 / score 54949 / 6 inputs / 1 tx, exact pin match",
+  "note": "For the ShieldKit product build (WP-2/WP-3), stabilization should be ON (genesis 7600/terminal 9350 fixed targets, 55699 wire) to keep lock identity stable across proofs; the product profile will carry its own measured numbers. The 54671 reference is the pin-matching measurement."
+ },
+ "artifacts": {
+  "bundle": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/bundle.json",
+  "judge": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/judge.json",
+  "result": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/build/result.json",
+  "txHex": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/build/c7_candidate_tx.hex",
+  "copies": "evidence/01-artifact/reference/"
+ },
+ "hashes": {
+  "bundle.json": "49d01d58b117979388e5c63bec8a95027129c04875a70b065df34490a6bafabd",
+  "c7_candidate_tx.hex": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+  "result.json": "b7a39a531807502746ba40bb98cf2346851d00e1b11319e358e83ecc0c0664e7"
+ }
+}

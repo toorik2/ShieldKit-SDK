@@ -1,0 +1,37 @@
+{
+  "schema": "verifier.cash/lane/v1",
+  "id": "bls12-381-singleton",
+  "title": "BLS12-381 Groth16 singleton size crown",
+  "frontierCandidate": "lanes/bls12-381-singleton/candidates/bls12-381-singleton-genpow-1-public-gp1.json",
+  "writeScope": [
+    "lanes/bls12-381-singleton/**",
+    ".vc/runs/<assigned-run-id>/**"
+  ],
+  "sharedReadOnly": [
+    "packages/**",
+    "harness/**",
+    "tools/singleton-artifact/**",
+    "catalogue/**",
+    "artifacts/**"
+  ],
+  "gates": {
+    "fast": [
+      "manifest",
+      "hashes",
+      "public-score-replay",
+      "non-deployable-classification"
+    ],
+    "qualification": [
+      "fast",
+      "loosened-vm-valid-invalid",
+      "distinct-proof-replay",
+      "deterministic-source-rebuild"
+    ],
+    "promotion": [
+      "qualification",
+      "merged-public-bench",
+      "lineage",
+      "limitations-disclosed"
+    ]
+  }
+}

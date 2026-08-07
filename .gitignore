@@ -55,3 +55,12 @@ shieldkit-fri-stark/
 
 # Scalability bench runtime outputs (never commit)
 shieldkit-groth/bench/results/
+
+# ShieldKit-54KB: heavy/regenerable vendor + witness intermediates (sha-pinned in vendor/pins + evidence manifests)
+shieldkit-groth-54kb/vendor/product-current/
+shieldkit-groth-54kb/vendor/verifier-workspace/.vc/
+shieldkit-groth-54kb/vendor/verifier-workspace/build/
+shieldkit-groth-54kb/vendor/verifier-workspace/vendor/
+shieldkit-groth-54kb/evidence/**/witness.wtns
+shieldkit-groth-54kb/evidence/**/prove/witness.wtns
+shieldkit-groth-54kb/pins/*.tar.gz

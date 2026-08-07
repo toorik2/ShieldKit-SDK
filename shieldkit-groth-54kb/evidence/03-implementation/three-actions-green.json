@@ -1,0 +1,61 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-three-actions/v1",
+ "generated": "2026-08-06T22:04:58",
+ "status": "3/3 ACTIONS real-gate green (deposit, transfer, withdrawal) with the pf6 9-input verifier",
+ "metrics": {
+  "deposit": {
+   "wire": 56379,
+   "score": 56664,
+   "sigmaUnlock": 55976,
+   "gateOk": true,
+   "inputCount": 9,
+   "maxOpCost": 7045619
+  },
+  "transfer": {
+   "wire": 56379,
+   "score": 56664,
+   "sigmaUnlock": 55976,
+   "gateOk": true,
+   "inputCount": 9,
+   "maxOpCost": 7045796
+  },
+  "withdrawal": {
+   "wire": 56379,
+   "score": 56664,
+   "sigmaUnlock": 55976,
+   "gateOk": true,
+   "inputCount": 9,
+   "maxOpCost": 7093421
+  }
+ },
+ "verifierRoles": {
+  "exec0": 9853,
+  "exec1": 9848,
+  "exec2": 9877,
+  "exec3": 8893,
+  "genesis": 7600,
+  "terminal": 9350
+ },
+ "verifierUnlockTotal": 55421,
+ "sigmaUnlockWithPacket": 55976,
+ "lockIdentity": "pool-fixed \u2014 verifier locks identical across all three actions",
+ "replay": "evidence/03-implementation/replay-actions (ALL 3 ACTIONS: 6/6 VERIFIER ROLES VM-ACCEPT, full 9-input context, libauth 3.1.0-next.8)",
+ "material": "src/verifier-material/pf6-action-material.json",
+ "candidates": {
+  "deposit": "vendor/pf6-lane/candidates/bn254-onetx-pf6-a3-shieldkit-deposit-r1.json",
+  "transfer": "vendor/pf6-lane/candidates/bn254-onetx-pf6-a3-shieldkit-transfer-r1.json",
+  "withdrawal": "vendor/pf6-lane/candidates/bn254-onetx-pf6-a3-shieldkit-withdrawal-r1.json"
+ },
+ "packetSha256": {
+  "deposit": "882edc10...",
+  "transfer": "0e7a7eb3...",
+  "withdrawal": "baf29884..."
+ },
+ "vsPF10": {
+  "pf10Unlocks": 90977,
+  "pf6Unlocks": 55421,
+  "reductionPct": 39.1,
+  "pf10Inputs": 13,
+  "pf6Inputs": 9
+ }
+}

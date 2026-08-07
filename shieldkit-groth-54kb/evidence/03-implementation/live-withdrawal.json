@@ -1,0 +1,15 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-live-withdrawal/v1",
+ "generated": "2026-08-07T00:22:37",
+ "status": "PF6 9-INPUT WITHDRAWAL ACCEPTED BY BCHN + BROADCAST \u2014 FULL LIFECYCLE GREEN",
+ "withdrawalTxid": "fff3e5c313146cfcaa56b9cb228dd86368ac5b20f66386dc4c2c169409b16213",
+ "chain": {
+  "source": "96e25629...",
+  "genesis": "c0188394...",
+  "deposit": "a9f3ee0a...",
+  "transfer": "242c669c...",
+  "withdrawal": "fff3e5c313146cfcaa56b9cb228dd86368ac5b20f66386dc4c2c169409b16213"
+ },
+ "txBytes": 59275,
+ "layout": "verifier@0-5, carrier@6, state@7, withdrawal@8, change@9"
+}

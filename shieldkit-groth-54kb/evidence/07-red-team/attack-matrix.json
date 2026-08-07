@@ -1,0 +1,68 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp7-attack-matrix/v1",
+ "generated": "2026-08-07T03:13:09",
+ "status": "RED-TEAM ATTACK MATRIX EXECUTED \u2014 all attacks rejected or characterized; 1 documented finding (RT-2026-0807-01, non-blocking for the pinned lifecycle)",
+ "attacks": [
+  {
+   "attack": "FORGERY (proof-limb mutations)",
+   "method": "every-byte + sampled XOR-0xff flips in each of the 6 roles (exec0 every-byte 0/9853; roles 1-5 sampled 0/50 each outside the densDrop windows)",
+   "result": "REJECTED (0 accepts on the authenticated surface)",
+   "evidence": "04-qualification/b02-core.json + tamper-perrole"
+  },
+  {
+   "attack": "STATE CONFUSION (state lock swap / commitment mutation)",
+   "method": "state input lock swapped for a verifier lock; state output commitment mutated; state value dusted",
+   "result": "REJECTED at the consensus level (the state covenant pins lock/commitment/value); 6-role gate accepts are expected (the verifiers don't check the state covenant's surface)",
+   "evidence": "attack-extra.mts + b02-consensus-tamper.json"
+  },
+  {
+   "attack": "CARRIER SUBSTITUTION (packet/lock substitution)",
+   "method": "carrier lock swapped for a verifier lock; cross-action packet substitution (deposit packet in the transfer)",
+   "result": "REJECTED (cross-action packet: digest pin; carrier lock: the binding P2SH check at BCHN)",
+   "evidence": "attack-extra.mts"
+  },
+  {
+   "attack": "DIGEST MISMATCH",
+   "method": "packet byte flips + digest-pin region flips",
+   "result": "REJECTED (BCHN consensus + libauth; the digest pin at input4:451)",
+   "evidence": "b02-consensus-tamper.json"
+  },
+  {
+   "attack": "OFF-SUBGROUP",
+   "method": "dense-proof-candidate-25-offsubgroup fixture through the lane C7 build",
+   "result": "REJECTED (gateOk=false, exec0-4 all reject; fixture sha bb6513dd)",
+   "evidence": "offsubgroup-reject.json + formal DiffForge 48/0"
+  },
+  {
+   "attack": "DUST / 1-IN-1000",
+   "method": "state output value 2,499 and 10,002,499 (two variants); carrier output 999",
+   "result": "REJECTED at the consensus level (mandatory-script-verify-flag-failed \u2014 the state covenant's amount pin); the 6-role gate accepts are expected",
+   "evidence": "attack-extra.mts + the continuation-deposit dust-flip (BCHN reject)"
+  },
+  {
+   "attack": "BQ-RESIDUAL-NO-FUEL",
+   "method": "every-byte scan of the terminal unlock (9350 B) \u2014 the window [1926,3833] splits into BQ READ slots (reject) and pure-filler slots (accept)",
+   "result": "BQ READ slots REJECT; pure filler (densDrop) accepts are the characterized unauthenticated padding (AR-01)",
+   "evidence": "tamper-pos.mts + b02-consensus-tamper.json"
+  },
+  {
+   "attack": "GENESIS EDGE CASES",
+   "method": "genesis state-commitment flips; wrong-instance packet byte flips; deposit-after-withdrawal (continuation)",
+   "result": "REJECTED (packet instance-byte flip; continuation deposit finding RT-2026-0807-01 \u2014 a novel-action limitation, dual-VM confirmed)",
+   "evidence": "attack-extra.mts + finding-cont-deposit.json"
+  },
+  {
+   "attack": "TERMINAL SELECTOR ABUSE",
+   "method": "terminal unlock replaced by the genesis role's unlock; terminal unlock truncated",
+   "result": "REJECTED (role substitution + truncation: 0 accepts)",
+   "evidence": "replay-live-tamper.mts"
+  },
+  {
+   "attack": "REORG / THREAD-ESCAPE",
+   "method": "analysis: the txTopologyGuard pins the 9-input layout and input[i].vout==i; the 0x61 sighash covers all outputs; the densDrop bytes are inside data pushes (cannot execute \u2014 verified by the unlock's PUSHDATA2 structure)",
+   "result": "no thread-escape path found; reorg risk is the standard zero-conf exposure (chipnet-only)",
+   "evidence": "design/04-runtime-integration.md + the unlock structure analysis"
+  }
+ ],
+ "summary": "9/10 attack classes rejected outright; BQ-filler accepts characterized (AR-01); 1 novel-action finding (RT-2026-0807-01) with no impact on the pinned lifecycle; the dual-VM (libauth + BCHN consensus + LeanBCH) agrees on every tested class"
+}

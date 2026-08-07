@@ -1,0 +1,137 @@
+{
+ "schema": "verifier.cash/candidate/v1",
+ "id": "bn254-onetx-pf6-a3-shieldkit-r1",
+ "lane": "bn254-onetx",
+ "status": "research",
+ "capability": {
+  "proofSystem": "Groth16",
+  "field": "BN254",
+  "structure": "single-tx",
+  "proofBinding": "runtime",
+  "vkBinding": "fixed",
+  "deploymentBinding": "fixed"
+ },
+ "identity": {
+  "humanName": "BN254 PairFold-6 dens-rich a3 ShieldKit product build",
+  "construction": "pf6-a3-shieldkit",
+  "topology": 6,
+  "stateModel": "p2shchain",
+  "revision": "r1",
+  "slug": "bn254-pf6-a3-shieldkit-r1"
+ },
+ "toolchain": {
+  "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+  "libauth": "3.1.0-next.8",
+  "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+  "bch": "BCH-2026"
+ },
+ "build": {
+  "adapter": "lane-module",
+  "module": "lanes/bn254-onetx/src/build-adapter.mjs",
+  "entrypoint": "lanes/bn254-onetx/src/c7/build.ts",
+  "fixture": "harness/src/checkpoints/dense-proof-candidate-25.json",
+  "fixedG2Static": true,
+  "pairfoldTopology": 6,
+  "inputValidationFixture": "lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json",
+  "runtimeCorpus": {
+   "extraMultiproofIndices": [
+    0,
+    1,
+    2
+   ],
+   "worstCase": true
+  },
+  "profile": {
+   "schema": "verifier.cash/bn254-onetx-c7-profile/v1",
+   "generator": {
+    "allAffine": true,
+    "selectL17": true,
+    "narrowSeam": true,
+    "specializeK": true,
+    "siblingRead": true,
+    "fixedWitnessData": true,
+    "dynamicPacking": true,
+    "deriveMode": true,
+    "rescheduleStacks": true
+   },
+   "mode": {
+    "directPort": true,
+    "striped": true,
+    "stripeBoundary": true,
+    "directFinalizeState": true,
+    "strictDeployment": true,
+    "publicBenchContext": true,
+    "driverPackDerived": true,
+    "driverWindowDerived": true
+   },
+   "layout": {
+    "windowSize": 13,
+    "stripedFragments": 4
+   },
+   "packing": {
+    "stateWidth": 32,
+    "consensusNarrowLimbs": 1,
+    "consensusWidth": 34,
+    "narrowWitnessLimbs": 16,
+    "witnessWidth": 32,
+    "wideWitnessPositions": [],
+    "retainConsensusData": false,
+    "retainWitnessData": false,
+    "finalPadding": [],
+    "enforceInputExhaustion": true,
+    "stripedNoForward": false,
+    "stripedNoWindow": false,
+    "stripedWindowTest": false,
+    "stripedNoDriver": false,
+    "stripedNoHash": false
+   },
+   "optimization": {
+    "foldOnly": false,
+    "disableFold": false,
+    "disableOptimize": false,
+    "disableStrip": false,
+    "disableConstantSeed": false,
+    "disableH1": false,
+    "disableParameterAlias": false,
+    "disableMultiplyByOne": false,
+    "keepNodeBake": false,
+    "maxTry": 2
+   }
+  },
+  "scalarEndpoint": true,
+  "fixedG2WitnessTableBytes": "0,0,0,0",
+  "terminal": {
+   "frobFuse": true,
+   "wSelector": false,
+   "densDropBytes": 1115,
+   "bqReserveBytes": 160,
+   "bqResidualNoFuel": true
+  },
+  "structuralRoleCount": 3,
+  "shieldAdapter": {
+   "path": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/product-current/adapter-lane.json",
+   "sha256": "e84862062c4edf4be03355af9e359b985a1797a5bb25fa74498343a4f99af99c"
+  },
+  "shieldActionPacket": {
+   "path": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/product-current/packet.bin",
+   "sha256": "882edc1044dca3917e21f549d7e26969b818e5a16486ce6f73bad0973e0f1050"
+  },
+  "shieldActionPacketAbi": "sda2-v2-direct"
+ },
+ "judge": {
+  "profile": "shieldkit-pf6-9input-product",
+  "sourceValueSatoshis": 1000,
+  "sequenceNumber": 0,
+  "expected": {
+   "scriptBytes": null,
+   "txOverheadBytes": null,
+   "score": null,
+   "inputCount": 9,
+   "transactionCount": 1
+  }
+ },
+ "provenance": {
+  "sourceCommit": "current-worktree (shieldkit-groth vendored lane + verifier-pf7-sub62 507d08f build.ts)",
+  "scope": "[pf6-a3-shieldkit] 9-input product build: 6 pf6 verifier roles + packet/state/fee; SDA2 552B packet; VK d38f3cfc; stabilization ON; terminal wSelector OFF (packet-seam requirement)"
+ }
+}

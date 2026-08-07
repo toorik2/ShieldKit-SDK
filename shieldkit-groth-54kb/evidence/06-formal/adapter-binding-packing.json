@@ -1,0 +1,78 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp6-adapter-binding-packing/v1",
+ "generated": "2026-08-07T02:15:44",
+ "pin": "bn254-onetx-pf6-a3-r1",
+ "adapter": {
+  "schema": "shieldkit-v2-direct-groth16-adapter-v1",
+  "byteOrder": {
+   "g1": "snarkjs affine [x,y,1] maps directly to Ax/Ay and Cx/Cy",
+   "g2": "snarkjs affine [[x.c0,x.c1],[y.c0,y.c1],[1,0]] maps directly to Bxa/Bxb/Bya/Byb; no component reversal",
+   "scalars": "canonical unsigned base-10 JSON strings"
+  },
+  "verificationKey": {
+   "sha256": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef",
+   "bytes": 2765,
+   "icArity": 3,
+   "publicArity": 2
+  },
+  "fixtureShape": {
+   "Ax": "str",
+   "Ay": "str",
+   "Bxa": "str",
+   "Bxb": "str",
+   "Bya": "str",
+   "Byb": "str",
+   "Cx": "str",
+   "Cy": "str",
+   "in0": "str",
+   "in1": "str"
+  },
+  "vkBinding": "fixed",
+  "deploymentBinding": "fixed"
+ },
+ "binding": {
+  "vkSha256": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef",
+  "vkDecision": "d38f3cfc (product runtime VK; ceremony REUSE documented in evidence/08-release/ceremony-reuse.json)",
+  "roles": [
+   "genesis",
+   "exec0",
+   "exec1",
+   "exec2",
+   "exec3",
+   "terminal"
+  ],
+  "roleCount": 6,
+  "presenceOk": true,
+  "digestCarrier": {
+   "inputIndex": 4,
+   "offset": 451,
+   "source": "design/02-vk-binding.md"
+  }
+ },
+ "packing": {
+  "windowSize": 13,
+  "stripedFragments": 4,
+  "stateWidth": 32,
+  "consensusNarrowLimbs": 1,
+  "consensusWidth": 34,
+  "narrowWitnessLimbs": 16,
+  "witnessWidth": 32,
+  "enforceInputExhaustion": true,
+  "densDropBytes": 1115,
+  "bqReserveBytes": 160,
+  "bqResidualNoFuel": true,
+  "topologyOk": 6
+ },
+ "dualVmRoleOracle": {
+  "roles": 6,
+  "diverge": 0,
+  "lean": 6,
+  "python": 6,
+  "fullForgeAccept": 0
+ },
+ "forge": {
+  "count": 48,
+  "reject": 48,
+  "accept": 0
+ }
+}

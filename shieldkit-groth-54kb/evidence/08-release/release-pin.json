@@ -1,0 +1,22 @@
+{
+ "schema": "shieldkit-54kb/evidence/08-release/release-pin/v1",
+ "generated": "2026-08-06T23:26:16.476632Z",
+ "command": "node scripts/pack-pf6-offline-bundle.mjs --release-id shieldkit-54kb-pf6-20260807-r1",
+ "cwd": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+ "sha256": "e8bdb9a7cf396838e7f758f30ec25e60015de589a951edc853f451eb8adc3f3f",
+ "result": {
+  "pinPath": "pins/pf6-release.pin.json",
+  "pinSha256": "5e1139b8ad4ecbf99f5859d0b8a9b59df2c1b8722afd6dda1a2cb0baaa748c09",
+  "pin": {
+   "bundleSchema": "shieldkit-54kb-pf6-offline-release-bundle-v1",
+   "claims": {
+    "productionQualified": false,
+    "releaseQualified": false
+   },
+   "releaseId": "shieldkit-54kb-pf6-20260807-r1",
+   "releaseManifestSha256": "9b3d3d2641c6d4bed80719f04ddbf4f9806c72aa3bf93d564ba441a47d90b59a",
+   "schema": "shieldkit-54kb-pf6-release-pin-v1",
+   "status": "pinned-beta-unqualified"
+  }
+ }
+}

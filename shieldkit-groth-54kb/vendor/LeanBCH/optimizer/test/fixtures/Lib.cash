@@ -1,0 +1,10 @@
+pragma cashscript ^0.13.0;
+
+library Lib {
+    function poly(int x, int y) returns (int) {
+        return (((x * x) + (y * y)) * ((x * x) + (y * y))) + (((x * y) - (y * x)) * 7);
+    }
+    function blend(int a, int b, int c) returns (int) {
+        return (poly(a, b) + poly(b, c)) * (poly(c, a) - poly(a, c));
+    }
+}

@@ -1,0 +1,34 @@
+{
+ "schema": "shieldkit-54kb/evidence/08-release/offline-bundle/v1",
+ "generated": "2026-08-06T23:26:16.419629Z",
+ "command": "node scripts/pack-pf6-offline-bundle.mjs --release-id shieldkit-54kb-pf6-20260807-r1",
+ "cwd": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+ "sha256": "60aaa4bf138606c6e030f3a6e14ea5b44af196506b6c883bc63b537791344843",
+ "result": {
+  "releaseId": "shieldkit-54kb-pf6-20260807-r1",
+  "bundleTar": "pins/shieldkit-54kb-pf6-20260807-r1.tar.gz",
+  "bundleBytes": 22451933,
+  "bundleSha256": "082654f81657544cf0425e010e2bf8bdfa4516b221c0e1e4e79ffb325ce1d5d5",
+  "releaseManifestSha256": "9b3d3d2641c6d4bed80719f04ddbf4f9806c72aa3bf93d564ba441a47d90b59a",
+  "manifestPath": "pins/pf6-release.manifest.json",
+  "manifestSha256": "9b3d3d2641c6d4bed80719f04ddbf4f9806c72aa3bf93d564ba441a47d90b59a",
+  "stagedFiles": {
+   "product": 152,
+   "vendorPins": 61
+  },
+  "status": "offline-beta-unqualified",
+  "claims": {
+   "productionQualified": false,
+   "releaseQualified": false
+  },
+  "noRemotePublication": true,
+  "ceremonyPosture": "ceremonyQualified=false; d01Qualified=false (see evidence/08-release/ceremony-reuse.json)",
+  "bundleContents": "product/ (README PLAN GOAL design/ docs/ src/ scripts/ evidence/ incl. scan evidence, excluding release meta-records) + vendorPins/ (vendor-pin.json SHA256SUMS pf6-lane/ verifier-pin/ product-vk/ chipnet-txs/)",
+  "metaRecordsExcluded": [
+   "evidence/08-release/offline-bundle.json",
+   "evidence/08-release/release-pin.json",
+   "evidence/08-release/release-pin-verify.json",
+   "evidence/08-release/final-state-scan.json"
+  ]
+ }
+}

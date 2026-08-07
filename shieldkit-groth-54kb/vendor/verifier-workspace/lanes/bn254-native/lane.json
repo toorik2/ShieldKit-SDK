@@ -1,0 +1,40 @@
+{
+  "schema": "verifier.cash/lane/v1",
+  "id": "bn254-native",
+  "title": "BN254 Groth16 native covenant chain",
+  "frontierCandidate": "lanes/bn254-native/candidates/bn254-native-covenant-mtx-frozen-pa1.json",
+  "writeScope": [
+    "lanes/bn254-native/**",
+    ".vc/runs/<assigned-run-id>/**"
+  ],
+  "sharedReadOnly": [
+    "packages/**",
+    "harness/**",
+    "build/**",
+    "vendor/**",
+    "catalogue/**",
+    "artifacts/**"
+  ],
+  "gates": {
+    "fast": [
+      "manifest",
+      "hashes",
+      "real-bch-primary",
+      "complete-byte-score"
+    ],
+    "qualification": [
+      "fast",
+      "deterministic-rebuild",
+      "invalid-rejection",
+      "token-safety",
+      "standardness"
+    ],
+    "promotion": [
+      "qualification",
+      "public-bench",
+      "full-a1",
+      "leanbch",
+      "provenance"
+    ]
+  }
+}

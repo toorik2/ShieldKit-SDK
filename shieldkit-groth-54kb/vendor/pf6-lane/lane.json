@@ -1,0 +1,43 @@
+{
+  "schema": "verifier.cash/lane/v1",
+  "id": "bn254-onetx",
+  "title": "BN254 Groth16 single standard transaction",
+  "frontierCandidate": "lanes/bn254-onetx/candidates/bn254-onetx-directstate-10-public-ds1.json",
+  "writeScope": [
+    "lanes/bn254-onetx/**",
+    ".vc/runs/<assigned-run-id>/**"
+  ],
+  "sharedReadOnly": [
+    "packages/**",
+    "harness/**",
+    "build/**",
+    "vendor/**",
+    "catalogue/**",
+    "artifacts/**"
+  ],
+  "gates": {
+    "fast": [
+      "manifest",
+      "hashes",
+      "real-bch-primary"
+    ],
+    "qualification": [
+      "fast",
+      "budget",
+      "standardness",
+      "targeted-mutations",
+      "deterministic-build"
+    ],
+    "promotion": [
+      "qualification",
+      "public-bench",
+      "full-corpus",
+      "a1",
+      "role",
+      "deployment",
+      "utxo-envelope",
+      "leanbch",
+      "provenance"
+    ]
+  }
+}

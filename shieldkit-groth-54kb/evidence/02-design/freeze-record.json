@@ -1,0 +1,18 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp2-design-freeze/v1",
+ "generated": "2026-08-06T21:37:25",
+ "status": "WP-2 COMPLETE \u2014 design frozen (pf6-a3-direct-v1)",
+ "decisions": [
+  "topology pf6-a3-direct-v1: 6 verifier (exec0-3@0-3, genesis@4, terminal@5) + packet@6 + state@7 + fee@8 = 9 inputs, 1 tx",
+  "digest: genesis@4 offset 451 (3B header + 448 ctx + 32B digest); packet@6 = PUSHDATA2(SDA2 552B); terminal runtime guard hashes packet vs digest; PI = 2\u00d7u128 BE of sha256(packet)",
+  "VK: reference VK != product VK e52d09c3 (all elements differ; snarkjs cross-check rejects) -> REBAKE product build with e52d09c3; no new ceremony; re-measure",
+  "stabilization: reference build = C7_UNLOCK_LENGTH_STABILIZE=0 (pin match); product build = stabilization ON (7600/9350) with own measured numbers",
+  "open item: installed runtime VK d38f3cfc vs pinned e52d09c3 -> resolve in WP-3"
+ ],
+ "docs": [
+  "design/01-topology.md",
+  "design/02-vk-binding.md",
+  "design/03-requirements.md",
+  "design/FREEZE.json"
+ ]
+}

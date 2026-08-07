@@ -1,0 +1,24 @@
+{
+ "schema": "shieldkit-54kb/readiness-declaration/v1",
+ "generated": "2026-08-07T03:13:39",
+ "releaseId": "shieldkit-54kb-pf6-20260807-r1",
+ "status": "PRODUCTION-READINESS DECLARED (chipnet-scoped, per the revised goal: no 30-day soak, no new ceremony)",
+ "scope": "chipnet-only; zero mainnet claims; the pf6 verifier replacement for ShieldKit-Groth (PF10 -> bn254-onetx-pf6-a3-r1, 54,671 script bytes)",
+ "gates": {
+  "WP-0 containment": "DONE \u2014 folder + 50 hash-pinned vendor files",
+  "WP-1 pin reproduction": "DONE \u2014 scriptBytes 54671, score 54949, 6 inputs, 1 tx; dual-VM accept on the honest material + off-subgroup reject (re-run 2026-08-07)",
+  "WP-2 design freeze": "DONE \u2014 topology pf6-a3-direct-v1, 9-input layout, digest@input4:451, VK d38f3cfc with documented ceremony reuse",
+  "WP-3 lifecycle": "DONE \u2014 THREE full chains on chipnet (pool 11 mined 12 conf; pool 13 mined 4 conf; VPS clean-host chain mined 1 conf); deposit/transfer/withdrawal/recover green with 9 inputs",
+  "WP-4 B-02": "DONE \u2014 libauth + BCHN testmempoolaccept + MINED + LeanBCH 27/27 on identical txs; tx 59,275 B max, unlock 9,853 B max, op 7.09M max; tamper scoped 0/2,088 + consensus flips rejected",
+  "WP-5 clean hosts": "DONE \u2014 2nd clean host (layer1-node VPS) completed the full lifecycle; 32-note playground campaign complete; erase/recovery/recovered-note spend demonstrated; soak revised out by user",
+  "WP-6 formal": "DONE \u2014 9/9 Groth16-Formal diff_* gates green; forge 48 reject / 0 accept; dual-VM role oracle 6/6 diverge 0; LeanBCH full-redeem 27/27; adapter/binding/packing vectors in-tree",
+  "WP-7 red team": "DONE \u2014 attack matrix executed (9/10 classes rejected + BQ-filler characterized + RT-2026-0807-01 documented); 4 audit scopes blocker-complete",
+  "WP-8 release": "DONE \u2014 fail-closed scans green; offline bundle + release pin shieldkit-54kb-pf6-20260807-r1 (manifest 9b3d3d2641c6d4bed80719f04ddbf4f9806c72aa3bf93d564ba441a47d90b59a); no remote publication",
+  "WP-9 declaration": "this document"
+ },
+ "ceremony": "REUSE of the single-contributor ceremony material (ceremonyQualified=false per the revised goal); the chain (ptau e7aec1da -> beta.zkey 61683ef2, VK d38f3cfc) hash-pinned in evidence/08-release/ceremony-reuse.json",
+ "acceptedRisks": "evidence/accepted-risks.json (AR-01..AR-05) + RT-2026-0807-01 (deposit-after-withdrawal limitation, novel action only)",
+ "maintainer": "evidence/maintainer.json",
+ "evidenceLedger": "evidence/LEDGER.json (38 entries)",
+ "declaration": "The ShieldKit pf6 verifier replacement is declared PRODUCTION-READY for chipnet deployment per the revised goal (no soak, no new ceremony). All mandatory gates are closed with host-observable evidence; the release is pinned-beta-unqualified (productionQualified=false) as the honest posture for the offline bundle."
+}

@@ -1,0 +1,10 @@
+name = "recompiler"
+version = "0.1.0"
+defaultTargets = ["recompiler"]
+
+[[lean_lib]]
+name = "Recompiler"
+
+[[lean_exe]]
+name = "recompiler"
+root = "Main"

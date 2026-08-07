@@ -1,0 +1,14 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp4-tamper-corpus/v1",
+ "generated": "2026-08-06T22:39:20",
+ "result": "30/30 expected (3 honest accepts; 27 rejections across deposit/transfer/withdrawal x 9 tamper classes)",
+ "classes": [
+  "limb-flip role0..5 (proof limb byte 20)",
+  "packet-mutation (digest mismatch)",
+  "role-substitution (genesis<->terminal)",
+  "truncation (exec0 -1 byte)"
+ ],
+ "vm": "libauth 3.1.0-next.8 (createRealVm), full 9-input context",
+ "material": "src/verifier-material/pf6-action-material.json",
+ "note": "WP-4 tamper corpus foundation + WP-7 red-team forgery/digest/carrier categories covered. Systematic every-byte corpus comes in WP-4."
+}

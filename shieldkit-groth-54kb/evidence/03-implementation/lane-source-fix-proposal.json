@@ -1,0 +1,10 @@
+{
+ "schema": "shieldkit-54kb/lane-source-fix-proposal/v1",
+ "generated": "2026-08-07T07:20:44",
+ "target": "vendor/verifier-workspace/lanes/bn254-onetx/src/c7/build.ts",
+ "issue": "the witness-args layout varies per action (the exec-witness's length differs: the transfer's ZERO separator at 2147 vs the withdrawal's at 2465), so the genesis's fixed-offset reads compute a wrong value (5 > 2) and reject the withdrawal",
+ "proposal": "make the witness-args layout action-invariant: (a) pad the exec-witness to a fixed canonical length so the ZERO separator (and the genesis witness) land at constant offsets, or (b) make the genesis's witness reads relative to the separator's actual position instead of fixed unlock offsets",
+ "affected": "the genesis role's fixed-offset witness reads in the C7 build; the BQ-shard carriers' sizing",
+ "verification": "after the change: the CLI withdrawal must pass testmempoolaccept + the LeanBCH full-redeem on the same tx; the deposit/transfer must remain green (the regression corpus: the 9/9 and 8/9 LeanBCH runs)",
+ "status": "proposed \u2014 the CLI-side workaround is not possible (the args come from the lane run)"
+}

@@ -1,0 +1,145 @@
+{
+  "built": true,
+  "gateOk": true,
+  "wire": 56379,
+  "score": 56664,
+  "sigmaLock": 285,
+  "sigmaUnlock": 55976,
+  "seamChains": true,
+  "bothUnder": true,
+  "gateThrow": "",
+  "manual": [
+    {
+      "i": 0,
+      "name": "exec0",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9853,
+      "operationCost": 6932832
+    },
+    {
+      "i": 1,
+      "name": "exec1",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9848,
+      "operationCost": 6788774
+    },
+    {
+      "i": 2,
+      "name": "exec2",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9877,
+      "operationCost": 6795850
+    },
+    {
+      "i": 3,
+      "name": "exec3",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 8893,
+      "operationCost": 6769446
+    },
+    {
+      "i": 4,
+      "name": "genesis",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 7600,
+      "operationCost": 5166543
+    },
+    {
+      "i": 5,
+      "name": "terminal",
+      "accepts": true,
+      "error": "",
+      "unlockLen": 9350,
+      "operationCost": 7045619
+    },
+    {
+      "i": 6,
+      "name": "packet",
+      "accepts": false,
+      "error": "Program failed an OP_VERIFY operation.",
+      "unlockLen": 555,
+      "operationCost": 2284
+    },
+    {
+      "i": 7,
+      "name": "state",
+      "accepts": false,
+      "error": "Tried to read from an empty stack.",
+      "unlockLen": 0,
+      "operationCost": 100
+    },
+    {
+      "i": 8,
+      "name": "fee",
+      "accepts": false,
+      "error": "Tried to read from an empty stack.",
+      "unlockLen": 0,
+      "operationCost": 100
+    }
+  ],
+  "perInput": [
+    {
+      "index": 0,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 9853
+    },
+    {
+      "index": 1,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 9848
+    },
+    {
+      "index": 2,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 9877
+    },
+    {
+      "index": 3,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 8893
+    },
+    {
+      "index": 4,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 7600
+    },
+    {
+      "index": 5,
+      "accepts": true,
+      "reason": "real BCH-2026 VM accepts",
+      "unlockingLen": 9350
+    }
+  ],
+  "verifierInputCount": 6,
+  "structuralRoleCount": 3,
+  "structuralRoleNames": [
+    "packet",
+    "state",
+    "fee"
+  ],
+  "structuralRolesUnevaluated": true,
+  "packet": {
+    "index": 6,
+    "bytes": 552,
+    "unlockBytes": 555,
+    "sha256": "882edc1044dca3917e21f549d7e26969b818e5a16486ce6f73bad0973e0f1050"
+  },
+  "projectionSignalCarrier": {
+    "genesisIndex": 4,
+    "pushHeader": "4de001",
+    "projectionOffset": 3,
+    "projectionBytes": 448,
+    "digestOffset": 451,
+    "digestBytes": 32
+  }
+}

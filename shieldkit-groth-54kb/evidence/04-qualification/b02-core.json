@@ -1,0 +1,144 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp4-b02-core/v1",
+ "generated": "2026-08-07T00:23:47",
+ "status": "B-02 core: the three live pf6 txs accepted by BCHN (testmempoolaccept + broadcast) and by the libauth BCH-2026 VM in the full 9-input context; tamper corpus 30/30",
+ "transactions": {
+  "deposit": {
+   "txid": "a9f3ee0adbce454058c43ae5a992deefd5dab0866f866c75cde4ec416d543709",
+   "bytes": 59241,
+   "sha256": "990fd27513b6dab9924209838c02b6214588cf08a9c9e872651c1caa0a628fc3"
+  },
+  "transfer": {
+   "txid": "242c669ca3f8d25ccdd7a4e9bde4127811215100acd62e3b7744f60f21aeeb08",
+   "bytes": 59241,
+   "sha256": "533f2fa186544ff1b6a38b65c3c03caf078dd67aa0714ab64878c6246dd0d724"
+  },
+  "withdrawal": {
+   "txid": "fff3e5c313146cfcaa56b9cb228dd86368ac5b20f66386dc4c2c169409b16213",
+   "bytes": 59275,
+   "sha256": "42a4e64470f7f0871b86c9b0bbd7d321135cde436e9ee25a9e73f9e222f696d6"
+  }
+ },
+ "ceilings": {
+  "txBytes": 100000,
+  "unlockBytes": 10000,
+  "vmPercent": 100
+ },
+ "measurements": {
+  "deposit": {
+   "exec0": {
+    "unlockBytes": 9853,
+    "opCost": 6933615,
+    "accepts": true
+   },
+   "exec1": {
+    "unlockBytes": 9848,
+    "opCost": 6788780,
+    "accepts": true
+   },
+   "exec2": {
+    "unlockBytes": 9877,
+    "opCost": 6795081,
+    "accepts": true
+   },
+   "exec3": {
+    "unlockBytes": 8893,
+    "opCost": 6769315,
+    "accepts": true
+   },
+   "genesis": {
+    "unlockBytes": 7600,
+    "opCost": 5142923,
+    "accepts": true
+   },
+   "terminal": {
+    "unlockBytes": 9350,
+    "opCost": 7093859,
+    "accepts": true
+   },
+   "wire": 56379
+  },
+  "transfer": {
+   "exec0": {
+    "unlockBytes": 9853,
+    "opCost": 6934847,
+    "accepts": true
+   },
+   "exec1": {
+    "unlockBytes": 9848,
+    "opCost": 6788843,
+    "accepts": true
+   },
+   "exec2": {
+    "unlockBytes": 9877,
+    "opCost": 6795310,
+    "accepts": true
+   },
+   "exec3": {
+    "unlockBytes": 8893,
+    "opCost": 6769509,
+    "accepts": true
+   },
+   "genesis": {
+    "unlockBytes": 7600,
+    "opCost": 5168068,
+    "accepts": true
+   },
+   "terminal": {
+    "unlockBytes": 9350,
+    "opCost": 7045926,
+    "accepts": true
+   },
+   "wire": 56379
+  },
+  "withdrawal": {
+   "exec0": {
+    "unlockBytes": 9853,
+    "opCost": 6934155,
+    "accepts": true
+   },
+   "exec1": {
+    "unlockBytes": 9848,
+    "opCost": 6789580,
+    "accepts": true
+   },
+   "exec2": {
+    "unlockBytes": 9877,
+    "opCost": 6795491,
+    "accepts": true
+   },
+   "exec3": {
+    "unlockBytes": 8893,
+    "opCost": 6770064,
+    "accepts": true
+   },
+   "genesis": {
+    "unlockBytes": 7600,
+    "opCost": 5173557,
+    "accepts": true
+   },
+   "terminal": {
+    "unlockBytes": 9350,
+    "opCost": 7044555,
+    "accepts": true
+   },
+   "wire": 56379
+  }
+ },
+ "maxUnlockBytes": 9853,
+ "maxOpCost": 7093859,
+ "tamperCorpus": {
+  "result": "30/30 expected (3 honest accepts; 27 rejections across deposit/transfer/withdrawal x 9 classes)",
+  "classes": [
+   "limb-flip role0..5",
+   "packet-mutation",
+   "role-substitution",
+   "truncation"
+  ]
+ },
+ "dualVm": {
+  "libauth": "full-context BCH-2026 VM (libauth 3.1.0-next.8) accepts all 6 verifier roles in each live tx",
+  "bchn": "testmempoolaccept allowed + broadcast for all three (evidence: 03-implementation/live-{deposit,transfer,withdrawal}.json)",
+  "leanbch": "atom-level oracle green in Groth16-Formal (dual-vm-role-oracle.json); full-redeem LeanBCH execution on the live txs scheduled (WP-6)"
+ }
+}

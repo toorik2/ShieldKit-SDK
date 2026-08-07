@@ -1,0 +1,21 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-live-deposit/v1",
+ "generated": "2026-08-06T23:51:26",
+ "status": "PF6 9-INPUT DEPOSIT ACCEPTED BY BCHN (testmempoolaccept allowed + broadcast)",
+ "depositTxid": "86420826e13729e75f06fa019cbd1760ecf55ea371dc69fed971d05f66c836d4",
+ "pool": {
+  "source": "381274cc...",
+  "genesis": "8ea9b78a...",
+  "instance": "438453c9776ea3616be934e5"
+ },
+ "txBytes": 59241,
+ "chain": "source -> genesis -> deposit (zero-conf)",
+ "fixesApplied": [
+  "carrier lock 75 51",
+  "hashed empty-tree roots",
+  "token category = source txid (instance reversed)",
+  "layout verifier@0-5/carrier@6/state@7",
+  "0x61 sighash includes source tokens",
+  "carrier values = 1000 (SOURCE_VALUE_SATS)"
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "schema": "shieldkit-54kb/evidence/vk-comparison/v1",
+ "generated": "2026-08-06T21:36:11",
+ "referenceVk": "evidence/02-design/reference-vk.json (from harness/src/checkpoints/pairing-vectors.json \u2014 the VK used by gen-multiproof to mint dense-proof-candidate-25)",
+ "productVk": "vendor/product-vk/verification_key.json sha256 e52d09c35f38131955cea0beb85737e6951384eef1b02857c391d74520c7a164 (pin manifest shieldkit-pin-artifacts-v1)",
+ "result": "DIFFERENT",
+ "detail": {
+  "alpha": "differ",
+  "beta": "differ",
+  "gamma": "differ (product gamma == standard BN254 G2 generator \u2014 different phase-2 lineage)",
+  "delta": "differ",
+  "ic": "IC[0], IC[1], IC[2] all differ"
+ },
+ "crossCheck": "snarkjs groth16 verify of dense-proof-candidate-25 under product VK: 'Proof commitments are not valid' (consistent with VK mismatch)",
+ "decision": "Rebake the pf6 build with the product VK (verification_key.json e52d09c3). NO new ceremony (ceremony policy): keys/proofs unchanged \u2014 final.zkey 254a7bb2, r1cs 6a797e69, setup-metadata 99417756 reused; only the verifier's baked VK constants change. Re-measure scriptBytes after rebake (risk R11).",
+ "openItem": "Installed v2-beta-product runtime VK hashes d38f3cfc... (different from pinned e52d09c3). Resolve in WP-3: the product build uses the PINNED VK e52d09c3 per goal; verify consistency with final.zkey 254a7bb2 via final-zkey-verification machinery."
+}

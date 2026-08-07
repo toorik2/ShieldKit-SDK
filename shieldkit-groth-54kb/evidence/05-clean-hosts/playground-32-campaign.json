@@ -1,0 +1,22 @@
+{
+ "schema": "shieldkit-54kb/playground-32-campaign/v1",
+ "generated": "2026-08-06T23:20:28.271Z",
+ "status": "CAMPAIGN COMPLETE",
+ "campaign": "32 sequential deposits (32 live notes) + 32 erases (recovered-note spends)",
+ "final": {
+  "liveNotes": 0,
+  "reserve": "0",
+  "noteCount": "32",
+  "seq": "64"
+ },
+ "log": [
+  "after deposit 8: live 8, reserve 80000000, seq 8",
+  "after deposit 16: live 16, reserve 160000000, seq 16",
+  "after deposit 24: live 24, reserve 240000000, seq 24",
+  "after deposit 32: live 32, reserve 320000000, seq 32",
+  "after erase 8: live 24, reserve 240000000, seq 40",
+  "after erase 16: live 16, reserve 160000000, seq 48",
+  "after erase 24: live 8, reserve 80000000, seq 56",
+  "after erase 32: live 0, reserve 0, seq 64"
+ ]
+}

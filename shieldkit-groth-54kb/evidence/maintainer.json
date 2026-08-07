@@ -1,0 +1,16 @@
+{
+ "schema": "shieldkit-54kb/maintainer/v1",
+ "generated": "2026-08-07T02:24:06",
+ "maintainer": {
+  "role": "ShieldKit-54KB maintainer (Prime Agent session)",
+  "scope": "production-readiness program WP-0..WP-9 for the pf6 verifier replacement"
+ },
+ "policies": [
+  "chipnet-only, zero mainnet claims",
+  "RULE 0 bch_constants gate",
+  "TOOL-INVENTORY gate",
+  "pinned toolchain: cashc 1c707c1d / libauth 3.1.0-next.8 / leanbch 51201015 / Node 22.23.1 / BCH-2026"
+ ],
+ "containment": "all work in shieldkit-groth-54kb/; read-only imports from ../shieldkit-groth/, ../verifier.cash/, ../Groth16-Formal/",
+ "evidenceLedger": "evidence/LEDGER.json"
+}

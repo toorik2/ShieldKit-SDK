@@ -1,0 +1,73 @@
+[
+ {
+  "scope": "protocol",
+  "schema": "shieldkit-54kb/audit-scope/v1",
+  "area": "Protocol design: pf6-a3-direct-v1 topology (6 roles, 9-input actions), state covenant (88 B), binding/carrier locks, digest pin (input 4 @ 451), context hash commitment, note lifecycle (deposit/transfer/withdrawal/recover), VK binding (d38f3cfc)",
+  "evidence": [
+   "design/01-topology.md",
+   "design/02-vk-binding.md",
+   "design/03-requirements.md",
+   "FREEZE.json",
+   "src/topology-pf6.mjs",
+   "src/product-port/structural-covenants.mjs"
+  ],
+  "verification": [
+   "live mined chains (b02-mined.json)",
+   "consensus tamper (b02-consensus-tamper.json)",
+   "red-team matrix (attack-matrix.json)"
+  ],
+  "closure": "BLOCKER-COMPLETE (2026-08-07): the red-team matrix found no open blockers; RT-2026-0807-01 documented as an accepted-risk/limitation (novel action only)"
+ },
+ {
+  "scope": "implementation",
+  "schema": "shieldkit-54kb/audit-scope/v1",
+  "area": "Implementation: lane build (bn254-onetx pf6), the 6-role unlock construction, the adapter (byteOrder/VK mapping), the assembly/signing (0x61, 100 B P2PKH unlocks), the deploy/deposit/transfer/withdrawal scripts, the packet ABI (SDA2, 552 B)",
+  "evidence": [
+   "vendor/verifier-workspace/.vc/runs/pf6-a3-{deposit-v13,transfer-v13,withdrawal-v2}/build/result.json",
+   "src/*.mjs",
+   "evidence/03-implementation/*.json"
+  ],
+  "verification": [
+   "gate green 6/6 per action",
+   "BCHN accepted + mined",
+   "scoped tamper 0/2088",
+   "LeanBCH 27/27"
+  ],
+  "closure": "BLOCKER-COMPLETE (2026-08-07): the red-team matrix found no open blockers; RT-2026-0807-01 documented as an accepted-risk/limitation (novel action only)"
+ },
+ {
+  "scope": "formal-tcb",
+  "schema": "shieldkit-54kb/audit-scope/v1",
+  "area": "Formal/TCB: Groth16-Formal diff_* gates (binding/packing/forge/host/refine/verify/core/field/curve/pairing), dual-VM role oracle (6 roles, 0 diverge), LeanBCH full-redeem 27/27, the in-tree adapter/binding/packing vectors",
+  "evidence": [
+   "evidence/06-formal/diff-gates.json",
+   "evidence/06-formal/adapter-binding-packing.json",
+   "evidence/04-qualification/leanbch-full-redeem-mined.log",
+   "../Groth16-Formal/evidence/dual-vm-role-oracle.json"
+  ],
+  "verification": [
+   "9/9 diff gates DIFF_*_OK",
+   "forge 48 reject / 0 accept",
+   "LeanBCH PASS 27/27"
+  ],
+  "closure": "BLOCKER-COMPLETE (2026-08-07): the red-team matrix found no open blockers; RT-2026-0807-01 documented as an accepted-risk/limitation (novel action only)"
+ },
+ {
+  "scope": "ops-release",
+  "schema": "shieldkit-54kb/audit-scope/v1",
+  "area": "Ops/release: fail-closed scans (no-seven-carrier, source policy, external-release-gate boundaries), offline bundle + release pin (shieldkit-54kb-pf6-20260807-r1, manifest 9b3d3d26), ceremony reuse record, accepted-risks register, chipnet-only posture",
+  "evidence": [
+   "evidence/08-release/*.json",
+   "pins/pf6-release.pin.json",
+   "pins/pf6-release.manifest.json",
+   "evidence/accepted-risks.json",
+   "evidence/maintainer.json"
+  ],
+  "verification": [
+   "scans exit 0",
+   "bundle hash matches",
+   "no remote publication"
+  ],
+  "closure": "BLOCKER-COMPLETE (2026-08-07): the red-team matrix found no open blockers; RT-2026-0807-01 documented as an accepted-risk/limitation (novel action only)"
+ }
+]

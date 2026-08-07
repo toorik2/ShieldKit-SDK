@@ -1,0 +1,28 @@
+{
+ "schema": "shieldkit-54kb/evidence/no-seven-carrier/v1",
+ "generated": "2026-08-06T23:22:21.991058Z",
+ "command": "node scripts/check-no-seven-carrier-54kb.mjs",
+ "cwd": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+ "sha256": "8d59e53cc954f989659aadbfcb48ea85312f0788843cc21ec050e967642bbf28",
+ "result": {
+  "ok": true,
+  "schema": "shieldkit-54kb/release-scan/no-seven-carrier/v1",
+  "root": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+  "label": "shieldkit-groth-54kb",
+  "filesScanned": 156,
+  "binarySkipped": 5,
+  "provenanceLinesAllowed": 17,
+  "frozenSchemaLinesAllowed": 1,
+  "frozenSchemaAllowlist": [
+   "shield.cash/snarkjs-groth16-pf7-adapter/v1"
+  ],
+  "provenanceMarkers": [
+   "verifier-pf7-sub62",
+   "pf7-sub62",
+   "pf7-54326",
+   "densFuel-DROP",
+   "PF7/densFuel/pairfold-7",
+   "PF7 shield packet digest"
+  ]
+ }
+}

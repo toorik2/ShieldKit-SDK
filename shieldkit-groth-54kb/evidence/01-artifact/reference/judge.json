@@ -1,0 +1,220 @@
+{
+  "schema": "verifier.cash/evidence/v1",
+  "runId": "pf6-a3-r1-recon-2",
+  "candidateId": "bn254-onetx-pf6-a3-r1",
+  "lane": "bn254-onetx",
+  "tier": "fast",
+  "verdict": "green",
+  "generatedAt": "2026-08-06T18:31:35.960Z",
+  "bundle": ".vc/runs/pf6-a3-r1-recon-2/bundle.json",
+  "bundleSha256": "a7dd462bf093232ff58adcfb220518a7f42e9851232287346e6a6346bab49330",
+  "metrics": {
+    "scriptBytes": 54671,
+    "txOverheadBytes": 278,
+    "score": 54949,
+    "inputCount": 6,
+    "transactionCount": 1,
+    "totalOperationCost": 39692142,
+    "maxInputOperationCost": 6933105,
+    "validPassed": true,
+    "invalidRejected": 6,
+    "invalidTotal": 6,
+    "proofsPassed": 4,
+    "proofsTested": 4,
+    "runtimeGeneral": true,
+    "worstCaseAccepted": true,
+    "bchCompatible": true,
+    "fitsStandardBudget": true
+  },
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+    "bch": "BCH-2026"
+  },
+  "provenance": {
+    "sourceCommit": "current-worktree",
+    "scope": "[pf6-a3] six-input dens-rich scalar PairFold-6; selector-bound cubic-class terminal and authenticated BQ residual"
+  },
+  "checks": [
+    {
+      "id": "hash:result",
+      "ok": true,
+      "detail": {
+        "expected": "b7a39a531807502746ba40bb98cf2346851d00e1b11319e358e83ecc0c0664e7",
+        "actual": "b7a39a531807502746ba40bb98cf2346851d00e1b11319e358e83ecc0c0664e7",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/result.json"
+      }
+    },
+    {
+      "id": "hash:inputs",
+      "ok": true,
+      "detail": {
+        "expected": "8bd43217e6060a720c2fda4afafc07b4ea4d04608d4db3259b2b2749e656b398",
+        "actual": "8bd43217e6060a720c2fda4afafc07b4ea4d04608d4db3259b2b2749e656b398",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/inputs_dump.json"
+      }
+    },
+    {
+      "id": "hash:transaction",
+      "ok": true,
+      "detail": {
+        "expected": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+        "actual": "6b19b26edf22477f50fb27fdd9182f6cc1505d3062451abfc00f5a789270570a",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_candidate_tx.hex"
+      }
+    },
+    {
+      "id": "hash:source-outputs",
+      "ok": true,
+      "detail": {
+        "expected": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02",
+        "actual": "04a83f3b94b601c9ba1e2b8cf054402905b0da8185b7344da6ea6c8edd0c8e02",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_candidate_srcouts.hex"
+      }
+    },
+    {
+      "id": "hash:boundary-parts",
+      "ok": true,
+      "detail": {
+        "expected": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c",
+        "actual": "084c6b0987ccc43b81b45ae6782784c7432c72d99f794e4cb3e30bf09805534c",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/boundary_parts.json"
+      }
+    },
+    {
+      "id": "hash:op-margin",
+      "ok": true,
+      "detail": {
+        "expected": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77",
+        "actual": "3a265460e22300dfc2bc064eedac74ac829bd5e5bbd345f425ca30572c718b77",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build/c7_opmargin.json"
+      }
+    },
+    {
+      "id": "hash:build-log",
+      "ok": true,
+      "detail": {
+        "expected": "575fea059e33ae55a8733f8c13a0f0da0bd937da5f856bd3aa1e8eb3e46987c9",
+        "actual": "575fea059e33ae55a8733f8c13a0f0da0bd937da5f856bd3aa1e8eb3e46987c9",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/build.log"
+      }
+    },
+    {
+      "id": "hash:vectors",
+      "ok": true,
+      "detail": {
+        "expected": "d5fecc2ec7fe0cf23197e6ec36a3f4ea3f8c619f216304a688affcc0023fa4fd",
+        "actual": "d5fecc2ec7fe0cf23197e6ec36a3f4ea3f8c619f216304a688affcc0023fa4fd",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam/vectors.json"
+      }
+    },
+    {
+      "id": "hash:input-redteam",
+      "ok": true,
+      "detail": {
+        "expected": "308dd08cd165b4fe445d459a231af5901ffc14058dc71b3da9653c96088254c9",
+        "actual": "308dd08cd165b4fe445d459a231af5901ffc14058dc71b3da9653c96088254c9",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam/input-redteam.json"
+      }
+    },
+    {
+      "id": "hash:offsubgroup-result",
+      "ok": true,
+      "detail": {
+        "expected": "35259cd5030533575153c5ec6f24c30ceaffb55f5dd3d583b6dc235d2a79c6b3",
+        "actual": "35259cd5030533575153c5ec6f24c30ceaffb55f5dd3d583b6dc235d2a79c6b3",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/offsubgroup/result.json"
+      }
+    },
+    {
+      "id": "hash:input-redteam-log",
+      "ok": true,
+      "detail": {
+        "expected": "8819958add1fa6fa51dba95968bc4268ffddf6198a60197c1ba72918b8b12f6f",
+        "actual": "8819958add1fa6fa51dba95968bc4268ffddf6198a60197c1ba72918b8b12f6f",
+        "path": ".vc/runs/pf6-a3-r1-recon-2/input-redteam.log"
+      }
+    },
+    {
+      "id": "benchmark:pass",
+      "ok": true,
+      "detail": {
+        "validPassed": true,
+        "invalid": [
+          6,
+          6
+        ]
+      }
+    },
+    {
+      "id": "benchmark:bch-compatible",
+      "ok": true,
+      "detail": "all inputs accepted"
+    },
+    {
+      "id": "benchmark:budget",
+      "ok": true,
+      "detail": {
+        "maxInputOperationCost": 6933105
+      }
+    },
+    {
+      "id": "benchmark:score",
+      "ok": true,
+      "detail": {
+        "expected": 54949,
+        "actual": 54949
+      }
+    },
+    {
+      "id": "benchmark:script-bytes",
+      "ok": true,
+      "detail": {
+        "expected": 54671,
+        "actual": 54671
+      }
+    },
+    {
+      "id": "benchmark:tx-overhead",
+      "ok": true,
+      "detail": {
+        "expected": 278,
+        "actual": 278
+      }
+    },
+    {
+      "id": "benchmark:input-count",
+      "ok": true,
+      "detail": {
+        "expected": 6,
+        "actual": 6
+      }
+    },
+    {
+      "id": "benchmark:transaction-count",
+      "ok": true,
+      "detail": {
+        "expected": 1,
+        "actual": 1
+      }
+    },
+    {
+      "id": "build:real-gate",
+      "ok": true,
+      "detail": {
+        "built": true,
+        "gateOk": true,
+        "gateThrow": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp4-b02-final/v1",
+ "generated": "2026-08-07T02:07:49",
+ "status": "B-02-FINAL GREEN: libauth + BCHN testmempoolaccept + MINED BCHN + LeanBCH all accept the IDENTICAL deposit/transfer/withdrawal transactions (mined pool-11 chain)",
+ "transactions": [
+  {
+   "action": "deposit",
+   "txid": "a9f3ee0adbce454058c43ae5a992deefd5dab0866f866c75cde4ec416d543709",
+   "bytes": 59241
+  },
+  {
+   "action": "transfer",
+   "txid": "242c669ca3f8d25ccdd7a4e9bde4127811215100acd62e3b7744f60f21aeeb08",
+   "bytes": 59241
+  },
+  {
+   "action": "withdrawal",
+   "txid": "fff3e5c313146cfcaa56b9cb228dd86368ac5b20f66386dc4c2c169409b16213",
+   "bytes": 59275
+  }
+ ],
+ "ceilings": {
+  "txBytesMax": 100000,
+  "unlockBytesMax": 10000,
+  "vmPercentMax": 100
+ },
+ "measurements": {
+  "maxTxBytes": 59275,
+  "maxUnlockBytes": 9853,
+  "maxOpCost": 7093859,
+  "perAction": {
+   "deposit": {
+    "txBytes": 59241,
+    "maxOpCost": 7093859
+   },
+   "transfer": {
+    "txBytes": 59241,
+    "maxOpCost": 7045926
+   },
+   "withdrawal": {
+    "txBytes": 59275,
+    "maxOpCost": 7044555
+   }
+  }
+ },
+ "acceptance": {
+  "libauth": {
+   "vm": "libauth 3.1.0-next.8 BCH-2026",
+   "result": "6-role full-context accept on all three (replay-live-tamper.mts)"
+  },
+  "bchnTestmempoolaccept": {
+   "result": "allowed=true for all three (evidence: 03-implementation/live-{deposit,transfer,withdrawal}.json)"
+  },
+  "bchnMined": {
+   "result": "transfer + withdrawal MINED at 12 confirmations; deposit mined and consumed (evidence: 04-qualification/b02-mined.json)"
+  },
+  "leanbch": {
+   "result": "LeanBCH full-redeem PASS 27/27 (9 inputs x 3 txs) on identical bytes; ORACLE native(libsecp256k1/BCHN-vendored); ACCEPTED-INVALID 0; STD-TRUE 27/27",
+   "log": "evidence/04-qualification/leanbch-full-redeem-mined.log",
+   "elapsedSeconds": 13
+  }
+ },
+ "tamperCorpus": {
+  "scoped": "0/2088 accepted across the three live txs (authenticated bytes)",
+  "consensus": "verifier/packet/state/fee flips rejected by BCHN consensus; densDrop windows [2927,3045]/[1926,3833] accepted by BOTH VMs identically (characterized, data-only filler)",
+  "evidence": [
+   "04-qualification/b02-consensus-tamper.json",
+   "04-qualification/b02-core.json"
+  ]
+ },
+ "dualVmNote": "the formal tree's previous 'libauthLeanBchFullRedeem: residual-not-run' is now RUN and GREEN; the full-redeem executed the LeanBCH VM (Lean 4 core, no mathlib, pin ba8e773/51201015 lineage) on the exact mined txs"
+}

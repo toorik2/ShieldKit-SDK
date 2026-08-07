@@ -1,0 +1,66 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bn254-native-covenant-mtx-frozen-pa1",
+  "lane": "bn254-native",
+  "status": "measured",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "multi-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "7270e006852db43fecca1417bf185c789e4c5132",
+    "bch": "BCH-2026"
+  },
+  "build": {
+    "adapter": "artifact-bundle",
+    "artifactRoot": ".",
+    "files": {
+      "inputs": "artifacts/bn254-native-standard/170366-patha/chunks.json",
+      "step-metadata": "artifacts/bn254-native-standard/170366-patha/steps.json",
+      "a1-certificate": "artifacts/bn254-native-standard/170366-patha/a1-certificate.json",
+      "forge-transcript": "artifacts/bn254-native-standard/170366-patha/transcript-forge-battery.log",
+      "leanbch-transcript": "artifacts/bn254-native-standard/170366-patha/transcript-dualvm-leanbch.log"
+    }
+  },
+  "judge": {
+    "profile": "frozen-native-covenant-fixed-vk",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "execution": {
+      "kind": "covenant-chain",
+      "category": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+    },
+    "expected": {
+      "scriptBytes": 170366,
+      "txOverheadBytes": 2384,
+      "score": 172750,
+      "inputCount": 19,
+      "transactionCount": 19,
+      "artifactHashes": {
+        "inputs": "f04f04dff08b10a6bf0a11e01b28e1d3aef0eb2f280c7fa2e7f19a7d6409abaa",
+        "step-metadata": "03adba3b0cd3871a8012ed51b690f2d4515abe4e99641583433fbf238158491e",
+        "a1-certificate": "3b11be09005da63363387c819f503d76e107eaf42dc0dd3cd63bc5c8f9d40604",
+        "forge-transcript": "b80be49c215a9e28ffbe10afea816548308d1ea7a8f41108b19e8b312b7d560e",
+        "leanbch-transcript": "5b0565185385dbafe3ff43e16f5008a9bee1a1d259215907ca7873837c3f1836"
+      }
+    }
+  },
+  "provenance": {
+    "sourceCommit": "26917cae",
+    "scope": "[BN254 NativeCovenant (Path A frozen); bn254-covenant-mtx-frozen-pa1] Frozen historical A1-certified crown. This manifest re-scores transaction overhead and replays honest BCH execution; promotion remains closed pending fresh control-plane attack and provenance evidence."
+  },
+  "identity": {
+    "humanName": "BN254 NativeCovenant (Path A frozen)",
+    "construction": "covenant",
+    "topology": "mtx",
+    "stateModel": "frozen",
+    "revision": "pa1",
+    "slug": "bn254-covenant-mtx-frozen-pa1"
+  }
+}

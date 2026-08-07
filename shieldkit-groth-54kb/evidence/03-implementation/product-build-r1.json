@@ -1,0 +1,109 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-product-build/v1",
+ "generated": "2026-08-06T21:48:30",
+ "runId": "pf6-a3-product-r1",
+ "candidate": "bn254-onetx-pf6-a3-shieldkit-r1",
+ "status": "SUCCESS \u2014 9-input product build, all 6 verifier roles VM-accept in complete 9-input context",
+ "metrics": {
+  "wire": 56379,
+  "score": 56664,
+  "sigmaLock": 285,
+  "sigmaUnlock": 55976,
+  "inputCount": 9,
+  "transactionCount": 1,
+  "verifierRoles": [
+   [
+    "exec0",
+    9853,
+    6932832
+   ],
+   [
+    "exec1",
+    9848,
+    6788774
+   ],
+   [
+    "exec2",
+    9877,
+    6795850
+   ],
+   [
+    "exec3",
+    8893,
+    6769446
+   ],
+   [
+    "genesis",
+    7600,
+    5166543
+   ],
+   [
+    "terminal",
+    9350,
+    7045619
+   ]
+  ],
+  "maxVerifierOperationCost": 7045619,
+  "structuralRoleNames": [
+   "packet",
+   "state",
+   "fee"
+  ],
+  "structuralRolesUnevaluated": true,
+  "packet": {
+   "index": 6,
+   "bytes": 552,
+   "unlockBytes": 555,
+   "sha256": "882edc1044dca3917e21f549d7e26969b818e5a16486ce6f73bad0973e0f1050"
+  },
+  "projectionSignalCarrier": {
+   "genesisIndex": 4,
+   "pushHeader": "4de001",
+   "projectionOffset": 3,
+   "projectionBytes": 448,
+   "digestOffset": 451,
+   "digestBytes": 32
+  }
+ },
+ "vsPinnedReference": {
+  "reference": {
+   "wire": 54739,
+   "score": 54949,
+   "sigmaUnlock": 54461,
+   "inputs": 6
+  },
+  "product": {
+   "wire": 56379,
+   "score": 56664,
+   "sigmaUnlock": 55976,
+   "inputs": 9
+  },
+  "delta": {
+   "wire": 1640,
+   "score": 1715
+  }
+ },
+ "vsCurrentPF10": {
+  "pf10VerifierUnlockTotal": 90977,
+  "pf6VerifierUnlockTotal": 55976,
+  "reduction": 38.5
+ },
+ "config": {
+  "structuralRoleCount": 3,
+  "abi": "sda2-v2-direct",
+  "vkBaked": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef (current v2-beta-product runtime)",
+  "packet": "vendor/product-current/packet.bin sha256 882edc10 (552B SDA2, current product deposit packet)",
+  "stabilization": "ON (genesis 7600, terminal 9350 targets)",
+  "terminal": "frobFuse, wSelector OFF (packet-seam requirement), densDrop 1115, BQ reserve 160, BQ no-fuel",
+  "laneCode": "shieldkit-groth vendored verifier lane (current product code, sda2 path)"
+ },
+ "artifacts": [
+  "product-r1-build-boundary_parts.json",
+  "product-r1-build-c7_candidate_srcouts.hex",
+  "product-r1-build-c7_candidate_tx.hex",
+  "product-r1-build-c7_opmargin.json",
+  "product-r1-build-inputs_dump.json",
+  "product-r1-build-result.json",
+  "product-r1-candidate.json"
+ ]
+}

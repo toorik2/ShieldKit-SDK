@@ -1,0 +1,16 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-live-finding/v1",
+ "generated": "2026-08-06T23:01:17",
+ "finding": "OP_1 carrier lock unspendable under the BCH VM final-stack rule (must be exactly 1 item; OP_1 + packet push leaves 2)",
+ "txEvidence": {
+  "depositTxid": "ecd9546978eceb47bf5c6c6fba6e5d2556c4dc4445a2309afb9e8575f6db5276",
+  "reject": "Script failed an OP_EQUALVERIFY (state covenant); packet input: unexpected stack depth 2"
+ },
+ "fix": "carrier lock = 75 51 (OP_DROP OP_TRUE); state covenant pins sha256(75 51)",
+ "oldPool": {
+  "instanceId": "b35e2532...",
+  "genesis": "dc6634d8...",
+  "status": "unusable dust (~11K sats, chipnet)"
+ },
+ "verifierValidation": "inputs 0-5 (all 6 verifier roles) ACCEPT in the assembled deposit tx (full-context replay) \u2014 the verifier itself is sound; only the carrier lock was wrong."
+}

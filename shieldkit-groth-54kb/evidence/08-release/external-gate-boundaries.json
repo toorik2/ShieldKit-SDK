@@ -1,0 +1,124 @@
+{
+ "schema": "shieldkit-54kb/evidence/external-gate-boundaries/v1",
+ "generated": "2026-08-06T23:19:54.211809Z",
+ "command": "node scripts/emit-external-gate-boundaries-54kb.mjs",
+ "cwd": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb",
+ "sha256": "0bc3e5f528878d6a8655ea44104d64c85430bdd6772760d09b686d679a27bde3",
+ "result": {
+  "schema": "shieldkit-54kb/evidence/release-scans/external-gate-boundaries/v1",
+  "generated": "2026-08-06T23:19:47.025Z",
+  "status": "boundaries-emitted-fail-closed",
+  "gateModule": {
+   "path": "shieldkit-groth/scripts/external-release-gate.mjs (read-only reference)",
+   "sha256": "sha256:3a677058f53574500e9b72898d4979aaf01164807db75cea6a811dad7fca7821"
+  },
+  "command": [
+   "node shieldkit-groth/scripts/external-release-gate.mjs --gate bchn",
+   "node shieldkit-groth/scripts/external-release-gate.mjs --gate chipnet",
+   "node shieldkit-groth/scripts/external-release-gate.mjs --gate final-ceremony-and-audits"
+  ],
+  "boundaries": [
+   {
+    "gate": "bchn",
+    "boundary": {
+     "schema": "shieldkit-v2-direct-external-release-boundary-v1",
+     "gate": "bchn",
+     "status": "blocked-external-evidence-required",
+     "releaseQualified": false,
+     "portableCiCanSatisfy": false,
+     "hardPolicyCeilings": {
+      "serializedTransactionBytes": 100000,
+      "everyInputUnlockingBytecodeBytes": 10000,
+      "everyVmResourcePercent": 100
+     },
+     "narrowerMargins": "non-blocking-risk-telemetry-only",
+     "planGates": [
+      "B-02-final"
+     ],
+     "requirements": [
+      "latest unmodified verifier benchmark, Libauth, BCHN testmempoolaccept, mined BCHN, and LeanBCH must accept the same final deposit, transfer, and withdrawal transactions",
+      "every transaction byte, unlocking byte, VM resource, and hash iteration must be measured",
+      "test:external:verifier-source must run after the omitted full verifier packages/build and packages/contracts source snapshot is restored"
+     ],
+     "expectedArtifacts": [
+      "artifacts/v2-direct/<profileId>/verification/maintainer.json",
+      "artifacts/v2-direct/<profileId>/verification/libauth.json",
+      "artifacts/v2-direct/<profileId>/verification/bchn-mempool.json",
+      "artifacts/v2-direct/<profileId>/verification/bchn-mined.json",
+      "artifacts/v2-direct/<profileId>/verification/leanbch.json",
+      "artifacts/v2-direct/<profileId>/verification/measurements.json"
+     ]
+    }
+   },
+   {
+    "gate": "chipnet",
+    "boundary": {
+     "schema": "shieldkit-v2-direct-external-release-boundary-v1",
+     "gate": "chipnet",
+     "status": "blocked-external-evidence-required",
+     "releaseQualified": false,
+     "portableCiCanSatisfy": false,
+     "hardPolicyCeilings": {
+      "serializedTransactionBytes": 100000,
+      "everyInputUnlockingBytecodeBytes": 10000,
+      "everyVmResourcePercent": 100
+     },
+     "narrowerMargins": "non-blocking-risk-telemetry-only",
+     "planGates": [
+      "Q-08",
+      "Q-09"
+     ],
+     "requirements": [
+      "two clean hosts must verify final signed artifacts and complete deposit, transfer, withdrawal, erase, recovery, and recovered-note spend",
+      "a 30-day Chipnet soak must record at least 1,000 matching V2 Direct settlements and the required 32-live-note playground campaigns",
+      "the existing e2e:standalone and e2e:multiuser-blank development scripts are not V2 Direct Q-08/Q-09 evidence"
+     ],
+     "expectedArtifacts": [
+      "artifacts/v2-direct/<profileId>/qualification/clean-host-a.json",
+      "artifacts/v2-direct/<profileId>/qualification/clean-host-b.json",
+      "artifacts/v2-direct/<profileId>/chipnet/instance.json",
+      "artifacts/v2-direct/<profileId>/chipnet/settlements.json",
+      "artifacts/v2-direct/<profileId>/chipnet/soak.json",
+      "artifacts/v2-direct/<profileId>/chipnet/playground.json"
+     ]
+    }
+   },
+   {
+    "gate": "final-ceremony-and-audits",
+    "boundary": {
+     "schema": "shieldkit-v2-direct-external-release-boundary-v1",
+     "gate": "final-ceremony-and-audits",
+     "status": "blocked-external-evidence-required",
+     "releaseQualified": false,
+     "portableCiCanSatisfy": false,
+     "hardPolicyCeilings": {
+      "serializedTransactionBytes": 100000,
+      "everyInputUnlockingBytecodeBytes": 10000,
+      "everyVmResourcePercent": 100
+     },
+     "narrowerMargins": "non-blocking-risk-telemetry-only",
+     "planGates": [
+      "D-01",
+      "D-02"
+     ],
+     "requirements": [
+      "the frozen final circuit needs at least five independent phase-2 contributors and a public beacon",
+      "two clean machines must verify the transcript and two independent clean hosts must reproduce matching final artifacts",
+      "all four independent audit scopes need signed reports and blocker-complete closure",
+      "local development ceremony tests cannot substitute for the final ceremony or independent audits"
+     ],
+     "expectedArtifacts": [
+      "artifacts/v2-direct/<profileId>/ceremony/transcript.json",
+      "artifacts/v2-direct/<profileId>/ceremony/beacon.json",
+      "artifacts/v2-direct/<profileId>/ceremony/contributors.json",
+      "artifacts/v2-direct/<profileId>/ceremony/verify-host-a.json",
+      "artifacts/v2-direct/<profileId>/ceremony/verify-host-b.json",
+      "artifacts/v2-direct/<profileId>/ceremony/repro-host-a.json",
+      "artifacts/v2-direct/<profileId>/ceremony/repro-host-b.json",
+      "artifacts/v2-direct/<profileId>/qualification/audit-closure.json"
+     ]
+    }
+   }
+  ]
+ }
+}

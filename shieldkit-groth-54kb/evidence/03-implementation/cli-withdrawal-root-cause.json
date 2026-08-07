@@ -1,0 +1,16 @@
+{
+ "schema": "shieldkit-54kb/cli-withdrawal-root-cause/v1",
+ "generated": "2026-08-07T07:18:49",
+ "status": "ROOT CAUSE IDENTIFIED via the libauth VM trace (ip=306, the failing OP_VERIFY)",
+ "failingCheck": "genesis redeem instruction 306: [6 INVOKE] [73 PICK] [2 LESSTHANOREQUAL] [VERIFY] \u2014 the picked stack value must be <= 2; the withdrawal's computed value = 0x05 (5)",
+ "rootCause": "the lane run's args (input4 witness) for the withdrawal are ~318 bytes longer in the exec-witness region (the ZERO separator sits at 2147 for the transfer vs 2465 for the withdrawal; the withdrawal's args have a PUSH31 at 2147 where the transfer has the ZERO opcode). The genesis's script reads its witness at FIXED offsets relative to the unlock start, so the shifted layout yields the wrong computed value (5 > 2).",
+ "evidence": {
+  "vmTrace": "ip=306, stack depth 105, pick-target value 05 (len 1)",
+  "argsDiff": "transfer args[30] = op ZERO at 2147; withdrawal args[30] = PUSH31 at 2147; BQ shard sizes differ (PUSH81/PUSH86 vs PUSH85/PUSH56)",
+  "redeems": "the genesis + terminal redeem scripts are byte-identical across transfer/withdrawal (sha 5b25cb48 / 3fdc804d)",
+  "proof": "the withdrawal's Groth16 proof verifies (snarkjs OK)",
+  "control": "the CLI transfer's genesis + terminal pass the same harness (the setup is valid)"
+ },
+ "sourceFix": "the lane build's witness-args layout must be action-invariant (fixed exec-witness length / fixed ZERO separator position) so the genesis's fixed-offset reads work for all actions; this is the lane-level (vendor) change \u2014 the same class as the run's internal-dummy-tx artifact (#3).",
+ "workaround": "none from the CLI side (the args come from the lane run); the withdrawal ACTION itself is proven on the earlier chains (pool 11/13/VPS mined withdrawals)."
+}

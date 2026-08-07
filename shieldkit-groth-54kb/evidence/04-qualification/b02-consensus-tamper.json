@@ -1,0 +1,46 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp4-b02-consensus-tamper/v1",
+ "generated": "2026-08-07T02:03:45",
+ "status": "BCHN consensus-level tamper evidence on a live pf6 deposit (pool 13, genesis 26b5e5fa) \u2014 every authenticated class rejected by the node's consensus script checks; the densDrop windows accepted by BOTH VMs identically",
+ "method": "testmempoolaccept on single-byte XOR-0xff mutations of the assembled deposit BEFORE broadcasting the honest tx (inputs unclaimed)",
+ "depositTxid": "3cf93182fa28768e446bd2335bc627b0a2ad124515b9e3927f811652f8818220",
+ "honestDeposit": {
+  "allowed": true,
+  "broadcast": "3cf93182fa28768e446bd2335bc627b0a2ad124515b9e3927f811652f8818220"
+ },
+ "results": [
+  {
+   "class": "verifier0 flip (k=20)",
+   "allowed": false,
+   "reason": "mandatory-script-verify-flag-failed"
+  },
+  {
+   "class": "verifier4 flip (k=3000, densDrop window [2927,3045])",
+   "allowed": true,
+   "reason": "unauthenticated density padding \u2014 matches libauth window"
+  },
+  {
+   "class": "verifier5 flip (k=3000, densDrop window [1926,3833])",
+   "allowed": true,
+   "reason": "unauthenticated density padding \u2014 matches libauth window"
+  },
+  {
+   "class": "packet flip (k=30)",
+   "allowed": false,
+   "reason": "mandatory-script-verify-flag-failed (digest pin)"
+  },
+  {
+   "class": "state flip (k=100)",
+   "allowed": false,
+   "reason": "mandatory-script-verify-flag-failed (state covenant)"
+  },
+  {
+   "class": "fee flip (k=50)",
+   "allowed": false,
+   "reason": "Signature must be zero for failed CHECK(DATA)SIG operation"
+  }
+ ],
+ "dualVmAgreement": "libauth full-context and BCHN consensus agree on every tested mutation class; the ONLY accepted mutations are the densDrop padding windows (exec3 [2927,3045], terminal [1926,3833] for pool-13 deposit), identical in both VMs",
+ "scopedTamperCorpus": "0/2088 accepted (deposit/transfer/withdrawal, authenticated bytes only)",
+ "densDropCharacterization": "the windows are the profile's density padding (densDropBytes): data-only bytes pushed and dropped by the terminal's window processing; they cannot execute (inside data pushes), cannot exceed the pinned unlock lengths (inputLengthGuards), and cannot alter any authenticated material (proof limbs, packet, digest pin, state, BQ residual all checked). Accepted by design in both VMs."
+}

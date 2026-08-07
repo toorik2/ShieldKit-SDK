@@ -1,0 +1,20 @@
+{
+ "schema": "shieldkit-54kb/cli-hoist/v1",
+ "generated": "2026-08-07T08:41:25",
+ "status": "UNIFIED CLI HOISTED to shieldkit-sdk/cli (one CLI for all verifier-pool designs); the pf6 profile + tests + README moved with it; the 54kb's cli/ copy removed",
+ "cliHome": "shieldkit-sdk/cli",
+ "registry": "shieldkit-sdk/cli/pool-designs.json",
+ "manifests": {
+  "pf6-a3-direct-v1": "shieldkit-groth-54kb/profile.json",
+  "pf10": "documented in the registry (the shared CLI default = the original surface)"
+ },
+ "designRootResolution": "the CLI resolves --profile <id> through the registry, sets SHIELDKIT_DESIGN_ROOT, and imports cli/profiles/<id>.mjs",
+ "verified": [
+  "--version",
+  "--profile pf10 --version",
+  "pf6 pool doctor (registry-resolved)",
+  "unknown profile fails closed",
+  "pf6 chain-scan recovery (2/2)",
+  "cli/test-profile.mjs 8/8"
+ ]
+}

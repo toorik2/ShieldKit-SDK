@@ -1,0 +1,234 @@
+{
+ "schema": "shieldkit-54kb/evidence-ledger/v1",
+ "generated": "2026-08-07T08:41:25",
+ "entries": [
+  {
+   "wp": 0,
+   "id": "00-baseline/pf10-baseline.json",
+   "what": "PF10 baseline (unlocks, txs, layout)"
+  },
+  {
+   "wp": 1,
+   "id": "01-artifact/wp1-reference-build.json",
+   "what": "Reference pf6 build: scriptBytes 54671 / score 54949 / 6 in / 1 tx (judge green)"
+  },
+  {
+   "wp": 1,
+   "id": "01-artifact/reference/",
+   "what": "bundle.json, judge.json, result.json, c7_candidate_tx.hex (sha 6b19b26e...)"
+  },
+  {
+   "wp": 1,
+   "id": "01-artifact/reconciliation-source.txt",
+   "what": "pf7-sub62 worktree @ 507d08f provenance"
+  },
+  {
+   "wp": 2,
+   "id": "02-design/vk-comparison.json",
+   "what": "Reference VK != product VK (all elements); rebake decision"
+  },
+  {
+   "wp": 2,
+   "id": "02-design/freeze-record.json",
+   "what": "Design freeze pf6-a3-direct-v1 (9 inputs, digest@451, SDA2)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/product-build-r1.json",
+   "what": "Deposit product build: wire 56379 / score 56664 / gateOk"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/three-actions-green.json",
+   "what": "deposit/transfer/withdrawal builds all green"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/replay-context.json",
+   "what": "6/6 verifier roles VM-accept, full 9-input context"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/tamper-rejection.json",
+   "what": "Initial tamper classes rejected"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/prove-pipeline.json",
+   "what": "witness byte-identical; proof valid under product VK"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/settlement-formats.json",
+   "what": "Live PF10 settlement formats (packet/state/fee) + pool covenants"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/covenant-port.json",
+   "what": "pf6 state covenant 88B (matches live), rolling base 2500"
+  },
+  {
+   "wp": 4,
+   "id": "04-qualification/tamper-corpus.json",
+   "what": "30/30: 3 honest + 27 rejections (9 classes x 3 actions)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/ceremony-reuse.json",
+   "what": "Single-contributor chain: ptau e7aec1da, initial.zkey 59baab0b, transcript ed39e97e, beta.zkey 61683ef2, VK d38f3cfc"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/live-deposit.json",
+   "what": "PF6 9-input DEPOSIT ACCEPTED + BROADCAST on chipnet (86420826...); pool 8ea9b78a"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/live-withdrawal.json",
+   "what": "PF6 withdrawal broadcast (fff3e5c3...) \u2014 deposit+transfer+withdrawal all BCHN-accepted"
+  },
+  {
+   "wp": 4,
+   "id": "04-qualification/b02-core.json",
+   "what": "B-02 core: live deposit/transfer/withdrawal accepted by BCHN + libauth; tx 59241/59241/59275 B; max op 7.09M; tamper 30/30"
+  },
+  {
+   "wp": 4,
+   "id": "04-qualification/b02-mined.json",
+   "what": "MINED: deposit/transfer/withdrawal chain confirmed on chipnet (transfer+withdrawal 12 conf)"
+  },
+  {
+   "wp": 4,
+   "id": "04-qualification/b02-consensus-tamper.json",
+   "what": "BCHN consensus tamper: verifier/packet/state/fee flips rejected; densDrop windows accepted by both VMs identically (dual-VM agreement)"
+  },
+  {
+   "wp": 4,
+   "id": "04-qualification/b02-final.json",
+   "what": "B-02-FINAL: libauth + BCHN tma + MINED BCHN + LeanBCH 27/27 on identical txs; ceilings measured"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/live-lifecycle-2.json",
+   "what": "Pool-13 full lifecycle live: deposit+transfer+withdrawal accepted+broadcast; recovery demonstrated"
+  },
+  {
+   "wp": 6,
+   "id": "06-formal/diff-gates.json",
+   "what": "All 9 Groth16-Formal diff_* gates re-run GREEN; forge 48/0; dual-VM roles 6/6 diverge 0"
+  },
+  {
+   "wp": 6,
+   "id": "06-formal/adapter-binding-packing.json",
+   "what": "ShieldKit pf6 adapter/binding/packing extension vectors (in-tree; VK d38f3cfc)"
+  },
+  {
+   "wp": 5,
+   "id": "05-clean-hosts/playground-32-campaign.json",
+   "what": "32-live-note playground campaign complete: 32 deposits + 32 erases, reserve 0, seq 64"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/no-seven-carrier.json",
+   "what": "Fail-closed no-seven-carrier scan: 156 files scanned / 5 binary skipped, 0 PF7/densFuel/pairfold-7 product-material hits (17 provenance lines allowlisted)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/source-policy.json",
+   "what": "First-party source policy: 31 modules syntax-checked, 0 raw senders, 0 network calls, 0 failures (tmp-scratch telemetry recorded)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/external-gate-boundaries.json",
+   "what": "bchn|chipnet|final-ceremony-and-audits boundaries emitted fail-closed (blocked-external-evidence-required)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/offline-bundle.json",
+   "what": "Offline bundle shieldkit-54kb-pf6-20260807-r1 (213 artifacts; sha-256s in pins/pf6-release.pin.json + receipts; no remote publication)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/release-pin.json",
+   "what": "Release pin pins/pf6-release.pin.json (releaseId shieldkit-54kb-pf6-20260807-r1, pinned-beta-unqualified)"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/release-pin-verify.json",
+   "what": "Independent pin verification: every artifact hash matches the manifest; extracted-tree scan clean"
+  },
+  {
+   "wp": 8,
+   "id": "08-release/final-state-scan.json",
+   "what": "Final-state scans green: no-seven-carrier + source-policy + release-pin verify all pass"
+  },
+  {
+   "wp": 5,
+   "id": "05-clean-hosts/clean-host-2-vps.json",
+   "what": "SECOND CLEAN HOST (VPS): deposit+transfer+withdrawal gate-green, accepted, broadcast (ebbe2455/6f604a8d/eb5145c5)"
+  },
+  {
+   "wp": 5,
+   "id": "05-clean-hosts/mined-chains.json",
+   "what": "Three full lifecycles on chain (pool 11 mined 12 conf; pool 13 mined 4 conf; VPS chain mining)"
+  },
+  {
+   "wp": 7,
+   "id": "07-red-team/finding-cont-deposit.json",
+   "what": "RED-TEAM FINDING RT-2026-0807-01: continuation deposit (post-withdrawal) rejected by the state covenant (packet [8] instance-dependent); dual-VM confirmed; standard lifecycle unaffected"
+  },
+  {
+   "wp": 7,
+   "id": "07-red-team/attack-matrix.json",
+   "what": "RED TEAM MATRIX COMPLETE: 9/10 classes rejected outright + BQ-filler characterized + 1 documented finding; dual-VM agreement"
+  },
+  {
+   "wp": 7,
+   "id": "07-red-team/offsubgroup-reject.json",
+   "what": "Off-subgroup fixture rejected by the lane C7 build (gateOk=false)"
+  },
+  {
+   "wp": 9,
+   "id": "09-readiness/readiness-declaration.json",
+   "what": "PRODUCTION-READINESS DECLARATION (chipnet-scoped; revised goal)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/cli-profile.json",
+   "what": "UNIFIED CLI pf6 profile: pool create + deposit + transfer LIVE via the same CLI (genesis a0dbf93f, deposit 9f28dba6, transfer 15e0c460); withdrawal residual documented"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/cli-withdrawal-root-cause.json",
+   "what": "CLI withdrawal root cause: genesis's fixed-offset args read fails on the withdrawal's shifted exec-witness (5>2 check); lane-level source fix required"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/lane-source-fix-proposal.json",
+   "what": "Lane source-fix proposal: action-invariant witness-args layout (genesis fixed-offset reads)"
+  },
+  {
+   "wp": 3,
+   "id": "cli/test-profile.mjs",
+   "what": "Unified CLI profile tests: 8/8 pass (surface, pf10 alias, pf6 doctor/pin, fail-closed routes)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/cli-hoist.json",
+   "what": "UNIFIED CLI hoisted to shieldkit-sdk/cli with the pool-design registry + profile manifests; one CLI for all designs"
+  }
+ ],
+ "vendorPins": [
+  "vendor/SHA256SUMS (50 files)",
+  "vendor/product-current/PIN.json",
+  "vendor/product-vk/verification_key.json (e52d09c3)"
+ ],
+ "openGates": [
+  "WP-3 kit integration (packet/transition/CLI/live deployment)",
+  "WP-4 B-02 (BCHN mempool/mined, LeanBCH full-redeem, every-byte corpus)",
+  "WP-5 Q-08 (clean hosts, lifecycle)",
+  "WP-6 formal diff_* + forge 0",
+  "WP-7 red team + 4 signed audits",
+  "WP-9 readiness declaration"
+ ]
+}

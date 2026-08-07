@@ -1,0 +1,59 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-live-findings/v1",
+ "generated": "2026-08-07T00:00:09",
+ "summary": "8 chipnet deployments; DEPOSIT GREEN (86420826, broadcast). Transfer blocked by the output-layout consistency requirement (documented fix: outputs mirror the pool layout; covenant output mapping i).",
+ "findings": [
+  {
+   "id": "carrier-lock",
+   "finding": "OP_1 carrier lock unspendable (BCH VM final-stack rule: depth must be 1) -> fixed to OP_DROP OP_TRUE (75 51)"
+  },
+  {
+   "id": "empty-roots",
+   "finding": "Initial state roots = the hashed empty-tree roots (not zeros)"
+  },
+  {
+   "id": "token-category",
+   "finding": "The state token category = the source txid (display); the instance = the reversed source txid; the VM's UTXOTOKENCATEGORY returns the reversed stored bytes"
+  },
+  {
+   "id": "layout",
+   "finding": "The pf6 txTopologyGuard requires input[i].vout == i -> pool layout verifier@0-5, carrier@6, state@7 (adapted the covenant's rolling check to match)"
+  },
+  {
+   "id": "fee-signature",
+   "finding": "The 0x61 (ALL|FORKID|UTXOS) Schnorr sighash must include the source outputs' TOKENS"
+  },
+  {
+   "id": "tx-bound-unlocks",
+   "finding": "BLOCKER: the lane build's verifier unlocks are sighash-bound to the build's synthetic tx (1 OP_RETURN output, synthetic outpoints); they cannot be dropped into a real settlement tx. The real deposit requires the product's per-action witness pipeline (the kit port: design/04/05) that computes the unlocks against the actual settlement context."
+  },
+  {
+   "id": "output-layout-consistency",
+   "finding": "The txTopologyGuard requires input[i].vout == i for EVERY action. The pool (genesis) outputs verifier@0-5, carrier@6, state@7 \u2014 the deposit's inputs satisfy this. But the DEPOSIT's OWN outputs used state@0 + verifier@1-6 + carrier@7 (the covenant's i+1 mapping) \u2014 the next action (transfer) spending those outputs has verifier inputs at vouts 1-6 \u2192 the guard (vout==i) FAILS. FIX: every action's outputs must mirror the pool layout (verifier@0-5, carrier@6, state@7, change@8); the state covenant's output mapping must be output[i] == input[i] (not i+1), the state output at 7, the binding output at 6. Requires a new pool (9th) since the deployed state covenant pins the old helper.",
+   "transferAttempt": "transfer tx cd2fbc57... rejected: the terminal's vout==i guard on the deposit's output layout; fee UTXO churn also observed (mempool-conflict)."
+  }
+ ],
+ "deployedPools": [
+  {
+   "instance": "b35e2532...",
+   "genesis": "dc6634d8...",
+   "status": "unusable (OP_1 carrier)"
+  },
+  {
+   "instance": "4429fd4f...",
+   "genesis": "8639bee2...",
+   "status": "unusable (state roots)"
+  },
+  {
+   "instance": "07e81427...",
+   "genesis": "48a50d67...",
+   "status": "unusable (token category)"
+  },
+  {
+   "instance": "880c1440.../8134d21a...",
+   "genesis": "8134d21a...",
+   "status": "deployed with the correct layout/category (usable for the witness-pipeline deposit)"
+  }
+ ],
+ "next": "Port the product's per-action witness pipeline (design/04 v3 + 05): the kit's action-lifecycle computes the pf6 unlocks against the real settlement tx (the same rapidsnark proof + the lane's witness modules with the real context)."
+}

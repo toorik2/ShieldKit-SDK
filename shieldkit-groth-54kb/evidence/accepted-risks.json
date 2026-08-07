@@ -1,0 +1,42 @@
+{
+ "schema": "shieldkit-54kb/accepted-risks/v1",
+ "generated": "2026-08-07T02:24:06",
+ "status": "accepted-risks-only register (no open blockers at the time of writing; each risk has a mitigation + evidence pointer)",
+ "risks": [
+  {
+   "id": "AR-01",
+   "risk": "Density-padding (densDrop) bytes in the exec3/terminal unlocks are unauthenticated filler",
+   "impact": "An attacker can mutate the padding without breaking the verifier; the padding is data-only (inside data pushes), cannot execute, cannot exceed the pinned unlock lengths, and cannot alter any authenticated material",
+   "mitigation": "inputLengthGuards pin the unlock lengths; the padding carries no code; both VMs (libauth + LeanBCH + BCHN consensus) agree the windows are the only accepted mutation surface; scoped tamper corpus 0/2088 on the authenticated bytes",
+   "evidence": "evidence/04-qualification/b02-consensus-tamper.json"
+  },
+  {
+   "id": "AR-02",
+   "risk": "Single-contributor ceremony material reused (no new multi-party ceremony)",
+   "impact": "The ceremony's toxic-waste assumption rests on the single contributor's honest deletion; the VK d38f3cfc is fixed in the deployment",
+   "mitigation": "explicitly accepted per the revised goal (ceremonyQualified=false, documented reuse); the ceremony chain (ptau e7aec1da -> beta.zkey 61683ef2) is hash-pinned",
+   "evidence": "evidence/08-release/ceremony-reuse.json"
+  },
+  {
+   "id": "AR-03",
+   "risk": "Hot-wallet custody model for the chipnet funding UTXOs (P2PKH, single key)",
+   "impact": "Key compromise = loss of the (chipnet-only) funds; no mainnet exposure",
+   "mitigation": "chipnet-only; the wallet is a test wallet; the 0x61 sighash covers the full outputs; keys never printed/logged",
+   "evidence": "design/04-runtime-integration.md"
+  },
+  {
+   "id": "AR-04",
+   "risk": "0x61 (allOutputsAllUtxos) sighash coverage leaves the fee input's lock free",
+   "impact": "The covenant authenticates the pool surface (roles 0-7); the funding input (8) is authenticated by its own P2PKH; a carrier substitution of the funding lock would break the P2PKH",
+   "mitigation": "the fee input's P2PKH + the txTopologyGuard's 9-input pin; verified by the consensus tamper corpus (fee flip rejected)",
+   "evidence": "evidence/04-qualification/b02-consensus-tamper.json"
+  },
+  {
+   "id": "AR-05",
+   "risk": "Chipnet-only deployment; zero mainnet claims",
+   "impact": "The evidence describes chipnet settlements only",
+   "mitigation": "all evidence JSONs carry chipnet-scoped schemas; the release scans enforce the external-release-gate boundaries",
+   "evidence": "evidence/08-release/fail-closed-scans.json (pending child)"
+  }
+ ]
+}

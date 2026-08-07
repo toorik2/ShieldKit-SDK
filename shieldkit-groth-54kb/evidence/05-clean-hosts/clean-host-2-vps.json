@@ -1,0 +1,42 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp5-clean-host-2/v1",
+ "generated": "2026-08-07T02:37:13",
+ "status": "SECOND CLEAN HOST (layer1-node VPS) COMPLETED THE FULL LIFECYCLE: deposit + transfer + withdrawal all 6-role gate green, BCHN testmempoolaccept allowed, broadcast on chipnet",
+ "host": {
+  "name": "layer1-node VPS (v2202605360621462043)",
+  "node": "v22.23.1 (pinned, rsynced)",
+  "folder": "clean rsync of shieldkit-groth-54kb (never ran the lifecycle before)",
+  "bchNode": "local BCHN chipnet node"
+ },
+ "chain": {
+  "genesis": "e4c580a6c9ec5347fc0ed86892a7a1477c5c68c231d637a9914d35446dea2979",
+  "deposit": "ebbe24559aa16210d7b9324c68a4afc3b2aca836f1146c3ad418739787628854",
+  "transfer": "6f604a8de8cdfd673145ec9af51f62fd0328b2e8586380db61bd388ed27014fd",
+  "withdrawal": "eb5145c56bd1fc929388eb7241234f47cbca66044134ebd3187ec42e2f7ea5e0"
+ },
+ "gates": {
+  "deposit": {
+   "gateOk": true,
+   "roles": "6/6"
+  },
+  "transfer": {
+   "gateOk": true,
+   "roles": "6/6"
+  },
+  "withdrawal": {
+   "gateOk": true,
+   "roles": "6/6"
+  }
+ },
+ "recovery": [
+  "transfer recovered the deposit note (nullifier 03f5bfbc...) from the chain packet",
+  "withdrawal recovered the transfer note (nullifier 2555e9aa...) from the chain packet",
+  "erase = the withdrawal (note consumed without replacement)",
+  "recovered-note spend = the withdrawal spending the recovered note"
+ ],
+ "runIds": [
+  "pf6-a3-deposit-clean1",
+  "pf6-a3-transfer-clean1",
+  "pf6-a3-withdrawal-clean1"
+ ]
+}

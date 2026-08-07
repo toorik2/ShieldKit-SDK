@@ -1,0 +1,64 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp3-replay/v1",
+ "generated": "2026-08-06T21:57:51",
+ "command": "tsx replay-pf6-context.mts src/verifier-material/pf6-material.json (harness evaluatePair, createRealVm = libauth 3.1.0-next.8 BCH-2026)",
+ "result": "GATE OK \u2014 6/6 verifier roles VM-accept in the complete 9-input context",
+ "rows": [
+  {
+   "index": 0,
+   "name": "exec0",
+   "accepts": true,
+   "unlockBytes": 9853
+  },
+  {
+   "index": 1,
+   "name": "exec1",
+   "accepts": true,
+   "unlockBytes": 9848
+  },
+  {
+   "index": 2,
+   "name": "exec2",
+   "accepts": true,
+   "unlockBytes": 9877
+  },
+  {
+   "index": 3,
+   "name": "exec3",
+   "accepts": true,
+   "unlockBytes": 8893
+  },
+  {
+   "index": 4,
+   "name": "genesis",
+   "accepts": true,
+   "unlockBytes": 7600
+  },
+  {
+   "index": 5,
+   "name": "terminal",
+   "accepts": true,
+   "unlockBytes": 9350
+  },
+  {
+   "index": 6,
+   "name": "packet(structural)",
+   "accepts": false,
+   "note": "placeholder lock; unevaluated by design"
+  },
+  {
+   "index": 7,
+   "name": "state(structural)",
+   "accepts": false,
+   "note": "placeholder lock; unevaluated by design"
+  },
+  {
+   "index": 8,
+   "name": "fee(structural)",
+   "accepts": false,
+   "note": "placeholder lock; unevaluated by design"
+  }
+ ],
+ "material": "src/verifier-material/pf6-material.json",
+ "note": "Independent replay from the extracted material manifest; matches the build's own gate semantics (structural roles unevaluated). Structural locks are placeholders replaced by the product runtime at action time."
+}

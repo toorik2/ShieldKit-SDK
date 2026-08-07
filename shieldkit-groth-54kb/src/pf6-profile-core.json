@@ -1,0 +1,103 @@
+{
+ "baseVerifierArtifacts": [
+  {
+   "id": "pf6-base-verifier-material",
+   "sha256": "0520964537eebd476cc849210f208886fb161363fd7d48748fbf499b0e51521b"
+  },
+  {
+   "id": "pf6-topology-spec",
+   "sha256": "591d53ef9e1ec7d5b84e881d2a04b5acad9379166ca33d25d218cbd12bcbfc1f"
+  }
+ ],
+ "crypto": {
+  "babyJubCurveId": "circomlib-babyjub-base8",
+  "domains": {
+   "ADDRESS": "174c18c76e6b8e7e9035476f0419293d25aabb87220e613924e58345d11914df",
+   "NOTE": "194fd66837e146a0a8dddfcc309eb8bc1a51deb31924e089b8960ae102c7c349",
+   "NOTE_LEAF": "0765f493bd374585f9ab5c4a1efe55f4d400a1bc1c876506ef8c7644145f370a",
+   "NOTE_TREE_EMPTY": "28fda61e6a38f74d91d7d8c4e279ba8e7b437a707948b9476bcfd650f5a60dad",
+   "NOTE_TREE_NODE": "06a305c7bcf59e063a048eb6d2d870018d0051268abe747a3ddde39daf1b2153",
+   "NULLIFIER": "23358847ffca5391ad471ef321c12099073bff6145a867d14700e8e976377460",
+   "NULLIFIER_TREE_EMPTY": "2633488611f1ffb2708b6ebb8994794c45c27f56b5d0d87d67a841123e3f0acb",
+   "NULLIFIER_TREE_LEAF": "21e0792dda012608a23ccef2acfb69f6a5d8ea940de6399bdd1094d68e4ffce2",
+   "NULLIFIER_TREE_NODE": "241df03119348914e68c8b8c34a7c35acea16196c2d1c23223f4a191007175a4",
+   "RECORD_MASK_R": "1af24bc8a85aa4b05369756d4f60843ff6dc26f886999d215ed61e38a4ae2db0",
+   "RECORD_MASK_RHO": "0ddef22b3c03788145c0aed1bfba5a211f13466c813c0a5d9ed2e92ab173f966",
+   "RECORD_TAG": "03db9f4bbae24de0b96466001641dc5753651feaa55a8541ededbcaf2bb2da7e",
+   "RHO": "0d166c9d3f0e891e85bb4a502a6ec7303938d7bfc56f1b6e6e443fa8793f8a82"
+  },
+  "poseidonId": "circomlib-poseidon-bn254"
+ },
+ "denominationSats": "10000000",
+ "encodings": {
+  "address": "shieldkit-address-v2-direct",
+  "packet": "shieldkit-direct-action-sda2-552",
+  "record": "shieldkit-note-record-v2-direct-128",
+  "state": "shieldkit-pool-state-sks2-native128",
+  "unlock": "shieldkit-rolling-bundle-unlock-v2-direct"
+ },
+ "network": {
+  "id": 2,
+  "name": "chipnet"
+ },
+ "proof": {
+  "curve": "bn254",
+  "r1csSha256": "077f58f5deee5ae38455af3d6c0a647383b24b455e26156585d5a17b7b5b00ed",
+  "relationId": "shieldkit-pool-action-v2-direct",
+  "relationSha256": "31014db7cf0087f359a84410503fadca19c44a0e276913435b65f80ed084f7db",
+  "system": "groth16",
+  "verificationKeySha256": "d38f3cfc0c77711d1dc1c3f937764dec2155f7576054e4fd7645147344d967ef",
+  "witnessWasmSha256": "87f5878e8b73dcfe5d1dfc48bf237f49875a6e8d3b83a6edc98ff9fef8263d4e"
+ },
+ "publicInputAbi": {
+  "count": 2,
+  "digest": "sha256",
+  "id": "shieldkit-sda2-sha256-be-u128x2",
+  "limbBits": 128
+ },
+ "schema": "shieldkit-profile-core-v2-direct",
+ "toolchain": [
+  {
+   "name": "cashc-resched",
+   "sha256": "c8920352383f887a14b1bf49802926856d793cb5ca44e58972daa3bf8f005d24",
+   "version": "0.14.0-next.1"
+  },
+  {
+   "name": "circom2",
+   "sha256": "158058736491735f355b49fbb2f2557017276e84e3f849fc2246747d95899d54",
+   "version": "0.2.23"
+  },
+  {
+   "name": "circomlib",
+   "sha256": "cb234494f35007ade6b44fa26fdc50fe51e3a2dfc40fc9aec6815657a6e23107",
+   "version": "2.0.5"
+  },
+  {
+   "name": "libauth",
+   "sha256": "a51836b089cbf52a8154ad0ad455fb6587d51057554d63351c740c93a9b49ef0",
+   "version": "3.1.0-next.8"
+  },
+  {
+   "name": "singleton-optimizer",
+   "sha256": "0cde7cbd86bce2b82acf9bd5367431255a9d3bc9f4c244630be803871c4d33ad",
+   "version": "shieldkit-content-addressed-v1"
+  },
+  {
+   "name": "snarkjs",
+   "sha256": "944d272eeb0735d02409788402dd3740339be3db0814e0c95a91fde3a8d19f0b",
+   "version": "0.7.6"
+  }
+ ],
+ "trees": {
+  "note": {
+   "depth": 32,
+   "id": "shieldkit-note-tree-v2-depth32",
+   "leafSchemaId": "shieldkit-note-leaf-v2"
+  },
+  "nullifier": {
+   "depth": 32,
+   "id": "shieldkit-indexed-nullifier-tree-v2-depth32",
+   "leafSchemaId": "shieldkit-indexed-nullifier-leaf-v2"
+  }
+ }
+}

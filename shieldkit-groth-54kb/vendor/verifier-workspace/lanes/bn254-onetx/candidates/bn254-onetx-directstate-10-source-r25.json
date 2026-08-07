@@ -1,0 +1,114 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bn254-onetx-directstate-10-source-r25",
+  "lane": "bn254-onetx",
+  "status": "research",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "fixed"
+  },
+  "toolchain": {
+    "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "7270e006852db43fecca1417bf185c789e4c5132",
+    "bch": "BCH-2026"
+  },
+  "build": {
+    "adapter": "lane-module",
+    "module": "lanes/bn254-onetx/src/build-adapter.mjs",
+    "entrypoint": "lanes/bn254-onetx/src/c7/build.ts",
+    "fixture": "harness/src/checkpoints/dense-proof-candidate-25.json",
+    "profile": {
+      "schema": "verifier.cash/bn254-onetx-c7-profile/v1",
+      "generator": {
+        "allAffine": true,
+        "selectL17": true,
+        "narrowSeam": true,
+        "specializeK": true,
+        "siblingRead": true,
+        "fixedWitnessData": true,
+        "dynamicPacking": true,
+        "deriveMode": true,
+        "rescheduleStacks": true
+      },
+      "mode": {
+        "directPort": true,
+        "striped": true,
+        "stripeBoundary": true,
+        "directFinalizeState": true,
+        "strictDeployment": true,
+        "publicBenchContext": true,
+        "driverPackDerived": true,
+        "driverWindowDerived": true
+      },
+      "layout": {
+        "windowSize": 9,
+        "stripedFragments": 7
+      },
+      "packing": {
+        "stateWidth": 32,
+        "consensusNarrowLimbs": 1,
+        "consensusWidth": 34,
+        "narrowWitnessLimbs": 16,
+        "witnessWidth": 32,
+        "wideWitnessPositions": [],
+        "retainConsensusData": false,
+        "retainWitnessData": false,
+        "finalPadding": [],
+        "enforceInputExhaustion": true,
+        "stripedNoForward": false,
+        "stripedNoWindow": false,
+        "stripedWindowTest": false,
+        "stripedNoDriver": false,
+        "stripedNoHash": false
+      },
+      "optimization": {
+        "foldOnly": false,
+        "disableFold": false,
+        "disableOptimize": false,
+        "disableStrip": false,
+        "disableConstantSeed": false,
+        "disableH1": false,
+        "disableParameterAlias": false,
+        "disableMultiplyByOne": false,
+        "keepNodeBake": false,
+        "maxTry": 8
+      }
+    }
+  },
+  "judge": {
+    "profile": "source-qualification-fixed-vk",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "expected": {
+      "scriptBytes": 82844,
+      "txOverheadBytes": 450,
+      "score": 83294,
+      "inputCount": 10,
+      "artifactHashes": {
+        "result": "0a9e7d66e430f48ade01502aff6e05e3c4fc7e04f3e7195e05887f8be6c60c97",
+        "inputs": "9371eeae819d2b40d7149f6f70171e81dbd1c5d972db91c42f89c65777fb1f11",
+        "transaction": "bf98c9214b4383cdd05214595334efca0c4ca71661ee88e90ea4eb9d90366678",
+        "source-outputs": "eb311a5fa5c8c3e48d54464d1daff465d0ce42bd226f0da2aeef62fb6a0e7348",
+        "boundary-parts": "f42fbf7cc08e0137437a08acf8716d33f562de0f48a83df1780ac0a92ee3c3f5",
+        "op-margin": "8648ae33fa2c215473bb1e619a9704d51b13d84264b8fbd1ab72eff780148c97"
+      }
+    }
+  },
+  "provenance": {
+    "sourceCommit": "current-worktree",
+    "scope": "[BN254 DirectState-10 (source r25); bn254-directstate-10-source-r25] Behavior-preserving source adapter for the committed direct-state public profile; qualification only until full promotion evidence is regenerated."
+  },
+  "identity": {
+    "humanName": "BN254 DirectState-10 (source r25)",
+    "construction": "directstate",
+    "topology": 10,
+    "stateModel": "source",
+    "revision": "r25",
+    "slug": "bn254-directstate-10-source-r25"
+  }
+}

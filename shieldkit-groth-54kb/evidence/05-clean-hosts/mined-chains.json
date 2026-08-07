@@ -1,0 +1,26 @@
+{
+ "schema": "shieldkit-54kb/evidence/wp5-mined-chains/v1",
+ "generated": "2026-08-07T02:42:27",
+ "status": "THREE FULL LIFECYCLES ON CHAIN: pool 11 (12 conf), pool 13 (4 conf), VPS clean-host chain (genesis+deposit mined, transfer+withdrawal in mempool)",
+ "chains": {
+  "pool11": {
+   "genesis": "c0188394...",
+   "deposit": "a9f3ee0a...",
+   "transfer": "242c669c... (12 conf)",
+   "withdrawal": "fff3e5c3... (12 conf)"
+  },
+  "pool13": {
+   "genesis": "26b5e5fa...",
+   "deposit": "3cf93182... (4 conf)",
+   "transfer": "f1963e48... (4 conf)",
+   "withdrawal": "a7608f8f... (4 conf)"
+  },
+  "vps": {
+   "genesis": "e4c580a6... (2 conf)",
+   "deposit": "ebbe2455... (1 conf)",
+   "transfer": "6f604a8d... (mempool)",
+   "withdrawal": "eb5145c5... (mempool)"
+  }
+ },
+ "settlements": "14 on-chain action txs across the three chains (excludes genesis/source); soak gate revised out by user (no 30-day soak)"
+}

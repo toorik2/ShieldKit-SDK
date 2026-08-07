@@ -1,0 +1,15 @@
+name = "verifiercash"
+version = "0.1.0"
+defaultTargets = ["Groth16"]
+
+# The verifier.cash application's machine-checked BN254 crown soundness, on top of the
+# LeanBCH tools (VM + cost + consensus) and LeanBCH.Opt (the verified optimizer). The tools
+# are a path dependency — nothing here is duplicated; this repo imports them.
+[[require]]
+name = "leanbch"
+path = "../LeanBCH"
+
+# BN254 Groth16 "crown" — circuit-specific arithmetic soundness (the E=(p^12-1)/r derivation,
+# the 82^-1 Fermat inverse, and the crown composition). Application code, NOT reusable tool.
+[[lean_lib]]
+name = "Groth16"

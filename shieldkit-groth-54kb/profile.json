@@ -1,0 +1,28 @@
+{
+  "schema": "shieldkit-pool-design-profile/v1",
+  "id": "pf6-a3-direct-v1",
+  "displayName": "ShieldKit-Groth-54KB \u2014 bn254-onetx-pf6-a3-r1",
+  "designRoot": "shieldkit-groth-54kb",
+  "capability": {
+    "roles": 6,
+    "inputsPerAction": 9,
+    "proofSystem": "Groth16",
+    "topology": "pf6-a3-direct-v1",
+    "scriptBytes": 54671,
+    "vk": "d38f3cfc"
+  },
+  "machinery": {
+    "covenants": "src/product-port/structural-covenants.mjs",
+    "topology": "src/topology-pf6.mjs",
+    "actionMaterial": "src/verifier-material/pf6-action-material.json",
+    "freshPoolConstants": "src/fresh-pool-constants.json",
+    "prover": "vendor/product-current/native/prover",
+    "zkey": "vendor/product-current/circuit/beta.zkey",
+    "wasm": "vendor/product-current/circuit/main-chipnet.wasm",
+    "verificationKey": "vendor/product-current/verification_key.json",
+    "laneCandidates": "vendor/pf6-lane/candidates",
+    "laneRuns": "vendor/verifier-workspace/.vc/runs",
+    "runBuilder": "src/run-pf6-product-build.mjs",
+    "proveModule": "src/prove-pf6.mjs"
+  }
+}

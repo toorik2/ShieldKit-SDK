@@ -1,0 +1,64 @@
+{
+  "chunk": [
+    52,
+    71
+  ],
+  "opBudget": 8032800,
+  "maxBoundaryLimbBytes": 32,
+  "results": [
+    {
+      "op": 8010157,
+      "completed": true,
+      "accepted": true,
+      "argBytes": 1716,
+      "error": null,
+      "name": "committed + 0*p",
+      "limbBytesSample": 32,
+      "overBudget": false
+    },
+    {
+      "op": 8013257,
+      "completed": true,
+      "accepted": true,
+      "argBytes": 1716,
+      "error": null,
+      "name": "committed + 1*p",
+      "limbBytesSample": 32,
+      "overBudget": false
+    },
+    {
+      "op": 8015492,
+      "completed": true,
+      "accepted": true,
+      "argBytes": 1730,
+      "error": null,
+      "name": "committed + 2*p",
+      "limbBytesSample": 32,
+      "overBudget": false
+    },
+    {
+      "op": 8018694,
+      "completed": true,
+      "accepted": true,
+      "argBytes": 1768,
+      "error": null,
+      "name": "committed + 3*p",
+      "limbBytesSample": 32,
+      "overBudget": false
+    },
+    {
+      "op": 8018898,
+      "completed": true,
+      "accepted": true,
+      "argBytes": 1768,
+      "error": null,
+      "name": "committed + 4*p",
+      "limbBytesSample": 32,
+      "overBudget": false
+    }
+  ],
+  "committedOp": 8010157,
+  "busters": [],
+  "bustersAnyCompletion": [],
+  "A1_BUSTED_reachable_completing": false
+}

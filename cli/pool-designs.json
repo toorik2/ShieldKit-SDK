@@ -1,0 +1,35 @@
+{
+  "schema": "shieldkit-pool-design-registry/v1",
+  "generated": "2026-08-07",
+  "cliHome": "shieldkit-sdk/cli",
+  "description": "One CLI for all verifier-pool designs. Each design root ships a profile.json manifest; the registry maps profile ids to design roots. --profile <id> resolves through this registry; unknown ids fail closed.",
+  "designs": [
+    {
+      "id": "pf10",
+      "displayName": "ShieldKit-Groth PF10 (original, ~91 KB unlocks)",
+      "root": "../shieldkit-groth",
+      "manifest": "profile.json",
+      "kind": "original-cli",
+      "capability": {
+        "roles": 10,
+        "inputsPerAction": 13,
+        "proofSystem": "Groth16",
+        "topology": "PF10-FusedQGenesis"
+      }
+    },
+    {
+      "id": "pf6-a3-direct-v1",
+      "displayName": "ShieldKit-Groth-54KB pf6 (54,671 script bytes)",
+      "root": "../shieldkit-groth-54kb",
+      "manifest": "profile.json",
+      "kind": "profile-module",
+      "module": "profiles/pf6-a3-direct-v1.mjs",
+      "capability": {
+        "roles": 6,
+        "inputsPerAction": 9,
+        "proofSystem": "Groth16",
+        "topology": "pf6-a3-direct-v1"
+      }
+    }
+  ]
+}

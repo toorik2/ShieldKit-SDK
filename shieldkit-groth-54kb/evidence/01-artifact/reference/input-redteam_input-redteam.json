@@ -1,0 +1,720 @@
+{
+  "schema": "verifier.cash/bn254-onetx-input-redteam/v1",
+  "honestDir": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/build",
+  "offsubDir": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/.vc/runs/pf6-a3-r1-recon-2/offsubgroup",
+  "fixture": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/harness/src/checkpoints/dense-proof-candidate-25.json",
+  "checks": {
+    "sourceCanonicalG2BeforeTwist": true,
+    "sourceT5FoldPresent": true,
+    "honest": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6933105
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6788181
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6796055
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6766182
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": true,
+        "error": "",
+        "operationCost": 5675144
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6733475
+      }
+    ],
+    "offCurveA": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6926598
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6782314
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6790051
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6759885
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 5568161
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 4804051
+      }
+    ],
+    "offCurveB": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6926734
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6781792
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6789772
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 6759787
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 185625
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 899642
+      }
+    ],
+    "nonCanonicalB": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6933105
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6788181
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6796055
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6766184
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 99396
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6733475
+      }
+    ],
+    "offSubgroupB": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6883774
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6746993
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6754288
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6724156
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": true,
+        "error": "",
+        "operationCost": 5632029
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 892643
+      }
+    ],
+    "publicLimbMutation": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6933105
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6788181
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6796055
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6766182
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": false,
+        "error": "Program failed an OP_VERIFY operation.",
+        "operationCost": 214564
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6733475
+      }
+    ],
+    "extraValidProofs": [
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933199
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788132
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6795596
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766430
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 4785369
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6850261
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6930328
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6785807
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6792979
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6763754
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 4760654
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6732735
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6932441
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788166
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6795780
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6765424
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 4789018
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6731893
+        }
+      ]
+    ],
+    "worstCase": [
+      {
+        "index": 0,
+        "name": "exec0",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6932986
+      },
+      {
+        "index": 1,
+        "name": "exec1",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6789011
+      },
+      {
+        "index": 2,
+        "name": "exec2",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6795933
+      },
+      {
+        "index": 3,
+        "name": "exec3",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6766306
+      },
+      {
+        "index": 4,
+        "name": "genesis",
+        "accepts": true,
+        "error": "",
+        "operationCost": 5653507
+      },
+      {
+        "index": 5,
+        "name": "terminal",
+        "accepts": true,
+        "error": "",
+        "operationCost": 6732910
+      }
+    ],
+    "witnessTampers": [
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "operationCost": 308497
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788181
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6796055
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766182
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 5675144
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6733475
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933105
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "operationCost": 309824
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6796055
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766182
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 5675144
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6733475
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933105
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788181
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "operationCost": 307138
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766182
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 5675144
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6733475
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933105
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788181
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6796055
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": false,
+          "error": "Program failed an OP_VERIFY operation.",
+          "operationCost": 302181
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 5675144
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6733475
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933105
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788181
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6796055
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766182
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": false,
+          "error": "The P2SH redeem bytecode provided in this input does not match the hash required by the locking bytecode. Top stack item: \"\".",
+          "operationCost": 16277
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6733475
+        }
+      ],
+      [
+        {
+          "index": 0,
+          "name": "exec0",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6933105
+        },
+        {
+          "index": 1,
+          "name": "exec1",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6788181
+        },
+        {
+          "index": 2,
+          "name": "exec2",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6796055
+        },
+        {
+          "index": 3,
+          "name": "exec3",
+          "accepts": true,
+          "error": "",
+          "operationCost": 6766182
+        },
+        {
+          "index": 4,
+          "name": "genesis",
+          "accepts": true,
+          "error": "",
+          "operationCost": 5675144
+        },
+        {
+          "index": 5,
+          "name": "terminal",
+          "accepts": false,
+          "error": "The P2SH redeem bytecode provided in this input does not match the hash required by the locking bytecode. Top stack item: \"\".",
+          "operationCost": 19145
+        }
+      ]
+    ]
+  },
+  "verdict": "pass",
+  "note": "The off-subgroup trajectory is rebuilt from the on-curve off-torsion B fixture. Its first rejection is the terminal containing the explicit R_end == -psi^3(B) T5-1 fold. The accompanying T5-1 cofactor-kernel gate establishes that this fold has no twist-cofactor kernel. In the bounded ten-input context, only inputs 0..6 are verifier roles; packet/state/fee remain structural and unevaluated."
+}

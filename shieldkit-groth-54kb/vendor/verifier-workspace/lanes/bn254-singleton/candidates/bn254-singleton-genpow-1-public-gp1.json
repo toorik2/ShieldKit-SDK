@@ -1,0 +1,67 @@
+{
+  "schema": "verifier.cash/candidate/v1",
+  "id": "bn254-singleton-genpow-1-public-gp1",
+  "lane": "bn254-singleton",
+  "status": "measured",
+  "capability": {
+    "proofSystem": "Groth16",
+    "field": "BN254",
+    "structure": "single-tx",
+    "proofBinding": "runtime",
+    "vkBinding": "fixed",
+    "deploymentBinding": "non-deployable-size-only"
+  },
+  "toolchain": {
+    "cashc": "historical source pipeline referenced by submission but not recovered in current tree",
+    "libauth": "3.1.0-next.8",
+    "leanbch": "historical Stackcert lineage referenced by submission; exact revision not recovered",
+    "bch": "BCH-2026 loosened VM for size-track execution"
+  },
+  "build": {
+    "adapter": "artifact-bundle",
+    "artifactRoot": "lanes/bn254-singleton/evidence/public-bench",
+    "files": {
+      "vectors": "groth16-singleton-genpow-vectors.json",
+      "multiproof-vectors": "groth16-singleton-genpow-multiproof-vectors.json",
+      "public-implementation": "bch-groth16-singleton-genpow.ts"
+    }
+  },
+  "judge": {
+    "profile": "public-singleton-size-track",
+    "sourceValueSatoshis": 1000,
+    "sequenceNumber": 0,
+    "execution": {
+      "kind": "singleton-size"
+    },
+    "expected": {
+      "lockingBytes": 4292,
+      "lockingSha256": "61c451d0bf8835e6ab850a02c325775d3769dbff92b87ba2d564c8f1f8494c83",
+      "scriptBytes": 4564,
+      "txOverheadBytes": 87,
+      "score": 4651,
+      "inputCount": 1,
+      "transactionCount": 1,
+      "operationCost": 5206615819,
+      "inputsForHeaviestStep": 649,
+      "proofsTested": 4,
+      "artifactHashes": {
+        "vectors": "40fad8530ccf226eb4638c9cbe848b197c9cf95b266d016e7c9c74b1309a2b5d",
+        "multiproof-vectors": "6988dad03196d9ca670f0c0d31f11597dd7b6251516851fafd422e82b1cca6a9",
+        "public-implementation": "4293dfa8ff955ced6735ab534acfca63f4193d089375bfdf3be3c93ffc59a48f"
+      }
+    }
+  },
+  "provenance": {
+    "sourceCommit": "b3de740734b2fc230ec24061c1da9f8bf21eee8f",
+    "publicMergeCommit": "eafbdaf684b9cfd5f6b5f5753683a8559e3493a8",
+    "scope": "[BN254 GenPow-1; bn254-genpow-1-public-gp1] Byte-exact recovery of the merged maintainer-bench BN254 genpow singleton crown. The public score and four-proof corpus are preserved; local deterministic source rebuild and multi-billion-op loosened-VM replay remain open qualification gates."
+  },
+  "identity": {
+    "humanName": "BN254 GenPow-1",
+    "construction": "genpow",
+    "topology": 1,
+    "stateModel": "public",
+    "revision": "gp1",
+    "slug": "bn254-genpow-1-public-gp1"
+  }
+}

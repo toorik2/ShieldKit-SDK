@@ -1,0 +1,17 @@
+{
+ "schema": "shieldkit-54kb/red-team-finding/v1",
+ "id": "RT-2026-0807-01",
+ "generated": "2026-08-07T03:09:07",
+ "title": "Deposit-after-withdrawal (continuation deposit) rejected by the state covenant \u2014 the packet's digest-index byte is instance-dependent",
+ "severity": "medium (novel action only; the standard deposit/transfer/withdrawal/recover lifecycle is unaffected \u2014 three chains live/mined)",
+ "finding": "A deposit into an exhausted pool (post-withdrawal state, reserve 0) fails the state covenant's packet checks: the packet's byte [8] (the digest-index window) carries the instance's first byte (0x29 for the VPS pool) instead of a value in the covenant's expected [1,4) window; the pool-13 instance's first byte (0x01) satisfied the window by coincidence.",
+ "evidence": {
+  "bchn": "testmempoolaccept: mandatory-script-verify-flag-failed (state covenant) on the honest continuation deposit (e871c7be/e87a...) and on the dust-flip variant (10,002,499) \u2014 the dust flip ALSO rejected (the amount pin works)",
+  "leanbch": "PASS 8/9 \u2014 cont-7 (state input) rejected by the formal VM (identical bytes)",
+  "packetAnalysis": "fresh (accepted) packet [8] = 0x01 (in [1,4)); continuation packet [8] = 0x29 (instance first byte, outside [1,4)); digest pin (sha256(packet) @ input4:451) matches in both",
+  "verifierRoles": "6/6 verifier roles accept in both BCHN and the libauth gate \u2014 the rejection is solely the state covenant's packet checks"
+ },
+ "impact": "A pool cannot receive a deposit AFTER a full withdrawal without additional work; the standard lifecycle (deposit -> transfer -> withdrawal -> recover/recovered-note spend) is green and mined on three chains.",
+ "recommendation": "For a follow-up revision: the covenant's packet [8..12] field should be decoded as the digest-index (action-defined) independently of the instance; or the packet builder must place the digest-index before the category. Requires a covenant change -> new deployment (not a pin change).",
+ "status": "documented; no open security impact on the pinned lifecycle"
+}

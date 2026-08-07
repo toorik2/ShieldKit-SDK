@@ -1,0 +1,137 @@
+{
+ "schema": "verifier.cash/candidate/v1",
+ "id": "bn254-onetx-pf6-a3-shieldkit-cont-deposit-r1",
+ "lane": "bn254-onetx",
+ "status": "live-cont-deposit",
+ "capability": {
+  "proofSystem": "Groth16",
+  "field": "BN254",
+  "structure": "single-tx",
+  "proofBinding": "runtime",
+  "vkBinding": "fixed",
+  "deploymentBinding": "fixed"
+ },
+ "identity": {
+  "humanName": "pf6 continuation deposit (VPS pool)",
+  "construction": "pf6-a3-shieldkit-cont-deposit",
+  "topology": 6,
+  "stateModel": "p2shchain",
+  "revision": "r1",
+  "slug": "pf6-cont-deposit"
+ },
+ "toolchain": {
+  "cashc": "1c707c1dbf87396b30ba5e0704b1db44475ce893",
+  "libauth": "3.1.0-next.8",
+  "leanbch": "51201015fdaef4562debf2a2b1cab4013a45e8b4",
+  "bch": "BCH-2026"
+ },
+ "build": {
+  "adapter": "lane-module",
+  "module": "lanes/bn254-onetx/src/build-adapter.mjs",
+  "entrypoint": "lanes/bn254-onetx/src/c7/build.ts",
+  "fixture": "harness/src/checkpoints/dense-proof-candidate-25.json",
+  "fixedG2Static": true,
+  "pairfoldTopology": 6,
+  "scalarEndpoint": true,
+  "fixedG2WitnessTableBytes": "0,0,0,0",
+  "inputValidationFixture": "lanes/bn254-onetx/test/fixtures/dense-proof-candidate-25-offsubgroup.json",
+  "runtimeCorpus": {
+   "extraMultiproofIndices": [
+    0,
+    1,
+    2
+   ],
+   "worstCase": true
+  },
+  "structuralRoleCount": 3,
+  "shieldAdapter": {
+   "path": "/tmp/pf6-cont-adapter.json",
+   "sha256": "1d5ccff1a3f50ba2fa341fa51448d1d46640ca145a2c51fe76a47f2e5d8fb352"
+  },
+  "shieldActionPacket": {
+   "path": "/tmp/pf6-cont-packet.bin",
+   "sha256": "5b4d2cef9c095330282b7aa8882c572a6aef8fcf0b8f969eb40c38817910c44b"
+  },
+  "shieldActionPacketAbi": "sda2-v2-direct",
+  "profile": {
+   "schema": "verifier.cash/bn254-onetx-c7-profile/v1",
+   "generator": {
+    "allAffine": true,
+    "selectL17": true,
+    "narrowSeam": true,
+    "specializeK": true,
+    "siblingRead": true,
+    "fixedWitnessData": true,
+    "dynamicPacking": true,
+    "deriveMode": true,
+    "rescheduleStacks": true
+   },
+   "mode": {
+    "directPort": true,
+    "striped": true,
+    "stripeBoundary": true,
+    "directFinalizeState": true,
+    "strictDeployment": false,
+    "publicBenchContext": true,
+    "driverPackDerived": true,
+    "driverWindowDerived": true
+   },
+   "layout": {
+    "windowSize": 13,
+    "stripedFragments": 4
+   },
+   "packing": {
+    "stateWidth": 32,
+    "consensusNarrowLimbs": 1,
+    "consensusWidth": 34,
+    "narrowWitnessLimbs": 16,
+    "witnessWidth": 32,
+    "wideWitnessPositions": [],
+    "retainConsensusData": false,
+    "retainWitnessData": false,
+    "finalPadding": [],
+    "enforceInputExhaustion": true,
+    "stripedNoForward": false,
+    "stripedNoWindow": false,
+    "stripedWindowTest": false,
+    "stripedNoDriver": false,
+    "stripedNoHash": false
+   },
+   "optimization": {
+    "foldOnly": false,
+    "disableFold": false,
+    "disableOptimize": false,
+    "disableStrip": false,
+    "disableConstantSeed": false,
+    "disableH1": false,
+    "disableParameterAlias": false,
+    "disableMultiplyByOne": false,
+    "keepNodeBake": false,
+    "maxTry": 2
+   }
+  },
+  "terminal": {
+   "frobFuse": true,
+   "wSelector": false,
+   "densDropBytes": 1115,
+   "bqReserveBytes": 160,
+   "bqResidualNoFuel": true
+  }
+ },
+ "judge": {
+  "profile": "shieldkit-pf6-cont-deposit",
+  "sourceValueSatoshis": 1000,
+  "sequenceNumber": 4,
+  "expected": {
+   "scriptBytes": null,
+   "txOverheadBytes": null,
+   "score": null,
+   "inputCount": 9,
+   "transactionCount": 1
+  }
+ },
+ "provenance": {
+  "sourceCommit": "current-worktree",
+  "scope": "continuation deposit on the mined VPS pool; instance 29ccafa39faecf23"
+ }
+}

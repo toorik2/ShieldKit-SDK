@@ -1,0 +1,3 @@
+worktree: /home/toorik/Projects/ZK-Proofs/shieldkit-sdk/.worktrees/verifier-pf7-sub62
+branch: research/bn254-unlock-length-stabilize
+commit: 507d08f6b0134a68802397bf2d35313c0a34d80c
