@@ -248,12 +248,39 @@ test('Q-01 complete tracked-source snapshot detects live byte drift', () => {
   }
 });
 
-test('Q-01 current source inventory is bytewise ordered and deterministic', () => {
-  const first = assertV2Q01TrackedSourceInventoryForTest();
-  const second = assertV2Q01TrackedSourceInventoryForTest();
-  assert.deepEqual(second, first);
-  assert.ok(first.files.length > 0);
-  assert.ok(first.locks.length > 0);
+test('Q-01 fixture source inventory is bytewise ordered and deterministic', () => {
+  const repository = root();
+  try {
+    writeFileSync(join(repository, 'package-lock.json'), '{}\n');
+    writeFileSync(join(repository, 'Z.mjs'), 'export const upper = true;\n');
+    writeFileSync(join(repository, 'a.mjs'), 'export const lower = true;\n');
+    for (const args of [
+      ['init', '-q'],
+      ['add', 'package-lock.json', 'Z.mjs', 'a.mjs'],
+    ]) {
+      const result = spawnSync('/usr/bin/git', args, {
+        cwd: repository,
+        env: {
+          LANG: 'C',
+          LC_ALL: 'C',
+          TZ: 'UTC',
+          PATH: '/usr/bin:/bin',
+          GIT_CONFIG_COUNT: '0',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+          GIT_CONFIG_NOSYSTEM: '1',
+        },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    const first = assertV2Q01TrackedSourceInventoryForTest(repository);
+    const second = assertV2Q01TrackedSourceInventoryForTest(repository);
+    assert.deepEqual(first.files.map(({ path }) => path), ['Z.mjs', 'a.mjs']);
+    assert.deepEqual(first.locks.map(({ path }) => path), ['package-lock.json']);
+    assert.deepEqual(second, first);
+  } finally {
+    rmSync(repository, { recursive: true, force: true });
+  }
 });
 
 test('Q-01 child environment ignores ambient Git, Node, npm, Rust, and Cargo controls', () => {

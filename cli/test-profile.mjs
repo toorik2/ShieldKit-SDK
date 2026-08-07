@@ -1,4 +1,4 @@
-// cli/test-profile.mjs — the unified CLI profile-switch tests (fail-closed assertions).
+// cli/test-profile.mjs — Lab router profile-switch tests (fail-closed assertions).
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,12 +17,12 @@ const check = (label, cond, detail = '') => {
   else { fail++; console.log(`FAIL ${label} ${detail}`); }
 };
 
-// 1. the original surface is unchanged (no --profile)
+// 1. the PF10 closure remains the default (no --profile)
 {
   const r = run(['--version']);
   check('original --version ok', r.rc === 0 && r.parsed?.ok === true && r.parsed?.product === 'ShieldKit-Groth');
 }
-// 2. --profile pf10 = the original surface
+// 2. --profile pf10 delegates to the PF10 closure
 {
   const r = run(['--profile', 'pf10', '--version']);
   check('--profile pf10 --version ok', r.rc === 0 && r.parsed?.ok === true);

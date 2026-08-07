@@ -2,13 +2,12 @@
   "schema": "shieldkit-pool-design-registry/v1",
   "generated": "2026-08-07",
   "cliHome": "shieldkit-sdk/cli",
-  "description": "One CLI for all verifier-pool designs. Each design root ships a profile.json manifest; the registry maps profile ids to design roots. --profile <id> resolves through this registry; unknown ids fail closed.",
+  "description": "Experimental Lab registry. The root package remains PF10-only; direct --profile routing is not a portable product surface.",
   "designs": [
     {
       "id": "pf10",
       "displayName": "ShieldKit-Groth PF10 (original, ~91 KB unlocks)",
       "root": "../shieldkit-groth-94kb",
-      "manifest": "profile.json",
       "kind": "original-cli",
       "capability": {
         "roles": 10,

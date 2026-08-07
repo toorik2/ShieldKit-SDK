@@ -1,4 +1,4 @@
-// ShieldKit-Groth-54KB — frozen pf6 topology (design/01-topology.md, FREEZE v1).
+// ShieldKit-Groth-54KB — frozen pf6 topology (design/FREEZE.json).
 // Mirrors packages/action/v2/topology.mjs pattern; gate IDs and role names
 // are frozen — do not rename without a new design revision.
 'use strict';

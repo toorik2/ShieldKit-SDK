@@ -1,8 +1,6 @@
-# 01 · Learn
+# Historical explainer
 
-Static explainer (no build, no chain).
+This static V1 explainer is retained as an archive. Its protocol and workflow
+are not the current ShieldKit product model.
 
-```bash
-python3 -m http.server 8765 --directory 01-learn-about-this-system
-# http://127.0.0.1:8765/learn-about-this-system.html
-```
+Read the current [product model](../../docs/product/model.md) instead.

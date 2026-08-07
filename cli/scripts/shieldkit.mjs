@@ -237,55 +237,17 @@ function usage() {
 ${PRODUCT_STATUS.status} · maturity: ${PRODUCT_STATUS.maturityLabel}
 ${PRODUCT_STATUS.note}
 
-Product root: shieldkit-groth-94kb/  (kit · profile · PF10 CLI)
-Optional demo: archived-pool-designs/02-use-chipnet-demo-pool/   (legacy research instance)
+Product profile: PF10 · Chipnet only · zero-confirmation admission and readback
 
-  # Create and operate your pool (ShieldKit-Groth Beta / PF10 / Chipnet)
-  pool create --funding-wallet <absolute-canonical-private-wallet-path> --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]
-  pool create --resume [--data-home <absolute-directory>] [--human|--json]  # only an existing durable create operation
-  pool refresh-runtime [--data-home <absolute-directory>] [--human|--json]
-  pool add-funding --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]  # register an already-owned live UTXO; never sends; keep two independent fee UTXOs for consecutive actions
-  pool deposit | deposit [--data-home <absolute-directory>] [--operation-id <id>] [--human|--json]
-  pool withdraw | withdraw --to <bchtest-p2pkh-external-not-fee-wallet> [--data-home <absolute-directory>] [--note <id>] [--operation-id <id>] [--human|--json]
-  pool recover inspect | recovery inspect --operation-id <id> [--data-home <absolute-directory>] [--human|--json]
-  pool recover rebroadcast | recovery rebroadcast --operation-id <id> --attempt-token <current-token> --acknowledge-exact-rebroadcast [--data-home <absolute-directory>] [--human|--json]
-  pool doctor [--data-home <absolute-directory>] [--human|--json]
-  (ShieldKit-Groth Beta Chipnet: one user-funded invocation; wallet must be a canonical owner-private 0600 JSON file and every funding UTXO must be unspent, tokenless P2PKH owned by that retained wallet. pool add-funding authenticates and registers one exact existing UTXO; it never scans or sends. Because the next fee input must come from a transaction other than the current pool tip, continuous operation requires two alternating independent fee UTXOs. A crash-resume is explicit and cannot substitute new funding. No sponsor, faucet, RPC account, API key, custom endpoint, or SSH. The sole action send goes to one pinned public provider; exact zero-conf completion requires an identical transaction/state readback quorum from any two of three independently operated pinned providers—never confirmation or mining. Capacity 100000; explicitly unqualified. Public providers can observe the client IP and queried transactions/outpoints. After a ShieldKit source upgrade, run pool refresh-runtime locally before actions; it never proves or contacts a network provider.)
+  pool create --funding-wallet <abs-wallet> --funding-utxo <txid:vout> [--data-home <abs-dir>]
+  pool create --resume [--data-home <abs-dir>]
+  pool refresh-runtime | add-funding | deposit | transfer | withdraw | doctor
+  pool recover inspect|rebroadcast ...
 
-  # Legacy tools
-  init  # V1 legacy creation is quarantined; use the attested V2 pipeline
-  request-template --kind deposit --bundle <profile-dir>
-  genesis-plan --bundle <dir> --category-input <json>
-  genesis-finalize --bundle <dir> --category-input <json> --signature <64hex>
-  # Full act (prove + verifier unlocks + assemble)
-  deposit|transfer|withdraw --protocol v1-legacy --pool <pool-dir> --wallets <json> [--broadcast]
-  # Offline prep-only (legacy)
-  deposit|transfer|withdraw --protocol v1-legacy --bundle <profile-dir> --request <prep.json>
-  recover --bundle <your-pool> --history <json> --seed-hex <64hex>
-  doctor [--pool <dir>] | profile-info | config-check | explorer
-
-  # Optional live demo (CLI only — not a web wallet)
-  npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup
-  playground doctor|tip|profile-info|request-template
-  playground deposit|transfer|withdraw --protocol v1-legacy --wallets <json> [--broadcast] [--refresh-tip]
-  (RPC: public Chipnet Fulcrum by default; tip auto-discovered from chain when missing)
-
-Flags:
-  --version
-  --protocol v1-legacy  (legacy mutation commands only)
-  --network chipnet|mainnet
-  --mode development-only|local-contribution-simulation
-  --pool <pool-dir>   (full act / doctor preflight)
-  --bundle <profile-dir>
-  --wallets / --broadcast / --scan-fees / --state-txid
-  --config / --request / --history / --seed-hex / --kind / --category-input / --signature
-  --verify-ptau   (init) force full snarkjs powersoftau verify; default may hash-only trusted Hermez pin
-  --i-understand-mainnet
-  --allow-development-on-mainnet
-
-Fee keys: policy A feePrivateKey (desktop) · policy B feePublicKey+feeSignature
-Developer-only internals are intentionally omitted. Run: shieldkit dev --help
-Docs: shieldkit-groth-94kb/docs/VERSIONING.md · CHARTER.md
+Use "shieldkit pool --help" and "shieldkit pool <command> --help" for options.
+Funded actions broadcast. There is no sponsor, faucet, automatic resend, mining wait, or mainnet claim.
+Developer internals: shieldkit dev --help
+Docs: README.md · SECURITY.md
 `);
 }
 

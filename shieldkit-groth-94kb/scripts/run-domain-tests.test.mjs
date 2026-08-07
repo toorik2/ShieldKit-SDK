@@ -932,6 +932,24 @@ test('beta runtime fixture qualification is explicit and non-portable rather tha
   assert.doesNotThrow(() => preflightTestSources(selectDomainTests(discovery, 'beta-runtime-qualification')));
 });
 
+test('clean-source ceremony coverage is mandatory but never part of the dirty-worktree portable suite', async () => {
+  const ceremony = 'scripts/v2-beta-single-contributor-ceremony.test.mjs';
+  const root = await fixture({
+    'packages/action/base.test.mjs': passingTest,
+    [ceremony]: passingTest,
+  });
+  const discovery = discoverDomainTests({ projectRoot: root });
+  assert.deepEqual(
+    selectDomainTests(discovery, 'portable').map((entry) => entry.relativePath),
+    ['packages/action/base.test.mjs'],
+  );
+  assert.deepEqual(
+    selectDomainTests(discovery, 'clean-source').map((entry) => entry.relativePath),
+    [ceremony],
+  );
+  assert.doesNotThrow(() => preflightTestSources(selectDomainTests(discovery, 'clean-source')));
+});
+
 test('heavy local V2 mutation campaigns are explicit, complete, and never silently portable', async () => {
   const strictCodec = 'packages/action/v2/strict-codec-qualification.test.mjs';
   const typescriptParity = 'packages/action/v2/typescript/parity.test.mjs';

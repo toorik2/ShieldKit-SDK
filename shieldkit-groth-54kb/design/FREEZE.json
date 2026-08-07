@@ -1,28 +1,30 @@
 {
- "schema": "shieldkit-54kb/design-freeze/v1",
- "frozen": "2026-08-06T21:36:57",
- "topologyId": "pf6-a3-direct-v1",
- "documents": [
-  "design/01-topology.md",
-  "design/02-vk-binding.md",
-  "design/03-requirements.md"
- ],
- "evidence": [
-  "evidence/02-design/vk-comparison.json",
-  "evidence/02-design/reference-vk.json",
-  "evidence/02-design/fixture-proof.json",
-  "evidence/02-design/fixture-public.json",
-  "evidence/01-artifact/wp1-reference-build.json"
- ],
- "openItems": [
-  "product profile manifest freeze (WP-3): pin d38f3cfc VK + beta.zkey 61683ef2 + main-chipnet circuit in the pf6 profile"
- ],
- "rules": "Frozen docs may only change via a new freeze revision with evidence; gate IDs never renamed.",
- "revisions": [
-  {
-   "id": "v2",
-   "date": "2026-08-06T21:48:54",
-   "change": "02-vk-binding.md v2: product VK corrected e52d09c3 -> d38f3cfc (current runtime); ABI confirmed sda2-v2-direct 552B"
-  }
- ]
+  "schema": "shieldkit-54kb/design-freeze/v2",
+  "revised": "2026-08-07",
+  "topologyId": "pf6-a3-direct-v1",
+  "status": "frozen-lab-unqualified",
+  "claims": {
+    "productionQualified": false,
+    "releaseQualified": false
+  },
+  "authorities": [
+    "profile.json",
+    "src/topology-pf6.mjs",
+    "src/pf6-action-witness.mjs",
+    "evidence/02-design/reference-vk.json",
+    "evidence/02-design/vk-comparison.json",
+    "evidence/04-qualification/b02-final.json",
+    "evidence/accepted-risks.json"
+  ],
+  "documentationMigration": {
+    "from": "shieldkit-54kb/design-freeze/v1",
+    "protocolChanged": false,
+    "change": "Removed narrative campaign documents; machine authorities and the root Lab boundary are canonical.",
+    "historicalSnapshot": "pins/pf6-release.pin.json"
+  },
+  "rules": [
+    "Topology IDs and role order require a new design revision.",
+    "Evidence applies only to the exact artifacts and scope it identifies.",
+    "A green component record does not imply product or release qualification."
+  ]
 }

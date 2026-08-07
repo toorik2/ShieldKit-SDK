@@ -1,5 +1,5 @@
-// cli/bench.mjs — the unified CLI --bench flag.
-// Benchmarks ANY registered pool design on two honest axes:
+// cli/bench.mjs — the experimental Lab router --bench flag.
+// Compares registered pool designs on two declared axes:
 //   Axis A — on-chain verifier surface (identical measurement for all designs)
 //   Axis B — prep time (recorded per design with its prover identity; wall-clock)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -53,7 +53,7 @@ function axisAFor(profileId, root) {
       txBytes: 97844, maxUnlockBytes: 10000, maxOpCost: 58073984,
       sources: {
         scriptBytes: 'verifier.cash/intel/db/verifiers.json (toorik-bn254-intratx-general)',
-        txBytes: 'verifier.cash intel wire_bytes 94779 + tx overhead; PLAN.md ceilings table',
+        txBytes: 'modeled from verifier.cash wire_bytes 94779 plus transaction overhead; not a fresh product measurement',
         maxOpCost: 'verifier.cash intel db opcost 58,073,984',
       },
     };

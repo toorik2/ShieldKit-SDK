@@ -1,5 +1,5 @@
 // cli/profiles/pf6-a3-direct-v1.mjs
-// ShieldKit unified CLI — verifier-pool profile: bn254-onetx-pf6-a3-r1 ("54KB", 6 roles, 9-input actions).
+// ShieldKit Lab router profile: bn254-onetx-pf6-a3-r1 ("54KB", 6 roles, 9-input actions).
 // Same command surface as the beta product CLI (pool create|doctor|deposit|transfer|withdraw|recover),
 // same options, same fail-closed JSON envelope family.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -368,7 +368,7 @@ export async function runPf6ProfileCommand(argv) {
 
 export function pf6Usage(topic = 'pool') {
   if (topic === 'pool') {
-    return `ShieldKit unified CLI — profile ${PF6_PROFILE_ID} (bn254-onetx-pf6-a3-r1, 6 roles, 9-input actions)
+    return `ShieldKit Lab router — profile ${PF6_PROFILE_ID} (bn254-onetx-pf6-a3-r1, 6 roles, 9-input actions)
 
   pool create --funding-wallet <wallet-private.json> --funding-utxo <txid:vout> [--data-home <dir>] [--json|--human]
   pool deposit --data-home <dir> [--note <label>] [--operation-id <id>] [--json|--human]
@@ -890,4 +890,3 @@ export async function recoverCommand(argv) {
     notes: ['chain-scan recovery walks the pool action chain and recovers every note from the packet encrypted records'],
   });
 }
-

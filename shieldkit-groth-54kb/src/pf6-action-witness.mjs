@@ -1,6 +1,6 @@
 // ShieldKit-Groth-54KB — pf6 action witness constants + packet digest binding.
 // Numbers measured from the product build (evidence/03-implementation/product-build-r1.json);
-// the digest binding follows design/01-topology.md (frozen).
+// the digest binding follows design/FREEZE.json.
 'use strict';
 
 import { createHash } from 'node:crypto';

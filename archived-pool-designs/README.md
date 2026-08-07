@@ -1,14 +1,11 @@
-# Archived pool designs (in-repo archive)
+# Archived pool designs
 
-Material that is **not** the default ShieldKit-Groth product surface.
+These V1 experiments are retained as historical source and test fixtures. They
+are not setup guides, supported profiles, or fallbacks for the current PF10
+beta.
 
-| Path | What it is |
-|------|------------|
-| **`01-learn-about-this-system/`** | Static HTML learn site (no wallet/chain) |
-| **`02-use-chipnet-demo-pool/`** | V1 Chipnet playground instance + optional large profile bundle |
-| **`legacy-research/v1-seven-carrier/`** | Archived densFuel / seven-carrier research (PF10 product is unrelated) |
+- `01-learn-about-this-system/` is a static historical explainer.
+- `02-use-chipnet-demo-pool/` is a retired shared-playground fixture.
+- `legacy-research/` contains superseded seven-carrier research.
 
-**Default product:** [`../shieldkit-groth-94kb/`](../shieldkit-groth-94kb/) — CLI `shieldkit`.
-
-These trees stay in git for history and a few path-resolution/tests, but they are
-excluded from the published CLI pack (root `.npmignore` → `archived-pool-designs/`).
+Start with the current [ShieldKit SDK documentation](../README.md).

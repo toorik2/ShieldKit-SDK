@@ -7,8 +7,7 @@
  *
  * Bundle layout (staged then deterministically tarred):
  *   <releaseId>/manifest.json      canonical JSON inventory (path/bytes/sha256)
- *   <releaseId>/product/…          README.md PLAN.md GOAL.md design/ docs/ src/
- *                                  scripts/ evidence/
+ *   <releaseId>/product/…          README.md design/ src/ scripts/ evidence/
  *   <releaseId>/vendorPins/…       vendor-pin.json SHA256SUMS pf6-lane/
  *                                  verifier-pin/ product-vk/ chipnet-txs/
  *
@@ -56,8 +55,8 @@ const META_EVIDENCE = new Set([
 
 const SECTIONS = Object.freeze({
   product: Object.freeze({
-    files: ['README.md', 'PLAN.md', 'GOAL.md'],
-    dirs: ['design', 'docs', 'src', 'scripts', 'evidence'],
+    files: ['README.md'],
+    dirs: ['design', 'src', 'scripts', 'evidence'],
   }),
   vendorPins: Object.freeze({
     files: ['vendor/vendor-pin.json', 'vendor/SHA256SUMS'],

@@ -1,45 +1,44 @@
-# ShieldKit — ShieldKit-Groth Beta
+# ShieldKit SDK
 
-Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./shieldkit-groth-94kb/docs/SECURITY.md)
+Local tooling for creating and operating Bitcoin Cash shielded pools.
 
-**Product:** [`shieldkit-groth-94kb/`](./shieldkit-groth-94kb/)  
-**CLI:** `shieldkit`  
-**Version:** `0.3.0-beta.1` (see `package.json`)
+> Research beta. Chipnet only. Unaudited. No profile in this repository is
+> mainnet-qualified, production-qualified, or a promise of anonymity.
+
+## Start
+
+The supported root command runs the PF10 Groth16 beta:
 
 ```bash
 npm ci
-npm run shieldkit -- --help
-npm run shieldkit -- pool create --help
-npm run check:no-pf7-release
-npm run qualification:beta
+npm run shieldkit -- --version
+npm run shieldkit -- pool --help
 ```
 
-### Run the benchmark (any machine)
+Read [Start](./docs/product/start.md) before using a funded wallet. Successful
+zero-confirmation admission and readback is the operational completion boundary;
+it is not confirmation or finality.
 
-Two modes only. Requires your own Chipnet **data-home** (no author defaults).
+## What is here
 
-```bash
-# Full act tip → mempool (live spend)
-npm run bench -- --data-home /absolute/path/to/your/install-or-v2-beta-product
+| Shelf | Surface | Meaning |
+| --- | --- | --- |
+| **Product** | Root `shieldkit` command · PF10 | Supported beta path; Chipnet only and not production-qualified |
+| **Lab** | `cli/` · PF6 · FRI-STARK | Executable research with known portability or qualification gaps |
+| **Record** | Specs · evidence · audits · archives | Versioned observations and decisions, not current instructions |
 
-# First-machine install cost + one cold prove
-npm run bench:cold-start -- --data-home /absolute/path/to/your/install-or-v2-beta-product
-```
+The experimental router in `cli/` is not the root product command. In
+particular, `npm run shieldkit -- --profile …` is unsupported; see
+[Lab profiles](./docs/lab/README.md) for the exact boundary.
 
-Reports include product version, `DIRECT_V2_PF10` verifier, network, and full git commit.  
-Details: [`shieldkit-groth-94kb/bench/README.md`](./shieldkit-groth-94kb/bench/README.md) · pool setup: [USER_GUIDE](./shieldkit-groth-94kb/docs/USER_GUIDE.md)
+## Read
 
-### Docs
+- [Start](./docs/product/start.md) — install, inspect, and operate PF10
+- [Model](./docs/product/model.md) — toolkit, profile, instance, and data flow
+- [Verify](./docs/product/verify.md) — tests, evidence, and qualification language
+- [Security](./SECURITY.md) — secrets, privacy limits, and reporting
+- [Lab](./docs/lab/README.md) — PF6, FRI-STARK, and the profile router
+- [Record](./docs/record/README.md) — deep protocol and historical material
 
-- [USER_GUIDE](./shieldkit-groth-94kb/docs/USER_GUIDE.md)
-- [ARCHITECTURE](./shieldkit-groth-94kb/docs/ARCHITECTURE.md)
-- [SECURITY](./shieldkit-groth-94kb/docs/SECURITY.md)
-- [CHANGELOG](./shieldkit-groth-94kb/docs/CHANGELOG.md)
-- [V2 Direct protocol](./shieldkit-groth-94kb/docs/protocol/v2-direct/)
-- [Bench](./shieldkit-groth-94kb/bench/README.md)
-
-### Archives (not the product surface)
-
-- [`archived-pool-designs/`](./archived-pool-designs/) — learn site, V1 Chipnet playground, seven-carrier research
-
-**Mainnet is not a product claim.** No production, audit, or privacy-qualification claim in this beta.
+ShieldKit is a toolkit, not a hosted pool, relay, wallet service, or custody
+provider. Each pool instance has its own genesis and its own anonymity set.

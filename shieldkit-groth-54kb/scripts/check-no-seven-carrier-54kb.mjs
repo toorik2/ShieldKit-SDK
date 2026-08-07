@@ -6,8 +6,8 @@
  * Equivalent of shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs for
  * this product tree: the pf6 tree must be free of PF7/densFuel/pairfold-7
  * PRODUCT material except the frozen wire schema allowlist. Provenance
- * references to the pf7-sub62 worktree (reconciliation record mandated by
- * PLAN.md WP-1) are permitted ONLY in documentation/evidence surfaces and only
+ * references to the pf7-sub62 worktree are permitted ONLY in record/evidence
+ * surfaces and only
  * when the line contains no other forbidden token after stripping the exact
  * allowlisted provenance markers. Do not broaden the allowlists without an
  * explicit migration.
@@ -33,9 +33,8 @@ export const FROZEN_SCHEMA_ALLOWLIST = new Set([
 ]);
 
 /**
- * Exact provenance markers permitted ONLY under documentation/evidence
- * surfaces (evidence/, design/, docs/, README.md, PLAN.md, GOAL.md). These are
- * the reconciliation/provenance records the plan requires, not product
+ * Exact provenance markers permitted ONLY under record/evidence surfaces
+ * (evidence/, design/, README.md). These are reconciliation records, not product
  * material. A line is allowed iff after stripping every marker the line no
  * longer matches FORBIDDEN_PATTERN.
  */
@@ -54,8 +53,8 @@ export const PROVENANCE_MARKERS = new Set([
  *  product scanner's SELF set. */
 const SELF = new Set(['scripts/check-no-seven-carrier-54kb.mjs']);
 
-const DOCUMENTATION_SURFACES = new Set(['evidence', 'design', 'docs']);
-const DOCUMENTATION_FILES = new Set(['README.md', 'PLAN.md', 'GOAL.md']);
+const DOCUMENTATION_SURFACES = new Set(['evidence', 'design']);
+const DOCUMENTATION_FILES = new Set(['README.md']);
 const SKIP_DIRS = new Set(['vendor', 'node_modules', '.git', '.tmp', '.cache']);
 const BINARY_EXT = /\.(o|d|rlib|a|so|wasm|bin|map|png|jpg|jpeg|gif|wtns|proof|gz|tgz|zip|tar)$/i;
 

@@ -102,7 +102,7 @@ export function requireProductDataHome(input, deps = {}) {
       'BENCH_DATA_HOME_UNAVAILABLE',
       `no session.json under ${path.resolve(explicit)} `
         + '(expected …/v2-beta-product/session.json or …/shieldkit/v2-beta-product/session.json). '
-        + 'Create/fund a Chipnet product data-home first (see USER_GUIDE).',
+        + 'Create and fund a Chipnet product data home first (see docs/product/start.md).',
     );
   }
   return product;

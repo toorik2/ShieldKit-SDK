@@ -1,5 +1,5 @@
 // cli/profiles/fri-stark-96kb.mjs
-// ShieldKit unified CLI — verifier-pool profile: FRI-STARK 96KB
+// ShieldKit Lab router profile: FRI-STARK 96KB
 // (depth=20 blowup=2048 nq=7 grind=30 fold_step=3 DEEP-ALI, Goldilocks, 17 roles,
 // 18-input actions, 100-bit security, RANDOM CSPRNG ZK masks, wallet-derived note
 // secrets). Same command surface as the other profiles:
@@ -55,7 +55,7 @@ const flag = (argv, name) => argv.includes(`--${name}`);
 const WALLET_DEFAULT = '/home/toorik/Projects/ZK-Proofs/.codex-artifacts/chipnet-wallet-019f8ed4/wallet-private.json';
 const jsonReplacer = (_, v) => (typeof v === 'bigint' ? v.toString() : v);
 
-// design-root imports (the unified CLI sets SHIELDKIT_DESIGN_ROOT)
+// design-root imports (the Lab router sets SHIELDKIT_DESIGN_ROOT)
 const mod = (p) => import('file://' + p);
 const poolMods = async () => {
   const [createPool, actionSpend, walletNotes, packet, fundSpend] = await Promise.all([
@@ -518,7 +518,7 @@ export async function runFriProfileCommand(argv) {
 }
 
 export function friUsage() {
-  return `ShieldKit unified CLI — profile ${FRI_PROFILE_ID} (FRI-STARK d20/b2048/n7/g30, 17 roles, 18-input actions, 100-bit, random-mask)
+  return `ShieldKit Lab router — profile ${FRI_PROFILE_ID} (FRI-STARK d20/b2048/n7/g30, 17 roles, 18-input actions, 100-bit, random-mask)
   node shieldkit.mjs --profile fri-stark-96kb pool create   --funding-wallet <w> [--funding-utxo <t:v>] --data-home <dir> [--json]
   node shieldkit.mjs --profile fri-stark-96kb pool doctor   [--data-home <dir>] [--json]
   node shieldkit.mjs --profile fri-stark-96kb deposit       --funding-wallet <w> [--funding-utxo <t:v>] --data-home <dir> [--json]

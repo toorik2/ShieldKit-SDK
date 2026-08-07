@@ -157,7 +157,7 @@ export function printHelp(stream = process.stdout) {
     + '  • cold-start never creates a pool; cold prove uses the live session.\n'
     + '  • results include subject (product version, DIRECT_V2_PF10, commit).\n'
     + '  • refuse ambient NODE_OPTIONS / NODE_PATH for native prover policy.\n'
-    + '  • see shieldkit-groth-94kb/bench/README.md and USER_GUIDE for pool setup.\n',
+    + '  • see docs/product/start.md and shieldkit-groth-94kb/bench/README.md.\n',
   );
 }
 

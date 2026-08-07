@@ -34,6 +34,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install immutable workspace
         run: npm ci
+      - name: Check documentation structure and links
+        run: npm run docs:check
       - name: Enforce source policy
         run: npm run check:source
       - name: Audit production dependency closure
@@ -64,6 +66,10 @@ jobs:
         # This includes the explicitly classified Q-07 support tests. Deliberate
         # 100,000-action measurements remain outside portable CI.
         run: npm test
+      - name: Run clean-source ceremony tests
+        # These source-binding tests intentionally reject a dirty or uncommitted
+        # checkout, so they remain mandatory but separate from the portable suite.
+        run: npm run test:clean-source
 
   beta-product-security:
     name: Mandatory clean-clone product receipt and offline-installer security (Node 22.23.1)

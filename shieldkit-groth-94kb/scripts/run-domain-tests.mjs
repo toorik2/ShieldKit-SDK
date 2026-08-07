@@ -151,6 +151,12 @@ const BETA_RUNTIME_QUALIFICATION_TESTS = new Map([
   ['packages/profile/v2/beta-chipnet-runtime.test.mjs', 'requires an explicitly supplied private beta runtime fixture and fails closed when it is absent'],
   ['packages/unlock-builder/v2/pf10-beta-runtime-qualification.test.mjs', 'requires an explicitly supplied private PF10 beta runtime artifact closure and fails closed when it is absent'],
 ]);
+const CLEAN_SOURCE_TESTS = new Map([
+  [
+    'scripts/v2-beta-single-contributor-ceremony.test.mjs',
+    'binds ceremony preparation and contribution to an exact clean committed source checkout',
+  ],
+]);
 // These tests have correctness-sensitive local resource boundaries which are
 // not independent of a saturated process table. The native-child contract
 // samples a short-lived subprocess via `/proc/<pid>`. The circuit-model test
@@ -387,6 +393,7 @@ const SUITES = new Set([
   'q07-portable-support',
   'beta-product-security',
   'beta-runtime-qualification',
+  'clean-source',
 ]);
 const SKIP_OR_TODO_SOURCE = /(?:\b(?:test|it|describe|suite|t)\s*\.\s*(?:skip|todo)\s*\(|\b(?:skip|todo)\s*:)/;
 const NODE_TEST_DECLARATION = /\b(?:test|it|describe|suite)\s*\(/;
@@ -2312,6 +2319,13 @@ export async function assertLocalVerifierRuntimeCoherence(options = {}) {
 }
 
 function classify(relativePath) {
+  const cleanSourceReason = CLEAN_SOURCE_TESTS.get(relativePath);
+  if (cleanSourceReason !== undefined) {
+    return Object.freeze({
+      classification: 'clean-source',
+      reason: `${cleanSourceReason}; mandatory via test:clean-source and the clean-checkout CI job`,
+    });
+  }
   const betaRuntimeQualificationReason = BETA_RUNTIME_QUALIFICATION_TESTS.get(relativePath);
   if (betaRuntimeQualificationReason !== undefined) {
     return Object.freeze({
@@ -2946,6 +2960,7 @@ export function selectDomainTests(discovery, suite = 'portable') {
     'q07-portable-support': new Set(['q07-portable-support']),
     'beta-product-security': new Set(['beta-product-portable-security']),
     'beta-runtime-qualification': new Set(['beta-runtime-qualification']),
+    'clean-source': new Set(['clean-source']),
   }[suite];
   const selected = discovery.tests.filter((record) => classifications.has(record.classification));
   if (selected.length === 0) fail(`test suite ${suite} selected no files`);
@@ -3358,7 +3373,7 @@ function parse(argv) {
   if (argv.length === 2 && argv[0] === '--suite' && SUITES.has(argv[1])) {
     return Object.freeze({ suite: argv[1], provisionOnly: false });
   }
-  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q03-portable-support|q07-portable-support|beta-product-security|beta-runtime-qualification] | --provision-local-verifier-artifacts');
+  fail('usage: node run-domain-tests.mjs [--suite portable|external-fixtures|external-verifier-source|local-covenants|local-verifier-lane|local-strict-codec-campaign|local-depth4-campaign|q03-portable-support|q07-portable-support|beta-product-security|beta-runtime-qualification|clean-source] | --provision-local-verifier-artifacts');
 }
 
 export async function runDomainTests({ suite = 'portable', projectRoot = project, provisionOnly = false } = {}) {

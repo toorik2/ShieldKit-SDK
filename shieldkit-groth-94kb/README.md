@@ -1,21 +1,21 @@
-# ShieldKit-Groth
+# PF10 implementation
 
-PF10 Groth16 shielded-pool product CLI (ShieldKit-Groth Beta).
+This directory contains the implementation behind the root `shieldkit` command.
+PF10 is the supported Product shelf, but it remains an unaudited, Chipnet-only
+research beta and is not production-qualified.
+
+From the repository root:
 
 ```bash
-# from monorepo root
+npm ci
 npm run shieldkit -- --version
 npm run shieldkit -- pool --help
-npm run shieldkit -- pool create --help
-npm run shieldkit -- pool deposit --help
-npm run shieldkit -- pool withdraw --help
-npm run shieldkit -- pool recover --help
-npm run shieldkit -- pool doctor
-
-# low-level internals
-npm run shieldkit -- dev --help
 ```
 
-Chipnet-only, unaudited, zero-conf completion. No automatic resend, sponsor, faucet, mining wait, or mainnet claim.
+Use the root [Start guide](../docs/product/start.md) for operation, the
+[product model](../docs/product/model.md) for boundaries, and
+[Security](../SECURITY.md) before handling a funded wallet.
 
-See `docs/protocol/v2-direct/` for protocol boundaries and the requirement matrix.
+Exact artifacts and qualification methods live beside the code under `pins/`,
+`bench/`, and `scripts/`. Those records are evidence, not an audit or a mainnet
+claim.

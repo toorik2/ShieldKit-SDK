@@ -1,16 +1,24 @@
-# @shieldkit/pool
+# `@shieldkit/pool`
 
-Shared multi-user pool product layer:
+Local pool state: public tip reconstruction, private note storage, settlement-log replay, and the durable V2 store.
 
-- **Public tip rebuild** (`tip-rebuild.mjs`) — chain-as-log events → tip view → tip NFT check  
-- **Private note wallet** (`note-wallet.mjs`) — my notes only + encrypted backup  
-- **Act merge** (`product-api.mjs`) — public tip + my notes for witness  
+## Public API
 
-## Tests
+Only the package export-map entrypoints below are supported.
 
-```bash
-node --test *.test.mjs
-node multiuser-sim.e2e.mjs /tmp/report.json
-```
+### `@shieldkit/pool`
 
-See `docs/SHARED_POOL_DESIGN.md`, `docs/USER_GUIDE.md`, `docs/SHARED_POOL_REDTEAM.md`.
+- Public tip: `PUBLIC_TIP_SCHEMA`, `TipRebuildError`, `emptyPublicTip`, `publicTipEventFromPacket`, `rebuildPublicTip`, `rebuildPublicTipFromHistory`, `rebuildPublicTipFromRawTransactions`, `publicTipToWitnessForest`, `decodeTipNftFields`
+- Note wallet: `NOTE_WALLET_SCHEMA`, `NOTE_WALLET_BACKUP_SCHEMA`, `NoteWalletError`, `createNoteWallet`, `importEncryptedNoteWallet`, `ownedNoteFromOpenMeta`
+- Action merge and sync: `mergeTipForestForAct`, `assertNoGlobalOpenSetGate`, `syncTipForestFromSettlementLog`
+- Settlement log: `SettlementLogFetchError`, `fetchSettlementLogFromTip`, `settlementLogLooksComplete`, `applySettlementLog`
+
+### `@shieldkit/pool/v2`
+
+`openExistingV2DirectStore`, `openV2DirectStore`, `V2DirectStore`, `V2StoreError`, `V2_OPERATION_STATES`
+
+## Boundary
+
+The root API reconstructs local views from caller-supplied chain data. The V2 entrypoint provides local SQLite durability; it is not a covenant, scanner, network gate, or qualification result. Node.js 22.5 or later is required.
+
+Private workspace API. ShieldKit-Groth remains an unaudited, Chipnet-only beta. See the [repository overview](../../../README.md) and [product model](../../../docs/product/model.md).

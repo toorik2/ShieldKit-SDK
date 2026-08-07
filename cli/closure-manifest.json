@@ -14,8 +14,8 @@
   },
   {
    "path": "scripts/shieldkit.mjs",
-   "sha256": "84e3b20cf1ed50cfdec8f53d8f281de31c5007e1da91b238dc3dc4599f2ffb9a",
-   "bytes": 52663
+   "sha256": "b99ca5f4d2746b9c5fb213b86ed54ca80c728587ce1bd192cd02e143b14a808e",
+   "bytes": 51614
   },
   {
    "path": "scripts/v2-pf10-beta-runtime.mjs",

@@ -4,9 +4,7 @@
  * product, using the authoritative gate module from the ShieldKit-Groth
  * product tree (read-only reference; no writes outside this tree).
  *
- * PLAN.md WP-8: "external-release-gate.mjs --gate bchn|chipnet|
- * final-ceremony-and-audits boundaries emitted (status blocked until evidence
- * lands)". The gate module is fail-closed by design: it always exits 1 and
+ * The external-release-gate module is fail-closed by design: it always exits 1 and
  * prints the boundary object (status blocked-external-evidence-required) to
  * stderr. We record exactly what it emits.
  */
