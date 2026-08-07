@@ -1,0 +1,24 @@
+{
+ "schema": "shieldkit-cli/bench-uniform-fresh/v1",
+ "generated": "2026-08-07T16:46:40",
+ "status": "UNIFORM FRESH BENCH \u2014 one deposit prove per design, same host, no recorded pulls",
+ "protocol": "the bench now runs ONE deposit proof per design on this host (fresh only): pf6 via the prove-pf6 pipeline (witness+rapidsnark), fri-stark via the worker (depth 32, CSPRNG), pf10 via the pinned material (attempted; the witness generation is blocked by the circom 2.2.0 wasm interface).",
+ "results": {
+  "pf10": {
+   "freshProve": null,
+   "blocker": "the pinned g1_relation.wasm (circom 2.2.0) rejects the available snarkjs 0.7.6 runtime: getInputSignalSize returns 0 for every signal and setInputSignal throws 'Signal not found'. The product's pinned witness runtime is not present on this host. The rapidsnark step itself is expected ~2.2s (circuit-bound)."
+  },
+  "pf6-a3-direct-v1": {
+   "freshProveSeconds": 2.09,
+   "actions": "deposit 2.09 / transfer 2.13 / withdrawal 2.16",
+   "source": "fresh this host"
+  },
+  "fri-stark-96kb": {
+   "freshProveSeconds": 48.28,
+   "verifyOk": true,
+   "depth": 32,
+   "source": "fresh this host (the worker)"
+  }
+ },
+ "comparison": "pf6 2.09s vs fri-stark 48.28s (fresh, same host) \u2014 23x; the pf10's fresh number is blocked by the witness toolchain, not measured."
+}

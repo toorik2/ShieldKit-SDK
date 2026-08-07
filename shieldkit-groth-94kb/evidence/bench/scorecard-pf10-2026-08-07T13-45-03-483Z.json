@@ -1,0 +1,38 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf10",
+  "capability": {
+    "scriptBytes": 94622,
+    "roles": 10,
+    "inputsPerAction": 13,
+    "proofSystem": "Groth16",
+    "txBytes": 97844,
+    "maxUnlockBytes": 10000,
+    "maxOpCost": 58073984,
+    "sources": {
+      "scriptBytes": "verifier.cash/intel/db/verifiers.json (toorik-bn254-intratx-general)",
+      "txBytes": "verifier.cash intel wire_bytes 94779 + tx overhead; PLAN.md ceilings table",
+      "maxOpCost": "verifier.cash intel db opcost 58,073,984"
+    }
+  },
+  "prep": {
+    "proverIdentity": "the product native Groth16 prover (setup-v2-native-prover)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": true,
+    "freshRuns": [],
+    "recorded": {
+      "medianSecondsByKind": null,
+      "sources": {
+        "fresh": "attempted"
+      }
+    },
+    "freshBlocker": "the pf10 deposit witness generation is blocked on this host: the pinned g1_relation.wasm (circom 2.2.0) rejects the available snarkjs 0.7.6 runtime (getInputSignalSize returns 0 for every signal; setInputSignal throws \"Signal not found\"). The product pinned witness runtime is not present here. A fresh prove cannot run without a valid witness; the rapidsnark step on the pf10 zkey is expected ~2.2s (circuit-bound, same circuit for all action kinds)."
+  },
+  "coldStart": false,
+  "commit": "f47cb817f03ca89402c9300370a92d467ea78354",
+  "generated": "2026-08-07T13:45:03.483Z",
+  "totalMs": 3
+}

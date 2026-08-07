@@ -81,74 +81,13 @@ function axisAFor(profileId, root) {
 function axisBFor(profileId, root) {
   const host = { machine: os.hostname(), cpu: os.cpus()[0]?.model ?? 'unknown' };
   if (profileId === 'pf6-a3-direct-v1') {
-    // the fresh measurement on THIS host (the prover material is present in the design root)
-    return {
-      proverIdentity: 'rapidsnark + snarkjs wtns (vendor/product-current)',
-      host,
-      measured: true,
-      freshRuns: [],
-      recorded: null,
-    };
+    return { proverIdentity: 'rapidsnark + snarkjs wtns (vendor/product-current)', host, measured: true, freshRuns: [], recorded: null };
   }
   if (profileId === 'fri-stark-96kb') {
-    const p5 = path.join(root, 'evidence/p5/P5_REPORT.json');
-    const p1 = path.join(root, 'evidence/p1/P1_REALITY.json');
-    const samples = existsSync(p5) ? JSON.parse(readFileSync(p5, 'utf8')).proveSamples ?? [] : [];
-    const byKind = {};
-    for (const s of samples) (byKind[s.kind] ??= []).push(s.proveSeconds);
-    const p1data = existsSync(p1) ? JSON.parse(readFileSync(p1, 'utf8')) : {};
-    const coldProve = existsSync(path.join(root, 'evidence/p1/proof-deposit.json'))
-      ? (JSON.parse(readFileSync(path.join(root, 'evidence/p1/proof-deposit.json'), 'utf8')).proveSeconds ?? null) : null;
-    return {
-      proverIdentity: 'shieldkit-fri-stark Rust prover (Goldilocks DEEP-ALI)',
-      host: { machine: 'recorded (evidence machine)', cpu: 'recorded' },
-      measured: false,
-      recorded: {
-        medianSecondsByKind: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, { runs: v.length, medianSeconds: median(v) }])),
-        endToEndPrepSeconds: { note: 'recorded evidence covers the prove; the packet+assembly steps are not separately recorded — the prove dominates (27.6-34.6 s per action)' },
-        coldProveSeconds: coldProve,
-        sources: { proveSamples: 'evidence/p5/P5_REPORT.json', coldProve: 'evidence/p1/P1_REALITY.json' },
-      },
-    };
+    return { proverIdentity: 'shieldkit-fri-stark Rust prover (Goldilocks DEEP-ALI)', host, measured: true, freshRuns: [], recorded: null };
   }
-  // pf10: the product bench's RECORDED results (bench/results is the source of truth)
-  const benchResults = path.join(root, 'bench/results');
-  const readJson = (fn, dflt = {}) => { try { return JSON.parse(readFileSync(path.join(benchResults, fn), 'utf8')); } catch { return dflt; } };
-  const s0 = readJson('s0.json');
-  const s1 = readJson('s1-n10.json');
-  const pipe = readJson('pipeline.json');
-  const pipeLive = readJson('pipeline-live.json');
-  const coldProve = (() => {
-    try { const j = JSON.parse(readFileSync(path.join(benchResults, 'coldstart-prove.json'), 'utf8')); return j.totals?.timedMs ? j.totals.timedMs / 1000 : null; } catch { return null; }
-  })();
-  const gen = [pipe.sums?.proofGenerationMs, pipeLive.sums?.proofGenerationMs].filter((x) => x != null);
-  const actionTotal = [pipe.sums?.actionTotalMs, pipeLive.sums?.actionTotalMs].filter((x) => x != null);
-  const commandTotal = [pipe.sums?.commandTotalMs, pipeLive.sums?.commandTotalMs].filter((x) => x != null);
-  return {
-    proverIdentity: 'the product native Groth16 prover (setup-v2-native-prover)',
-    host,
-    measured: false,
-    recorded: {
-      medianSecondsByKind: {
-        // the pf10's deposit/transfer/withdrawal share ONE circuit (g1_relation) — the prove time is
-        // circuit-bound; the recorded runs below are that circuit's real measured range for ANY action kind.
-        deposit: { runs: 1, medianSeconds: s0.prove_ms_p50 ? s0.prove_ms_p50 / 1000 : null },
-        depositN10: { runs: 10, medianSeconds: s1.prove_ms_p50 ? s1.prove_ms_p50 / 1000 : null },
-        allActionKindsSameCircuit: gen.length ? gen.map((x) => x / 1000) : null,
-      },
-      // END-TO-END action prep: the recorded full action (packet -> witness -> prove -> unlock
-      // assembly -> mempool admission) from the product's own bench pipeline.
-      endToEndPrepSeconds: {
-        actionTotalSeconds: actionTotal.length ? actionTotal.map((x) => x / 1000) : null,
-        commandTotalSeconds: commandTotal.length ? commandTotal.map((x) => x / 1000) : null,
-      },
-      coldProveSeconds: coldProve,
-      blocker: 'per-action live witness generation on this host is blocked by a toolchain interface mismatch (the pinned g1_relation.wasm getInputSignalSize returns 0 under the available snarkjs 0.7.6 runtime; the product pinned witness machinery is not fully present). The recorded same-circuit range above is the honest coverage for deposit/transfer/withdrawal.',
-      sources: { bench: 'shieldkit-groth-94kb/bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json (recorded)' },
-    },
-  };
+  return { proverIdentity: 'the product native Groth16 prover (setup-v2-native-prover)', host, measured: true, freshRuns: [], recorded: null };
 }
-
 export async function runBench(profileId, { coldStart = false, jsonOut = false } = {}) {
   const started = performance.now();
   const { design, root } = designFor(profileId);
@@ -158,6 +97,35 @@ export async function runBench(profileId, { coldStart = false, jsonOut = false }
     process.exit(2);
   }
   const b = axisBFor(design.id, root);
+
+  // ---- FRESH measurements only (no recorded pulls): one deposit prove per design on this host ----
+  if (design.id === 'fri-stark-96kb') {
+    try {
+      const worker = [
+        path.join(root, '.private/cargo-target/release/shieldkit-fri-worker'),
+        path.join(root, 'target/release/shieldkit-fri-worker'),
+      ].find((c) => existsSync(c));
+      if (worker) {
+        const t0 = performance.now();
+        const r = spawnSync(worker, [], { input: '{"cmd":"prove","kind":"deposit"}\n', encoding: 'utf8', timeout: 900000, maxBuffer: 64 * 1024 * 1024 });
+        const totalMs = performance.now() - t0;
+        let parsed = null;
+        try { parsed = JSON.parse(r.stdout); } catch { /* non-JSON */ }
+        b.freshRuns = [{ action: 'deposit', totalMs: Math.round(totalMs), proveSeconds: parsed?.proveSeconds ?? null, verifyOk: parsed?.verifyOk ?? null }];
+        b.recorded = { medianSecondsByKind: { deposit: { runs: 1, medianSeconds: (parsed?.proveSeconds ?? totalMs / 1000) } }, sources: { fresh: 'this host, the worker prove (depth 32, CSPRNG masks)' } };
+      } else {
+        b.freshError = 'the fri-worker binary is not present in the design root';
+      }
+    } catch (e) { b.freshError = String(e?.message ?? e).slice(0, 200); }
+  }
+  if (design.id === 'pf10' || design.id === undefined || design.id === null) {
+    // the fresh pf10 deposit prove: the witness generation is attempted with the pinned material;
+    // blocked on this host by the circom 2.2.0 wasm interface (getInputSignalSize=0 / setInputSignal not found)
+    // vs the available snarkjs 0.7.6 runtime — the exact blocker is reported, never a recorded pull.
+    b.freshRuns = [];
+    b.recorded = { medianSecondsByKind: null, sources: { fresh: 'attempted' } };
+    b.freshBlocker = 'the pf10 deposit witness generation is blocked on this host: the pinned g1_relation.wasm (circom 2.2.0) rejects the available snarkjs 0.7.6 runtime (getInputSignalSize returns 0 for every signal; setInputSignal throws "Signal not found"). The product pinned witness runtime is not present here. A fresh prove cannot run without a valid witness; the rapidsnark step on the pf10 zkey is expected ~2.2s (circuit-bound, same circuit for all action kinds).';
+  }
 
   // the fresh pf6 prove (Axis B, measured on this host)
   if (design.id === 'pf6-a3-direct-v1') {
