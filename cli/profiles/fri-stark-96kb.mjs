@@ -417,7 +417,6 @@ export async function actionCommand(argv, kind) {
   pool.roleOutpoints = pool.roleOutpoints.map((r, i) => ({ txid: res.txid, vout: i + 1, valueSats: '1000', lockingHex: r.lockingHex }));
   pool.state = res.postState; pool.stateCommitmentHex = res.postCommitmentHex;
   pool.actionSequence += 1;
-  savePool(dh, pool);
   // journal records only indices + commitments: note secrets re-derive from the
   // wallet note-master key (never stored; the master never enters the journal).
   if (kind === 'deposit') {
@@ -428,6 +427,8 @@ export async function actionCommand(argv, kind) {
     j.notes.push({ index: pool.noteCount, kind, txid: res.txid, cm: cm.toString(), nf: nf.toString() });
     pool.noteCount += 1;
   }
+  j.steps.push({ kind, txid: res.txid, stateCommitmentHex: res.postCommitmentHex, feeSats: res.feeSats, bytes: res.bytes });
+  savePool(dh, pool);
   saveJournal(dh, j);
   okJson({
     ok: true, schema: FRI_PROFILE_SCHEMA, command: kind, profile: FRI_PROFILE_ID,
@@ -502,7 +503,7 @@ export async function runFriProfileCommand(argv) {
     if (cmd === 'deposit') return await actionCommand(argv, 'deposit');
     if (cmd === 'transfer') return await actionCommand(argv, 'transfer');
     if (cmd === 'withdraw') return await actionCommand(argv, 'withdrawal');
-    if (cmd === 'recovery') return await recoverCommand(argv);
+    if (cmd === 'recover' || cmd === 'recovery') return await recoverCommand(argv);
     if (cmd === 'doctor') return await poolDoctor(argv);
     fail('UNKNOWN_COMMAND', `unknown command for profile ${FRI_PROFILE_ID}: ${cmd}`);
   } catch (e) {

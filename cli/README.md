@@ -26,6 +26,7 @@ Adding a future pool design (e.g. a FRI-STARK pool):
 |---|---|---|---|
 | (default) / pf10 | shieldkit-groth-94kb | PF10-FusedQGenesis (94,622 script bytes), 10 roles, 13-input | original surface, unchanged |
 | pf6-a3-direct-v1 | shieldkit-groth-54kb | bn254-onetx-pf6-a3-r1, 6 roles, 9-input | LIVE on chipnet (create/deposit/transfer/recover) |
+| fri-stark-96kb | shieldkit-fri-stark-96kb | FRI-STARK DEEP-ALI d20/b2048/n7/g30, 17 roles, 18-input, 100-bit, random-mask | LIVE on chipnet (create/deposit/transfer/withdraw/recover, wallet-driven notes) |
 
 ## Usage
 
