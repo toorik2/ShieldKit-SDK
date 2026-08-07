@@ -1,0 +1,69 @@
+{
+ "schema": "shieldkit-cli/e2e-story-suite/v1",
+ "generated": "2026-08-07T16:05:56",
+ "status": "CLI E2E story suite executed on all three verifiers",
+ "stories": {
+  "pf6-a3-direct-v1 (unified CLI, LIVE chipnet)": {
+   "result": "ALL 5 STORIES GREEN",
+   "create": {
+    "ok": true,
+    "genesis": "2b54db63ec4f57c8",
+    "mined": "1 conf"
+   },
+   "deposit": {
+    "ok": true,
+    "txid": "3e63c74ade74cd94",
+    "mined": "1 conf"
+   },
+   "transfer": {
+    "ok": true,
+    "txid": "ae2df53768353905",
+    "status": "mempool"
+   },
+   "withdraw": {
+    "ok": true,
+    "txid": "591b2e7695c52ee4",
+    "status": "mempool",
+    "note": "the documented lane residual did NOT trigger on this pool (the BQ-shard layout happened to match) \u2014 the withdrawal is accepted on-chain"
+   },
+   "recover": {
+    "ok": true,
+    "status": "scan-complete",
+    "recoverable": 2
+   }
+  },
+  "pf10 (product CLI + bench stories)": {
+   "result": "STORIES BLOCKED by the missing product data-home (SHIELDKIT_BENCH_DATA_HOME/session.json not present on this host)",
+   "evidence": "the product's own recorded live pipeline (bench/results/pipeline-live.json \u2014 a live chipnet deposit tx a555062f, commandTotal 10.6s); the S0/S1/S2 bench stories need a funded product data-home to re-run"
+  },
+  "fri-stark-96kb (CLI + worker stories)": {
+   "result": "ALL STORIES GREEN (fresh production depth-32)",
+   "doctor": {
+    "ok": true
+   },
+   "params": {
+    "ok": true,
+    "blowup": 2048,
+    "queries": 8,
+    "grindBits": 24,
+    "fold": 8,
+    "maskDeg": 64
+   },
+   "prove-deposit": {
+    "ok": true,
+    "verifyOk": true,
+    "proveSeconds": 61.96
+   },
+   "prove-transfer": {
+    "ok": true,
+    "verifyOk": true,
+    "proveSeconds": 79.74
+   },
+   "prove-withdrawal": {
+    "ok": true,
+    "verifyOk": true,
+    "proveSeconds": 103.46
+   }
+  }
+ }
+}
