@@ -150,28 +150,68 @@ export async function runBench(profileId, { coldStart = false, jsonOut = false }
   // the fresh pf6 prove (Axis B, measured on this host)
   if (design.id === 'pf6-a3-direct-v1') {
     try {
-      // the bench uses a stable circuit input from the live evidence (the CLI deposit's witness input)
-      const candidates = [
-        path.join(root, 'evidence/03-implementation/cli-deposit-1786072228350/circuit-input.json'),
-        '/tmp/pf6-deposit-input.json',
-      ];
-      const input = candidates.find((c) => existsSync(c));
-      if (input) {
-        const outDir = path.join(root, 'evidence/03-implementation/bench-prove');
-        mkdirSync(outDir, { recursive: true });
-        const prove = await import('file://' + path.join(root, 'src/prove-pf6.mjs'));
+      // the bench measures ALL action kinds + a cold/warm pair on this host
+      const inputCandidates = {
+        deposit: [
+          path.join(root, 'evidence/03-implementation/cli-deposit-1786072228350/circuit-input.json'),
+          '/tmp/pf6-deposit-input.json',
+        ],
+        transfer: [
+          path.join(root, 'evidence/03-implementation/cli-transfer-1786103544264/circuit-input.json'),
+          '/tmp/pf6-transfer-input.json',
+        ],
+        withdrawal: [
+          path.join(root, 'evidence/03-implementation/cli-withdrawal-1786075720426/circuit-input.json'),
+          '/tmp/pf6-withdrawal-input.json',
+        ],
+      };
+      const outDir = path.join(root, 'evidence/03-implementation/bench-prove');
+      mkdirSync(outDir, { recursive: true });
+      const prove = await import('file://' + path.join(root, 'src/prove-pf6.mjs'));
+      const zkey = path.join(root, 'vendor/product-current/circuit/beta.zkey');
+      const wasm = path.join(root, 'vendor/product-current/circuit/main-chipnet.wasm');
+      const proverBin = path.join(root, 'vendor/product-current/native/prover');
+      const snarkjsCli = path.join(SDK_ROOT, 'node_modules/.bin/snarkjs');
+      const freshRuns = [];
+      const timesByKind = {};
+      for (const kind of ['deposit', 'transfer', 'withdrawal']) {
+        const input = inputCandidates[kind].find((c) => existsSync(c));
+        if (!input) continue;
         const t0 = performance.now();
-        const proved = prove.proveGroth16({
-          zkeyPath: path.join(root, 'vendor/product-current/circuit/beta.zkey'),
-          wasmPath: path.join(root, 'vendor/product-current/circuit/main-chipnet.wasm'),
-          circuitInputPath: input, outDir,
-          proverBin: path.join(root, 'vendor/product-current/native/prover'),
-          snarkjsCli: path.join(SDK_ROOT, 'node_modules/.bin/snarkjs'),
-        });
+        prove.proveGroth16({ zkeyPath: zkey, wasmPath: wasm, circuitInputPath: input, outDir, proverBin, snarkjsCli });
         const totalMs = performance.now() - t0;
-        b.freshRuns = [{ action: 'deposit', totalMs: Math.round(totalMs), proveMs: Math.round(totalMs * 0.9) }];
-        b.recorded = { medianSecondsByKind: { deposit: { runs: 1, medianSeconds: totalMs / 1000 } }, sources: { fresh: 'this host, one action (witness + rapidsnark)' } };
+        freshRuns.push({ action: kind, totalMs: Math.round(totalMs) });
+        (timesByKind[kind] ??= []).push(totalMs / 1000);
       }
+      b.freshRuns = freshRuns;
+      // the cold prove: a FRESH subprocess's first prove (the prover binary + zkey cold load)
+      let coldSeconds = null;
+      try {
+        const coldInput = inputCandidates.deposit.find((c) => existsSync(c));
+        if (coldInput) {
+          const coldScript = `
+            const { performance } = require('node:perf_hooks');
+            (async () => {
+              const prove = await import('file://${path.join(root, 'src/prove-pf6.mjs')}');
+              const t0 = performance.now();
+              prove.proveGroth16({
+                zkeyPath: '${zkey.replace(/'/g, "\\'")}', wasmPath: '${wasm.replace(/'/g, "\\'")}',
+                circuitInputPath: '${coldInput.replace(/'/g, "\\'")}', outDir: '${outDir.replace(/'/g, "\\'")}',
+                proverBin: '${proverBin.replace(/'/g, "\\'")}', snarkjsCli: '${snarkjsCli.replace(/'/g, "\\'")}',
+              });
+              console.log('COLD_MS ' + (performance.now() - t0));
+            })();
+          `;
+          const cold = spawnSync(process.execPath, ['-e', coldScript], { encoding: 'utf8', timeout: 600000 });
+          const m = /COLD_MS ([0-9.]+)/.exec(cold.stdout || '');
+          if (m) coldSeconds = Number(m[1]) / 1000;
+        }
+      } catch (e) { /* cold-prove measurement optional */ }
+      b.recorded = {
+        medianSecondsByKind: Object.fromEntries(Object.entries(timesByKind).map(([k, v]) => [k, { runs: v.length, medianSeconds: median(v) }])),
+        coldProveSeconds: coldSeconds,
+        sources: { fresh: 'this host, one action per kind (witness + rapidsnark); cold = a fresh subprocess first prove' },
+      };
     } catch (e) {
       b.freshError = String(e?.message ?? e).slice(0, 200);
     }

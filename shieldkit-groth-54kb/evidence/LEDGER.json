@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T14:51:50",
+ "generated": "2026-08-07T14:56:45",
  "entries": [
   {
    "wp": 0,
@@ -251,6 +251,11 @@
    "wp": 3,
    "id": "03-implementation/bench-proof-times.json",
    "what": "Proof-building times across all three designs: pf6 2.35s fresh, pf10 2.16s recorded, fri-stark 27.6s recorded"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-proof-times.json",
+   "what": "Complete proof times: pf6 fresh deposit 2.45/transfer 2.40/withdrawal 2.46/cold 2.85 s; pf10 recorded; fri-stark recorded"
   }
  ],
  "vendorPins": [
