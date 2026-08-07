@@ -1,27 +1,29 @@
 {
- "schema": "shieldkit-cli/bench-proof-times-complete/v1",
- "generated": "2026-08-07T14:56:45",
- "status": "proof-building times complete for all three designs (all action kinds + cold prove)",
+ "schema": "shieldkit-cli/bench-pf10-holes-filled/v1",
+ "generated": "2026-08-07T15:19:00",
+ "status": "pf10 transfer/withdrawal cells filled with the recorded same-circuit range; the per-action live run is blocked by a documented toolchain interface mismatch",
  "times": {
   "pf10": {
    "deposit": 2.16,
-   "depositN10": 2.4,
-   "coldProve": 6.54,
+   "transfer": "1.94-2.38 (same circuit range)",
+   "withdrawal": "1.94-2.38 (same circuit range)",
+   "cold": 6.54,
    "source": "recorded bench/results"
   },
-  "pf6-a3-direct-v1": {
-   "deposit": 2.45,
-   "transfer": 2.4,
-   "withdrawal": 2.46,
-   "coldProve": 2.85,
+  "pf6": {
+   "deposit": 2.41,
+   "transfer": 2.39,
+   "withdrawal": 2.47,
+   "cold": 2.49,
    "source": "FRESH this host"
   },
-  "fri-stark-96kb": {
+  "fri-stark": {
    "deposit": 27.57,
    "transfer": 34.62,
    "withdrawal": 33.55,
-   "coldProve": 81.85,
+   "cold": 81.85,
    "source": "recorded P1/P5"
   }
- }
+ },
+ "blocker": "the pf10's per-action witness generation on this host fails at the pinned g1_relation.wasm getInputSignalSize (returns 0 under the available snarkjs 0.7.6 runtime \u2014 the product's pinned witness machinery is not fully present). The three pf10 actions share ONE circuit (g1_relation), so the recorded proofGeneration range [1.94, 2.38 s] is the honest same-circuit coverage for all action kinds. Investigation trail: material downloaded from the product's GitHub release pin, the deposit circuit input built via the product's own v2-direct modules, the witness blocked at the signal-size lookup."
 }

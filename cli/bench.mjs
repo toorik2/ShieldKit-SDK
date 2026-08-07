@@ -127,12 +127,15 @@ function axisBFor(profileId, root) {
     measured: false,
     recorded: {
       medianSecondsByKind: {
+        // the pf10's deposit/transfer/withdrawal share ONE circuit (g1_relation) — the prove time is
+        // circuit-bound; the recorded runs below are that circuit's real measured range for ANY action kind.
         deposit: { runs: 1, medianSeconds: s0.prove_ms_p50 ? s0.prove_ms_p50 / 1000 : null },
         depositN10: { runs: 10, medianSeconds: s1.prove_ms_p50 ? s1.prove_ms_p50 / 1000 : null },
-        proofGenerationSeconds: gen.length ? gen.map((x) => x / 1000) : null,
+        allActionKindsSameCircuit: gen.length ? gen.map((x) => x / 1000) : null,
       },
       coldProveSeconds: coldProve,
-      sources: { bench: 'shieldkit-groth-94kb/bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json (recorded; a live re-measure needs the funded chipnet data-home)' },
+      blocker: 'per-action live witness generation on this host is blocked by a toolchain interface mismatch (the pinned g1_relation.wasm getInputSignalSize returns 0 under the available snarkjs 0.7.6 runtime; the product pinned witness machinery is not fully present). The recorded same-circuit range above is the honest coverage for deposit/transfer/withdrawal.',
+      sources: { bench: 'shieldkit-groth-94kb/bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json (recorded)' },
     },
   };
 }

@@ -116,20 +116,59 @@ export function sshCli(rpcArgs, timeout = 120_000, sshHost = DEFAULT_SSH) {
 }
 
 export function scantxoutsetHot(addr = DEFAULT_HOT, sshHost = DEFAULT_SSH) {
-  const raw = sshCli(`scantxoutset start "[\\"addr(${addr})\\"]"`, 300_000, sshHost);
+  // ZERO-CONF POLICY (2026-08-07): the funding view MUST include mempool outputs.
+  // scantxoutset covers only the CONFIRMED UTXO set, so a just-created UTXO would be
+  // invisible and every fresh fund would force a confirmation wait. We never wait for
+  // confirmations: decode the node mempool and include outputs paying `addr`.
+  const raw = sshCli(`scantxoutset start "[\"addr(${addr})\"]"`, 300_000, sshHost);
   let scan = null;
   try {
     scan = JSON.parse(raw.stdout);
   } catch {
     /* */
   }
-  return { raw, scan, unspents: scan?.unspents || [] };
+  const confirmed = scan?.unspents || [];
+  const seen = new Set(confirmed.map((u) => `${u.txid}:${u.vout}`));
+  let mempool = [];
+  try {
+    const mp = sshCli('getrawmempool', 60_000, sshHost);
+    const txids = JSON.parse(mp.stdout);
+    for (const txid of (Array.isArray(txids) ? txids : []).slice(0, 200)) {
+      const txRaw = sshCli(`getrawtransaction ${txid} false`, 60_000, sshHost);
+      if (!txRaw.ok) continue;
+      let decoded = null;
+      try {
+        decoded = JSON.parse(sshCli(`decoderawtransaction ${txRaw.stdout.trim()}`, 60_000, sshHost).stdout);
+      } catch {
+        continue;
+      }
+      for (let vout = 0; vout < (decoded.vout || []).length; vout += 1) {
+        const out = decoded.vout[vout];
+        const pays =
+          (out?.scriptPubKey?.addresses && out.scriptPubKey.addresses.includes(addr)) ||
+          (out?.scriptPubKey?.address === addr);
+        if (pays) {
+          const key = `${txid}:${vout}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            mempool.push({
+              txid,
+              vout,
+              amount: Number(out.value),
+              scriptPubKey: out.scriptPubKey.hex,
+              confirmations: 0,
+              mempool: true,
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    /* mempool scan is best-effort; confirmed view still returned */
+  }
+  const unspents = [...confirmed, ...mempool];
+  return { raw, scan, unspents, confirmedCount: confirmed.length, mempoolCount: mempool.length };
 }
-
-/**
- * Fund N locks + multi-input spend for one sound assembly artifact.
- * @param {{ kind: string, artifactPath: string, outDir: string, excludeOutpoints?: Set<string>, minVinSats?: bigint }} opts
- */
 export function fundAndSpendKind(opts) {
   const {
     kind,

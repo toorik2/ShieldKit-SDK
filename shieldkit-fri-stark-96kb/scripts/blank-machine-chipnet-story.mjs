@@ -43,6 +43,7 @@ import {
   MAX_UNLOCK_BYTES,
 } from '../packages/settlement/settlement.mjs';
 
+import { scantxoutsetHot } from './lib/chipnet-fund-spend.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'evidence/blank-machine-chipnet');
 const TARGET = path.join(ROOT, '.private/cargo-target-blank-chipnet');
@@ -262,15 +263,9 @@ writeFileSync(
   JSON.stringify(chainInfo || { error: chainRaw.stderr || chainRaw.stdout }, null, 2) + '\n',
 );
 
-// 2 UTXO scan hot wallet
-const scanRaw = sshCli(`scantxoutset start "[\\"addr(${HOT_ADDR})\\"]"`, 300_000);
-let scan = null;
-try {
-  scan = JSON.parse(scanRaw.stdout);
-} catch {
-  /* */
-}
-const unspents = scan?.unspents || [];
+// 2 UTXO scan hot wallet — MEMPOOL-INCLUSIVE (zero-conf: a fresh funding UTXO must be
+// visible immediately; we never wait for confirmations)
+const { scan, unspents, confirmedCount, mempoolCount } = scantxoutsetHot(HOT_ADDR);utsetHot(HOT_ADDR); scan?.unspents || [];
 const totalAmount = scan?.total_amount ?? null;
 const fundingOk =
   scan?.success === true && typeof totalAmount === 'number' && totalAmount > 0.01;
