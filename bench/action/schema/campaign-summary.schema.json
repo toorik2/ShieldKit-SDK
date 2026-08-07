@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit-action-benchmark-campaign-summary/v1",
+  "title": "ShieldKit action benchmark campaign summary v1",
+  "description": "Reliability + Pareto surface; globalWinner always null.",
+  "type": "object",
+  "required": ["schema", "campaignId", "globalWinner", "ranking", "rows", "pareto", "panels"]
+}

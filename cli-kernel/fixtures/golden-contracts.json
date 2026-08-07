@@ -1,0 +1,23 @@
+{
+  "schema": "shieldkit-cli-golden-contracts/v2",
+  "identitySchema": "shieldkit-identity/v1",
+  "homeSchema": "shieldkit-home/v1",
+  "resultSchema": "shieldkit-cli-result/v1",
+  "capabilitySchema": "shieldkit-capability-record/v2",
+  "operationJournalSchema": "shieldkit-operation-journal/v2",
+  "closedCatalogSchema": "shieldkit-closed-design-catalog/v2",
+  "profileStatuses": ["frozen", "unselected", "unfrozen"],
+  "operationStates": [
+    "preparing",
+    "prepared-durable",
+    "send-attempted",
+    "accepted-zero-conf",
+    "rejected",
+    "send-indeterminate",
+    "local-commit-pending",
+    "committed",
+    "safe-pre-send-failure"
+  ],
+  "capabilityStatuses": ["qualified", "experimental", "blocked", "unsupported"],
+  "canonicalGroups": ["design", "pool", "action", "operation", "demo"]
+}

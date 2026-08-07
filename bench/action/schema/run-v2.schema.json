@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shieldkit-action-benchmark-run/v2",
+  "title": "ShieldKit action benchmark run v2",
+  "description": "Primary end-to-end action trace. See BENCHMARK_PLAN.md.",
+  "type": "object",
+  "required": ["schema", "runId", "campaignId", "design", "profile", "commit", "action", "cacheMode", "boundary", "firstTry", "spans", "criticalPath", "outcome", "acceptance", "metrics", "environment", "provenance"]
+}

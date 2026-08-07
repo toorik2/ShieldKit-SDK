@@ -1,31 +1,32 @@
-# PF10 benchmark
+# PF10 component & pipeline helpers
 
-This benchmark measures the PF10 beta. It does not measure anonymity and it
-does not establish mainnet, production, or audit readiness.
+**Not the primary end-to-end action benchmark.**
 
-| Mode | Measures | Side effect |
+Primary action traces (deposit/transfer/withdrawal → exact BCHN mempool) live in:
+
+- Plan: repo-root `BENCHMARK_PLAN.md`
+- Implementation: `bench/action/` (`shieldkit-action-benchmark-run/v2`)
+- Entry: `npm run bench:action` / `npm run bench:action:smoke`
+
+## Surfaces in this directory
+
+| Mode | Schema | Measures |
 | --- | --- | --- |
-| Pipeline | tip lookup through proof, mempool admission, and local commit | broadcasts one real Chipnet action |
-| Cold start | clone, install, pin fetch, native setup, and one cold proof | uses an existing session; does not create a pool |
+| Component S0/S1/S2 scorecard | `shieldkit-component-bench-scorecard-v1` | Isolated prove / scaling microbenchmarks |
+| Pipeline helper | `shieldkit-bench-pipeline-v1` | PF10 product timing table (tip → mempool → commit) |
+| Cold start | (pipeline/coldstart report) | Machine cold-start journey (not warm action primary) |
 
-Both modes require an existing funded PF10 data home with `session.json`:
+Pipeline mode still broadcasts a real Chipnet action when used live; treat it as an
+operator helper. Prefer `bench/action/` for plan-normative campaigns and reports.
+
+## Pipeline / cold-start (legacy public entry)
 
 ```bash
 npm run bench -- --data-home /absolute/path/to/install-or-v2-beta-product
 npm run bench:cold-start -- --data-home /absolute/path/to/install-or-v2-beta-product
 ```
 
-Use `--json-out FILE` to choose the report path. Pipeline also accepts
-`--kind deposit|transfer|withdraw`, `--to ADDRESS`, and `--note 64hex`.
-Cold start accepts `--sandbox DIR` and `--keep`. The command rejects ambient
-`NODE_OPTIONS` and `NODE_PATH`.
-
-Every report identifies the product version, PF10 design, network, and commit.
-Compare reports only when the mode, profile, host, artifacts, and measurement
-method match. Result files under `bench/results/` are intentionally ignored.
-
-See the root [Start guide](../../docs/product/start.md) for PF10 setup. Run the
-focused tests with:
+Requires `session.json`. Result files under `bench/results/` are gitignored.
 
 ```bash
 node --test shieldkit-groth-94kb/bench/*.test.mjs \

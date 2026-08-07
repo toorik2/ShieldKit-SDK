@@ -1,60 +1,77 @@
 # Model
 
-ShieldKit is easiest to understand as four objects:
+The important objects are deliberately separate:
 
 | Object | Meaning |
 | --- | --- |
-| **Toolkit** | Mutable source, CLI, tests, and local runtime |
-| **Profile** | Immutable relation, verifier, encodings, artifacts, and policy identity |
-| **Instance** | One on-chain pool genesis using one profile |
-| **Data home** | Private local wallet, notes, journal, runtime, and recovery state |
+| **Design** | Friendly backend family such as `pf10`, `pf6`, or `fri`; not a protocol identity |
+| **Profile** | Immutable content identity covering relation, topology, parameters, ABI, artifacts, and network policy |
+| **Instance** | One on-chain pool genesis and lineage using one exact profile |
+| **Home** | Private local workspace immutably bound to one profile and instance |
+| **Operation** | One create, deposit, transfer, withdrawal, or recovery attempt |
+| **Tip** | Mutable chain observation; never an identity |
 
-Toolkit versions may change without changing an instance. A profile or setup
-change requires a new profile identity and a new genesis. Instances never merge
-their anonymity sets.
+PF10 also has a legacy **data home** containing the existing beta wallet,
+journal, runtime, and recovery authority. Explicit import creates a unified home
+that points back to that validated authority without copying or relabelling it.
 
-## Flow
+## Resolution
+
+An existing home wins. `--design` and `--profile` become assertions against its
+binding; a mismatch fails before backend code runs. Design aliases select
+families only. They never manufacture profile IDs.
+
+Without a home, selectors resolve in this order:
+
+1. Explicit command-line selector pair.
+2. Owner-private XDG configuration.
+3. Explicit environment design/home compatibility settings.
+4. No default.
+
+Supplying either CLI selector suppresses both config selectors, preventing an
+explicit profile from being combined with an ambient design default.
+
+## Operation boundary
 
 ```text
-owner
-  │
-  ├── private wallet + data home
-  │
-  ▼
-ShieldKit CLI ── selects one profile ──► prover + transaction builder
-  │                                           │
-  ├── verifies provider responses locally     └── exact proof-bound action
-  ▼
-Chipnet provider(s) ─────────────────────────► BCH transaction graph
+intent
+  -> prove and assemble exact bytes
+  -> whole-transaction validation
+  -> durable bytes + reservations
+  -> record send-attempted
+  -> exactly one automatic send
+  -> mempool observation + exact readback
+  -> atomic local commit
 ```
 
-Secrets and proofs are produced locally. Providers may supply chain data and
-broadcast bytes, but they do not authorize a spend. BCH history, the immutable
-profile, and locally verified state transitions are the public authority.
+The shared kernel names these states:
 
-## Pool lifecycle
+```text
+preparing -> prepared-durable -> send-attempted
+  -> accepted-zero-conf -> local-commit-pending -> committed
+  -> rejected
+  -> send-indeterminate
+```
 
-Each deposit, transfer, or withdrawal spends the current state and creates its
-successor in one BCH transaction. The current state is a serial writer: if
-another action wins the race, the losing client must refresh and re-prove
-against the new state.
+A preflight rejection is a safe pre-send failure. Once `send-attempted` is
+durable, absence of evidence is never treated as rejection and automatic retry
+is forbidden.
 
-- **Create** establishes a profile-specific instance and initial state.
-- **Deposit** creates a shielded note from a transparent boundary input.
-- **Transfer** replaces an owned note without leaving the shielded set.
-- **Withdraw** spends a note to a transparent external address.
-- **Delivery recovery** inspects a recorded send and permits only explicit
-  exact-byte rebroadcast. Native recovery components can reconstruct eligible
-  material from authenticated history, but they are not the root command.
+PF10 currently delegates this responsibility to its existing product lifecycle.
+The shared SQLite coordinator exercises the same invariants in conformance tests
+but is not a parallel PF10 mutation path. PF6 and FRI are not connected to it.
+
+## Chain truth
+
+Zero-conf mempool admission and exact transaction readback are the operational
+success boundary. Confirmation is not required for normal completion. A list of
+known transaction IDs is still only an observation set; it does not prove the
+canonical pool lineage. That is why unified `pool sync` remains blocked.
 
 ## Repository shelves
 
-- **Product** contains current PF10 user guidance.
-- **Lab** describes executable research without a support or portability promise.
-- **Record** preserves specs, evidence, decisions, and dated results.
-- **Vendor** documentation belongs to its upstream source and is not part of the
-  ShieldKit navigation.
+- **Product** documents the current unified CLI and PF10 beta path.
+- **Lab** documents designs that remain blocked from the unified mutation path.
+- **Record** preserves specifications, evidence, decisions, and dated results.
+- **Vendor** documentation belongs to upstream sources.
 - **Archive** is historical and never a current setup path.
-
-This separation keeps volatile status out of immutable profile and evidence
-records. See [the Record index](../record/README.md) for the deeper material.

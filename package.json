@@ -2,10 +2,10 @@
   "name": "shieldkit",
   "private": true,
   "version": "0.3.0-beta.1",
-  "description": "ShieldKit-Groth Beta 0.3.0-beta.1 \u2014 Unaudited Chipnet PF10 shielded pool CLI. Semver is code only; profiles/instances are content IDs.",
+  "description": "ShieldKit-Groth Beta 0.3.0-beta.1 — Unaudited Chipnet PF10 shielded pool CLI. Semver is code only; profiles/instances are content IDs.",
   "type": "module",
   "bin": {
-    "shieldkit": "shieldkit-groth-94kb/scripts/shieldkit.mjs"
+    "shieldkit": "cli-kernel/bin/shieldkit.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
@@ -28,7 +28,7 @@
     "install:deps": "npm ci --include-workspace-root",
     "bench": "node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs",
     "bench:cold-start": "node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs --cold-start",
-    "test": "node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite portable",
+    "test": "node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite portable && npm run cli:kernel:test",
     "test:clean-source": "node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite clean-source",
     "docs:check": "node scripts/check-docs.mjs",
     "test:beta-product:security": "node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite beta-product-security",
@@ -81,9 +81,9 @@
     "qualification:external:bchn": "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate bchn",
     "qualification:external:chipnet": "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate chipnet",
     "qualification:external:final-ceremony-and-audits": "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate final-ceremony-and-audits",
-    "shieldkit": "node shieldkit-groth-94kb/scripts/shieldkit.mjs",
+    "shieldkit": "node cli-kernel/bin/shieldkit.mjs",
     "fetch-playground-bundle": "node shieldkit-groth-94kb/scripts/fetch-playground-bundle.mjs",
-    "version-check": "node shieldkit-groth-94kb/scripts/shieldkit.mjs --version",
+    "version-check": "node cli-kernel/bin/shieldkit.mjs --version",
     "unlock-builder:setup": "node -e \"console.error('legacy seven-carrier unlock setup moved to archived-pool-designs/legacy-research/v1-seven-carrier/'); process.exit(2)\"",
     "unlock-builder:smoke": "node -e \"console.error('legacy unlock smoke moved to archived-pool-designs/legacy-research/v1-seven-carrier/'); process.exit(2)\"",
     "pack-pin-artifacts": "node shieldkit-groth-94kb/scripts/pack-pin-artifacts.mjs",
@@ -95,7 +95,16 @@
     "test:formal": "bash shieldkit-groth-94kb/packages/unlock-builder/vendor/lean/tools/opt-ci/verify.sh",
     "check:no-pf7-release": "node shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs",
     "qualification:beta": "node shieldkit-groth-94kb/scripts/qualification-beta.mjs",
-    "check:no-seven-carrier-release": "node shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs"
+    "check:no-seven-carrier-release": "node shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs",
+    "bench:action": "node bench/action/run-action.mjs",
+    "bench:action:smoke": "node bench/action/run-smoke.mjs",
+    "bench:action:report": "node bench/action/report.mjs",
+    "bench:action:test": "node --test bench/action/*.test.mjs",
+    "bench:component": "node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs",
+    "cli:kernel": "node cli-kernel/bin/shieldkit.mjs",
+    "cli:kernel:test": "node --test cli-kernel/*.test.mjs cli-kernel/**/*.test.mjs",
+    "cli:kernel:pack-smoke": "node --test cli-kernel/package-smoke.test.mjs",
+    "shieldkit:legacy-pf10": "node shieldkit-groth-94kb/scripts/shieldkit.mjs"
   },
   "devDependencies": {
     "circomlib": "2.0.5",
@@ -111,6 +120,7 @@
     "ws": "8.21.1"
   },
   "files": [
+    "cli-kernel/**",
     "README.md",
     "SECURITY.md",
     "docs/product/start.md",

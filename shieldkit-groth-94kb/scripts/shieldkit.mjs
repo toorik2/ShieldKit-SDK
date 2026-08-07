@@ -2,6 +2,7 @@
 /**
  * ShieldKit CLI — V2 beta product, quarantined V1, and a hidden V2 developer surface.
  * Fail-closed: missing required inputs → ok:false, exit ≠ 0 (no false success).
+ * Compatibility: package bin now points at cli-kernel (CLI_ARCHITECTURE_PLAN). This file remains the PF10 lifecycle backend; invoke via unified grammar or npm run shieldkit:legacy-pf10 during deprecation window ending 2026-11-07.
  * Single --mode flag (setupMode). JSON errors only (no raw stacks to users).
  */
 import { readFile } from 'node:fs/promises';

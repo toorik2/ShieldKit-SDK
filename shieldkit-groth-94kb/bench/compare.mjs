@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Compare two shieldkit-bench-scorecard-v1 JSON files.
+ * Compare two shieldkit-component-bench-scorecard-v1 JSON files.
  * Usage: node compare.mjs <left.json> <right.json>
  */
 import { readFile } from 'node:fs/promises';

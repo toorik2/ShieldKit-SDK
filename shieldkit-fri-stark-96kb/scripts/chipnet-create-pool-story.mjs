@@ -25,7 +25,11 @@ const WALLET =
   '/home/toorik/Projects/ZK-Proofs/.codex-artifacts/chipnet-wallet-019f8ed4/wallet-private.json';
 const ASSEMBLY =
   process.env.SETTLEMENT_ARTIFACT ||
-  path.join(ROOT, 'evidence/production/assemble-state0/assemble-transfer-d4-b32-base1.materialized.json');
+  // Product ROLE_COUNT=17 (nq=7); d4/b32@nq8 assemblies are 19-role and fail-closed.
+  path.join(
+    ROOT,
+    'evidence/production/assemble-state0/assemble-transfer-d20-b2048-n7-g30-base1.materialized.json',
+  );
 const t0 = Date.now();
 const jsonReplacer = (_, v) => (typeof v === 'bigint' ? v.toString() : v);
 
@@ -132,7 +136,7 @@ const report = {
     localSfs1: local.stateBytes.length === 128,
     stateCovenantCompiled: offlineOk,
     notOperatorKeySpendable: live.operatorKeySpendable === false,
-    friRoleLocksFunded: (live.nRoleLocks || 0) === 19,
+    friRoleLocksFunded: (live.nRoleLocks || 0) === 17,
     testmempoolaccept: Array.isArray(live.testmempoolaccept)
       ? live.testmempoolaccept[0]?.allowed === true
       : false,
@@ -145,7 +149,7 @@ const report = {
     note: 'v1 operator-P2PKH state birth is forbidden under can\'t-do-evil; v2 funds state covenant + FRI roles',
   },
   note: ok
-    ? 'create-pool green under can\'t-do-evil: state covenant + 19 FRI role locks on common parent'
+    ? 'create-pool green under can\'t-do-evil: state covenant + 17 FRI role locks on common parent'
     : live.note || 'create-pool failed fail-closed',
 };
 

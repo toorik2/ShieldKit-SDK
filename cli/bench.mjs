@@ -1,7 +1,9 @@
-// cli/bench.mjs — the experimental Lab router --bench flag.
+// cli/bench.mjs — experimental Lab router isolated-proof / component surface.
+// NOT the primary end-to-end action benchmark (see bench/action/ + BENCHMARK_PLAN.md).
 // Compares registered pool designs on two declared axes:
 //   Axis A — on-chain verifier surface (identical measurement for all designs)
 //   Axis B — prep time (recorded per design with its prover identity; wall-clock)
+// Schema deliberately distinct from component S0/S1/S2 and action-run/v2.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -15,8 +17,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLI_HOME = path.resolve(HERE); // cli/
 const SDK_ROOT = path.resolve(CLI_HOME, '..');
 
-export const BENCH_SCHEMA = 'shieldkit-bench-scorecard-v1';
-export const BENCH_OVERLAP_SCHEMA = 'shieldkit-bench-overlap-v1';
+export const BENCH_SCHEMA = 'shieldkit-isolated-proof-bench-v1';
+export const BENCH_OVERLAP_SCHEMA = 'shieldkit-isolated-proof-bench-overlap-v1';
+/** @deprecated historical collision id — do not use for new evidence */
+export const LEGACY_BENCH_SCHEMA = 'shieldkit-bench-scorecard-v1';
 
 const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 const { execSync: _execSync } = await import('node:child_process');

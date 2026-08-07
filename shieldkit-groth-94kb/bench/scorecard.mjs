@@ -1,12 +1,19 @@
 /**
- * Shared scorecard for ShieldKit scalability bench (S0/S1/S2).
+ * Component microbenchmark scorecard for S0/S1/S2 (isolated prove/scaling).
  * Pure validation + builders — no prove/RPC I/O.
+ *
+ * NOT the primary end-to-end action benchmark.
+ * Primary action traces use shieldkit-action-benchmark-run/v2 (see bench/action/).
  */
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-export const SCORECARD_SCHEMA = 'shieldkit-bench-scorecard-v1';
+/** @deprecated name retained as alias — prefer COMPONENT_SCORECARD_SCHEMA */
+export const SCORECARD_SCHEMA = 'shieldkit-component-bench-scorecard-v1';
+export const COMPONENT_SCORECARD_SCHEMA = SCORECARD_SCHEMA;
+/** Historical schema id — rejected for new primary claims */
+export const LEGACY_SCORECARD_SCHEMA = 'shieldkit-bench-scorecard-v1';
 export const UNLOCK_BUDGET_BYTES = 10_000;
 export const DESIGN_PF10_BASELINE = 'pf10-baseline';
 
@@ -168,7 +175,7 @@ export function compareScorecards(left, right) {
     return y - x;
   };
   return Object.freeze({
-    schema: 'shieldkit-bench-compare-v1',
+    schema: 'shieldkit-component-bench-compare-v1',
     left: Object.freeze({ design: a.design, commit: a.commit, story: a.story, ok: a.ok }),
     right: Object.freeze({ design: b.design, commit: b.commit, story: b.story, ok: b.ok }),
     deltas: Object.freeze({

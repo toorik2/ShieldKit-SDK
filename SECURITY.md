@@ -43,7 +43,7 @@ handover paths. Ignore rules reduce accidents; they are not secret storage.
 
 ## Network and delivery
 
-The Product shelf is Chipnet-only. It has no faucet, sponsor, custody service,
+The unified PF10 product path is Chipnet-only. It has no faucet, sponsor, custody service,
 automatic resend, or confirmation wait. A successful action means the exact
 transaction was admitted and read back under the profile's zero-confirmation
 policy. It does not mean the transaction is mined or final.
@@ -57,9 +57,9 @@ automatic replacement spend.
 
 | Profile | Security boundary |
 | --- | --- |
-| PF10 | Root-supported beta; single-contributor setup; no audit, mainnet, or production qualification |
-| PF6 | Lab-only router; release record says `productionQualified: false`; portability and conditional withdrawal-layout risk remain |
-| FRI-STARK | Lab-only; relies on local private build material; no encrypted-note privacy or Groth-pool compatibility claim; independent P7 journey was waived, not completed |
+| PF10 | Unified CLI's only money-moving beta backend; single-contributor setup; no audit, mainnet, or production qualification |
+| PF6 | Unified mutations blocked; release record says `productionQualified: false`; portability and conditional withdrawal-layout risk remain |
+| FRI-STARK | Unified mutations blocked; relies on local private build material; no encrypted-note privacy or Groth-pool compatibility claim; independent P7 journey was waived, not completed |
 | V1 playground | Historical only; not a fallback for V2 |
 
 Profile-specific evidence:

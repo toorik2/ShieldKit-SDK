@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * ShieldKit CLI — V2 beta product, quarantined V1, and a hidden V2 developer surface.
- * Fail-closed: missing required inputs → ok:false, exit ≠ 0 (no false success).
- * Single --mode flag (setupMode). JSON errors only (no raw stacks to users).
+ * DEPRECATED Lab dual-router (deprecation window ends 2026-11-07).
+ * Use the unified CLI: node cli-kernel/bin/shieldkit.mjs (package bin: shieldkit).
+ * See cli-kernel/docs/OPERATOR.md and CLI_ARCHITECTURE_PLAN.md.
+ * This shim is not a permanent second product grammar.
  */
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';

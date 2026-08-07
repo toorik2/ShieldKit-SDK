@@ -1,37 +1,26 @@
 # Lab
 
-The Lab shelf contains executable research that is not part of the supported
-root PF10 surface.
-
-| ID | Design | Evidence | Why it remains Lab |
-| --- | --- | --- | --- |
-| `pf6-a3-direct-v1` | Groth16 · 6 verifier roles · 9-input actions | Real Chipnet lifecycle and cross-checks | Router contains maintainer-absolute imports; frozen release is explicitly unqualified; conditional withdrawal layout risk |
-| `fri-stark-96kb` | Goldilocks FRI-STARK · 17 roles · 18-input actions | Scoped release and Chipnet lifecycle evidence | Requires ignored/private build material; maintainer defaults remain; independent P7 journey was waived |
-
-Read [PF6](./pf6.md) or [FRI-STARK](./fri.md) for the exact boundary.
-
-## Experimental router
-
-The source router is invoked directly:
+PF6 and FRI-STARK are research designs, not alternate product modes.
 
 ```bash
-node cli/scripts/shieldkit.mjs --profile pf6-a3-direct-v1 --version
-node cli/scripts/shieldkit.mjs --profile fri-stark-96kb --version
+npm run shieldkit -- --design pf6 design doctor
+npm run shieldkit -- --design fri design doctor
 ```
 
-It is not the root package binary. This does **not** work:
+The unified catalog deliberately has no exact profile ID for either design.
+Every create, deposit, transfer, and withdraw command returns
+`CAPABILITY_BLOCKED`; `--allow-lab` cannot replace a frozen profile, destination
+binding, durable preparation, whole-transaction validation, single-send
+admission, or exact readback.
 
-```bash
-npm run shieldkit -- --profile pf6-a3-direct-v1 --help
-```
+| Design | Why mutation remains blocked |
+| --- | --- |
+| [PF6](./pf6.md) | No closed profile package; withdrawal destination binding and the unified durable lifecycle are not qualified |
+| [FRI-STARK](./fri.md) | Profile/topology sources and note/key semantics are not frozen; no complete unified lifecycle |
 
-The router is not a portable release surface yet:
+Legacy routers and package-local executables remain only as historical research
+source. They are not supported commands, are not part of the package binary,
+and must not be used to infer product support.
 
-- PF6 imports PF10 and `snarkjs` through maintainer-absolute paths;
-- FRI-STARK expects a private worker build, materialized local artifacts, and a
-  maintainer-local wallet fallback.
-
-Always supply explicit wallet and data-home paths in Lab work. Treat successful
-local execution as scoped evidence, not a support or maturity claim. The
-[router README](https://github.com/toorik2/ShieldKit-SDK/blob/main/cli/README.md)
-is a code-adjacent Lab reference.
+Repository evidence and story outputs are records, not live instance homes or
+mutation authority.

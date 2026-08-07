@@ -23,6 +23,11 @@ HANDOVER.md
 .grok/
 .local/
 
+# Local planning notes (not repository documentation)
+BENCHMARK_PLAN.md
+CLI_ARCHITECTURE_PLAN.md
+GOAL_PROMPT_*.md
+
 # Operator wallets (never commit keys)
 wallets.json
 **/wallets.json
@@ -107,3 +112,6 @@ shieldkit-groth-54kb/pins/*.tar.gz
 
 # Archived demo-pool proving artifacts (fetch via scripts/fetch-playground-bundle.mjs; too large for git)
 archived-pool-designs/02-use-chipnet-demo-pool/bundle/artifacts/
+
+# Action benchmark raw outputs (promote deliberately)
+bench/results/

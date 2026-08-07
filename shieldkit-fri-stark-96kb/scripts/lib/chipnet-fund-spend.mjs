@@ -120,7 +120,9 @@ export function scantxoutsetHot(addr = DEFAULT_HOT, sshHost = DEFAULT_SSH) {
   // scantxoutset covers only the CONFIRMED UTXO set, so a just-created UTXO would be
   // invisible and every fresh fund would force a confirmation wait. We never wait for
   // confirmations: decode the node mempool and include outputs paying `addr`.
-  const raw = sshCli(`scantxoutset start "[\"addr(${addr})\"]"`, 300_000, sshHost);
+  // Remote bash needs real backslash-quotes around the JSON string; bare `\"` in a
+  // template literal collapses and leaves addr(...) unquoted → syntax error near '('.
+  const raw = sshCli(`scantxoutset start "[\\"addr(${addr})\\"]"`, 300_000, sshHost);
   let scan = null;
   try {
     scan = JSON.parse(raw.stdout);
@@ -175,7 +177,9 @@ export function fundAndSpendKind(opts) {
     artifactPath,
     outDir,
     excludeOutpoints = new Set(),
-    minVinSats = 15_000_000n,
+    // Hot wallet is typically ~0.01–0.10 BCH class UTXOs; fund need is ~200k sats
+    // (19*5288 dust + ~100KB spend fee). Keep a 1M floor for comfortable change.
+    minVinSats = 1_000_000n,
     walletPath = DEFAULT_WALLET,
     sshHost = DEFAULT_SSH,
     dustPerLock = DUST_PER_LOCK,
@@ -242,17 +246,34 @@ export function fundAndSpendKind(opts) {
       vout: u.vout,
       amount: BigInt(Math.round(Number(u.amount) * 1e8)),
       scriptPubKey: u.scriptPubKey,
+      // scantxoutset / mempool may already tag CashTokens — never fee-fund from them
+      hasToken: !!(u.tokenData || u.token),
       key: `${u.txid}:${u.vout}`,
     }))
-    .filter((u) => u.amount >= minVinSats && !excludeOutpoints.has(u.key))
+    .filter(
+      (u) =>
+        u.amount >= minVinSats &&
+        !excludeOutpoints.has(u.key) &&
+        !u.hasToken,
+    )
     .sort((a, b) => Number(b.amount - a.amount));
 
-  // Prefer UTXOs not spent in mempool (gettxout include_mempool=true → null if busy).
+  // Prefer plain UTXOs not spent in mempool (gettxout include_mempool=true → null if busy).
+  // Skip CashToken-bearing outs: signraw needs matching tokenData and they are not fee fuel.
   let vin = null;
-  for (const cand of ranked.slice(0, 40)) {
+  for (const cand of ranked.slice(0, 80)) {
     const g = rpcStdin('gettxout', [cand.txid, cand.vout, true], 30_000, sshHost);
-    if (g.parsed && typeof g.parsed === 'object' && g.parsed.value != null) {
-      vin = cand;
+    if (
+      g.parsed &&
+      typeof g.parsed === 'object' &&
+      g.parsed.value != null &&
+      !g.parsed.tokenData
+    ) {
+      vin = {
+        ...cand,
+        scriptPubKey: g.parsed.scriptPubKey?.hex || cand.scriptPubKey,
+        amount: BigInt(Math.round(Number(g.parsed.value) * 1e8)),
+      };
       break;
     }
   }
@@ -261,7 +282,7 @@ export function fundAndSpendKind(opts) {
     return {
       ok: false,
       kind,
-      note: `no clean hot UTXO ≥ ${minVinSats} sats (mempool-conflict free) excluding ${excludeOutpoints.size} outpoints; ranked=${ranked.length}`,
+      note: `no clean plain (non-token) hot UTXO ≥ ${minVinSats} sats (mempool-conflict free) excluding ${excludeOutpoints.size} outpoints; ranked=${ranked.length}`,
     };
   }
   const spendBytesEst = Number(txBytes || 99900);

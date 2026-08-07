@@ -33,22 +33,29 @@ the ordinary portable suite remains runnable while developing changes.
 
 ## Benchmarks
 
-The PF10 benchmark requires an existing data home and its full mode performs a
-live Chipnet spend:
+The primary action benchmark measures a real semantic action through exact BCHN
+mempool observation. It is first-try only and retains failures:
 
 ```bash
-npm run bench -- --data-home /absolute/path/to/pf10-data-home
-npm run bench:cold-start -- --data-home /absolute/path/to/pf10-data-home
+npm run bench:action -- --help
+npm run bench:action -- --design pf10 --action deposit \
+  --data-home /absolute/path/to/pf10-data-home
 ```
 
-Reports must identify the profile, commit, prover, host, transaction size,
-unlock size, operation cost, and whether every value was freshly measured or
-imported. Cross-profile numbers are not interchangeable unless their methods
-and scopes match.
+Component proof/scaling work remains separate:
+
+```bash
+npm run bench:component
+```
+
+Never present a component scorecard as end-to-end preparation time. Reports must
+identify the exact profile, commit, prover, host, transaction, span DAG,
+acceptance observation, and cache mode. See the
+[action benchmark contract](../../bench/action/README.md).
 
 ## Current evidence boundaries
 
-- PF10 is the root-supported beta, but remains unaudited and
+- PF10 is the unified CLI's only money-moving beta backend, but remains unaudited and
   `productionQualified: false`.
 - PF6 has real Chipnet lifecycle, BCHN, Libauth, and LeanBCH evidence, but its
   preserved release manifest is explicitly unqualified and the Lab router is

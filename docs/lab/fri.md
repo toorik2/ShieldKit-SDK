@@ -1,7 +1,7 @@
 # FRI-STARK
 
-`fri-stark-96kb` is an unaudited, Chipnet-only Lab profile using a Goldilocks
-DEEP-ALI FRI-STARK. The profile reports 17 verifier roles and 18 inputs per
+`fri-stark-96kb` is an unaudited, Chipnet-only Lab design using a Goldilocks
+DEEP-ALI FRI-STARK. Research records report 17 verifier roles and 18 inputs per
 action. Its structural reality gate measured 96,734 bytes; the fresh masked
 live-action record reports up to 99,207 bytes, below the 100,000-byte ceiling.
 
@@ -20,7 +20,9 @@ profile beyond the verdict's permitted experimental beta claim.
 
 ## Why it is not Product
 
-- The root `shieldkit` binary does not route this profile.
+- The unified CLI can inspect the design, but no single authoritative
+  content-addressed profile and note/key contract is frozen; every mutation is
+  blocked.
 - The Lab router requires an ignored private worker build and materialized
   assembly evidence.
 - It contains a maintainer-local wallet fallback; callers must pass an explicit
@@ -33,5 +35,4 @@ profile beyond the verdict's permitted experimental beta claim.
 The in-tree replacement plan is a hashed qualification input and remains a
 Record, not user guidance.
 
-Profile identity: [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/profile.json) ·
-standalone entrypoint: [`shieldkit-fri.mjs`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/packages/cli/bin/shieldkit-fri.mjs)
+Research profile record (not unified mutation authority): [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/profile.json)

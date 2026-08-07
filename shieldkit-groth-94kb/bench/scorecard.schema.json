@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "shieldkit-bench-scorecard-v1",
-  "title": "ShieldKit bench scorecard v1",
+  "$id": "shieldkit-component-bench-scorecard-v1",
+  "title": "ShieldKit component bench scorecard v1 (S0/S1/S2 microbenchmarks — not end-to-end action)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,7 @@
     "notes"
   ],
   "properties": {
-    "schema": { "const": "shieldkit-bench-scorecard-v1" },
+    "schema": { "const": "shieldkit-component-bench-scorecard-v1" },
     "design": { "type": "string", "minLength": 1 },
     "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "story": { "enum": ["S0", "S1", "S2"] },

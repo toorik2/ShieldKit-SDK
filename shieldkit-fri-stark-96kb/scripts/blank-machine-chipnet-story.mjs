@@ -43,7 +43,7 @@ import {
   MAX_UNLOCK_BYTES,
 } from '../packages/settlement/settlement.mjs';
 
-import { scantxoutsetHot } from './lib/chipnet-fund-spend.mjs';
+import { scantxoutsetHot, fundAndSpendKind } from './lib/chipnet-fund-spend.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'evidence/blank-machine-chipnet');
 const TARGET = path.join(ROOT, '.private/cargo-target-blank-chipnet');
@@ -265,20 +265,24 @@ writeFileSync(
 
 // 2 UTXO scan hot wallet — MEMPOOL-INCLUSIVE (zero-conf: a fresh funding UTXO must be
 // visible immediately; we never wait for confirmations)
-const { scan, unspents, confirmedCount, mempoolCount } = scantxoutsetHot(HOT_ADDR);utsetHot(HOT_ADDR); scan?.unspents || [];
+const utxoT0 = Date.now();
+const { scan, unspents, confirmedCount, mempoolCount, raw: scanRaw } =
+  scantxoutsetHot(HOT_ADDR);
 const totalAmount = scan?.total_amount ?? null;
 const fundingOk =
   scan?.success === true && typeof totalAmount === 'number' && totalAmount > 0.01;
 const utxoStep = logStep({
   step: 'chipnet:scantxoutset-hot',
   cmd: `scantxoutset addr(${HOT_ADDR})`,
-  status: scanRaw.status,
-  ms: scanRaw.ms,
+  status: scanRaw?.status ?? (scan?.success ? 0 : 1),
+  ms: Date.now() - utxoT0,
   ok: fundingOk,
   json: {
     success: scan?.success,
     total_amount: totalAmount,
     utxoCount: unspents.length,
+    confirmedCount,
+    mempoolCount,
     sample: unspents.slice(0, 3).map((u) => ({
       txid: u.txid,
       vout: u.vout,
@@ -287,7 +291,7 @@ const utxoStep = logStep({
     })),
   },
   note: fundingOk
-    ? `hot funded with ${totalAmount} tBCH across ${unspents.length} UTXOs`
+    ? `hot funded with ${totalAmount} tBCH across ${unspents.length} UTXOs (confirmed=${confirmedCount} mempool=${mempoolCount})`
     : 'hot wallet unfunded or scan failed',
 });
 writeFileSync(
@@ -499,254 +503,64 @@ if (
   existsSync(WALLET)
 ) {
   try {
-    const wallet = JSON.parse(readFileSync(WALLET, 'utf8'));
-    const locks = settlement.lockingHexes;
-    const unlocks = settlement.verifierUnlockingHex;
-    const n = locks.length;
-    if (n < 10 || unlocks.length !== n) {
-      throw new Error(`bad lock/unlock counts locks=${locks.length} unlocks=${unlocks.length}`);
-    }
-
-    // Pick clean funding UTXO (largest > 0.15 tBCH)
-    const fundCandidates = unspents
-      .map((u) => ({
-        txid: u.txid,
-        vout: u.vout,
-        amount: BigInt(Math.round(Number(u.amount) * 1e8)),
-        scriptPubKey: u.scriptPubKey,
-      }))
-      .filter((u) => u.amount > 15_000_000n)
-      .sort((a, b) => Number(b.amount - a.amount));
-    if (!fundCandidates.length) throw new Error('no hot UTXO > 0.15 tBCH');
-    const vin = fundCandidates[0];
-
-    // Estimate spend size from measured assembly VM size (same unlocks)
-    const spendBytesEst = Number(settlement.vm?.txBytes || settlement.sizes?.txBytesMeasured || 99900);
-    const feeSpend = BigInt(spendBytesEst + 1); // 1 sat/byte + 1
-    const totalDust = DUST_PER_LOCK * BigInt(n);
-    if (totalDust < feeSpend + 546n) {
-      throw new Error(`dust total ${totalDust} < fee+dustOut ${feeSpend + 546n}`);
-    }
-    // Fund fee: size+1 after sign; provisional 500 sats margin then re-sign if needed
-    // Build fund: n lockouts + change
-    const fundFeeProv = 800n;
-    const change = vin.amount - totalDust - fundFeeProv;
-    if (change < 546n) throw new Error(`change ${change} dust`);
-
-    const fundTx = {
-      version: 2,
-      inputs: [
-        {
-          outpointTransactionHash: hexToBin(vin.txid),
-          outpointIndex: vin.vout,
-          sequenceNumber: 0xfffffffe,
-          unlockingBytecode: new Uint8Array(0),
-        },
-      ],
-      outputs: [
-        ...locks.map((h) => ({
-          lockingBytecode: hexToBin(h),
-          valueSatoshis: DUST_PER_LOCK,
-        })),
-        {
-          lockingBytecode: hexToBin(wallet.lockingBytecodeHex),
-          valueSatoshis: change,
-        },
-      ],
-      locktime: 0,
-    };
-    let unsignedHex = binToHex(encodeTransaction(fundTx));
-    // Adjust change so fund fee = size+1 after signing (iterate once on unsigned size)
-    const fundSizeEst = unsignedHex.length / 2 + 110; // +schnorr unlock ~106–110
-    const fundFee = BigInt(fundSizeEst + 1);
-    const change2 = vin.amount - totalDust - fundFee;
-    if (change2 < 546n) throw new Error(`change2 ${change2} dust`);
-    fundTx.outputs[fundTx.outputs.length - 1].valueSatoshis = change2;
-    unsignedHex = binToHex(encodeTransaction(fundTx));
-
-    const wif = hexToWif(wallet.privateKeyHex, true);
-    const prev = [
-      {
-        txid: vin.txid,
-        vout: vin.vout,
-        scriptPubKey: vin.scriptPubKey,
-        amount: Number(vin.amount) / 1e8,
-      },
-    ];
-    // sign via -stdin: signrawtransactionwithkey hex keys prevtxs
-    const signR = rpcStdin(
-      'signrawtransactionwithkey',
-      [unsignedHex, [wif], prev],
-      60_000,
-    );
-    const signed = signR.parsed;
-    if (!signed?.complete || !signed?.hex) {
-      throw new Error(
-        `fund sign failed: ${JSON.stringify(signed?.errors || signed || signR.text).slice(0, 500)}`,
-      );
-    }
-    // Exact fee = size+1: if change wrong by a few sats, re-adjust once
-    const signedFundBytes = signed.hex.length / 2;
-    const exactFundFee = BigInt(signedFundBytes + 1);
-    const changeExact = vin.amount - totalDust - exactFundFee;
-    let fundHex = signed.hex;
-    if (changeExact !== change2 && changeExact >= 546n) {
-      fundTx.outputs[fundTx.outputs.length - 1].valueSatoshis = changeExact;
-      unsignedHex = binToHex(encodeTransaction(fundTx));
-      const signR2 = rpcStdin(
-        'signrawtransactionwithkey',
-        [unsignedHex, [wif], prev],
-        60_000,
-      );
-      if (!signR2.parsed?.complete || !signR2.parsed?.hex) {
-        throw new Error('fund re-sign failed');
-      }
-      fundHex = signR2.parsed.hex;
-    }
-
-    const acceptFund = rpcStdin('testmempoolaccept', [[fundHex]], 60_000);
-    const fundAllowed =
-      Array.isArray(acceptFund.parsed) && acceptFund.parsed[0]?.allowed === true;
-    if (!fundAllowed) {
-      throw new Error(
-        `fund testmempoolaccept rejected: ${JSON.stringify(acceptFund.parsed || acceptFund.text).slice(0, 800)}`,
-      );
-    }
-    const fundTxid = String(rpcStdin('sendrawtransaction', [fundHex], 60_000).parsed).trim();
-    if (!/^[0-9a-f]{64}$/i.test(fundTxid)) {
-      throw new Error(`bad fund txid: ${fundTxid}`);
-    }
-    const fundRaw = String(rpcStdin('getrawtransaction', [fundTxid, false], 60_000).parsed)
-      .trim()
-      .toLowerCase();
-    if (fundRaw !== fundHex.toLowerCase()) {
-      throw new Error('fund raw readback mismatch');
-    }
-    logStep({
-      step: 'chipnet:fund-locks',
-      cmd: 'testmempoolaccept+sendrawtransaction fund',
-      status: 0,
-      ms: 0,
-      ok: true,
-      note: `fundTxid=${fundTxid} nLocks=${n} dust=${DUST_PER_LOCK}`,
+    // Shared path: rescans hot, skips mempool-spent + CashToken vins, fund+spend first-try.
+    const live = fundAndSpendKind({
+      kind: 'transfer',
+      artifactPath: ART_TRANSFER,
+      outDir: OUT,
+      walletPath: WALLET,
+      dustPerLock: DUST_PER_LOCK,
+      minVinSats: 1_000_000n,
     });
-    chipnetLive.fundTxid = fundTxid;
-
-    // Build multi-input spend: n verifier inputs → single P2PKH change to hot
-    const spendOutValue = totalDust - feeSpend;
-    if (spendOutValue < 546n) throw new Error(`spend out ${spendOutValue} < dust`);
-
-    // Outpoint hash: libauth uses UI byte order (same as fund encode)
-    const spendTx = {
-      version: 2,
-      inputs: locks.map((_, i) => ({
-        outpointTransactionHash: hexToBin(fundTxid),
-        outpointIndex: i,
-        sequenceNumber: 0xffffffff,
-        unlockingBytecode: hexToBin(unlocks[i]),
-      })),
-      outputs: [
-        {
-          lockingBytecode: hexToBin(wallet.lockingBytecodeHex),
-          valueSatoshis: spendOutValue,
-        },
-      ],
-      locktime: 0,
+    if (!live.ok) {
+      throw new Error(live.note || 'fundAndSpendKind failed');
+    }
+    chipnetLive = {
+      ok: live.rawMatch === true,
+      fundTxid: live.fundTxid,
+      spendTxid: live.spendTxid,
+      spendBytes: live.spendBytes,
+      feeSats: live.feeSats,
+      feePolicy: '1_sat_per_byte_plus_1',
+      dustPerLock: Number(DUST_PER_LOCK),
+      nInputs: live.nInputs,
+      testmempoolaccept: live.testmempoolaccept,
+      rawMatch: live.rawMatch,
+      productionVerifiers: true,
+      placeholder: false,
+      kind: 'transfer',
+      note: live.note,
     };
-    let spendHex = binToHex(encodeTransaction(spendTx));
-    let spendBytes = spendHex.length / 2;
-    // Re-balance fee = spendBytes+1 (unlock sizes fixed so size stable)
-    const feeExact = BigInt(spendBytes + 1);
-    const outExact = totalDust - feeExact;
-    if (outExact < 546n) throw new Error(`outExact ${outExact} dust`);
-    if (outExact !== spendOutValue) {
-      spendTx.outputs[0].valueSatoshis = outExact;
-      spendHex = binToHex(encodeTransaction(spendTx));
-      spendBytes = spendHex.length / 2;
-    }
-    if (BigInt(spendBytes + 1) !== totalDust - spendTx.outputs[0].valueSatoshis) {
-      // final exact
-      const f = BigInt(spendBytes + 1);
-      spendTx.outputs[0].valueSatoshis = totalDust - f;
-      spendHex = binToHex(encodeTransaction(spendTx));
-      spendBytes = spendHex.length / 2;
-    }
-    writeFileSync(path.join(OUT, 'spend.hex'), spendHex + '\n');
-    writeFileSync(path.join(OUT, 'fund.hex'), fundHex + '\n');
-
-    const acceptSpend = rpcStdin('testmempoolaccept', [[spendHex]], 120_000);
-    chipnetLive.testmempoolaccept = acceptSpend.parsed;
-    const spendAllowed =
-      Array.isArray(acceptSpend.parsed) && acceptSpend.parsed[0]?.allowed === true;
-    if (!spendAllowed) {
-      chipnetLive.note = `spend testmempoolaccept rejected (first try, stop): ${JSON.stringify(acceptSpend.parsed || acceptSpend.text).slice(0, 1000)}`;
-      logStep({
-        step: 'chipnet:spend-testmempoolaccept',
-        cmd: 'testmempoolaccept spend',
-        status: 1,
-        ms: acceptSpend.ms,
-        ok: false,
-        note: chipnetLive.note,
-      });
-      writeFileSync(path.join(OUT, 'CHIPNET_SPEND.json'), JSON.stringify(chipnetLive, null, 2) + '\n');
-    } else {
-      const spendTxid = String(rpcStdin('sendrawtransaction', [spendHex], 120_000).parsed).trim();
-      if (!/^[0-9a-f]{64}$/i.test(spendTxid)) {
-        throw new Error(`bad spend txid: ${spendTxid}`);
-      }
-      const spendRaw = String(rpcStdin('getrawtransaction', [spendTxid, false], 60_000).parsed)
-        .trim()
-        .toLowerCase();
-      const rawMatch = spendRaw === spendHex.toLowerCase();
-      chipnetLive = {
-        ok: rawMatch,
-        fundTxid,
-        spendTxid,
-        spendBytes,
-        feeSats: spendBytes + 1,
-        feePolicy: '1_sat_per_byte_plus_1',
-        dustPerLock: Number(DUST_PER_LOCK),
-        nInputs: n,
-        testmempoolaccept: acceptSpend.parsed,
-        rawMatch,
-        productionVerifiers: true,
-        placeholder: false,
-        kind: 'transfer',
-        note: rawMatch
-          ? 'live Chipnet multi-input FRI settlement admitted (mempool); exact raw match'
-          : 'broadcast ok but raw mismatch',
-      };
-      logStep({
-        step: 'chipnet:spend-broadcast',
-        cmd: 'sendrawtransaction+getrawtransaction spend',
-        status: rawMatch ? 0 : 1,
-        ms: 0,
-        ok: rawMatch,
-        note: `spendTxid=${spendTxid} bytes=${spendBytes} fee=${spendBytes + 1}`,
-      });
-      writeFileSync(path.join(OUT, 'CHIPNET_SPEND.json'), JSON.stringify(chipnetLive, null, 2) + '\n');
-      writeFileSync(
-        path.join(OUT, 'CHIPNET_FUND.json'),
-        JSON.stringify(
-          {
-            ok: true,
-            fundTxid,
-            nLocks: n,
-            dustPerLock: Number(DUST_PER_LOCK),
-            feePolicy: '1_sat_per_byte_plus_1',
-            productionVerifiers: true,
-            placeholder: false,
-          },
-          null,
-          2,
-        ) + '\n',
-      );
-    }
+    logStep({
+      step: 'chipnet:live-fund-spend',
+      cmd: 'fundAndSpendKind transfer',
+      status: chipnetLive.ok ? 0 : 1,
+      ms: 0,
+      ok: chipnetLive.ok,
+      note: `fundTxid=${live.fundTxid} spendTxid=${live.spendTxid} bytes=${live.spendBytes} fee=${live.feeSats}`,
+    });
+    writeFileSync(path.join(OUT, 'CHIPNET_SPEND.json'), JSON.stringify(chipnetLive, null, 2) + '\n');
+    writeFileSync(
+      path.join(OUT, 'CHIPNET_FUND.json'),
+      JSON.stringify(
+        {
+          ok: true,
+          fundTxid: live.fundTxid,
+          nLocks: live.nInputs,
+          dustPerLock: Number(DUST_PER_LOCK),
+          feePolicy: '1_sat_per_byte_plus_1',
+          productionVerifiers: true,
+          placeholder: false,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
   } catch (e) {
     chipnetLive.note = String(e?.message || e).slice(0, 1500);
     logStep({
       step: 'chipnet:live-fund-spend',
-      cmd: 'fund+spend',
+      cmd: 'fundAndSpendKind transfer',
       status: 1,
       ms: 0,
       ok: false,
