@@ -65,7 +65,7 @@ async function fixture() {
   await mkdir(TEST_ROOT, { recursive: true, mode: 0o700 }); await chmod(TEST_ROOT, 0o700);
   const root = await mkdtemp(path.join(TEST_ROOT, 'runtime-')); await chmod(root, 0o700);
   const temporaryRoot = path.join(root, 'runtime-tmp'); await mkdir(temporaryRoot, { mode: 0o700 });
-  const verificationKeyFixture = path.join(ROOT, 'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json');
+  const verificationKeyFixture = path.join(ROOT, 'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json');
   const artifacts = { provingKey: path.join(root, 'beta.zkey'), r1cs: path.join(root, 'main.r1cs'), wasm: path.join(root, 'main.wasm'), verificationKey: path.join(root, 'verification_key.json') };
   await Promise.all([writeFile(artifacts.provingKey, 'beta-key-fixture', { mode: 0o600 }), writeFile(artifacts.r1cs, 'r1cs-fixture', { mode: 0o600 }), writeFile(artifacts.wasm, 'wasm-fixture', { mode: 0o600 }), writeFile(artifacts.verificationKey, await readFile(verificationKeyFixture), { mode: 0o600 })]);
   const proofArtifacts = Object.freeze(Object.fromEntries(await Promise.all(Object.entries(artifacts).map(async ([name, filename]) => [name, Object.freeze({ path: filename, sha256: hash(await readFile(filename)) })]))));

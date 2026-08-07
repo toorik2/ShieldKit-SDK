@@ -916,17 +916,17 @@ function testOnlyBundle(rawMetadata = Q04_FIXED_SEEDS.map((_, index) =>
         sources: rustSources,
         cargoManifest: source(
           'rust-kat-manifest',
-          'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml',
+          'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml',
           'sources/rust-kat-manifest.toml',
         ),
         cargoLock: source(
           'rust-kat-lockfile',
-          'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.lock',
+          'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.lock',
           'sources/rust-kat-lock.lock',
         ),
         rustToolchain: source(
           'rust-toolchain',
-          'shieldkit-groth/rust-toolchain.toml',
+          'shieldkit-groth-94kb/rust-toolchain.toml',
           'sources/rust-toolchain.toml',
         ),
         binary: binaryReference,
@@ -973,7 +973,7 @@ function testOnlyBundle(rawMetadata = Q04_FIXED_SEEDS.map((_, index) =>
       commands: {
         campaign: {
           executable: 'node',
-          arguments: ['shieldkit-groth/scripts/v2-q04-campaign.mjs'],
+          arguments: ['shieldkit-groth-94kb/scripts/v2-q04-campaign.mjs'],
           workingDirectory: '.',
         },
         rustKatBuild: {
@@ -987,13 +987,13 @@ function testOnlyBundle(rawMetadata = Q04_FIXED_SEEDS.map((_, index) =>
             'q04-poseidon-oracle',
           ],
           workingDirectory:
-            'shieldkit-groth/crates/shieldkit-v2-recovery',
+            'shieldkit-groth-94kb/crates/shieldkit-v2-recovery',
         },
         rustKatRun: {
           executable: 'target/release/q04-poseidon-oracle',
           arguments: [],
           workingDirectory:
-            'shieldkit-groth/crates/shieldkit-v2-recovery',
+            'shieldkit-groth-94kb/crates/shieldkit-v2-recovery',
         },
         depth4CheckerBuild: {
           executable: 'cargo',
@@ -1006,14 +1006,14 @@ function testOnlyBundle(rawMetadata = Q04_FIXED_SEEDS.map((_, index) =>
             'shieldkit-v2-q04-certificate',
           ],
           workingDirectory:
-            'shieldkit-groth/crates/shieldkit-v2-q04-certificate',
+            'shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate',
         },
         depth4CheckerRun: {
           executable: 'bin/shieldkit-v2-q04-certificate',
           arguments: [
             'raw/depth4-symbolic-certificate.json',
-            'snapshot/shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs',
-            'snapshot/shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs',
+            'snapshot/shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs',
+            'snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs',
           ],
           workingDirectory: '.',
         },
@@ -1249,7 +1249,7 @@ test('[test-only] schema v3 binds exact lanes, checker, telemetry, source set, a
   assert.ok(Object.isFrozen(Q04_CAMPAIGN_DEFINITION));
   assert.ok(Q04_SOURCE_DEFINITIONS.campaign.some((entry) =>
     entry.originPath ===
-      'shieldkit-groth/scripts/v2-q04-campaign.mjs'
+      'shieldkit-groth-94kb/scripts/v2-q04-campaign.mjs'
   ));
   const { evidence } = testOnlyBundle();
   const result = validateQ04Evidence(evidence);

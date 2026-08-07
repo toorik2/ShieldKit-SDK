@@ -198,7 +198,7 @@ async function baseFixture() {
     wasm: path.join(proofDirectory, 'main.wasm'),
     verificationKey: path.join(
       repositoryRoot,
-      'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json',
+      'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json',
     ),
   };
   await Promise.all([
@@ -579,7 +579,7 @@ async function writeCanonicalPf10RuntimeBundle(authenticated, runtimeRoot, descr
     schema: CIRCUIT_BUILD_ATTESTATION_SCHEMA,
     claims: { developmentOnly: true, production: false, release: false },
     compilation: {
-      argv: ['node_modules/circom2/cli.js', 'shieldkit-groth/circuits/v2-direct/main-chipnet.circom', '--r1cs', '--wasm', '--sym', '--O1', '--sanity_check', '2', '--output', '$BUILD_OUTPUT'],
+      argv: ['node_modules/circom2/cli.js', 'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom', '--r1cs', '--wasm', '--sym', '--O1', '--sanity_check', '2', '--output', '$BUILD_OUTPUT'],
       circomCompilerVersion: '2.2.3', circomPackageVersion: '0.2.23',
       cli: closureArtifact(context.circomClosure, 'node_modules/circom2', 'cli.js'), executable: 'process.execPath',
       node: { modulesAbi: process.versions.modules, version: process.versions.node }, optimization: 'O1',

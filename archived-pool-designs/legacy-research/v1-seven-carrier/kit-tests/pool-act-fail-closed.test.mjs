@@ -13,9 +13,9 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { generateFreshWitnessInputs } from '../action/witness.mjs';
 
-// packages/kit → packages → shieldkit-groth → monorepo root
+// packages/kit → packages → shieldkit-groth-94kb → monorepo root
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const POOL_ACT = path.join(ROOT, 'shieldkit-groth/scripts/pool-act.mjs');
+const POOL_ACT = path.join(ROOT, 'shieldkit-groth-94kb/scripts/pool-act.mjs');
 const LIVE = path.join(ROOT, '.cache/ticket10-e2e-20260726/pool');
 const WALLETS = path.join(ROOT, '.cache/e2e-full-20260725/local-wallets.json');
 
@@ -293,7 +293,7 @@ test('honest open-set NFT commitment matches chain tip; corrupt seed does not', 
 
 test('pool action requires the exact live tip NFT commitment before broadcast', () => {
   const actionSource = readFileSync(
-    path.join(ROOT, 'shieldkit-groth/scripts/pool-act.mjs'),
+    path.join(ROOT, 'shieldkit-groth-94kb/scripts/pool-act.mjs'),
     'utf8',
   );
   assert.match(

@@ -173,7 +173,7 @@ export function designedMaxUnlockBytes() {
 }
 
 export function productRootFromBench() {
-  // .../shieldkit-groth/bench/pf10-baseline → monorepo root (package.json + .git)
+  // .../shieldkit-groth-94kb/bench/pf10-baseline → monorepo root (package.json + .git)
   return path.resolve(import.meta.dirname, '../../..');
 }
 

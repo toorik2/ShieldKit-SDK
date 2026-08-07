@@ -3,7 +3,7 @@
  * Fail-closed release-closure scan for forbidden seven-carrier product material
  * in the ShieldKit-Groth-54KB (pf6) contained tree.
  *
- * Equivalent of shieldkit-groth/scripts/check-no-seven-carrier-release.mjs for
+ * Equivalent of shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs for
  * this product tree: the pf6 tree must be free of PF7/densFuel/pairfold-7
  * PRODUCT material except the frozen wire schema allowlist. Provenance
  * references to the pf7-sub62 worktree (reconciliation record mandated by

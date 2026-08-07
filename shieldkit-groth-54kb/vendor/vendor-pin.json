@@ -2,7 +2,7 @@
  "schema": "shieldkit-54kb/vendor-pin/v1",
  "generated": "2026-08-06T21:07:45",
  "sourceRoots": {
-  "pf6-lane": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx",
+  "pf6-lane": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx",
   "verifier-pin": "/home/toorik/Projects/ZK-Proofs/Groth16-Formal/vendor/verifier-pin"
  },
  "files": {

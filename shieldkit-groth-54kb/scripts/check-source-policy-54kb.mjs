@@ -3,7 +3,7 @@
  * Fail-closed first-party source policy scan for the ShieldKit-Groth-54KB
  * (pf6) contained tree.
  *
- * Equivalent of shieldkit-groth/scripts/check-source-policy.mjs for this
+ * Equivalent of shieldkit-groth-94kb/scripts/check-source-policy.mjs for this
  * product tree: syntax-check every first-party module, forbid direct raw
  * senders outside the coordinator, forbid TLS verification disablement,
  * forbid fixed shared /tmp transaction scratch files (product patterns),

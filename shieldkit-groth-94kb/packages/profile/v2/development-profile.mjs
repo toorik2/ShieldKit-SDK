@@ -80,18 +80,18 @@ const PRODUCTION_V2_MODULES = Object.freeze([
   'total-pairfold.mjs',
 ]);
 const BASE_VERIFIER_FILES = Object.freeze([
-  'shieldkit-groth/packages/action/v2/binding-unlock.mjs',
-  'shieldkit-groth/packages/action/v2/topology.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/binding-unlock.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/topology.mjs',
   ...PRODUCTION_V2_MODULES.map((name) =>
-    `shieldkit-groth/packages/unlock-builder/v2/${name}`),
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/chunked/pairing/_millermath.mjs',
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/v2-direct-groth16-adapter-input.mjs',
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/shield-adapter-input.mjs',
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
+    `shieldkit-groth-94kb/packages/unlock-builder/v2/${name}`),
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/chunked/pairing/_millermath.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/v2-direct-groth16-adapter-input.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/shield-adapter-input.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
 ]);
 const BASE_VERIFIER_DIRECTORIES = Object.freeze([
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/dist',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/dist',
 ]);
 const NPM_TOOLCHAINS = Object.freeze([
   Object.freeze({
@@ -410,7 +410,7 @@ async function toolchainManifest(repositoryRoot) {
     repositoryRoot,
     path.join(
       repositoryRoot,
-      'shieldkit-groth/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/package.json',
+      'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/package.json',
     ),
     'vendored CashC package',
     true,
@@ -426,7 +426,7 @@ async function toolchainManifest(repositoryRoot) {
   }
   const cashcDist = await directorySources(
     repositoryRoot,
-    'shieldkit-groth/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/dist',
+    'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/vendor/cashc-resched/packages/cashc/dist',
     'vendored CashC compiler',
   );
   entries.push(Object.freeze({
@@ -443,7 +443,7 @@ async function toolchainManifest(repositoryRoot) {
   }));
   const optimizerFiles = await directorySources(
     repositoryRoot,
-    'shieldkit-groth/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
+    'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
     'singleton optimizer source',
   );
   entries.push(Object.freeze({

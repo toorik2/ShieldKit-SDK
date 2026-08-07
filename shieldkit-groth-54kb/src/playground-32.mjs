@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 const FOLDER = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb';
-const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth';
+const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-94kb';
 const notes = await import('file://' + G + '/packages/action/v2/notes.mjs');
 const transitionMod = await import('file://' + G + '/packages/action/v2/transition.mjs');
 const st = await import('file://' + G + '/packages/action/v2/state.mjs');
@@ -58,7 +58,7 @@ for (let i = 0; i < 32; i++) {
 const summary = {
   schema: 'shieldkit-54kb/playground-32-campaign/v1',
   generated: new Date().toISOString(),
-  status: live === 0 && model.state.reserveSats === 0n && model.state.noteCount === 0n && model.state.actionSequence === 64n ? 'CAMPAIGN COMPLETE' : 'CAMPAIGN FAILED',
+  status: live === 0 && Number(model.state.reserveSats) === 0 && Number(model.state.noteCount) === 32 && Number(model.state.actionSequence) === 64 ? 'CAMPAIGN COMPLETE' : 'CAMPAIGN FAILED',
   campaign: '32 sequential deposits (32 live notes) + 32 erases (recovered-note spends)',
   final: { liveNotes: live, reserve: String(model.state.reserveSats), noteCount: String(model.state.noteCount), seq: String(model.state.actionSequence) },
   log,

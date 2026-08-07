@@ -13,15 +13,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(here, "../../../../..");
 const manifest = resolve(
   workspace,
-  "shieldkit-groth/crates/shieldkit-v2-q04-certificate/Cargo.toml",
+  "shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/Cargo.toml",
 );
 const productionSource = resolve(
   workspace,
-  "shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs",
+  "shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs",
 );
 const checkerSource = resolve(
   workspace,
-  "shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs",
+  "shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs",
 );
 
 const canonical = (value) => {

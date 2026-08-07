@@ -45,16 +45,57 @@ wallets.json
 !**/fixtures/**/inputs_dump.json
 
 # Root workspace lock is authoritative; package-local locks are unsupported.
-shieldkit-groth/packages/*/package-lock.json
+shieldkit-groth-94kb/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
 previous-versions/02-use-chipnet-demo-pool/bundle/
 
-# Local research workspace (not part of ShieldKit-Groth Beta product)
-shieldkit-fri-stark-96kb/
+# Local research workspace — the FRI-STARK 96KB design root: only the SOURCE ships
+# (packages/crates/vendor/scripts + fixed-lock assemble artifacts + manifests).
+# Builds (.private), evidence dumps, and secrets (.codex-artifacts) stay local.
+shieldkit-fri-stark-96kb/*
+!shieldkit-fri-stark-96kb/packages/
+!shieldkit-fri-stark-96kb/crates/
+!shieldkit-fri-stark-96kb/scripts/
+!shieldkit-fri-stark-96kb/vendor/
+!shieldkit-fri-stark-96kb/profile.json
+!shieldkit-fri-stark-96kb/package.json
+!shieldkit-fri-stark-96kb/Cargo.toml
+!shieldkit-fri-stark-96kb/Cargo.lock
+!shieldkit-fri-stark-96kb/LICENSE
+!shieldkit-fri-stark-96kb/THIRD_PARTY_NOTICES.md
+!shieldkit-fri-stark-96kb/FRI_STARK_REPLACEMENT_PLAN.md
+!shieldkit-fri-stark-96kb/GOAL_PROMPT_CHIPNET_READY.md
+!shieldkit-fri-stark-96kb/evidence/
+!shieldkit-fri-stark-96kb/evidence/production/
+!shieldkit-fri-stark-96kb/evidence/production/assemble-state0/
+!shieldkit-fri-stark-96kb/evidence/production/PRODUCTION_REPORT.json
+!shieldkit-fri-stark-96kb/evidence/production/RED_TEAM_AUDIT_20260807.json
+!shieldkit-fri-stark-96kb/evidence/release/
+!shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json
+!shieldkit-fri-stark-96kb/evidence/randomness-gates/
+shieldkit-fri-stark-96kb/evidence/*
+!shieldkit-fri-stark-96kb/evidence/production/
+shieldkit-fri-stark-96kb/evidence/production/*
+!shieldkit-fri-stark-96kb/evidence/production/assemble-state0/
+!shieldkit-fri-stark-96kb/evidence/production/PRODUCTION_REPORT.json
+!shieldkit-fri-stark-96kb/evidence/production/RED_TEAM_AUDIT_20260807.json
+!shieldkit-fri-stark-96kb/evidence/release/
+shieldkit-fri-stark-96kb/evidence/release/*
+!shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json
+!shieldkit-fri-stark-96kb/evidence/randomness-gates/
+shieldkit-fri-stark-96kb/evidence/randomness-gates/*
+shieldkit-fri-stark-96kb/node_modules/
+shieldkit-fri-stark-96kb/.private/
+shieldkit-fri-stark-96kb/.codex-artifacts/
+shieldkit-fri-stark-96kb/**/__pycache__/
+shieldkit-fri-stark-96kb/**/*.pyc
+shieldkit-fri-stark-96kb/vendor/**/.git/
+shieldkit-fri-stark-96kb/vendor/**/.git/**
+shieldkit-fri-stark-96kb/vendor/verifier.cash/.worktrees/
 
 # Scalability bench runtime outputs (never commit)
-shieldkit-groth/bench/results/
+shieldkit-groth-94kb/bench/results/
 
 # ShieldKit-54KB: heavy/regenerable vendor + witness intermediates (sha-pinned in vendor/pins + evidence manifests)
 shieldkit-groth-54kb/vendor/product-current/

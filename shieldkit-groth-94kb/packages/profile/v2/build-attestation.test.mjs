@@ -119,7 +119,7 @@ function build({
     compilation: {
       argv: [
         'node_modules/circom2/cli.js',
-        'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+        'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
         '--r1cs', '--wasm', '--sym', '--O1', '--sanity_check', '2', '--output', '$BUILD_OUTPUT',
       ],
       circomCompilerVersion: '2.2.3',

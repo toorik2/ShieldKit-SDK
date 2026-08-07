@@ -12,7 +12,7 @@
  *   /home/toorik/Projects/ZK-Proofs/.codex-artifacts/chipnet-wallet-019f8ed4/
  *
  * Usage (from monorepo root):
- *   node shieldkit-groth/scripts/chain-e2e-chipnet.mjs \
+ *   node shieldkit-groth-94kb/scripts/chain-e2e-chipnet.mjs \
  *     --setup-dir .cache/e2e-cli-full-20260725/setup \
  *     --out-dir .cache/chain-e2e-$(date +%Y%m%d-%H%M%S)
  */

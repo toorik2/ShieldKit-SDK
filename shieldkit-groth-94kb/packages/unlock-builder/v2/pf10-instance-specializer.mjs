@@ -519,7 +519,7 @@ export async function authenticateV2Pf10BetaRuntimeTemplate({ repositoryRoot, te
   if (typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)) fail('PF10_LINK_INPUT_INVALID', 'repositoryRoot must be absolute');
   const root = path.resolve(repositoryRoot);
   const { value } = templateInput(template);
-  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
+  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
   const fingerprint = templateFingerprint(value);
   const librarySha256 = sha256(Buffer.from(lazyAffineLibrary, 'utf8'));
   const existing = compiledCapabilitiesByTemplate.get(value);
@@ -555,7 +555,7 @@ export async function authenticateV2Pf10ReceiptLinkedRuntimeTemplate({
   const { value } = templateInput(receiptTemplate.template);
   const lazyAffineLibrary = await readFile(path.join(
     root,
-    'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
+    'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
   ), 'utf8');
   const fingerprint = templateFingerprint(value);
   const librarySha256 = sha256(Buffer.from(lazyAffineLibrary, 'utf8'));
@@ -598,7 +598,7 @@ export async function specializeV2Pf10BetaRuntime({ repositoryRoot, template = u
   if (template !== undefined && template !== attestation.template) fail('PF10_LINK_TEMPLATE_CAPABILITY_INVALID', 'template does not match the supplied opaque capability');
   const { value: source, oldInstanceId, material } = templateInput(attestation.template);
   if (targetInstanceId === oldInstanceId) fail('PF10_LINK_INPUT_INVALID', 'instanceId must differ from the retained template instance');
-  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
+  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
   if (sha256(Buffer.from(lazyAffineLibrary, 'utf8')) !== attestation.librarySha256) {
     fail('PF10_LINK_TEMPLATE_CAPABILITY_STALE', 'the authenticated CashScript dependency changed after template attestation');
   }
@@ -705,7 +705,7 @@ export async function relocateV2Pf10BetaRuntime({ repositoryRoot, template = und
   recordV2BetaRuntimeWork({ type: 'instance-specialization' });
   const { value: source, oldInstanceId, material } = templateInput(attestation.template);
   if (targetInstanceId === oldInstanceId) fail('PF10_LINK_INPUT_INVALID', 'instanceId must differ from the retained template instance');
-  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
+  const lazyAffineLibrary = await readFile(path.join(root, 'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash'), 'utf8');
   if (sha256(Buffer.from(lazyAffineLibrary, 'utf8')) !== attestation.librarySha256) fail('PF10_LINK_TEMPLATE_CAPABILITY_STALE', 'the authenticated CashScript dependency changed after template attestation');
   const bindingRedeem = Buffer.from(buildDirectV2BindingRedeem({ networkId: 2, profileId: material.profileId, stateCategory: targetInstanceId, denominationSats: DENOMINATION_SATS, topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID, verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES }));
   const bindingLock = Buffer.from(buildDirectV2BindingLock({ networkId: 2, profileId: material.profileId, stateCategory: targetInstanceId, denominationSats: DENOMINATION_SATS, topologyId: DIRECT_V2_PF10_FUSED_TOPOLOGY_ID, verifierRoles: DIRECT_V2_PF10_FUSED_VERIFIER_ROLES }));

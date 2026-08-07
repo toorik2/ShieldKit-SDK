@@ -106,7 +106,7 @@ async function buildSourceBinding(checkout, snapshot) {
   }
   return Object.freeze({
     schema: Q05_SOURCE_BINDING_SCHEMA,
-    sourceRoot: 'shieldkit-groth',
+    sourceRoot: 'shieldkit-groth-94kb',
     git: Object.freeze({ head: checkout.head, tree: checkout.tree }),
     gitExecution: q05GitExecutionBoundary(),
     executionSnapshot: snapshot.record,

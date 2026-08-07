@@ -95,7 +95,7 @@
   "packet": "vendor/product-current/packet.bin sha256 882edc10 (552B SDA2, current product deposit packet)",
   "stabilization": "ON (genesis 7600, terminal 9350 targets)",
   "terminal": "frobFuse, wSelector OFF (packet-seam requirement), densDrop 1115, BQ reserve 160, BQ no-fuel",
-  "laneCode": "shieldkit-groth vendored verifier lane (current product code, sda2 path)"
+  "laneCode": "shieldkit-groth-94kb vendored verifier lane (current product code, sda2 path)"
  },
  "artifacts": [
   "product-r1-build-boundary_parts.json",

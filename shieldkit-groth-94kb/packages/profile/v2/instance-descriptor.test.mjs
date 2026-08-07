@@ -816,7 +816,7 @@ const addPf10QualificationEnvelope = async (
     const bytes = name === 'verificationKey'
       ? await readFile(path.join(
         repositoryRoot,
-        'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json',
+        'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json',
       ))
       : Buffer.from(`fixture-${id}`);
     await addPinnedArtifact(
@@ -942,7 +942,7 @@ const addPf10QualificationEnvelope = async (
     compilation: {
       argv: [
         'node_modules/circom2/cli.js',
-        'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+        'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
         '--r1cs', '--wasm', '--sym', '--O1', '--sanity_check', '2',
         '--output', '$BUILD_OUTPUT',
       ],

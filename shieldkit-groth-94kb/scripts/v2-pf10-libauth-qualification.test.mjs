@@ -88,7 +88,7 @@ test('PF10 Libauth publisher rejects repository and source paths without chmoddi
   const root = await testRoot(t);
   const sourceDirectory = path.join(
     repositoryRoot,
-    'shieldkit-groth',
+    'shieldkit-groth-94kb',
     'scripts',
   );
   const before = Object.freeze({
@@ -114,7 +114,7 @@ test('PF10 Libauth publisher rejects a source-directory temporary root without c
   const root = await testRoot(t);
   const sourceDirectory = path.join(
     repositoryRoot,
-    'shieldkit-groth',
+    'shieldkit-groth-94kb',
     'scripts',
   );
   const before = (await stat(sourceDirectory)).mode & 0o777;

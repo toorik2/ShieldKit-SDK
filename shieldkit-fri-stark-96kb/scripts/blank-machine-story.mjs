@@ -193,14 +193,14 @@ if (RUN_PROD && build.ok) {
           JSON.stringify({
             cmd: 'prove',
             kind,
-            depth: 32,
-            seed: 1,
+            depth: 20,
             blowup: 2048,
-            queries: 8,
-            grindBits: 24,
+            queries: 7,
+            grindBits: 30,
             foldStep: 3,
-            maskDeg: 64,
             deep: true,
+            // AMENDED + production-randomness: product config (depth 20, nq 7, grind 30)
+            // and NO seed -> RANDOM CSPRNG ZK mask (the production default).
           }) + '\n',
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
@@ -221,6 +221,8 @@ if (RUN_PROD && build.ok) {
         r.status === 0 &&
         json?.verifyOk === true &&
         json?.usesPython === false &&
+        json?.depth === 20 &&
+        json?.maskSource === 'csprng(thread_rng, 128-bit)' &&
         typeof json?.proveSeconds === 'number' &&
         json.proveSeconds <= 60 &&
         (json.peakRssBytes || 0) <= 4 * (1 << 30),

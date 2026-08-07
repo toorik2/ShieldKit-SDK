@@ -566,7 +566,7 @@ export function verifyV2BetaLiveEvidenceBundleManifest(manifest, files, verifica
 /** Local fact collector, kept separate from the pure verifier for test injection. */
 export function collectV2BetaLiveEvidenceBundleFacts({ repositoryRoot = path.resolve(import.meta.dirname, '../..') } = {}) {
   const runGit = (args) => execFileSync('git', ['-C', repositoryRoot, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  const pin = 'shieldkit-groth/pins/v2-beta-product-offline-r3.pin.json';
+  const pin = 'shieldkit-groth-94kb/pins/v2-beta-product-offline-r3.pin.json';
   const status = runGit(['status', '--porcelain=v1', '--untracked-files=all']);
   const tracked = (() => { try { runGit(['ls-files', '--error-unmatch', pin]); return true; } catch { return false; } })();
   return Object.freeze({

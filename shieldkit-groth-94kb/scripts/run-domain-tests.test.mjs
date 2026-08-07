@@ -503,11 +503,11 @@ test('PF10 Libauth evidence is generated before and explicitly bound into the ru
     zkey: '/repository/.codex-build/v2-dev-groth16/final.zkey',
   });
   const libauth = pf10LibauthQualificationArguments(
-    '/repository/shieldkit-groth',
+    '/repository/shieldkit-groth-94kb',
     paths,
   );
   assert.deepEqual(libauth, [
-    '/repository/shieldkit-groth/scripts/v2-pf10-libauth-qualification.mjs',
+    '/repository/shieldkit-groth-94kb/scripts/v2-pf10-libauth-qualification.mjs',
     '--output', paths.output,
     '--profile-core', paths.profileCore,
     '--qualification-root', paths.qualificationRoot,
@@ -521,7 +521,7 @@ test('PF10 Libauth evidence is generated before and explicitly bound into the ru
 
   const libauthEvidence = path.join(paths.output, 'libauth.json');
   const runtime = pf10DevelopmentRuntimeArguments(
-    '/repository/shieldkit-groth',
+    '/repository/shieldkit-groth-94kb',
     {
       instanceId: 'ab'.repeat(32),
       output: '/repository/.codex-build/v2-pf10-development-runtime',
@@ -1194,7 +1194,7 @@ test('CI provisions local verifier artifacts before executing the lane', async (
   assert.ok(workflow.indexOf(provision) < workflow.indexOf(lane));
   assert.equal(
     packageJson.scripts['qualification:local-verifier-artifacts'],
-    'node shieldkit-groth/scripts/run-domain-tests.mjs --provision-local-verifier-artifacts',
+    'node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --provision-local-verifier-artifacts',
   );
   const jobMarker = '  local-verifier-lane:\n';
   const jobStart = workflow.indexOf(jobMarker);
@@ -1207,23 +1207,23 @@ test('CI provisions local verifier artifacts before executing the lane', async (
   assert.match(job, /timeout-minutes: 360/);
   assert.equal(
     packageJson.scripts['test:v2:campaign:strict-codec'],
-    'node shieldkit-groth/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign',
+    'node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite local-strict-codec-campaign',
   );
   assert.equal(
     packageJson.scripts['test:v2:campaign:depth4'],
-    'node shieldkit-groth/scripts/run-domain-tests.mjs --suite local-depth4-campaign',
+    'node shieldkit-groth-94kb/scripts/run-domain-tests.mjs --suite local-depth4-campaign',
   );
   assert.equal(
     packageJson.scripts['qualification:v2:crash10k'],
-    'node shieldkit-groth/scripts/v2-crash-qualification.mjs',
+    'node shieldkit-groth-94kb/scripts/v2-crash-qualification.mjs',
   );
   assert.equal(
     packageJson.scripts['qualification:v2:reorg-concurrency'],
-    'node shieldkit-groth/scripts/v2-reorg-concurrency-qualification.mjs',
+    'node shieldkit-groth-94kb/scripts/v2-reorg-concurrency-qualification.mjs',
   );
   assert.equal(
     packageJson.scripts['qualification:v2:pf10-libauth'],
-    'node shieldkit-groth/scripts/v2-pf10-libauth-qualification.mjs',
+    'node shieldkit-groth-94kb/scripts/v2-pf10-libauth-qualification.mjs',
   );
 });
 

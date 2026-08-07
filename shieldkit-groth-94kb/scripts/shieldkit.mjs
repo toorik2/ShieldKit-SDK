@@ -148,7 +148,7 @@ function usage() {
 ${PRODUCT_STATUS.status} · maturity: ${PRODUCT_STATUS.maturityLabel}
 ${PRODUCT_STATUS.note}
 
-Product root: shieldkit-groth/  (kit · profile · PF10 CLI)
+Product root: shieldkit-groth-94kb/  (kit · profile · PF10 CLI)
 Optional demo: archived-pool-designs/02-use-chipnet-demo-pool/   (legacy research instance)
 
   # Create and operate your pool (ShieldKit-Groth Beta / PF10 / Chipnet)
@@ -196,7 +196,7 @@ Flags:
 
 Fee keys: policy A feePrivateKey (desktop) · policy B feePublicKey+feeSignature
 Developer-only internals are intentionally omitted. Run: shieldkit dev --help
-Docs: shieldkit-groth/docs/VERSIONING.md · CHARTER.md
+Docs: shieldkit-groth-94kb/docs/VERSIONING.md · CHARTER.md
 `);
 }
 
@@ -540,8 +540,8 @@ async function cmdPlaygroundDoctor() {
     }
     const body = {
       ...toolkitIdentity(),
-      story: 'ShieldKit creates shielded pools. Demo is archived-pool-designs/02-use-chipnet-demo-pool/; product is shieldkit-groth/.',
-      product: 'shieldkit-groth/',
+      story: 'ShieldKit creates shielded pools. Demo is archived-pool-designs/02-use-chipnet-demo-pool/; product is shieldkit-groth-94kb/.',
+      product: 'shieldkit-groth-94kb/',
       playgroundRole: 'optional-demo-not-hosted-service',
       maturityDisclaimer: [
         'Unaudited — Work In Progress',
@@ -563,12 +563,12 @@ async function cmdPlaygroundDoctor() {
       next: bundleOk
         ? [
           'optional: playground deposit --protocol v1-legacy --request prep.json (learn the flow)',
-          'product: shieldkit-groth/ — init + genesis',
+          'product: shieldkit-groth-94kb/ — init + genesis',
           'You supply RPC, fees, proofs, broadcast',
         ]
         : [
           'npm run fetch-playground-bundle  (or SHIELDKIT_PLAYGROUND_BUNDLE)',
-          'or skip demo: shieldkit-groth/ — init template',
+          'or skip demo: shieldkit-groth-94kb/ — init template',
         ],
     };
     if (bundleOk) okJson(body);
@@ -726,9 +726,9 @@ async function cmdInit() {
     64,
     {
       setupCommand:
-        'node shieldkit-groth/packages/profile/setup/development-cli.mjs --input <attested-v2-setup.json>',
+        'node shieldkit-groth-94kb/packages/profile/setup/development-cli.mjs --input <attested-v2-setup.json>',
       profileCommand:
-        'node shieldkit-groth/scripts/v2-development-profile.mjs <all pinned artifact arguments>',
+        'node shieldkit-groth-94kb/scripts/v2-development-profile.mjs <all pinned artifact arguments>',
       note: 'V1 artifacts cannot be relabeled or migrated into V2 Direct',
     },
   );

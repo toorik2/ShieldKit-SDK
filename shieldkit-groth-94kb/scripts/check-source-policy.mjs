@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const projectRoot = path.join(repositoryRoot, 'shieldkit-groth');
+const projectRoot = path.join(repositoryRoot, 'shieldkit-groth-94kb');
 const tracked = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
   cwd: repositoryRoot,
   encoding: 'utf8',
@@ -13,13 +13,13 @@ const tracked = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '
   filename && existsSync(path.join(repositoryRoot, filename))
 ));
 const sourceFiles = tracked.filter((filename) => (
-  filename.startsWith('shieldkit-groth/')
+  filename.startsWith('shieldkit-groth-94kb/')
   && filename.endsWith('.mjs')
   && !filename.includes('/vendor/')
 ));
 const policyFiles = sourceFiles.filter((filename) => (
   !filename.endsWith('.test.mjs')
-  && filename !== 'shieldkit-groth/scripts/check-source-policy.mjs'
+  && filename !== 'shieldkit-groth-94kb/scripts/check-source-policy.mjs'
 ));
 
 if (sourceFiles.length === 0) throw new Error('no tracked first-party modules found');
@@ -36,8 +36,8 @@ for (const filename of sourceFiles) {
 }
 
 const allowedRawSenders = new Set([
-  'shieldkit-groth/packages/kit/chipnet-rpc.mjs',
-  'shieldkit-groth/packages/kit/transaction-coordinator.mjs',
+  'shieldkit-groth-94kb/packages/kit/chipnet-rpc.mjs',
+  'shieldkit-groth-94kb/packages/kit/transaction-coordinator.mjs',
 ]);
 for (const filename of policyFiles) {
   const source = readFileSync(path.join(repositoryRoot, filename), 'utf8');
@@ -51,13 +51,13 @@ for (const filename of policyFiles) {
     failures.push(`${filename}: fixed shared /tmp transaction file is forbidden`);
   }
   if (/spawn(?:Sync)?\s*\(\s*['"]ssh['"]/.test(source)
-    && filename !== 'shieldkit-groth/packages/kit/chipnet-rpc.mjs') {
+    && filename !== 'shieldkit-groth-94kb/packages/kit/chipnet-rpc.mjs') {
     failures.push(`${filename}: SSH must use the validated unified RPC adapter`);
   }
 }
 
 const unsupportedLocks = tracked.filter((filename) => (
-  /^shieldkit-groth\/packages\/[^/]+\/package-lock\.json$/.test(filename)
+  /^shieldkit-groth-94kb\/packages\/[^/]+\/package-lock\.json$/.test(filename)
 ));
 if (unsupportedLocks.length > 0) {
   failures.push(`package-local lockfiles are forbidden: ${unsupportedLocks.join(', ')}`);

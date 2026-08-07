@@ -190,7 +190,7 @@ async function main() {
     next: critical.length === 0
       ? [
         'npm run shieldkit -- deposit --pool <dir> --wallets … --broadcast',
-        'or: node shieldkit-groth/scripts/pool-act.mjs deposit --pool … --broadcast',
+        'or: node shieldkit-groth-94kb/scripts/pool-act.mjs deposit --pool … --broadcast',
       ]
       : [
         !pinOk ? 'npm run fetch-pin-artifacts' : null,

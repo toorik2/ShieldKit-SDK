@@ -10,7 +10,7 @@ import {
   playgroundInstancePath,
 } from './instance.mjs';
 
-// packages/profile → shieldkit-groth → monorepo
+// packages/profile → shieldkit-groth-94kb → monorepo
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const root = monorepoRoot;
 

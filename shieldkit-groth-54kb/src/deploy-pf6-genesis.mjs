@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const FOLDER = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb';
-const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth';
+const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-94kb';
 const WALLET = '/home/toorik/Projects/ZK-Proofs/.codex-artifacts/chipnet-wallet-019f8ed4/wallet-private.json';
 const libauthUrl = 'file:///home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/vendor/verifier-workspace/build/node_modules/@bitauth/libauth/build/index.js';
 const la = await import(libauthUrl);

@@ -8,8 +8,8 @@
  *   2) if 404/403 and `gh` is available: `gh release download` (private repos)
  *
  * Usage:
- *   node shieldkit-groth/scripts/fetch-playground-bundle.mjs
- *   node shieldkit-groth/scripts/fetch-playground-bundle.mjs --out archived-pool-designs/02-use-chipnet-demo-pool/bundle
+ *   node shieldkit-groth-94kb/scripts/fetch-playground-bundle.mjs
+ *   node shieldkit-groth-94kb/scripts/fetch-playground-bundle.mjs --out archived-pool-designs/02-use-chipnet-demo-pool/bundle
  */
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
@@ -195,7 +195,7 @@ async function main() {
 
   console.log(outDir);
   console.error(`\nexport SHIELDKIT_PLAYGROUND_BUNDLE="${outDir}"`);
-  console.error('node shieldkit-groth/scripts/shieldkit.mjs playground doctor');
+  console.error('node shieldkit-groth-94kb/scripts/shieldkit.mjs playground doctor');
 }
 
 main().catch((e) => {

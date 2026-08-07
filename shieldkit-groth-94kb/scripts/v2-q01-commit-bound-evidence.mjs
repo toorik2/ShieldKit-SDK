@@ -80,24 +80,24 @@ const QUALIFICATION =
 const TEST_QUALIFICATION =
   'test-only-four-implementation-shape-nonqualifying';
 const VECTOR_PATH =
-  'shieldkit-groth/packages/action/v2/vectors/q01-state-packet-public-input.json';
+  'shieldkit-groth-94kb/packages/action/v2/vectors/q01-state-packet-public-input.json';
 const STATE_VECTOR_PATH =
-  'shieldkit-groth/packages/action/v2/vectors/q01-state-boundary-vectors.jsonl';
+  'shieldkit-groth-94kb/packages/action/v2/vectors/q01-state-boundary-vectors.jsonl';
 const TYPESCRIPT_TSC_PATH = 'node_modules/typescript/bin/tsc';
 const TYPESCRIPT_CONFIG_PATH =
-  'shieldkit-groth/packages/action/v2/typescript/tsconfig.json';
+  'shieldkit-groth-94kb/packages/action/v2/typescript/tsconfig.json';
 const CIRCOM_CLI_PATH = 'node_modules/circom2/cli.js';
 const CIRCUIT_TEST_PATH =
-  'shieldkit-groth/packages/action/v2/circuit-codec-vectors.test.mjs';
+  'shieldkit-groth-94kb/packages/action/v2/circuit-codec-vectors.test.mjs';
 const COVENANT_TEST_PATH =
-  'shieldkit-groth/packages/unlock-builder/v2/structural-covenants.test.mjs';
+  'shieldkit-groth-94kb/packages/unlock-builder/v2/structural-covenants.test.mjs';
 const RUST_MANIFEST_PATH =
-  'shieldkit-groth/crates/shieldkit-v2-codec/Cargo.toml';
+  'shieldkit-groth-94kb/crates/shieldkit-v2-codec/Cargo.toml';
 const RUST_LOCK_PATH =
-  'shieldkit-groth/crates/shieldkit-v2-codec/Cargo.lock';
+  'shieldkit-groth-94kb/crates/shieldkit-v2-codec/Cargo.lock';
 const RUST_TEST_PATH =
-  'shieldkit-groth/crates/shieldkit-v2-codec/tests/vectors.rs';
-const RUST_TOOLCHAIN_PATH = 'shieldkit-groth/rust-toolchain.toml';
+  'shieldkit-groth-94kb/crates/shieldkit-v2-codec/tests/vectors.rs';
+const RUST_TOOLCHAIN_PATH = 'shieldkit-groth-94kb/rust-toolchain.toml';
 const LOCK_PATH = 'package-lock.json';
 const INSTALL_COMMAND = Object.freeze([
   'npm',
@@ -202,10 +202,10 @@ const COVENANT_TEST_NAMES = Object.freeze([
 const moduleRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const JAVASCRIPT_RUNNER = [
-  "import { canonicalJson } from './shieldkit-groth/packages/profile/load.mjs';",
-  "import { runStrictCodecQualification } from './shieldkit-groth/packages/action/v2/strict-codec-qualification.mjs';",
-  "import { actionPacketPublicLimbs, decodeActionPacket, digestActionPacket, encodeActionPacket } from './shieldkit-groth/packages/action/v2/packet.mjs';",
-  "import { decodeStateNftCommitment, encodeStateNftCommitment } from './shieldkit-groth/packages/action/v2/state.mjs';",
+  "import { canonicalJson } from './shieldkit-groth-94kb/packages/profile/load.mjs';",
+  "import { runStrictCodecQualification } from './shieldkit-groth-94kb/packages/action/v2/strict-codec-qualification.mjs';",
+  "import { actionPacketPublicLimbs, decodeActionPacket, digestActionPacket, encodeActionPacket } from './shieldkit-groth-94kb/packages/action/v2/packet.mjs';",
+  "import { decodeStateNftCommitment, encodeStateNftCommitment } from './shieldkit-groth-94kb/packages/action/v2/state.mjs';",
   "const surface={name:'javascript',decodeState:decodeStateNftCommitment,encodeState:encodeStateNftCommitment,decodePacket:decodeActionPacket,encodePacket:encodeActionPacket,digestPacket:digestActionPacket,packetLimbs:actionPacketPublicLimbs};",
   `process.stdout.write(canonicalJson({schema:'${REFERENCE_OUTPUT_SCHEMA}',implementation:'javascript',role:'reference-orchestrator-not-one-of-four',qualification:runStrictCodecQualification(surface)}));`,
 ].join('');
@@ -215,10 +215,10 @@ const TYPESCRIPT_RUNNER = [
   "import { readFileSync } from 'node:fs';",
   "import { join } from 'node:path';",
   "import { pathToFileURL } from 'node:url';",
-  "import { canonicalJson } from './shieldkit-groth/packages/profile/load.mjs';",
-  "import { runStrictCodecQualification } from './shieldkit-groth/packages/action/v2/strict-codec-qualification.mjs';",
-  "import { actionPacketPublicLimbs as jsLimbs, decodeActionPacket as decodeJsPacket, encodeActionPacket as encodeJsPacket } from './shieldkit-groth/packages/action/v2/packet.mjs';",
-  "import { decodeStateNftCommitment as decodeJsState, encodeStateNftCommitment as encodeJsState } from './shieldkit-groth/packages/action/v2/state.mjs';",
+  "import { canonicalJson } from './shieldkit-groth-94kb/packages/profile/load.mjs';",
+  "import { runStrictCodecQualification } from './shieldkit-groth-94kb/packages/action/v2/strict-codec-qualification.mjs';",
+  "import { actionPacketPublicLimbs as jsLimbs, decodeActionPacket as decodeJsPacket, encodeActionPacket as encodeJsPacket } from './shieldkit-groth-94kb/packages/action/v2/packet.mjs';",
+  "import { decodeStateNftCommitment as decodeJsState, encodeStateNftCommitment as encodeJsState } from './shieldkit-groth-94kb/packages/action/v2/state.mjs';",
   'const compiled=process.argv[1];',
   "if(typeof compiled!=='string')throw new Error('compiled TypeScript directory argument is missing');",
   "const url=(name)=>pathToFileURL(join(compiled,name)).href;",

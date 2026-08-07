@@ -64,11 +64,11 @@ test('legacy identity registry is exact and never aliases V2 Direct', () => {
 test('legacy create-pool and chain E2E scripts are outside the PF10 product tree', async () => {
   const { existsSync } = await import('node:fs');
   assert.equal(
-    existsSync(path.join(repositoryRoot, 'shieldkit-groth/scripts/create-pool.mjs')),
+    existsSync(path.join(repositoryRoot, 'shieldkit-groth-94kb/scripts/create-pool.mjs')),
     false,
   );
   assert.equal(
-    existsSync(path.join(repositoryRoot, 'shieldkit-groth/scripts/chain-e2e-chipnet.mjs')),
+    existsSync(path.join(repositoryRoot, 'shieldkit-groth-94kb/scripts/chain-e2e-chipnet.mjs')),
     false,
   );
   assert.equal(
@@ -88,7 +88,7 @@ test('primary shieldkit init refuses before reading a config file', async () => 
       [
         path.join(
           repositoryRoot,
-          'shieldkit-groth/scripts/shieldkit.mjs',
+          'shieldkit-groth-94kb/scripts/shieldkit.mjs',
         ),
         'init',
         '--config',

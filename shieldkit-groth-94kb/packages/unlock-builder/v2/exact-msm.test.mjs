@@ -21,7 +21,7 @@ import {
 const root = path.resolve(import.meta.dirname, '../../../..');
 const verificationKeyPath = path.join(
   root,
-  'shieldkit-groth',
+  'shieldkit-groth-94kb',
   'packages',
   'prove',
   'test-fixtures',

@@ -59,7 +59,7 @@ const BANNED_KEYS = new Set([
 ]);
 const CIRCOM_LOGICAL_ARGV = Object.freeze([
   'node_modules/circom2/cli.js',
-  'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+  'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
   '--r1cs',
   '--wasm',
   '--sym',

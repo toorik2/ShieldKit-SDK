@@ -1,7 +1,7 @@
 # Architecture
 
 ```text
-shieldkit-groth/     product
+shieldkit-groth-94kb/     product
 archived-pool-designs/02-use-chipnet-demo-pool/   optional Chipnet demo
 ```
 

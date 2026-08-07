@@ -1,7 +1,7 @@
 # ShieldKit Protocol V2 Direct — Requirement Matrix
 
 **Status date:** 2026-07-31
-**Scope:** `shieldkit-groth/` in branch `feat/v2-direct-20260728`
+**Scope:** `shieldkit-groth-94kb/` in branch `feat/v2-direct-20260728`
 **Authority:** `IMPLEMENTATION_PLAN.md`; this matrix is an execution tracker, not a qualification claim.
 
 ## Reading this matrix
@@ -24,7 +24,7 @@ their SHA-256 from the final instance descriptor.
 
 | Observation | Concrete evidence | Consequence |
 |---|---|---|
-| The active V2 documents are tracked development inputs. | `git ls-files shieldkit-groth/docs/protocol/v2-direct/` lists the plan, matrix, layouts, domains, privacy policy, topology prohibitions, and verifier decision. | Tracked planning documents are not an immutable reviewed specification or released protocol. |
+| The active V2 documents are tracked development inputs. | `git ls-files shieldkit-groth-94kb/docs/protocol/v2-direct/` lists the plan, matrix, layouts, domains, privacy policy, topology prohibitions, and verifier decision. | Tracked planning documents are not an immutable reviewed specification or released protocol. |
 | V2 implementation and tests are tracked, but remain development-only inputs. | V2 sources are tracked under `packages/{action,profile,kit,pool,unlock-builder}/v2/`, `circuits/`, and `crates/`. Current ignored local PF10/profile artifacts are present but are not frozen or release artifacts. | Do not infer a frozen relation, final artifacts, qualification, or verified local metric from source presence alone. |
 | The current V2 identity is development-only. | `.codex-build/v2-pf10-libauth-qualification/libauth.json` is present and self-labels `eligibility: development-only`, `finalKey: false`, and `releaseQualified: false`; adapter-specific ignored directories remain noncanonical. | Current local evidence may document only its explicit development scope; it neither supersedes other evidence nor establishes a release descriptor. |
 | The beta-local integration lane is a private, single-contributor custody/reverification path. | `scripts/v2-beta-local-integration.mjs` consumes a reverified beta ceremony plus its bound B-01 manifest/runtime, requires a clean build checkout, writes only below `.codex-build/`, and returns `beta-single-contributor-local-integration-verified-unqualified`; `BETA_LOCAL_INTEGRATION.md` records the exact build and `--verify` interfaces. | It has no network/broadcast interface and its generated inventory/completion record is beta-only evidence. Local Libauth BCH-2026 evaluation is retained only as unqualified development evidence; this is not an instance descriptor, final-key, BCHN/live-chain VM gate, D-01/D-02, any Q-01 through Q-09 result, production, release, or promotion claim. |

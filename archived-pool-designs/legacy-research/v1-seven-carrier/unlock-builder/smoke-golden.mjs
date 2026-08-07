@@ -2,7 +2,7 @@
 /**
  * Golden smoke: rebuild unlocks for a known live-battery adapter+packet.
  * Usage (from repo root):
- *   node shieldkit-groth/packages/unlock-builder/smoke-golden.mjs \
+ *   node shieldkit-groth-94kb/packages/unlock-builder/smoke-golden.mjs \
  *     [--adapter path] [--packet path] [--out path]
  */
 import path from 'node:path';

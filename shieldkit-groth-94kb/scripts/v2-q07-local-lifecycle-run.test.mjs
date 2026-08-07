@@ -532,9 +532,9 @@ test('Q07 release-binary snapshot accepts only a single file or Cargo deps hardl
 test('Q07 resume snapshots a newly built binary and binds systemd to that immutable artifact', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'q07-resume-build-snapshot-'));
   const bundle = join(root, 'bundle');
-  const target = join(root, 'shieldkit-groth', 'crates', 'shieldkit-v2-recovery', 'target', 'release', 'q07-lifecycle-verify');
+  const target = join(root, 'shieldkit-groth-94kb', 'crates', 'shieldkit-v2-recovery', 'target', 'release', 'q07-lifecycle-verify');
   mkdirSync(bundle, { mode: 0o700 });
-  mkdirSync(join(root, 'shieldkit-groth', 'crates', 'shieldkit-v2-recovery', 'target', 'release'), { recursive: true });
+  mkdirSync(join(root, 'shieldkit-groth-94kb', 'crates', 'shieldkit-v2-recovery', 'target', 'release'), { recursive: true });
   chmodSync(bundle, 0o700);
   const attemptId = `1-${'c'.repeat(32)}`;
   assert.throws(

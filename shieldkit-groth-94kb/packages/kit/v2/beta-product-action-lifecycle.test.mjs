@@ -63,7 +63,7 @@ const ROOT = path.resolve(import.meta.dirname, '../../../..');
 const TEST_ROOT = path.join(ROOT, '.codex-beta-product-lifecycle-tests');
 const CANONICAL_PROOF = JSON.parse(readFileSync(path.join(
   ROOT,
-  'shieldkit-groth/packages/prove/test-fixtures/two-public/proof.json',
+  'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/proof.json',
 ), 'utf8'));
 const HASH = value => createHash('sha256').update(value).digest('hex');
 const PRIVATE_KEY = Buffer.from(`${'00'.repeat(31)}07`, 'hex');
@@ -187,7 +187,7 @@ before(async () => {
       name === 'verificationKey'
         ? readFileSync(path.join(
           ROOT,
-          'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json',
+          'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json',
         ))
         : `${name}-fixture`,
       { mode: 0o600 },

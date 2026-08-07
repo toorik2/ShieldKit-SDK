@@ -7,7 +7,7 @@ The active V2 boundary is [PROHIBITED_TOPOLOGIES.md](./protocol/v2-direct/PROHIB
 |------|------|
 | [`archived-pool-designs/01-learn-about-this-system/`](../../archived-pool-designs/01-learn-about-this-system/) | Static learn site |
 | [`archived-pool-designs/02-use-chipnet-demo-pool/`](../../archived-pool-designs/02-use-chipnet-demo-pool/) | Explicit V1 legacy Chipnet research instance (cap 32) |
-| [`shieldkit-groth/`](../../shieldkit-groth/) | Product |
+| [`shieldkit-groth-94kb/`](../../shieldkit-groth-94kb/) | Product |
 
 ```bash
 npm ci && npm run fetch-playground-bundle && npm run unlock-builder:setup

@@ -1,8 +1,8 @@
 # ShieldKit — ShieldKit-Groth Beta
 
-Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./shieldkit-groth/docs/SECURITY.md)
+Unaudited · **Chipnet only** · PF10 Groth16 shielded pool CLI · [SECURITY](./shieldkit-groth-94kb/docs/SECURITY.md)
 
-**Product:** [`shieldkit-groth/`](./shieldkit-groth/)  
+**Product:** [`shieldkit-groth-94kb/`](./shieldkit-groth-94kb/)  
 **CLI:** `shieldkit`  
 **Version:** `0.3.0-beta.1` (see `package.json`)
 
@@ -27,16 +27,16 @@ npm run bench:cold-start -- --data-home /absolute/path/to/your/install-or-v2-bet
 ```
 
 Reports include product version, `DIRECT_V2_PF10` verifier, network, and full git commit.  
-Details: [`shieldkit-groth/bench/README.md`](./shieldkit-groth/bench/README.md) · pool setup: [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
+Details: [`shieldkit-groth-94kb/bench/README.md`](./shieldkit-groth-94kb/bench/README.md) · pool setup: [USER_GUIDE](./shieldkit-groth-94kb/docs/USER_GUIDE.md)
 
 ### Docs
 
-- [USER_GUIDE](./shieldkit-groth/docs/USER_GUIDE.md)
-- [ARCHITECTURE](./shieldkit-groth/docs/ARCHITECTURE.md)
-- [SECURITY](./shieldkit-groth/docs/SECURITY.md)
-- [CHANGELOG](./shieldkit-groth/docs/CHANGELOG.md)
-- [V2 Direct protocol](./shieldkit-groth/docs/protocol/v2-direct/)
-- [Bench](./shieldkit-groth/bench/README.md)
+- [USER_GUIDE](./shieldkit-groth-94kb/docs/USER_GUIDE.md)
+- [ARCHITECTURE](./shieldkit-groth-94kb/docs/ARCHITECTURE.md)
+- [SECURITY](./shieldkit-groth-94kb/docs/SECURITY.md)
+- [CHANGELOG](./shieldkit-groth-94kb/docs/CHANGELOG.md)
+- [V2 Direct protocol](./shieldkit-groth-94kb/docs/protocol/v2-direct/)
+- [Bench](./shieldkit-groth-94kb/bench/README.md)
 
 ### Archives (not the product surface)
 

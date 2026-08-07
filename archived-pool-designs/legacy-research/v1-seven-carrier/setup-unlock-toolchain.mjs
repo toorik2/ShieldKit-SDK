@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const UB = path.join(ROOT, 'shieldkit-groth/packages/unlock-builder');
+const UB = path.join(ROOT, 'shieldkit-groth-94kb/packages/unlock-builder');
 const VERIFIER = path.join(UB, 'vendor/verifier');
 const CASHC = path.join(VERIFIER, 'vendor/cashc-resched');
 const CASHC_PKG = path.join(CASHC, 'packages/cashc');

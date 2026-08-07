@@ -6,8 +6,8 @@
  * Output (default): .cache/pins/shieldkit-pin-artifacts-v1.tar.gz + manifest.json
  *
  * Usage:
- *   node shieldkit-groth/scripts/pack-pin-artifacts.mjs
- *   node shieldkit-groth/scripts/pack-pin-artifacts.mjs --source … --out …
+ *   node shieldkit-groth-94kb/scripts/pack-pin-artifacts.mjs
+ *   node shieldkit-groth-94kb/scripts/pack-pin-artifacts.mjs --source … --out …
  */
 import { createHash } from 'node:crypto';
 import {

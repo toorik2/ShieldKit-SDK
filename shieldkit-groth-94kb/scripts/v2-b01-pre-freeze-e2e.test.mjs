@@ -302,7 +302,7 @@ function nodeCommand(checkout, relativeScript, arguments_) {
 function verifyCommand(checkout, bundle) {
   return nodeCommand(
     checkout,
-    'shieldkit-groth/scripts/v2-b01-pre-freeze.mjs',
+    'shieldkit-groth-94kb/scripts/v2-b01-pre-freeze.mjs',
     ['--verify', bundle],
   );
 }
@@ -404,7 +404,7 @@ test('B-01 real-artifact clean-clone create, verify, and tamper closure', {
   makePrivateDirectory(q01Parent);
   const q01Result = requireSuccess(nodeCommand(
     checkout,
-    'shieldkit-groth/scripts/v2-q01-commit-bound-evidence.mjs',
+    'shieldkit-groth-94kb/scripts/v2-q01-commit-bound-evidence.mjs',
     ['--output-directory', q01Parent],
   ), 'public Q-01-pre generation');
   const q01 = parseLastJson(q01Result, 'public Q-01-pre generation');
@@ -420,7 +420,7 @@ test('B-01 real-artifact clean-clone create, verify, and tamper closure', {
   const runtime = join(childArtifacts, 'v2-pf10-development-runtime');
   const createResult = requireSuccess(nodeCommand(
     checkout,
-    'shieldkit-groth/scripts/v2-b01-pre-freeze.mjs',
+    'shieldkit-groth-94kb/scripts/v2-b01-pre-freeze.mjs',
     [
       '--runtime-bundle', runtime,
       '--q01-pre-bundle', q01.bundlePath,
@@ -446,7 +446,7 @@ test('B-01 real-artifact clean-clone create, verify, and tamper closure', {
     const betaDirectory = join(evidence, 'beta-single-contributor');
     const result = requireSuccess(nodeCommand(
       checkout,
-      'shieldkit-groth/scripts/v2-beta-single-contributor-ceremony.mjs',
+      'shieldkit-groth-94kb/scripts/v2-beta-single-contributor-ceremony.mjs',
       [
         'prepare',
         '--b01-bundle', b01Bundle,
@@ -561,7 +561,7 @@ test('B-01 real-artifact clean-clone create, verify, and tamper closure', {
   await t.test('rejects a changed tracked source file', () => {
     const tracked = join(
       checkout,
-      'shieldkit-groth/packages/action/v2/packet.mjs',
+      'shieldkit-groth-94kb/packages/action/v2/packet.mjs',
     );
     withChangedFile(tracked, (bytes) => Buffer.concat([
       bytes,

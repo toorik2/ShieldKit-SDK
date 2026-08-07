@@ -10,7 +10,7 @@ instead hash-chained and bound to those pinned inputs.
 simulation, and `external-release-gate.mjs` output are not gate evidence.
 
 Run all commands from the outer checkout root (the directory containing
-`package.json` and `shieldkit-groth/`) with Node >=22.5.0, a clean
+`package.json` and `shieldkit-groth-94kb/`) with Node >=22.5.0, a clean
 source tree, and the final compiled release root. Use the gate-specific
 immutable install command: Q-08 requires `npm ci --ignore-scripts --no-audit
 --no-fund`; do not imply that a bare root `npm ci` is script-free. Use only a
@@ -72,20 +72,20 @@ command creates one timestamped exact four-file bundle beneath it and prints
 the resulting absolute `bundlePath`:
 
 ```text
-node shieldkit-groth/scripts/v2-q01-commit-bound-evidence.mjs \
+node shieldkit-groth-94kb/scripts/v2-q01-commit-bound-evidence.mjs \
   --output-directory <absolute-existing-mode-0700-directory>
 ```
 
 Then seal that Q-01-pre bundle together with the development-key PF10 runtime:
 
 ```text
-node shieldkit-groth/scripts/v2-b01-pre-freeze.mjs \
+node shieldkit-groth-94kb/scripts/v2-b01-pre-freeze.mjs \
   --runtime-bundle <absolute-.codex-build/v2-pf10-development-runtime> \
   --q01-pre-bundle <absolute-q01-bundlePath> \
   --expected-commit <sha1> --expected-tree <sha1> \
   --output-dir <absolute-new-directory-outside-the-checkout>
 
-node shieldkit-groth/scripts/v2-b01-pre-freeze.mjs \
+node shieldkit-groth-94kb/scripts/v2-b01-pre-freeze.mjs \
   --verify <absolute-b01-pre-bundle>
 ```
 
@@ -198,7 +198,7 @@ record, noncanonical JSON, mismatched zkey, or local-simulation claim.
 local/development. The final evidence verifier is:
 
 ```text
-node shieldkit-groth/scripts/v2-final-ceremony-qualification.mjs \
+node shieldkit-groth-94kb/scripts/v2-final-ceremony-qualification.mjs \
   --profile-core <absolute> --descriptor <absolute> --final-manifest <absolute> \
   --release-root <compiled-root-id> --ceremony-dir <absolute> \
   --expected-commit <sha1> --expected-tree <sha1> \
@@ -242,7 +242,7 @@ mode-0600 files are `manifest.json`, `source-set.json`,
 hard link, noncanonical JSON, or changed mode is accepted.
 
 ```text
-node shieldkit-groth/scripts/v2-q01-final-artifact-replay.mjs \
+node shieldkit-groth-94kb/scripts/v2-q01-final-artifact-replay.mjs \
   --profile-core <absolute-mode-0600-file> \
   --descriptor <absolute-mode-0600-file> \
   --final-manifest <absolute-mode-0600-file> \
@@ -328,7 +328,7 @@ Existing Q-02 verification is executable (once Node and the final compiled
 release root exist):
 
 ```bash
-node shieldkit-groth/scripts/v2-q02-final-key-corpus.mjs \
+node shieldkit-groth-94kb/scripts/v2-q02-final-key-corpus.mjs \
   --corpus /absolute/q02/corpus.json --descriptor /absolute/descriptor.json \
   --profile-core /absolute/profile-core.json --release-root <compiled-root-id>
 ```
@@ -382,17 +382,17 @@ qualifying result exists.
 compiled release checkout and only with the final artifacts they require:
 
 ```text
-node shieldkit-groth/scripts/v2-b02-final-vm.mjs --profile-core <absolute> --descriptor <absolute>
+node shieldkit-groth-94kb/scripts/v2-b02-final-vm.mjs --profile-core <absolute> --descriptor <absolute>
   --final-manifest <absolute> --release-root <compiled-root-id>
   --transactions <absolute> --lane-evidence-dir <absolute> \
   --expected-commit <sha1> --expected-tree <sha1> --output-dir <absolute-new-dir>
 
-node shieldkit-groth/scripts/v2-q03-final-lock-attacks.mjs --profile-core <absolute> --descriptor <absolute>
+node shieldkit-groth-94kb/scripts/v2-q03-final-lock-attacks.mjs --profile-core <absolute> --descriptor <absolute>
   --final-manifest <absolute> --release-root <compiled-root-id> \
   --b02-result <absolute> --attack-corpus <absolute> --lane-evidence-dir <absolute> \
   --expected-commit <sha1> --expected-tree <sha1> --output-dir <absolute-new-dir>
 
-node shieldkit-groth/scripts/v2-q07-final-performance.mjs --profile-core <absolute> --descriptor <absolute>
+node shieldkit-groth-94kb/scripts/v2-q07-final-performance.mjs --profile-core <absolute> --descriptor <absolute>
   --final-manifest <absolute> --release-root <compiled-root-id> \
   --q02-corpus <absolute> --b02-result <absolute> --evidence-dir <absolute> \
   --expected-commit <sha1> --expected-tree <sha1> --output-dir <absolute-new-dir>
@@ -427,7 +427,7 @@ unavailable VM, non-reproducible artifact, unsigned report, or scope gap.
 **Implemented fail-closed verifier.** Run:
 
 ```text
-node shieldkit-groth/scripts/v2-d02-audit-closure.mjs --profile-core <absolute> --descriptor <absolute>
+node shieldkit-groth-94kb/scripts/v2-d02-audit-closure.mjs --profile-core <absolute> --descriptor <absolute>
   --final-manifest <absolute> --release-root <compiled-root-id> \
   --audit-dir <absolute> --evidence-root <absolute> \
   --expected-commit <sha1> --expected-tree <sha1> --output-dir <absolute-new-dir>
@@ -485,7 +485,7 @@ bind exact command stdout/stderr hashes and public state facts, but are signed
 host evidence rather than independent proof of wallet internals.
 
 ```bash
-node shieldkit-groth/scripts/v2-clean-machine-qualification.mjs \
+node shieldkit-groth-94kb/scripts/v2-clean-machine-qualification.mjs \
   --output-dir /absolute/new-host-run --descriptor /absolute/descriptor.json \
   --final-manifest /absolute/manifest.json --profile-core /absolute/profile-core.json \
   --release-root <compiled-root-id> --command-plan /absolute/command-plan.json \
@@ -499,7 +499,7 @@ Repeat with `clean-host-b`, its own inputs and a new directory. Then, from a
 clean verifier checkout, run:
 
 ```bash
-node shieldkit-groth/scripts/v2-q08-pair-qualification.mjs \
+node shieldkit-groth-94kb/scripts/v2-q08-pair-qualification.mjs \
   --profile-core /absolute/profile-core.json --descriptor /absolute/descriptor.json \
   --d02-closure /absolute/audit-closure.json \
   --host-a-envelope /absolute/host-a/q08-clean-host-a-signed-host-transcript.json \
@@ -546,7 +546,7 @@ and Q-08 pass, and do not use a sponsor or faucet.
 Run the existing final validator from an exact clean checkout:
 
 ```bash
-node shieldkit-groth/scripts/v2-chipnet-soak.mjs \
+node shieldkit-groth-94kb/scripts/v2-chipnet-soak.mjs \
   --output-dir /absolute/new-q09 --descriptor /absolute/high-capacity.json \
   --playground-descriptor /absolute/playground-32.json \
   --profile-core /absolute/profile-core.json --release-root <compiled-root-id> \

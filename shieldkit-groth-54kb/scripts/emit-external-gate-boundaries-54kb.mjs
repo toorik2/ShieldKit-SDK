@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const GATE_MODULE = path.resolve(repositoryRoot, '../shieldkit-groth/scripts/external-release-gate.mjs');
+const GATE_MODULE = path.resolve(repositoryRoot, '../shieldkit-groth-94kb/scripts/external-release-gate.mjs');
 const GATES = ['bchn', 'chipnet', 'final-ceremony-and-audits'];
 
 function sha256File(p) {
@@ -44,10 +44,10 @@ export function emitExternalGateBoundaries({ output = path.join(repositoryRoot, 
     generated: new Date().toISOString(),
     status: 'boundaries-emitted-fail-closed',
     gateModule: {
-      path: 'shieldkit-groth/scripts/external-release-gate.mjs (read-only reference)',
+      path: 'shieldkit-groth-94kb/scripts/external-release-gate.mjs (read-only reference)',
       sha256: `sha256:${sha256File(GATE_MODULE)}`,
     },
-    command: GATES.map((gate) => `node shieldkit-groth/scripts/external-release-gate.mjs --gate ${gate}`),
+    command: GATES.map((gate) => `node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate ${gate}`),
     boundaries,
   };
   writeFileSync(output, `${JSON.stringify(record, null, 2)}\n`);

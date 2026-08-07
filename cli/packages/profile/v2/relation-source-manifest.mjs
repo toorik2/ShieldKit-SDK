@@ -12,7 +12,7 @@ import { canonicalizeJcs } from './profile-core.mjs';
 export const V2_RELATION_SOURCE_MANIFEST_SCHEMA =
   'shieldkit-v2-direct-relation-source-manifest-v2';
 export const V2_RELATION_ENTRYPOINT =
-  'shieldkit-groth/circuits/v2-direct/main-chipnet.circom';
+  'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom';
 
 const HASH = /^[0-9a-f]{64}$/;
 const PORTABLE_COMPONENT = /^[A-Za-z0-9@+_-][A-Za-z0-9._@+-]*$/;
@@ -227,7 +227,7 @@ function allowedSourceRoots(repositoryRoot) {
   return Object.freeze([
     path.join(
       repositoryRoot,
-      'shieldkit-groth/circuits/v2-direct',
+      'shieldkit-groth-94kb/circuits/v2-direct',
     ),
     path.join(repositoryRoot, 'node_modules/circomlib/circuits'),
   ]);

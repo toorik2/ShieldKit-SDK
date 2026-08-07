@@ -132,8 +132,8 @@ export function printHelp(stream = process.stdout) {
     + '  npm run bench -- --data-home /abs/path/to/install-or-v2-beta-product\n'
     + '  npm run bench:cold-start -- --data-home /abs/path/to/install-or-v2-beta-product\n'
     + '\n'
-    + '  node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --data-home ABS [options]\n'
-    + '  node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --cold-start --data-home ABS [options]\n'
+    + '  node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs --data-home ABS [options]\n'
+    + '  node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs --cold-start --data-home ABS [options]\n'
     + '\n'
     + 'required:\n'
     + '  --data-home ABS   product install root or …/v2-beta-product (session.json required)\n'
@@ -157,7 +157,7 @@ export function printHelp(stream = process.stdout) {
     + '  • cold-start never creates a pool; cold prove uses the live session.\n'
     + '  • results include subject (product version, DIRECT_V2_PF10, commit).\n'
     + '  • refuse ambient NODE_OPTIONS / NODE_PATH for native prover policy.\n'
-    + '  • see shieldkit-groth/bench/README.md and USER_GUIDE for pool setup.\n',
+    + '  • see shieldkit-groth-94kb/bench/README.md and USER_GUIDE for pool setup.\n',
   );
 }
 

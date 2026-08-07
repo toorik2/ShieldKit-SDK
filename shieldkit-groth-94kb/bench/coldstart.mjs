@@ -62,7 +62,7 @@ export const COLDSTART_STEPS = Object.freeze([
 ]);
 
 /** Repo-relative path to the pin trust manifest (source of CDN URL + hashes). */
-export const PIN_ARTIFACTS_MANIFEST_REL = 'shieldkit-groth/pins/shieldkit-pin-artifacts-v1.manifest.json';
+export const PIN_ARTIFACTS_MANIFEST_REL = 'shieldkit-groth-94kb/pins/shieldkit-pin-artifacts-v1.manifest.json';
 
 /** Extra blank-machine costs (document; optional later timers). */
 export const COLDSTART_OPTIONAL = Object.freeze([

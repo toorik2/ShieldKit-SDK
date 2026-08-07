@@ -352,14 +352,13 @@ for (const kind of kinds) {
       JSON.stringify({
         cmd: 'prove',
         kind,
-        depth: PRODUCTION_FLOOR.depth,
-        seed: 1,
-        blowup: PRODUCTION_FLOOR.blowup,
-        queries: PRODUCTION_FLOOR.queries,
-        grindBits: PRODUCTION_FLOOR.grind,
-        foldStep: PRODUCTION_FLOOR.foldStep,
-        maskDeg: 64,
+        depth: 20,        // AMENDED 2026-08-06: product config (was PRODUCTION_FLOOR.depth=32)
+        blowup: 2048,
+        queries: 7,
+        grindBits: 30,
+        foldStep: 3,
         deep: true,
+        // no seed -> RANDOM CSPRNG mask (production default)
       }) + '\n',
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -374,6 +373,8 @@ for (const kind of kinds) {
     r.status === 0 &&
     json?.verifyOk === true &&
     json?.usesPython === false &&
+    json?.depth === 20 &&
+    json?.maskSource === 'csprng(thread_rng, 128-bit)' &&
     json?.proveSeconds <= 60 &&
     (json?.peakRssBytes || 0) <= 4 * (1 << 30);
   const entry = logStep({

@@ -33,4 +33,4 @@
 3. No 30-day soak / no ceremony per the revised goal; ceremony-reuse recorded (single-contributor).
 4. RT-2026-0807-01: deposit-after-withdrawal (novel action) rejected by the state covenant's packet checks; dual-VM confirmed; accepted-risk, no impact on the pinned lifecycle.
 5. CLI withdrawal residual: lane-build witness-layout artifact (root cause + fix proposal in 03-implementation/cli-withdrawal-root-cause.json).
-6. The design root was renamed shieldkit-groth -> shieldkit-groth-94kb (2026-08-07) with a compat symlink; nothing broke.
+6. The design root was renamed shieldkit-groth-94kb -> shieldkit-groth-94kb (2026-08-07) with a compat symlink; nothing broke.

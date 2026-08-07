@@ -28,9 +28,9 @@ const fail = (code, message) => {
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const here = path.dirname(fileURLToPath(import.meta.url));
-/** shieldkit-groth/ (product tree) */
+/** shieldkit-groth-94kb/ (product tree) */
 const productRoot = path.resolve(here, '../..');
-/** monorepo root (parent of archived-pool-designs/ and shieldkit-groth/) */
+/** monorepo root (parent of archived-pool-designs/ and shieldkit-groth-94kb/) */
 const monorepoRoot = path.resolve(here, '../../..');
 
 /** Logical Chipnet playground instance id (stable; not a filesystem path). */

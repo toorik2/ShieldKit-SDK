@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 const FOLDER = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb';
-const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth';
+const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-94kb';
 const notes = await import('file://' + G + '/packages/action/v2/notes.mjs');
 const transitionMod = await import('file://' + G + '/packages/action/v2/transition.mjs');
 const st = await import('file://' + G + '/packages/action/v2/state.mjs');

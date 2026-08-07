@@ -28,7 +28,7 @@ import { assertSafeReplaceDirectory } from '../packages/kit/safe-paths.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const DEFAULT_MANIFEST = path.join(
   ROOT,
-  'shieldkit-groth/pins/shieldkit-pin-artifacts-v1.manifest.json',
+  'shieldkit-groth-94kb/pins/shieldkit-pin-artifacts-v1.manifest.json',
 );
 const HASH = /^sha256:[0-9a-f]{64}$/;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;

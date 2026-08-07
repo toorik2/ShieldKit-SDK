@@ -6,5 +6,5 @@
   "bin": {
     "shieldkit": "cli/scripts/shieldkit.mjs"
   },
-  "description": "ShieldKit-Groth 54KB \u2014 contained workspace: pf6 verifier replacement + the unified profile-driven CLI (same surface as shieldkit-groth)"
+  "description": "ShieldKit-Groth 54KB \u2014 contained workspace: pf6 verifier replacement + the unified profile-driven CLI (same surface as shieldkit-groth-94kb)"
 }

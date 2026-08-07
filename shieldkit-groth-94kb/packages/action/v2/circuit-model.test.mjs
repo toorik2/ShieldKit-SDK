@@ -123,7 +123,7 @@ test('compiles the pinned circuit, attests exact inputs/outputs, calculates all 
     executable: 'process.execPath',
     argv: [
       'node_modules/circom2/cli.js',
-      'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+      'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
       '--r1cs',
       '--wasm',
       '--sym',

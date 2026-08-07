@@ -74,7 +74,7 @@ const REPOSITORY_ROOT = path.resolve(
 const BETA_IMPLEMENTATION_SCHEMA =
   'shieldkit/v2-beta-single-contributor-implementation/v1';
 const BETA_IMPLEMENTATION_ENTRYPOINT =
-  'shieldkit-groth/scripts/v2-beta-single-contributor-ceremony.mjs';
+  'shieldkit-groth-94kb/scripts/v2-beta-single-contributor-ceremony.mjs';
 /** Pre-relocate product root path retained in pinned historic preparations. */
 const BETA_IMPLEMENTATION_ENTRYPOINT_LEGACY =
   '03-create-your-own-pool/scripts/v2-beta-single-contributor-ceremony.mjs';

@@ -51,8 +51,8 @@ npm run bench:cold-start -- --data-home "$SHIELDKIT_BENCH_DATA_HOME"
 Equivalent:
 
 ```bash
-node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --data-home /abs/...
-node shieldkit-groth/bench/pf10-baseline/run-bench.mjs --cold-start --data-home /abs/...
+node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs --data-home /abs/...
+node shieldkit-groth-94kb/bench/pf10-baseline/run-bench.mjs --cold-start --data-home /abs/...
 ```
 
 ### Flags
@@ -140,5 +140,5 @@ Use `subject` + git tag when comparing numbers across machines.
 ## Tests
 
 ```bash
-node --test shieldkit-groth/bench/*.test.mjs shieldkit-groth/bench/pf10-baseline/run-bench.test.mjs
+node --test shieldkit-groth-94kb/bench/*.test.mjs shieldkit-groth-94kb/bench/pf10-baseline/run-bench.test.mjs
 ```

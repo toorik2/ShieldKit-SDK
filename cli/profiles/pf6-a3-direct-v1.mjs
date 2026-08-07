@@ -14,7 +14,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.SHIELDKIT_DESIGN_ROOT
   ? path.resolve(process.env.SHIELDKIT_DESIGN_ROOT)
   : path.resolve(HERE, '../../shieldkit-groth-54kb');
-const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth';
+const G = '/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-94kb';
 
 export const PF6_PROFILE_ID = 'pf6-a3-direct-v1';
 export const PF6_PROFILE_SCHEMA = 'shieldkit-v2-beta-product-cli-result-v1';

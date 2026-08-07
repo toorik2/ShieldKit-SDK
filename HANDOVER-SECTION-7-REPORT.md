@@ -15,7 +15,7 @@ All definition-of-ready rows green for Chipnet beta (unqualified). No tag/publis
 - Source: `c4c610d6043fb57f6f208b03f27353a5155ebff5ddcf9acf66e6b4bde810b3e5`
 - Genesis: `dd269eed7c5745f9815709a06b68ce24a286276c2f60d85dfe7c321ec9e56d7d`
 - Payout (external, not fee): `bchtest:qqtn75vs9ah3tuj40es2y8w7f93zg3hxxug5cvc9pk`
-- Entrypoint: packed tgz CLI `/home/toorik/.local/share/shieldkit-packed-cli-d06632c/run/node_modules/shieldkit/shieldkit-groth/scripts/shieldkit.mjs`
+- Entrypoint: packed tgz CLI `/home/toorik/.local/share/shieldkit-packed-cli-d06632c/run/node_modules/shieldkit/shieldkit-groth-94kb/scripts/shieldkit.mjs`
 
 ## Actions (full txids) — packed CLI
 

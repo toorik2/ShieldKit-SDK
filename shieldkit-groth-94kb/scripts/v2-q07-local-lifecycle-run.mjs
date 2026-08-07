@@ -240,7 +240,7 @@ async function childPrivateRust({ sourceRoot, bundleRoot, binaryPath, corpusPath
   finally { await run('systemctl', ['--user', 'stop', unit], { cwd: sourceRoot }).catch(() => undefined); await run('systemctl', ['--user', 'reset-failed', unit], { cwd: sourceRoot }).catch(() => undefined); if (existsSync(stdoutPath)) unlinkSync(stdoutPath); if (existsSync(stderrPath)) unlinkSync(stderrPath); }
 }
 async function realExecutor({ sourceRoot, bundleRoot, corpusPath, toolchain }) {
-  const script = join(sourceRoot, 'shieldkit-groth/scripts/v2-q07-lifecycle-corpus.mjs'); const manifest = join(sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml'); const binaryPath = join(sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify'); const timed = async (fn) => { const started = performance.now(); const bytes = await fn(); return Object.freeze({ bytes, wallMs: performance.now() - started }); };
+  const script = join(sourceRoot, 'shieldkit-groth-94kb/scripts/v2-q07-lifecycle-corpus.mjs'); const manifest = join(sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml'); const binaryPath = join(sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify'); const timed = async (fn) => { const started = performance.now(); const bytes = await fn(); return Object.freeze({ bytes, wallMs: performance.now() - started }); };
   const buildArgs = [`+${Q07_RUST_TOOLCHAIN}`, 'build', '--locked', '--release', '--manifest-path', manifest, '--bin', 'q07-lifecycle-verify']; const rustEnvironment = pinnedRustEnvironment(); const build = await timed(() => run('cargo', buildArgs, { cwd: sourceRoot, env: rustEnvironment })); const binaryBefore = binarySnapshot(binaryPath, 'release Rust verifier binary'); const generator = await timed(() => run(process.execPath, [script, '--output-directory', bundleRoot], { cwd: sourceRoot })); const js = await timed(() => run(process.execPath, [script, '--verify', corpusPath], { cwd: sourceRoot })); const rust = await timed(() => childPrivateRust({ sourceRoot, bundleRoot, binaryPath, corpusPath })); const binaryAfter = binarySnapshot(binaryPath, 'release Rust verifier binary'); if (canonicalJson(binaryBefore) !== canonicalJson(binaryAfter)) fail('release Rust verifier binary changed during measurement');
   const buildCommand = Object.freeze({ ...commandText('cargo', buildArgs), environment: Object.freeze({ MISE_RUST_VERSION: Q07_RUST_TOOLCHAIN, RUSTUP_TOOLCHAIN: Q07_RUST_TOOLCHAIN, inheritedRustFlagsAndWrappers: false }) });
   return Object.freeze({ generator: generator.bytes, js: js.bytes, rust: rust.bytes.stdout, wallMs: Object.freeze({ build: build.wallMs, generator: generator.wallMs, jsVerifier: js.wallMs, rustVerifier: rust.wallMs }), commands: [buildCommand, commandText(process.execPath, [script, '--output-directory', bundleRoot]), commandText(process.execPath, [script, '--verify', corpusPath]), rust.bytes.command], build: Object.freeze({ command: buildCommand, stdoutSha256: sha256(build.bytes), wallMs: build.wallMs, toolchain, binaryBefore, binaryAfter }), childCgroup: rust.bytes.cgroup });
@@ -350,8 +350,8 @@ function assertRealRunProvenance(runRecord, source, machine, root) {
   exact(runRecord.build, ['binaryAfter', 'binaryBefore', 'command', 'stdoutSha256', 'toolchain', 'wallMs'], 'build provenance');
   exact(runRecord.build.command, ['args', 'command', 'environment'], 'build command');
   exact(runRecord.build.command.environment, ['MISE_RUST_VERSION', 'RUSTUP_TOOLCHAIN', 'inheritedRustFlagsAndWrappers'], 'build environment');
-  const expectedManifest = join(source.sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml');
-  const expectedBinary = join(source.sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify');
+  const expectedManifest = join(source.sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml');
+  const expectedBinary = join(source.sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify');
   const expectedArgs = [`+${Q07_RUST_TOOLCHAIN}`, 'build', '--locked', '--release', '--manifest-path', expectedManifest, '--bin', 'q07-lifecycle-verify'];
   if (runRecord.build.command.command !== 'cargo' || canonicalJson(runRecord.build.command.args) !== canonicalJson(expectedArgs) || runRecord.build.command.environment.MISE_RUST_VERSION !== Q07_RUST_TOOLCHAIN || runRecord.build.command.environment.RUSTUP_TOOLCHAIN !== Q07_RUST_TOOLCHAIN || runRecord.build.command.environment.inheritedRustFlagsAndWrappers !== false || !HASH.test(runRecord.build.stdoutSha256) || runRecord.build.wallMs !== runRecord.wallMs.build) fail('build command, environment, or timing is invalid');
   exact(runRecord.build.toolchain, ['cargo', 'rustc'], 'build toolchain');
@@ -362,8 +362,8 @@ function assertRealRunProvenance(runRecord, source, machine, root) {
   if (!Array.isArray(runRecord.commands) || runRecord.commands.length !== 4 || canonicalJson(runRecord.commands[0]) !== canonicalJson(runRecord.build.command)) fail('real run command transcript is invalid');
   const corpusPath = join(root, 'q07-non-chain-lifecycle.ndjson');
   for (const [index, expectedArgsForCommand] of [
-    [join(source.sourceRoot, 'shieldkit-groth/scripts/v2-q07-lifecycle-corpus.mjs'), '--output-directory', root],
-    [join(source.sourceRoot, 'shieldkit-groth/scripts/v2-q07-lifecycle-corpus.mjs'), '--verify', corpusPath],
+    [join(source.sourceRoot, 'shieldkit-groth-94kb/scripts/v2-q07-lifecycle-corpus.mjs'), '--output-directory', root],
+    [join(source.sourceRoot, 'shieldkit-groth-94kb/scripts/v2-q07-lifecycle-corpus.mjs'), '--verify', corpusPath],
   ].entries()) {
     const command = runRecord.commands[index + 1];
     exact(command, ['args', 'command'], `run command ${index + 1}`);
@@ -1052,7 +1052,7 @@ async function runSystemdChild({
 }
 
 function buildCommand(sourceRoot, toolchain) {
-  const manifest = join(sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml');
+  const manifest = join(sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml');
   if (toolchain === null || Array.isArray(toolchain) || typeof toolchain !== 'object'
     || toolchain.cargo === null || Array.isArray(toolchain.cargo) || typeof toolchain.cargo !== 'object'
     || typeof toolchain.cargo.path !== 'string' || !isAbsolute(toolchain.cargo.path)) {
@@ -1072,7 +1072,7 @@ function buildCommand(sourceRoot, toolchain) {
 }
 
 function expectedBinaryPath(sourceRoot) {
-  return join(sourceRoot, 'shieldkit-groth/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify');
+  return join(sourceRoot, 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/target/release/q07-lifecycle-verify');
 }
 
 function snapshotBuiltBinary({ sourceRoot, bundleRoot, attemptId }) {
@@ -1120,7 +1120,7 @@ function realResumeExecutor() {
       return Object.freeze({ ...capture, command, binary, systemd: null, failure });
     },
     async jsVerifier({ sourceRoot, corpusPath }) {
-      const script = join(sourceRoot, 'shieldkit-groth/scripts/v2-q07-lifecycle-corpus.mjs');
+      const script = join(sourceRoot, 'shieldkit-groth-94kb/scripts/v2-q07-lifecycle-corpus.mjs');
       const capture = await captureCommand(process.execPath, [script, '--verify', corpusPath], { cwd: sourceRoot });
       return Object.freeze({ ...capture, binary: null, systemd: null });
     },
@@ -1231,7 +1231,7 @@ function assertResumeCommand(command, phase, sourceRoot, corpusPath, testOnly, s
   if (!Array.isArray(command.args)) fail(`${phase} command args are invalid`);
   if (phase === 'js-verifier') {
     const expected = [
-      join(sourceRoot, 'shieldkit-groth/scripts/v2-q07-lifecycle-corpus.mjs'),
+      join(sourceRoot, 'shieldkit-groth-94kb/scripts/v2-q07-lifecycle-corpus.mjs'),
       '--verify',
       corpusPath,
     ];

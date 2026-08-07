@@ -4,7 +4,7 @@
 **Product:** ShieldKit-Groth  
 **Release name:** ShieldKit-Groth Beta  
 **Version:** `0.3.0-beta.1`  
-**Product root:** `shieldkit-groth/`  
+**Product root:** `shieldkit-groth-94kb/`  
 **Executable:** `shieldkit`
 
 ## Scope

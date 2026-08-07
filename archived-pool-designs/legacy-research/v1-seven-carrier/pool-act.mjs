@@ -4,7 +4,7 @@
  * Uses completeAction + Chipnet RPC (public Electrum / JSON-RPC / lab layer1).
  *
  * Usage:
- *   node shieldkit-groth/scripts/pool-act.mjs deposit --pool ./my-pool \
+ *   node shieldkit-groth-94kb/scripts/pool-act.mjs deposit --pool ./my-pool \
  *     --wallets ./wallets.json [--broadcast]
  *
  * Product defaults (hide fee/UTXO/ECIP pain):

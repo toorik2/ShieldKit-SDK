@@ -73,12 +73,12 @@ async function fixture(t, {
   );
   await writeSource(
     root,
-    'shieldkit-groth/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
     render(aIncludes),
   );
   await writeSource(
     root,
-    'shieldkit-groth/circuits/v2-direct/b.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/b.circom',
     render(bIncludes),
   );
   // This directory is a required pinned root even when no test source imports
@@ -140,16 +140,16 @@ test('collects a deterministic, codepoint-sorted reachable include graph', async
   const second = await collectV2RelationSourceManifest({ repositoryRoot: root });
   assert.deepEqual(second, first);
   assert.deepEqual(first.sources.map((source) => source.path), [
-    'shieldkit-groth/circuits/v2-direct/a.circom',
-    'shieldkit-groth/circuits/v2-direct/b.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/b.circom',
     V2_RELATION_ENTRYPOINT,
   ]);
   assert.deepEqual(first.sources[0].includes, [
-    'shieldkit-groth/circuits/v2-direct/b.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/b.circom',
   ]);
   assert.deepEqual(first.sources[2].includes, [
-    'shieldkit-groth/circuits/v2-direct/a.circom',
-    'shieldkit-groth/circuits/v2-direct/b.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/b.circom',
   ]);
 });
 
@@ -179,7 +179,7 @@ test('rejects noncanonical, incomplete, and unreachable manifest graphs', async 
   withUnreachableSource.sources.push({
     bytes: 1,
     includes: [],
-    path: 'shieldkit-groth/circuits/v2-direct/unreachable.circom',
+    path: 'shieldkit-groth-94kb/circuits/v2-direct/unreachable.circom',
     sha256: '0'.repeat(64),
   });
   withUnreachableSource.sources.sort((left, right) =>
@@ -211,7 +211,7 @@ test('rejects symlinked and hardlinked relation sources', async (t) => {
   const symlinkRoot = await fixture(t);
   const symlinkTarget = path.join(
     symlinkRoot,
-    'shieldkit-groth/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
   );
   const sourceOutsidePinnedRoot = path.join(symlinkRoot, 'outside.circom');
   await writeFile(sourceOutsidePinnedRoot, 'pragma circom 2.2.0;\n', 'utf8');
@@ -225,13 +225,13 @@ test('rejects symlinked and hardlinked relation sources', async (t) => {
   const hardlinkRoot = await fixture(t);
   const hardlinkTarget = path.join(
     hardlinkRoot,
-    'shieldkit-groth/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
   );
   await link(
     hardlinkTarget,
     path.join(
       hardlinkRoot,
-      'shieldkit-groth/circuits/v2-direct/a-copy.circom',
+      'shieldkit-groth-94kb/circuits/v2-direct/a-copy.circom',
     ),
   );
   await assert.rejects(
@@ -245,7 +245,7 @@ test('verification detects source-byte drift after a manifest has been collected
   const manifest = await collectV2RelationSourceManifest({ repositoryRoot: root });
   const source = path.join(
     root,
-    'shieldkit-groth/circuits/v2-direct/a.circom',
+    'shieldkit-groth-94kb/circuits/v2-direct/a.circom',
   );
   await writeFile(source, `${await readFile(source, 'utf8')}\n// changed\n`, 'utf8');
   await assert.rejects(

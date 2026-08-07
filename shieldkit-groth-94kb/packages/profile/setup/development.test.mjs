@@ -134,12 +134,12 @@ async function makeTinySpoofedV2Build(root, compiled, { exactLayout = true } = {
     compiler: {
       circom: '2.2.3', npmPackage: 'circom2@0.2.23', optimization: 'O1', sanityCheck: 2,
     },
-    entrypoint: 'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+    entrypoint: 'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
     schema: 'shieldkit-v2-direct-relation-source-manifest-v2',
     sources: [{
       bytes: compiled.sourceBytes.byteLength,
       includes: [],
-      path: 'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+      path: 'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
       sha256: bareDigest(compiled.sourceBytes),
     }],
   });
@@ -169,7 +169,7 @@ async function makeTinySpoofedV2Build(root, compiled, { exactLayout = true } = {
     compilation: {
       argv: [
         'node_modules/circom2/cli.js',
-        'shieldkit-groth/circuits/v2-direct/main-chipnet.circom',
+        'shieldkit-groth-94kb/circuits/v2-direct/main-chipnet.circom',
         '--r1cs', '--wasm', '--sym', '--O1', '--sanity_check', '2', '--output', '$BUILD_OUTPUT',
       ],
       circomCompilerVersion: '2.2.3',

@@ -21,7 +21,7 @@
   {
    "file": "GOAL.md",
    "issue": "old product-tree name",
-   "fix": "shieldkit-groth -> shieldkit-groth-94kb"
+   "fix": "shieldkit-groth-94kb -> shieldkit-groth-94kb"
   },
   {
    "file": "cli/README.md",

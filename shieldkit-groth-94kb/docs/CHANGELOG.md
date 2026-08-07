@@ -2,7 +2,7 @@
 
 ## 0.3.0-beta.1 — ShieldKit-Groth Beta (candidate)
 
-- Product root relocated: `03-create-your-own-pool/` → `shieldkit-groth/`.
+- Product root relocated: `03-create-your-own-pool/` → `shieldkit-groth-94kb/`.
 - User-facing identity: ShieldKit-Groth Beta (Chipnet-only, unaudited, zero-conf).
 - PF10-only release closure: legacy seven-carrier research moved to `archived-pool-designs/legacy-research/v1-seven-carrier/`.
 - CLI: `shieldkit pool --help` and nested pool create/deposit/withdraw/recover/doctor surfaces.
@@ -11,7 +11,7 @@
 - Post-beta D-01/D-02 and Q-08/Q-09 remain production gates (not deleted).
 
 
-Toolkit only. Profile pins: [docs/PROFILES.md](shieldkit-groth/docs/PROFILES.md).
+Toolkit only. Profile pins: [docs/PROFILES.md](shieldkit-groth-94kb/docs/PROFILES.md).
 
 ## [Unreleased]
 

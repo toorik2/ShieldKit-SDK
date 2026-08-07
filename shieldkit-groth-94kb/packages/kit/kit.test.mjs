@@ -6,7 +6,7 @@ import { loadVerifierProfileBundle } from '../profile/load.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// packages/kit → shieldkit-groth → monorepo
+// packages/kit → shieldkit-groth-94kb → monorepo
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const BUNDLE = path.join(monorepoRoot, '.cache/profile-build-live/profile-bundle');
 

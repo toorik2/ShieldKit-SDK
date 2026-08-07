@@ -1,0 +1,33 @@
+{
+ "schema": "shieldkit-54kb/symlink-removal/v1",
+ "generated": "2026-08-07T14:17:48",
+ "status": "symlink shieldkit-groth REMOVED; all 1,611 referencing files fixed to the real folder shieldkit-groth-94kb; verified green",
+ "details": {
+  "symlinkRemoved": true,
+  "filesChanged": 1611,
+  "codeResolved": [
+   "sdk package.json workspaces (9 entries)",
+   "54kb src G imports (all scripts)",
+   "cli scripts/packages (q01 evidence, development-profile, runtime-cache, pf10 builders, instance)",
+   "playground bundle fetch paths"
+  ],
+  "docs": [
+   "READMEs",
+   "archived-pool-designs",
+   "cli docs",
+   "HANDOVER",
+   "workflows (ci.yml)"
+  ],
+  "alsoFixed": "playground-32 campaign status check (pre-existing strict BigInt-vs-string bug; the campaign was actually complete)"
+ },
+ "verified": [
+  "pf10 --version",
+  "pf6 doctor",
+  "pf6 chain-scan recovery",
+  "tests 8/8",
+  "playground campaign",
+  "no bare references",
+  "workspaces resolve",
+  "symlink gone"
+ ]
+}

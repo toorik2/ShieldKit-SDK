@@ -152,7 +152,7 @@ async function timedNativeProverInstall({ repoDir, sourceNative, destNative, env
     };
   }
   const modHref = pathToFileURL(
-    path.join(repoDir, 'shieldkit-groth/packages/prove/v2/native-groth16-prover-installation.mjs'),
+    path.join(repoDir, 'shieldkit-groth-94kb/packages/prove/v2/native-groth16-prover-installation.mjs'),
   ).href;
   const verify = timeCommand(
     process.execPath,
@@ -294,7 +294,7 @@ async function timedCdnPinDownload({ repoDir, sandboxRoot }) {
 /** One cold prove using modules loaded from a sandbox repo (sandbox node_modules). */
 async function measureColdProveFromSandbox(sandboxRepo, liveDataHome) {
   const proveUrl = pathToFileURL(
-    path.join(sandboxRepo, 'shieldkit-groth/bench/pf10-baseline/product-prove.mjs'),
+    path.join(sandboxRepo, 'shieldkit-groth-94kb/bench/pf10-baseline/product-prove.mjs'),
   ).href;
   const mod = await import(proveUrl);
   const session = await mod.loadProductSession(liveDataHome);
@@ -451,7 +451,7 @@ async function runSandboxMode(args, root, commit) {
         process.stdout.write('Product artifact install (runtime/ceremony + package native)…\n');
         const installScript = path.join(
           repoDir,
-          'shieldkit-groth/scripts/install-v2-beta-product-artifacts.mjs',
+          'shieldkit-groth-94kb/scripts/install-v2-beta-product-artifacts.mjs',
         );
         // Product installer refuses NODE_OPTIONS / loaders.
         // Use the staged native as source so step 4 is a real prerequisite.
@@ -687,7 +687,7 @@ async function main(argv) {
     const rsync = timeCommand(
       'rsync',
       ['-a', '--exclude', 'node_modules', '--exclude', '.git',
-        `${root}/shieldkit-groth/`, `${dest}/shieldkit-groth/`],
+        `${root}/shieldkit-groth-94kb/`, `${dest}/shieldkit-groth-94kb/`],
       root,
     );
     if (rsync.status !== 0) {

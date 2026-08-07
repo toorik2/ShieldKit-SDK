@@ -255,7 +255,7 @@ test('[test-only] Q05 Rust preparation replay normalizes two private snapshot ro
     const evidence = runQ05RustEvidenceFromSnapshot(snapshotA);
     snapshotB = createQ05ExecutionSnapshotForTestOnly();
     assert.equal(validateQ05RustEvidence(evidence, snapshotB.projectRoot).tests, 5);
-    assert.match(evidence.execution.normalizedPreparationStdout, /<q05-snapshot>\/source\/shieldkit-groth\/crates\/shieldkit-v2-codec\/Cargo\.toml/u);
+    assert.match(evidence.execution.normalizedPreparationStdout, /<q05-snapshot>\/source\/shieldkit-groth-94kb\/crates\/shieldkit-v2-codec\/Cargo\.toml/u);
     assert.match(evidence.execution.normalizedPreparationStdout, /<q05-snapshot>\/cargo-target\/debug\/deps\//u);
   } finally {
     if (snapshotB !== undefined) destroyQ05ExecutionSnapshot(snapshotB);

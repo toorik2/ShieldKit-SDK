@@ -6,7 +6,7 @@
  * Requires: SSH host `layer1-node` BCHN, wallets, live profile tip (or --state-txid).
  *
  * Usage (repo root):
- *   node shieldkit-groth/scripts/standalone-e2e-chipnet.mjs \
+ *   node shieldkit-groth-94kb/scripts/standalone-e2e-chipnet.mjs \
  *     [--out .cache/standalone-e2e] \
  *     [--kinds deposit,transfer,withdrawal]
  */

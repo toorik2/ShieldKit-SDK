@@ -6,5 +6,5 @@
   "bin": {
     "shieldkit": "scripts/shieldkit.mjs"
   },
-  "description": "ShieldKit CLI \u2014 copied closure (read-only import from shieldkit-groth) + profile registry for verifier-pool designs (pf6-a3-direct-v1 first)"
+  "description": "ShieldKit CLI \u2014 copied closure (read-only import from shieldkit-groth-94kb) + profile registry for verifier-pool designs (pf6-a3-direct-v1 first)"
 }

@@ -9,13 +9,13 @@
   "generated": "2026-08-06T23:19:47.025Z",
   "status": "boundaries-emitted-fail-closed",
   "gateModule": {
-   "path": "shieldkit-groth/scripts/external-release-gate.mjs (read-only reference)",
+   "path": "shieldkit-groth-94kb/scripts/external-release-gate.mjs (read-only reference)",
    "sha256": "sha256:3a677058f53574500e9b72898d4979aaf01164807db75cea6a811dad7fca7821"
   },
   "command": [
-   "node shieldkit-groth/scripts/external-release-gate.mjs --gate bchn",
-   "node shieldkit-groth/scripts/external-release-gate.mjs --gate chipnet",
-   "node shieldkit-groth/scripts/external-release-gate.mjs --gate final-ceremony-and-audits"
+   "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate bchn",
+   "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate chipnet",
+   "node shieldkit-groth-94kb/scripts/external-release-gate.mjs --gate final-ceremony-and-audits"
   ],
   "boundaries": [
    {

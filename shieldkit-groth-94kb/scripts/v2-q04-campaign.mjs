@@ -347,12 +347,12 @@ export function snapshotExecutionPaths(snapshotRoot, bundle) {
   return Object.freeze({
     snapshotRoot: root,
     parameterSourcePath: assertContained(root, join(root, "node_modules/circomlib/circuits/poseidon_constants.circom"), "Q-04 parameter source"),
-    recoveryCwd: assertContained(root, join(root, "shieldkit-groth/crates/shieldkit-v2-recovery"), "Q-04 Rust source"),
+    recoveryCwd: assertContained(root, join(root, "shieldkit-groth-94kb/crates/shieldkit-v2-recovery"), "Q-04 Rust source"),
     checkerCwd: assertContained(
       root,
       join(
         root,
-        "shieldkit-groth/crates/shieldkit-v2-q04-certificate",
+        "shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate",
       ),
       "Q-04 Rust certificate checker source",
     ),
@@ -360,7 +360,7 @@ export function snapshotExecutionPaths(snapshotRoot, bundle) {
       root,
       join(
         root,
-        "shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs",
+        "shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs",
       ),
       "Q-04 production nullifier source",
     ),
@@ -368,12 +368,12 @@ export function snapshotExecutionPaths(snapshotRoot, bundle) {
       root,
       join(
         root,
-        "shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs",
+        "shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs",
       ),
       "Q-04 Rust certificate checker source file",
     ),
-    historyRunner: assertContained(root, join(root, "shieldkit-groth/scripts/v2-q04-history-runner.mjs"), "Q-04 history runner"),
-    evidenceVerifier: assertContained(root, join(root, "shieldkit-groth/scripts/v2-q04-evidence-verify.mjs"), "Q-04 evidence verifier"),
+    historyRunner: assertContained(root, join(root, "shieldkit-groth-94kb/scripts/v2-q04-history-runner.mjs"), "Q-04 history runner"),
+    evidenceVerifier: assertContained(root, join(root, "shieldkit-groth-94kb/scripts/v2-q04-evidence-verify.mjs"), "Q-04 evidence verifier"),
     rust: layout,
   });
 }
@@ -406,9 +406,9 @@ export function rustCheckerBuildCommand(checkerCwd, layout) {
 async function loadSnapshotModules(snapshotRoot) {
   const moduleAt = async (relativePath) => import(pathToFileURL(assertContained(snapshotRoot, join(snapshotRoot, relativePath), "Q-04 snapshot module")).href);
   const [schedule, evidence, depth4] = await Promise.all([
-    moduleAt("shieldkit-groth/packages/pool/v2/qualification/q04-schedule.mjs"),
-    moduleAt("shieldkit-groth/scripts/v2-q04-evidence-verify.mjs"),
-    moduleAt("shieldkit-groth/packages/pool/v2/qualification/depth4-production-state-space.mjs"),
+    moduleAt("shieldkit-groth-94kb/packages/pool/v2/qualification/q04-schedule.mjs"),
+    moduleAt("shieldkit-groth-94kb/scripts/v2-q04-evidence-verify.mjs"),
+    moduleAt("shieldkit-groth-94kb/packages/pool/v2/qualification/depth4-production-state-space.mjs"),
   ]);
   return Object.freeze({ schedule, evidence, depth4 });
 }
@@ -508,9 +508,9 @@ function sourceArtifacts(bundle, snapshotRoot, definitions) {
     depth4Checker,
     campaign,
     depth4,
-    cargoManifest: copyNamed("rust-kat-manifest", "shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml", "sources/rust-manifest.toml"),
-    cargoLock: copyNamed("rust-kat-lockfile", "shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.lock", "sources/rust-lock.lock"),
-    rustToolchain: copyNamed("rust-toolchain", "shieldkit-groth/rust-toolchain.toml", "sources/rust-toolchain.toml"),
+    cargoManifest: copyNamed("rust-kat-manifest", "shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml", "sources/rust-manifest.toml"),
+    cargoLock: copyNamed("rust-kat-lockfile", "shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.lock", "sources/rust-lock.lock"),
+    rustToolchain: copyNamed("rust-toolchain", "shieldkit-groth-94kb/rust-toolchain.toml", "sources/rust-toolchain.toml"),
     nodePackageLock: copyNamed("node-lockfile", "package-lock.json", "sources/package-lock.json"),
   });
   return Object.freeze({ sources, records: Object.freeze(records) });
@@ -665,11 +665,11 @@ function publicEvidence({ git, sources, implementations, histories, runtime, dep
     subject: { repository: "shieldkit-sdk", gitCommit: git.gitCommit, gitTree: git.gitTree, workingTreeClean: true, poseidonProfile: q04.Q04_POSEIDON_PROFILE, treeDepth: 32, frModulus: q04.Q04_FR_MODULUS_HEX, nullifierDomains: { ...q04.Q04_NULLIFIER_DOMAINS }, sourceSetSha256: "0".repeat(64) },
     definition: evidenceDefinition(q04), implementations, operationCounts: { ...q04.Q04_FIXED_OPERATION_COUNTS }, hardware: hardware(), runtime,
     provenance: { generatedAt: timestamp(), commands: {
-      campaign: { executable: "node", arguments: ["shieldkit-groth/scripts/v2-q04-campaign.mjs"], workingDirectory: "." },
-      rustKatBuild: { executable: "cargo", arguments: ["+1.97.1", "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"], workingDirectory: "shieldkit-groth/crates/shieldkit-v2-recovery" },
-      rustKatRun: { executable: "target/release/q04-poseidon-oracle", arguments: [], workingDirectory: "shieldkit-groth/crates/shieldkit-v2-recovery" },
-      depth4CheckerBuild: { executable: "cargo", arguments: ["+1.97.1", "build", "--locked", "--release", "--bin", "shieldkit-v2-q04-certificate"], workingDirectory: "shieldkit-groth/crates/shieldkit-v2-q04-certificate" },
-      depth4CheckerRun: { executable: "bin/shieldkit-v2-q04-certificate", arguments: ["raw/depth4-symbolic-certificate.json", "snapshot/shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs", "snapshot/shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs"], workingDirectory: "." },
+      campaign: { executable: "node", arguments: ["shieldkit-groth-94kb/scripts/v2-q04-campaign.mjs"], workingDirectory: "." },
+      rustKatBuild: { executable: "cargo", arguments: ["+1.97.1", "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"], workingDirectory: "shieldkit-groth-94kb/crates/shieldkit-v2-recovery" },
+      rustKatRun: { executable: "target/release/q04-poseidon-oracle", arguments: [], workingDirectory: "shieldkit-groth-94kb/crates/shieldkit-v2-recovery" },
+      depth4CheckerBuild: { executable: "cargo", arguments: ["+1.97.1", "build", "--locked", "--release", "--bin", "shieldkit-v2-q04-certificate"], workingDirectory: "shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate" },
+      depth4CheckerRun: { executable: "bin/shieldkit-v2-q04-certificate", arguments: ["raw/depth4-symbolic-certificate.json", "snapshot/shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs", "snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs"], workingDirectory: "." },
     }, campaignSources: sources.campaign, nodePackageLock: sources.nodePackageLock, inputManifest, rawOutput, resultTranscript },
     hashes: { inputManifestSha256: inputManifest.sha256, rawOutputSha256: rawOutput.sha256, resultTranscriptSha256: resultTranscript.sha256, depth4CertificateSha256: depth4.certificate.sha256, depth4SymbolicCertificateSha256: depth4.symbolicCertificate.sha256, depth4CheckerResultSha256: implementations.depth4Checker.result.sha256, rustKatResultSha256: implementations.rustKat.result.sha256, sourceSetSha256: "0".repeat(64), historyTransitionSetSha256: "0".repeat(64) },
     depth4, histories, aggregate: aggregate(q04),
@@ -906,7 +906,7 @@ export async function runQ04Campaign({ outputParent, dependencies = undefined } 
     const resultTranscript = bundleReference(bundle, writeJson(join(bundle, "raw/result-transcript.json"), {
       schema: "shieldkit-v2-direct/q04-campaign-preverification-input/v1",
       status: "immutable-preverification-input",
-      verifier: { executable: "node", arguments: ["shieldkit-groth/scripts/v2-q04-evidence-verify.mjs", "evidence.json"] },
+      verifier: { executable: "node", arguments: ["shieldkit-groth-94kb/scripts/v2-q04-evidence-verify.mjs", "evidence.json"] },
     }));
     const runtime = { ...provisionalRuntime, finishedAt: timestamp(), elapsedMs: elapsedMilliseconds(startedNs) };
     const evidence = publicEvidence({ git, sources, implementations, histories, runtime, depth4, inputManifest, rawOutput, resultTranscript, q04 });

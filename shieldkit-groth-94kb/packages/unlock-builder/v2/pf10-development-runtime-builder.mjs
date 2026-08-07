@@ -1615,11 +1615,11 @@ export async function validateDirectV2Pf10Reproducibility({
   try {
     const optimizerRoot = path.join(
       root,
-      'shieldkit-groth/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
+      'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
     );
     const lazyAffineLibrary = await readFile(path.join(
       root,
-      'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
+      'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
     ), 'utf8');
     const reproduce = async (
       name,
@@ -1976,11 +1976,11 @@ async function buildDirectV2Pf10Runtime({
 
     const optimizerRoot = path.join(
       root,
-      'shieldkit-groth/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
+      'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/tools/singleton-artifact',
     );
     const lazyAffineLibrary = await readFile(path.join(
       root,
-      'shieldkit-groth/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
+      'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/build/singleton/bn254/lib/lazy/Bn254LazyAff_kspec.cash',
     ), 'utf8');
     const pairFoldRenderOptions = {
       verificationKey,

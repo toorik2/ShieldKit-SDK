@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..');
 const circuitRoot = path.join(
   repositoryRoot,
-  'shieldkit-groth/circuits/v2-direct/tests',
+  'shieldkit-groth-94kb/circuits/v2-direct/tests',
 );
 const vectorRoot = path.join(import.meta.dirname, 'vectors');
 const temporaryRoot = path.join(repositoryRoot, '.codex-build/test-tmp');

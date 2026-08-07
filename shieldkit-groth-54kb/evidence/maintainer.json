@@ -11,6 +11,6 @@
   "TOOL-INVENTORY gate",
   "pinned toolchain: cashc 1c707c1d / libauth 3.1.0-next.8 / leanbch 51201015 / Node 22.23.1 / BCH-2026"
  ],
- "containment": "all work in shieldkit-groth-54kb/; read-only imports from ../shieldkit-groth/, ../verifier.cash/, ../Groth16-Formal/",
+ "containment": "all work in shieldkit-groth-54kb/; read-only imports from ../shieldkit-groth-94kb/, ../verifier.cash/, ../Groth16-Formal/",
  "evidenceLedger": "evidence/LEDGER.json"
 }

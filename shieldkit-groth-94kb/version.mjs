@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// this file lives in shieldkit-groth/ → monorepo root is parent
+// this file lives in shieldkit-groth-94kb/ → monorepo root is parent
 const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(path.join(monorepoRoot, 'package.json'), 'utf8'));
 

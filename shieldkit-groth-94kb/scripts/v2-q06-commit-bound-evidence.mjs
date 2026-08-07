@@ -117,8 +117,8 @@ const REORG_INVARIANT_KEYS = Object.freeze([
 ]);
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(projectRoot, '..');
-const crashScript = 'shieldkit-groth/scripts/v2-crash-qualification.mjs';
-const reorgScript = 'shieldkit-groth/scripts/v2-reorg-concurrency-qualification.mjs';
+const crashScript = 'shieldkit-groth-94kb/scripts/v2-crash-qualification.mjs';
+const reorgScript = 'shieldkit-groth-94kb/scripts/v2-reorg-concurrency-qualification.mjs';
 
 export class V2Q06CommitBoundEvidenceError extends Error {
   constructor(message) { super(message); this.name = 'V2Q06CommitBoundEvidenceError'; }

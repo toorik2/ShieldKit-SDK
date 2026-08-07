@@ -392,7 +392,7 @@ async function main() {
 
   console.error(JSON.stringify({ phase: 'create-pool', pool, pin: PIN }));
   const cr = spawnSync(process.execPath, [
-    path.join(ROOT, 'shieldkit-groth/scripts/create-pool.mjs'),
+    path.join(ROOT, 'shieldkit-groth-94kb/scripts/create-pool.mjs'),
     '--out', pool,
     '--with-genesis',
     '--network', 'chipnet',

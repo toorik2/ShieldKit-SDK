@@ -29,7 +29,7 @@ import { assertPf10BetaRuntimeLane } from './pf10-beta-runtime-assertions.mjs';
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..');
 const verificationKeyFixture = path.join(
   repositoryRoot,
-  'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json',
+  'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json',
 );
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 

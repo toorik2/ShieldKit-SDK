@@ -29,7 +29,7 @@ const RUNTIME_SCHEMA = 'shieldkit-v2-direct-pf10-development-runtime-bundle-v2';
 const HASH = /^[0-9a-f]{64}$/u;
 const GIT = /^[0-9a-f]{40}$/u;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PROJECT = resolve(ROOT, 'shieldkit-groth');
+const PROJECT = resolve(ROOT, 'shieldkit-groth-94kb');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const bytes = (value) => Buffer.from(canonicalizeJcs(value), 'utf8');
 

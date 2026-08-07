@@ -2,7 +2,7 @@
 /**
  * Build the local-only, hash-pinned offline release bundle + release pin for
  * the ShieldKit-Groth-54KB (pf6) product, mirroring the
- * shieldkit-groth `v2-beta-product-offline-r3.pin.json` pattern: exact
+ * shieldkit-groth-94kb `v2-beta-product-offline-r3.pin.json` pattern: exact
  * release ID + manifest SHA-256 as trust root, no remote publication.
  *
  * Bundle layout (staged then deterministically tarred):

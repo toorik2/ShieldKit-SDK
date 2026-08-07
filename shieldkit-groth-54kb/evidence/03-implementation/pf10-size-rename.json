@@ -1,7 +1,7 @@
 {
  "schema": "shieldkit-54kb/pf10-size-and-rename/v1",
  "generated": "2026-08-07T09:08:13",
- "status": "PF10 verifier size measured from verifier.cash intel db; the design root renamed shieldkit-groth -> shieldkit-groth-94kb with a compat symlink; nothing broke",
+ "status": "PF10 verifier size measured from verifier.cash intel db; the design root renamed shieldkit-groth-94kb -> shieldkit-groth-94kb with a compat symlink; nothing broke",
  "measurement": {
   "source": "verifier.cash/intel/db/verifiers.json",
   "id": "toorik-bn254-intratx-general",
@@ -14,9 +14,9 @@
   }
  },
  "rename": {
-  "old": "shieldkit-groth",
+  "old": "shieldkit-groth-94kb",
   "new": "shieldkit-groth-94kb",
-  "compat": "symlink shieldkit-groth -> shieldkit-groth-94kb (the hardcoded read-only imports keep resolving)",
+  "compat": "symlink shieldkit-groth-94kb -> shieldkit-groth-94kb (the hardcoded read-only imports keep resolving)",
   "fixedReferences": [
    "sdk package.json bin",
    "cli/pool-designs.json pf10 root"

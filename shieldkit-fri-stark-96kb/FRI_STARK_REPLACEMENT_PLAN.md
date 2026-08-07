@@ -9,7 +9,7 @@ Build a standalone, fresh-genesis ShieldKit product rooted entirely in `/home/to
 - Package: `shieldkit-fri-stark@0.1.0-beta.1`; CLI: `shieldkit-fri`.
 - Release: unaudited, Chipnet-only beta. Mainnet, audited-production, encrypted-note privacy, and Groth-pool compatibility claims are forbidden.
 - Compatibility: existing Groth pools remain untouched. Migration is only Groth withdrawal followed by fresh FRI deposit.
-- Containment: no edits to parent manifests, lockfiles, workspaces, CI, documentation, or `shieldkit-groth`; no escaping symlinks or runtime imports. External repositories may be read or cloned only into `.private/`.
+- Containment: no edits to parent manifests, lockfiles, workspaces, CI, documentation, or `shieldkit-groth-94kb`; no escaping symlinks or runtime imports. External repositories may be read or cloned only into `.private/`.
 - Runtime test state and caches use `.private/`; production defaults to `${XDG_DATA_HOME:-$HOME/.local/share}/shieldkit/fri-stark/v1-beta`.
 - Actions must each be exactly one standard BCH transaction, accepted and exactly read back at zero confirmation.
 - Every worst-case signed action must be `<=100,000` bytes; no engineering reserve. Every input unlock must remain within consensus/policy limits.

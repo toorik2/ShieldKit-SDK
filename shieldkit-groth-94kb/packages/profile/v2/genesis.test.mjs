@@ -332,7 +332,7 @@ before(async () => {
     artifactPaths.verificationKey,
     await readFile(path.join(
       repositoryRoot,
-      'shieldkit-groth/packages/prove/test-fixtures/two-public/verification_key.json',
+      'shieldkit-groth-94kb/packages/prove/test-fixtures/two-public/verification_key.json',
     )),
     { mode: 0o600 },
   );

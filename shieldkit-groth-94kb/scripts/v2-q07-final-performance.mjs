@@ -127,16 +127,16 @@ function historyCheckpointCounts(actionCount) {
   return Object.freeze([...counts].sort((left, right) => left - right));
 }
 const ALGORITHM_PATHS = Object.freeze([
-  'shieldkit-groth/packages/action/v2/context.mjs',
-  'shieldkit-groth/packages/action/v2/note-tree.mjs',
-  'shieldkit-groth/packages/action/v2/packet.mjs',
-  'shieldkit-groth/packages/action/v2/poseidon.mjs',
-  'shieldkit-groth/packages/action/v2/state.mjs',
-  'shieldkit-groth/packages/action/v2/tree-qualification-store.mjs',
-  'shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier-sqlite.mjs',
-  'shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs',
-  'shieldkit-groth/packages/pool/v2/qualification/q07-note-accumulator.mjs',
-  'shieldkit-groth/packages/pool/v2/store.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/context.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/note-tree.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/packet.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/poseidon.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/state.mjs',
+  'shieldkit-groth-94kb/packages/action/v2/tree-qualification-store.mjs',
+  'shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier-sqlite.mjs',
+  'shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs',
+  'shieldkit-groth-94kb/packages/pool/v2/qualification/q07-note-accumulator.mjs',
+  'shieldkit-groth-94kb/packages/pool/v2/store.mjs',
 ]);
 const INVENTORY_CLASSIFICATIONS = new Set([
   'authenticated-store', 'history-corpus', 'raw-command-output', 'raw-sample',

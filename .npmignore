@@ -38,5 +38,5 @@ wallets.json
 **/test-fixtures/
 **/*.test.mjs
 **/typescript/dist/
-shieldkit-groth/crates/**/target/
-shieldkit-groth/packages/unlock-builder/vendor/
+shieldkit-groth-94kb/crates/**/target/
+shieldkit-groth-94kb/packages/unlock-builder/vendor/

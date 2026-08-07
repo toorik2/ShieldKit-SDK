@@ -59,19 +59,19 @@ const MATERIAL_BYTES = Object.freeze([
   'verificationKeyBytes',
 ]);
 const SOURCE_SEEDS = Object.freeze([
-  'shieldkit-groth/packages/profile/v2/beta-chipnet-runtime-cache.mjs',
-  'shieldkit-groth/packages/profile/v2/beta-chipnet-runtime.mjs',
-  'shieldkit-groth/scripts/v2-pf10-beta-runtime.mjs',
-  'shieldkit-groth/packages/unlock-builder/v2/pf10-action-witness.mjs',
-  'shieldkit-groth/packages/unlock-builder/v2/pf10-development-runtime-builder.mjs',
-  'shieldkit-groth/packages/unlock-builder/v2/pf10-instance-specializer.mjs',
+  'shieldkit-groth-94kb/packages/profile/v2/beta-chipnet-runtime-cache.mjs',
+  'shieldkit-groth-94kb/packages/profile/v2/beta-chipnet-runtime.mjs',
+  'shieldkit-groth-94kb/scripts/v2-pf10-beta-runtime.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/v2/pf10-action-witness.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/v2/pf10-development-runtime-builder.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/v2/pf10-instance-specializer.mjs',
   // Audited literal/conditional dynamic dependencies in the verified build
   // closure. Keep these explicit: the scanner below intentionally accepts
   // only static ESM declarations so generated JavaScript held in strings can
   // never manufacture a source-fingerprint dependency.
-  'shieldkit-groth/packages/profile/setup/development.mjs',
-  'shieldkit-groth/packages/profile/v2/instance-descriptor.mjs',
-  'shieldkit-groth/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/v2-direct-groth16-adapter-input.mjs',
+  'shieldkit-groth-94kb/packages/profile/setup/development.mjs',
+  'shieldkit-groth-94kb/packages/profile/v2/instance-descriptor.mjs',
+  'shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/src/c7/v2-direct-groth16-adapter-input.mjs',
   'package-lock.json',
 ]);
 const LOADED_RUNTIME_CACHES = new WeakSet();

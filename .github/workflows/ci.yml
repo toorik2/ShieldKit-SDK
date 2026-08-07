@@ -225,7 +225,7 @@ jobs:
       - name: Install pinned Lean toolchain
         uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1
         with:
-          lake-package-directory: shieldkit-groth/packages/unlock-builder/vendor/lean
+          lake-package-directory: shieldkit-groth-94kb/packages/unlock-builder/vendor/lean
           auto-config: false
           build: false
           test: false
@@ -233,7 +233,7 @@ jobs:
           use-github-cache: false
           use-mathlib-cache: false
       - name: Install immutable LeanBCH optimizer dependencies
-        working-directory: shieldkit-groth/packages/unlock-builder/vendor/lean/optimizer
+        working-directory: shieldkit-groth-94kb/packages/unlock-builder/vendor/lean/optimizer
         run: npm ci --no-audit --no-fund
       - name: Run zero-sorry, axiom, reproducibility, and closure gates
         run: npm run test:formal

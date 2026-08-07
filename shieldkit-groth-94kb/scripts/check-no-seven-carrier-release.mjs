@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const productRoot = path.join(repositoryRoot, 'shieldkit-groth');
+const productRoot = path.join(repositoryRoot, 'shieldkit-groth-94kb');
 // Built as character classes to avoid self-matching this scanner source.
 const TOKEN_A = 'PF' + '7';
 const TOKEN_B = 'dens' + 'Fuel';
@@ -29,8 +29,8 @@ const FROZEN_SCHEMA_ALLOWLIST = new Set([
 ]);
 
 const SELF = new Set([
-  'shieldkit-groth/scripts/check-no-seven-carrier-release.mjs',
-  'shieldkit-groth/scripts/qualification-beta.mjs',
+  'shieldkit-groth-94kb/scripts/check-no-seven-carrier-release.mjs',
+  'shieldkit-groth-94kb/scripts/qualification-beta.mjs',
 ]);
 
 function fail(message) {
@@ -87,9 +87,9 @@ function scanFiles(files, label) {
   return files.length;
 }
 
-if (!existsSync(productRoot)) fail('shieldkit-groth/ missing');
+if (!existsSync(productRoot)) fail('shieldkit-groth-94kb/ missing');
 const productFiles = listFiles(productRoot);
-const scanned = scanFiles(productFiles, 'shieldkit-groth');
+const scanned = scanFiles(productFiles, 'shieldkit-groth-94kb');
 
 const packList = path.join(repositoryRoot, '.tmp/npm-pack-files.txt');
 if (existsSync(packList)) {
@@ -110,7 +110,7 @@ if (PATTERN.test(help)) {
 
 console.log(JSON.stringify({
   ok: true,
-  productRoot: 'shieldkit-groth',
+  productRoot: 'shieldkit-groth-94kb',
   filesScanned: scanned,
   frozenSchemaAllowlist: [...FROZEN_SCHEMA_ALLOWLIST],
   helpClean: true,

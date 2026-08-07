@@ -181,20 +181,20 @@ test("Q-04 Rust layout cannot select a checkout-stale binary", (t) => {
     join(bundle, "bin/shieldkit-v2-q04-certificate"),
   );
   assert.ok(!layout.builtBinary.includes("shieldkit-v2-recovery/target"));
-  const command = rustBuildCommand("/immutable/snapshot/shieldkit-groth/crates/shieldkit-v2-recovery", layout);
-  assert.equal(command.cwd, "/immutable/snapshot/shieldkit-groth/crates/shieldkit-v2-recovery");
+  const command = rustBuildCommand("/immutable/snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-recovery", layout);
+  assert.equal(command.cwd, "/immutable/snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-recovery");
   assert.equal(command.env.CARGO_TARGET_DIR, layout.cargoTarget);
   assert.equal(command.env.MISE_RUST_VERSION, "1.97.1");
   assert.equal(command.env.RUSTUP_TOOLCHAIN, "1.97.1");
   assert.equal(command.env.RUSTFLAGS, undefined);
   assert.deepEqual(command.arguments, ["+1.97.1", "build", "--locked", "--release", "--bin", "q04-poseidon-oracle"]);
   const checkerCommand = rustCheckerBuildCommand(
-    "/immutable/snapshot/shieldkit-groth/crates/shieldkit-v2-q04-certificate",
+    "/immutable/snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate",
     layout,
   );
   assert.equal(
     checkerCommand.cwd,
-    "/immutable/snapshot/shieldkit-groth/crates/shieldkit-v2-q04-certificate",
+    "/immutable/snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate",
   );
   assert.equal(checkerCommand.env.CARGO_TARGET_DIR, layout.cargoTarget);
   assert.equal(checkerCommand.env.MISE_RUST_VERSION, "1.97.1");

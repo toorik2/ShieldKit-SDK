@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = HERE;
-/** shieldkit-groth/ */
+/** shieldkit-groth-94kb/ */
 const CREATE_ROOT = path.resolve(HERE, '../..');
-/** ShieldKit-SDK repo root (parent of shieldkit-groth) */
+/** ShieldKit-SDK repo root (parent of shieldkit-groth-94kb) */
 const REPO_ROOT = path.resolve(CREATE_ROOT, '..');
 
 function hasBuildEntry(root) {

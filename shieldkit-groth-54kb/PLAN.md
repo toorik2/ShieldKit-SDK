@@ -92,7 +92,7 @@ with evidence under `evidence/`, each referencing its artifact path:
 Tasks:
 - Folder skeleton (done: README, design/, evidence/, vendor/, src/, docs/).
 - Copy + hash-pin pf6 lane material into `vendor/` from the vendored copy at
-  `../shieldkit-groth/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/`:
+  `../shieldkit-groth-94kb/packages/unlock-builder/vendor/verifier/lanes/bn254-onetx/`:
   `candidates/bn254-onetx-pf6-a3-r1.json`, `src/c7/build.ts`, `src/build-adapter.mjs`,
   `src/c7/*` adapters, test fixtures; plus Groth16-Formal pins
   (`vendor/verifier-pin/*`, SHA256SUMS).

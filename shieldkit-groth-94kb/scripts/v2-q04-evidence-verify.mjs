@@ -176,33 +176,33 @@ export const Q04_SOURCE_DEFINITIONS = Object.freeze({
   productionCore: Object.freeze([
     Object.freeze({
       role: 'qualification-store',
-      originPath: 'shieldkit-groth/packages/pool/v2/qualification/persistent-nullifier-store.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/qualification/persistent-nullifier-store.mjs',
     }),
     Object.freeze({
       role: 'shared-production-insertion-core',
-      originPath: 'shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs',
     }),
     Object.freeze({
       role: 'shared-production-sqlite-adapter',
-      originPath: 'shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier-sqlite.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier-sqlite.mjs',
     }),
     Object.freeze({
       role: 'production-poseidon',
-      originPath: 'shieldkit-groth/packages/action/v2/poseidon.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/action/v2/poseidon.mjs',
     }),
     Object.freeze({
       role: 'production-domains',
-      originPath: 'shieldkit-groth/packages/action/v2/domains.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/action/v2/domains.mjs',
     }),
   ]),
   primaryJsOracle: Object.freeze([
     Object.freeze({
       role: 'independent-bigint-poseidon',
-      originPath: 'shieldkit-groth/packages/pool/v2/qualification/independent-poseidon-oracle.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/qualification/independent-poseidon-oracle.mjs',
     }),
     Object.freeze({
       role: 'independent-treap-tree',
-      originPath: 'shieldkit-groth/packages/pool/v2/qualification/independent-indexed-nullifier-tree.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/qualification/independent-indexed-nullifier-tree.mjs',
     }),
     Object.freeze({
       role: 'circomlib-parameter-source',
@@ -212,92 +212,92 @@ export const Q04_SOURCE_DEFINITIONS = Object.freeze({
   rustKat: Object.freeze([
     Object.freeze({
       role: 'rust-kat-binary-source',
-      originPath: 'shieldkit-groth/crates/shieldkit-v2-recovery/src/bin/q04-poseidon-oracle.rs',
+      originPath: 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/src/bin/q04-poseidon-oracle.rs',
     }),
     Object.freeze({
       role: 'codec-modulus-source',
-      originPath: 'shieldkit-groth/crates/shieldkit-v2-codec/src/lib.rs',
+      originPath: 'shieldkit-groth-94kb/crates/shieldkit-v2-codec/src/lib.rs',
     }),
     Object.freeze({
       role: 'compiled-codec-module',
-      originPath: 'shieldkit-groth/crates/shieldkit-v2-codec/src/notes.rs',
+      originPath: 'shieldkit-groth-94kb/crates/shieldkit-v2-codec/src/notes.rs',
     }),
     Object.freeze({
       role: 'codec-manifest',
-      originPath: 'shieldkit-groth/crates/shieldkit-v2-codec/Cargo.toml',
+      originPath: 'shieldkit-groth-94kb/crates/shieldkit-v2-codec/Cargo.toml',
     }),
   ]),
   depth4Checker: Object.freeze([
     Object.freeze({
       role: 'rust-free-term-certificate-checker',
       originPath:
-        'shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs',
+        'shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs',
     }),
     Object.freeze({
       role: 'rust-certificate-checker-manifest',
       originPath:
-        'shieldkit-groth/crates/shieldkit-v2-q04-certificate/Cargo.toml',
+        'shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/Cargo.toml',
     }),
     Object.freeze({
       role: 'rust-certificate-checker-lockfile',
       originPath:
-        'shieldkit-groth/crates/shieldkit-v2-q04-certificate/Cargo.lock',
+        'shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/Cargo.lock',
     }),
     Object.freeze({
       role: 'rust-certificate-checker-toolchain',
-      originPath: 'shieldkit-groth/rust-toolchain.toml',
+      originPath: 'shieldkit-groth-94kb/rust-toolchain.toml',
     }),
   ]),
   campaign: Object.freeze([
     Object.freeze({
       role: 'history-schedule',
-      originPath: 'shieldkit-groth/packages/pool/v2/qualification/q04-schedule.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/pool/v2/qualification/q04-schedule.mjs',
     }),
     Object.freeze({
       role: 'history-runner',
-      originPath: 'shieldkit-groth/scripts/v2-q04-history-runner.mjs',
+      originPath: 'shieldkit-groth-94kb/scripts/v2-q04-history-runner.mjs',
     }),
     Object.freeze({
       role: 'campaign-driver',
-      originPath: 'shieldkit-groth/scripts/v2-q04-campaign.mjs',
+      originPath: 'shieldkit-groth-94kb/scripts/v2-q04-campaign.mjs',
     }),
     Object.freeze({
       role: 'segment-worker',
-      originPath: 'shieldkit-groth/scripts/v2-q04-segment-worker.mjs',
+      originPath: 'shieldkit-groth-94kb/scripts/v2-q04-segment-worker.mjs',
     }),
     Object.freeze({
       role: 'canonical-checkpoint-probes',
       originPath:
-        'shieldkit-groth/packages/pool/v2/qualification/q04-checkpoint-probes.mjs',
+        'shieldkit-groth-94kb/packages/pool/v2/qualification/q04-checkpoint-probes.mjs',
     }),
     Object.freeze({
       role: 'reopen-worker',
-      originPath: 'shieldkit-groth/scripts/v2-q04-reopen-worker.mjs',
+      originPath: 'shieldkit-groth-94kb/scripts/v2-q04-reopen-worker.mjs',
     }),
     Object.freeze({
       role: 'strict-json-parser',
-      originPath: 'shieldkit-groth/packages/profile/load.mjs',
+      originPath: 'shieldkit-groth-94kb/packages/profile/load.mjs',
     }),
     Object.freeze({
       role: 'evidence-verifier',
-      originPath: 'shieldkit-groth/scripts/v2-q04-evidence-verify.mjs',
+      originPath: 'shieldkit-groth-94kb/scripts/v2-q04-evidence-verify.mjs',
     }),
   ]),
   depth4: Object.freeze([
     Object.freeze({
       role: 'depth4-production-state-space-runner',
       originPath:
-        'shieldkit-groth/packages/pool/v2/qualification/depth4-production-state-space.mjs',
+        'shieldkit-groth-94kb/packages/pool/v2/qualification/depth4-production-state-space.mjs',
     }),
     Object.freeze({
       role: 'generic-action-indexed-nullifier-tree-model',
       originPath:
-        'shieldkit-groth/packages/action/v2/indexed-nullifier-tree.mjs',
+        'shieldkit-groth-94kb/packages/action/v2/indexed-nullifier-tree.mjs',
     }),
     Object.freeze({
       role: 'shared-kernel-symbolic-template-certificate',
       originPath:
-        'shieldkit-groth/packages/pool/v2/qualification/depth4-symbolic-certificate.mjs',
+        'shieldkit-groth-94kb/packages/pool/v2/qualification/depth4-symbolic-certificate.mjs',
     }),
   ]),
 });
@@ -305,15 +305,15 @@ export const Q04_SOURCE_DEFINITIONS = Object.freeze({
 const sourceDefinition = (role, originPath) => Object.freeze({ role, originPath });
 const RUST_MANIFEST_DEFINITION = sourceDefinition(
   'rust-kat-manifest',
-  'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.toml',
+  'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.toml',
 );
 const RUST_LOCK_DEFINITION = sourceDefinition(
   'rust-kat-lockfile',
-  'shieldkit-groth/crates/shieldkit-v2-recovery/Cargo.lock',
+  'shieldkit-groth-94kb/crates/shieldkit-v2-recovery/Cargo.lock',
 );
 const RUST_TOOLCHAIN_DEFINITION = sourceDefinition(
   'rust-toolchain',
-  'shieldkit-groth/rust-toolchain.toml',
+  'shieldkit-groth-94kb/rust-toolchain.toml',
 );
 const NODE_LOCK_DEFINITION = sourceDefinition('node-lockfile', 'package-lock.json');
 
@@ -1160,13 +1160,13 @@ function validateProvenance(provenance, references, sourceMaterials) {
   validateCommand(provenance.commands.rustKatBuild, 'provenance.commands.rustKatBuild', {
     executable: 'cargo',
     arguments: ['+1.97.1', 'build', '--locked', '--release', '--bin', 'q04-poseidon-oracle'],
-    workingDirectory: 'shieldkit-groth/crates/shieldkit-v2-recovery',
+    workingDirectory: 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery',
   });
   validateCommand(provenance.commands.rustKatRun, 'provenance.commands.rustKatRun', {
     executable: 'target/release/q04-poseidon-oracle',
     executableKind: 'relative',
     arguments: [],
-    workingDirectory: 'shieldkit-groth/crates/shieldkit-v2-recovery',
+    workingDirectory: 'shieldkit-groth-94kb/crates/shieldkit-v2-recovery',
   });
   validateCommand(
     provenance.commands.depth4CheckerBuild,
@@ -1182,7 +1182,7 @@ function validateProvenance(provenance, references, sourceMaterials) {
         'shieldkit-v2-q04-certificate',
       ],
       workingDirectory:
-        'shieldkit-groth/crates/shieldkit-v2-q04-certificate',
+        'shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate',
     },
   );
   validateCommand(
@@ -1193,8 +1193,8 @@ function validateProvenance(provenance, references, sourceMaterials) {
       executableKind: 'relative',
       arguments: [
         'raw/depth4-symbolic-certificate.json',
-        'snapshot/shieldkit-groth/packages/pool/v2/persistent-indexed-nullifier.mjs',
-        'snapshot/shieldkit-groth/crates/shieldkit-v2-q04-certificate/src/main.rs',
+        'snapshot/shieldkit-groth-94kb/packages/pool/v2/persistent-indexed-nullifier.mjs',
+        'snapshot/shieldkit-groth-94kb/crates/shieldkit-v2-q04-certificate/src/main.rs',
       ],
       workingDirectory: '.',
     },

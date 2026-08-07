@@ -131,7 +131,7 @@
   }
  },
  "provenance": {
-  "sourceCommit": "current-worktree (shieldkit-groth vendored lane + verifier-pf7-sub62 507d08f build.ts)",
+  "sourceCommit": "current-worktree (shieldkit-groth-94kb vendored lane + verifier-pf7-sub62 507d08f build.ts)",
   "scope": "[pf6-a3-shieldkit] 9-input product build: 6 pf6 verifier roles + packet/state/fee; SDA2 552B packet; VK d38f3cfc; stabilization ON; terminal wSelector OFF (packet-seam requirement)"
  }
 }
