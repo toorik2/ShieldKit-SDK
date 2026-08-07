@@ -1,0 +1,18 @@
+[package]
+name = "shieldkit-fri-prover"
+version = "0.1.0-beta.1"
+edition = "2021"
+description = "Native Goldilocks DEEP-ALI FRI-STARK prover (same AIR as vendor bch-fri-stark)"
+license = "UNLICENSED"
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1.10"
+rand = "0.8"
+thiserror = "1"
+
+[dev-dependencies]
+serde_json = "1"

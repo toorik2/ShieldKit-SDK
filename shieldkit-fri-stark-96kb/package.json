@@ -1,0 +1,39 @@
+{
+  "name": "shieldkit-fri-stark",
+  "version": "0.1.0-beta.1",
+  "private": true,
+  "description": "ShieldKit-FRI Beta — unaudited Chipnet-only FRI-STARK shielded pool (fresh genesis). Normative: FRI_STARK_REPLACEMENT_PLAN.md",
+  "type": "module",
+  "bin": {
+    "shieldkit-fri": "packages/cli/bin/shieldkit-fri.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "packageManager": "npm@10.9.8",
+  "scripts": {
+    "ci": "node scripts/ci.mjs",
+    "test": "node --test packages/**/*.test.mjs scripts/**/*.test.mjs",
+    "qualify:bootstrap": "node scripts/qualify-bootstrap.mjs",
+    "qualify:security": "node scripts/qualify-security.mjs",
+    "qualify:reality": "node scripts/qualify-reality.mjs",
+    "qualify:corpus": "node scripts/qualify-corpus.mjs",
+    "qualify:scale": "node scripts/qualify-scale.mjs",
+    "qualify:package": "node scripts/qualify-package.mjs",
+    "qualify:clean-host": "node scripts/qualify-clean-host.mjs",
+    "story:blank-machine": "node scripts/blank-machine-story.mjs",
+    "story:blank-machine-chipnet": "node scripts/blank-machine-chipnet-story.mjs",
+    "story:chipnet-deposit-withdraw": "node scripts/chipnet-deposit-withdraw-story.mjs",
+    "story:chipnet-create-pool": "node scripts/chipnet-create-pool-story.mjs",
+    "production:status": "node packages/cli/bin/shieldkit-fri.mjs production-status",
+    "production:locks-gate": "node --test packages/settlement/profile_locks.test.mjs",
+    "release:verify": "node scripts/release-verify.mjs",
+    "prove:selftest": "node scripts/prove-rust.mjs selftest",
+    "prove:params": "node scripts/prove-rust.mjs params",
+    "prove:oracle-selftest": "python3 packages/prove/python/pool_prove.py selftest",
+    "prove:oracle-params": "python3 packages/prove/python/pool_prove.py params"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8"
+  }
+}

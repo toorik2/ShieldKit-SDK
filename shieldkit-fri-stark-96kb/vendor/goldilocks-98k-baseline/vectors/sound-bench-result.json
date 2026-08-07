@@ -1,0 +1,144 @@
+{
+  "schema": "verifier.cash/goldilocks-98k/bench-result/v1",
+  "measuredAt": "2026-07-31T01:17:56.326Z",
+  "implId": "bch-fri-goldilocks-deepali-sound",
+  "profile": "sound",
+  "upstreamCommit": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "config": {
+    "nq": 1,
+    "blowup": 8,
+    "grind_b": 2,
+    "fold_step": 3,
+    "opener_depth": 8,
+    "seed": 62794,
+    "depth": 2
+  },
+  "packaging": {
+    "model": "P2SH32 scriptSig = witness || PUSH(redeem); locking = HASH256 <hash> EQUAL unless lockingHex",
+    "defaultOutputs": [
+      "OP_RETURN"
+    ],
+    "estimatedTxBytes": 28389,
+    "underStandardLimit": true,
+    "inputCount": 5
+  },
+  "invalidMeta": [
+    {
+      "id": "sound_omit_final",
+      "kind": "omit-terminal"
+    },
+    {
+      "id": "sound_omit_fri",
+      "kind": "omit-terminal"
+    },
+    {
+      "id": "sound_subst_final",
+      "kind": "covenant-subst"
+    },
+    {
+      "id": "sound_bare_filler_final",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_fri",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_deepquery",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_comp_trans",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_junk_query_unlock",
+      "kind": "witness-desync"
+    },
+    {
+      "id": "sound_swap_adjacent",
+      "kind": "covenant-subst"
+    },
+    {
+      "id": "sound_junk_unlock_2_9",
+      "kind": "witness-desync"
+    }
+  ],
+  "gates": {
+    "pass": true,
+    "validPassed": true,
+    "invalidRejected": 10,
+    "invalidTotal": 10,
+    "bchCompatible": true,
+    "bchIncompatibleReason": null,
+    "fitsStandardBudget": true,
+    "underStandardTxLimit": true,
+    "estimatedTxBytes": 28389,
+    "runtimeGeneral": false,
+    "proofsTested": 1,
+    "proofsPassed": 1
+  },
+  "metrics": {
+    "score": 28564,
+    "totalBytes": 28329,
+    "totalTxOverheadBytes": 235,
+    "totalPadBytes": 0,
+    "totalOperationCost": 19395920,
+    "maxStepOperationCost": 6043964,
+    "inputsForHeaviestStep": 1,
+    "stepCount": 5,
+    "txCount": 1
+  },
+  "steps": [
+    {
+      "label": "0:blob",
+      "lockingBytes": 35,
+      "unlockingBytes": 7045,
+      "padBytes": 0,
+      "txOverheadBytes": 63,
+      "operationCost": 3455887,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "1:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4416,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3541827,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "2:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 3769,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2227195,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "3:comp_trans",
+      "lockingBytes": 35,
+      "unlockingBytes": 7546,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 6043964,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "4:comp_final",
+      "lockingBytes": 35,
+      "unlockingBytes": 5378,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4127047,
+      "accepted": true,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "zkstark-cashvm-tests",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "cashscript": "0.13.0",
+    "cashc": "0.13.0",
+    "@bitauth/libauth": "next"
+  }
+}

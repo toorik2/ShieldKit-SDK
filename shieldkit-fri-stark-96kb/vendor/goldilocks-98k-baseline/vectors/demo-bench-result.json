@@ -1,0 +1,345 @@
+{
+  "schema": "verifier.cash/goldilocks-98k/bench-result/v1",
+  "measuredAt": "2026-07-29T18:39:04.254Z",
+  "implId": "bch-fri-goldilocks-deepali-demo",
+  "profile": "demo",
+  "upstreamCommit": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "config": {
+    "nq": 6,
+    "blowup": 8,
+    "grind_b": 2,
+    "fold_step": 3,
+    "opener_depth": 8,
+    "seed": 62794
+  },
+  "packaging": {
+    "model": "P2SH32 scriptSig = witness || PUSH(redeem); locking = HASH256 <hash> EQUAL unless lockingHex",
+    "defaultOutputs": [
+      "OP_RETURN"
+    ],
+    "estimatedTxBytes": 92167,
+    "underStandardLimit": true,
+    "inputCount": 28
+  },
+  "invalidMeta": [
+    {
+      "id": "demo_junk_push_input_1_shardA",
+      "kind": "witness-desync"
+    },
+    {
+      "id": "demo_zero_redeem_input_2_tail",
+      "kind": "redeem-tamper"
+    },
+    {
+      "id": "demo_swap_unlock_3_4_final_shardA",
+      "kind": "witness-swap"
+    }
+  ],
+  "gates": {
+    "pass": true,
+    "validPassed": true,
+    "invalidRejected": 3,
+    "invalidTotal": 3,
+    "bchCompatible": true,
+    "bchIncompatibleReason": null,
+    "fitsStandardBudget": true,
+    "underStandardTxLimit": true,
+    "estimatedTxBytes": 92167,
+    "runtimeGeneral": false,
+    "proofsTested": 1,
+    "proofsPassed": 1
+  },
+  "metrics": {
+    "score": 93147,
+    "totalBytes": 91923,
+    "totalTxOverheadBytes": 1224,
+    "totalPadBytes": 0,
+    "totalOperationCost": 42195440,
+    "maxStepOperationCost": 5877363,
+    "inputsForHeaviestStep": 1,
+    "stepCount": 28,
+    "txCount": 1
+  },
+  "steps": [
+    {
+      "label": "0:blob",
+      "lockingBytes": 35,
+      "unlockingBytes": 4454,
+      "padBytes": 0,
+      "txOverheadBytes": 63,
+      "operationCost": 5344,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "1:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3507,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683691,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "2:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1290,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 856059,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "3:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 330,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60620,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "4:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3509,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683703,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "5:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1291,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 856113,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "6:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 328,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60536,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "7:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3499,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683454,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "8:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1293,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 856036,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "9:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 328,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60520,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "10:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3501,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683618,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "11:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1292,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 856050,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "12:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 328,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60431,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "13:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3493,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683617,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "14:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1288,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 855998,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "15:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 329,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60514,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "16:shardA",
+      "lockingBytes": 35,
+      "unlockingBytes": 3499,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2683344,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "17:tail",
+      "lockingBytes": 35,
+      "unlockingBytes": 1284,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 855942,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "18:final",
+      "lockingBytes": 35,
+      "unlockingBytes": 330,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 60524,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "19:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 9471,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 5877363,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "20:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 9470,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 5866871,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "21:comp",
+      "lockingBytes": 35,
+      "unlockingBytes": 4206,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 2907632,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "22:comp",
+      "lockingBytes": 35,
+      "unlockingBytes": 8081,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3011997,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "23:comp",
+      "lockingBytes": 35,
+      "unlockingBytes": 7388,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 1534486,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "24:comp",
+      "lockingBytes": 35,
+      "unlockingBytes": 4406,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 1072388,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "25:opener",
+      "lockingBytes": 35,
+      "unlockingBytes": 5393,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 111931,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "26:opener",
+      "lockingBytes": 35,
+      "unlockingBytes": 4376,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 104239,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "27:opener",
+      "lockingBytes": 35,
+      "unlockingBytes": 2979,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 102419,
+      "accepted": true,
+      "error": null
+    }
+  ]
+}

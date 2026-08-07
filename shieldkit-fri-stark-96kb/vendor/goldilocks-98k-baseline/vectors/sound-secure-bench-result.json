@@ -1,0 +1,264 @@
+{
+  "schema": "verifier.cash/goldilocks-98k/bench-result/v1",
+  "measuredAt": "2026-07-31T01:09:58.991Z",
+  "implId": "bch-fri-goldilocks-deepali-sound",
+  "profile": "sound",
+  "upstreamCommit": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "config": {
+    "nq": 7,
+    "blowup": 2048,
+    "grind_b": 30,
+    "fold_step": 3,
+    "opener_depth": 8,
+    "seed": 62794,
+    "depth": 4
+  },
+  "packaging": {
+    "model": "P2SH32 scriptSig = witness || PUSH(redeem); locking = HASH256 <hash> EQUAL unless lockingHex",
+    "defaultOutputs": [
+      "OP_RETURN"
+    ],
+    "estimatedTxBytes": 98181,
+    "underStandardLimit": true,
+    "inputCount": 17
+  },
+  "invalidMeta": [
+    {
+      "id": "sound_omit_final",
+      "kind": "omit-terminal"
+    },
+    {
+      "id": "sound_omit_fri",
+      "kind": "omit-terminal"
+    },
+    {
+      "id": "sound_subst_final",
+      "kind": "covenant-subst"
+    },
+    {
+      "id": "sound_bare_filler_final",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_fri",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_deepquery",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_bare_filler_comp_trans",
+      "kind": "bare-filler"
+    },
+    {
+      "id": "sound_subst_fri",
+      "kind": "covenant-subst"
+    },
+    {
+      "id": "sound_junk_query_unlock",
+      "kind": "witness-desync"
+    },
+    {
+      "id": "sound_swap_adjacent",
+      "kind": "covenant-subst"
+    }
+  ],
+  "gates": {
+    "pass": true,
+    "validPassed": true,
+    "invalidRejected": 10,
+    "invalidTotal": 10,
+    "bchCompatible": true,
+    "bchIncompatibleReason": null,
+    "fitsStandardBudget": true,
+    "underStandardTxLimit": true,
+    "estimatedTxBytes": 98181,
+    "runtimeGeneral": false,
+    "proofsTested": 1,
+    "proofsPassed": 1
+  },
+  "metrics": {
+    "score": 98776,
+    "totalBytes": 98025,
+    "totalTxOverheadBytes": 751,
+    "totalPadBytes": 0,
+    "totalOperationCost": 73626943,
+    "maxStepOperationCost": 6048448,
+    "inputsForHeaviestStep": 1,
+    "stepCount": 17,
+    "txCount": 1
+  },
+  "steps": [
+    {
+      "label": "0:blob",
+      "lockingBytes": 35,
+      "unlockingBytes": 7897,
+      "padBytes": 0,
+      "txOverheadBytes": 63,
+      "operationCost": 3673267,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "1:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4725,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593228,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "2:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4731,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593482,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "3:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4729,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593265,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "4:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4728,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593364,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "5:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4725,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593492,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "6:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4727,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593323,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "7:deepquery",
+      "lockingBytes": 35,
+      "unlockingBytes": 4723,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 3593033,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "8:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6216,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4945377,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "9:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6219,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4954989,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "10:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6213,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4928665,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "11:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6215,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4941549,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "12:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6219,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4938825,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "13:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6219,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4954075,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "14:aggFRI",
+      "lockingBytes": 35,
+      "unlockingBytes": 6215,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4929621,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "15:comp_trans",
+      "lockingBytes": 35,
+      "unlockingBytes": 7546,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 6048448,
+      "accepted": true,
+      "error": null
+    },
+    {
+      "label": "16:comp_final",
+      "lockingBytes": 35,
+      "unlockingBytes": 5383,
+      "padBytes": 0,
+      "txOverheadBytes": 43,
+      "operationCost": 4158940,
+      "accepted": true,
+      "error": null
+    }
+  ]
+}

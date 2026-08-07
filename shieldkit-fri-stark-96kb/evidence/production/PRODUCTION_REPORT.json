@@ -1,0 +1,35 @@
+{
+  "schema": "shieldkit-fri-production-report-v1",
+  "ok": true,
+  "publicationReady": true,
+  "blockers": [],
+  "gates": {
+    "productFlags": true,
+    "profileFixedLocks": true,
+    "stateCovenantCantDoEvil": true,
+    "offlineDtWLibauth": true,
+    "productionFloorDomain": true,
+    "combinedTipState0Fri": true,
+    "chipnetLifecycle": true,
+    "releaseVerify": true
+  },
+  "sizes": {
+    "deposit": 96653,
+    "transfer": 96718,
+    "withdrawal": 96734
+  },
+  "locks": {
+    "ok": true,
+    "drifts": 0
+  },
+  "lifecycle": {
+    "ok": true,
+    "genesisTxid": "757457ab35e3b733b6f92d7468e5a8d8e5952f7b9b4777ad603a2b89af98b9f4",
+    "txs": [
+      "a28eb87e19d3249c2c932768e8e0d1ac937efdff4e96fa89886bb33ff84a28e4",
+      "c556db4e06067265840d10f8a5eb47c13735c21ac1418efbff12982e915362f7",
+      "99da5f8675ef68051ff636bb9ad8d378359b43a1e2438b75547c3531c96074e6"
+    ]
+  },
+  "timestamp": "2026-08-07T10:09:20.575Z"
+}

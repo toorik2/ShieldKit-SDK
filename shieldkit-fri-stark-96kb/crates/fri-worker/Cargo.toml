@@ -1,0 +1,16 @@
+[package]
+name = "shieldkit-fri-worker"
+version = "0.1.0-beta.1"
+edition = "2021"
+description = "ShieldKit FRI-STARK runtime worker (native Rust prove path)"
+license = "UNLICENSED"
+
+[[bin]]
+name = "shieldkit-fri-worker"
+path = "src/main.rs"
+
+[dependencies]
+shieldkit-fri-prover = { path = "../fri-prover" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"

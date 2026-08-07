@@ -1,0 +1,41 @@
+{
+  "schema": "verifier.cash/lane/v1",
+  "id": "goldilocks-98k",
+  "title": "Goldilocks DEEP-ALI FRI shippable tip ~98kB (score 98776, SECURITY_BITS=100)",
+  "frontierCandidate": "lanes/goldilocks-98k/candidates/goldilocks-98k-deepali-fri-ship-q7g30.json",
+  "writeScope": [
+    "lanes/goldilocks-98k/**",
+    ".vc/runs/<assigned-run-id>/**"
+  ],
+  "sharedReadOnly": [
+    "packages/**",
+    "harness/**",
+    "vendor/**",
+    "catalogue/**",
+    "fri_stark/**",
+    "fri_stark55/**",
+    "lanes/goldilocks-target-80k/**"
+  ],
+  "gates": {
+    "fast": [
+      "manifest",
+      "upstream-pin-identity",
+      "research-classification"
+    ],
+    "qualification": [
+      "fast",
+      "upstream-selftest",
+      "libauth-honest-accept",
+      "forge-reject-sample"
+    ],
+    "promotion": [
+      "qualification",
+      "standardness",
+      "full-score-bytes",
+      "public-bench",
+      "a1",
+      "provenance",
+      "leanbch"
+    ]
+  }
+}

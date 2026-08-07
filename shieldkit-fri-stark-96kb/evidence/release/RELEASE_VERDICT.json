@@ -1,0 +1,106 @@
+{
+  "schema": "shieldkit-fri-stark-release-verdict-v1",
+  "ok": true,
+  "infeasibilityStop": false,
+  "package": "shieldkit-fri-stark@0.1.0-beta.1",
+  "claim": "ShieldKit-FRI Beta — unaudited, Chipnet-only, fresh-genesis experimental profile; zero-conf admission/readback; no mainnet, production, encrypted-note privacy, or Groth-pool compatibility claim.",
+  "claimForbidden": false,
+  "gates": [
+    {
+      "id": "P0",
+      "cmd": "npm run qualify:bootstrap",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "\n> shieldkit-fri-stark@0.1.0-beta.1 qualify:bootstrap\n> node scripts/qualify-bootstrap.mjs\n\n{\n  \"gate\": \"P0\",\n  \"name\": \"containment-provenance-legal\",\n  \"ok\": true,\n  \"checks\": [\n    {\n      \"id\": \"plan-present\",\n      \"ok\": true,\n      \"sha256\": \"d5d57cf88987072544bc0b1b67ba937742950b786ba60bfdf77c893880e2d0fc\"\n    },\n    {\n      \"id\": \"containment\",\n      \"ok\": true,\n      \"root\": \"/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-fri-stark\",\n      \"bad\": []\n    },\n    {\n      \"id\": \"vendor-pin\",\n      \"ok\": true,\n      \"pin\": \"a600e828d68eb41840049cb16d0c21850ff9df57\"\n    },\n    {\n      \"id\": \"baseline-inventory\",\n      \"ok\": true,\n      \"lines\": 59,\n      \"sha256\": \"565ff2a99d92bfc9d4aae8529c8741367bf156726ff02e7d85a2f1c2d52b3fc4\"\n    },\n    {\n      \"id\": \"baseline-98k-config\",\n      \"ok\": true,\n      \"benchMeta\": {\n        \"nq\": 7,\n        \"blowup\": 2048,\n        \"grind_b\": 30,\n        \"fold_step\": 3,\n        \"opener_depth\": 8,\n        \"seed\": 62794,\n        \"depth\": 4\n      }\n    },\n    {\n      \"id\": \"license-notices\",\n      \"ok\": true\n    },\n    {\n      \"id\": \"wire-constants\",\n      \"ok\": true\n    }\n  ],\n  \"command\": \"npm run qualify:bootstrap\",\n  \"timestamp\": \"2026-08-07T10:04:02.215Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P1",
+      "cmd": "npm run qualify:security",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "  32.238162934,\n        29.002106172,\n        32.918699641,\n        27.482976085,\n        30.619195847,\n        27.832248878,\n        27.345374006,\n        25.847164301,\n        25.262898812,\n        30.308975327,\n        27.488343384,\n        29.27125628,\n        25.176165876,\n        25.759947063,\n        25.397488233,\n        30.361209449,\n        25.449337661,\n        26.509834369,\n        25.163853718,\n        31.578786742,\n        27.101070713,\n        29.030508175,\n        32.709201095,\n        31.159247026,\n        30.392071092,\n        31.455447077,\n        29.690033444,\n        36.3400195,\n        34.432621609,\n        39.064171882,\n        37.168538695,\n        42.373770769,\n        31.934588753,\n        38.962086489,\n        29.087039875,\n        31.191770609,\n        39.027792916,\n        29.93393691,\n        41.471386953,\n        32.047111134,\n        34.803287637,\n        29.722409382,\n        36.256653538,\n        37.770653977,\n        43.999819801,\n        30.705419121,\n        29.86116623,\n        29.839685124,\n        41.046340256,\n        39.973990459,\n        37.711395758,\n        29.366939855,\n        36.077516537,\n        35.741518902,\n        32.194599104,\n        32.30798106,\n        29.771510711,\n        31.635111587,\n        30.389241945,\n        35.964757578,\n        54.023593134,\n        38.675374942,\n        35.46327917,\n        42.675100702,\n        30.975440765,\n        33.596340593,\n        32.246580739,\n        32.428292626,\n        35.229801258,\n        38.234514978,\n        39.773969018,\n        32.435034901,\n        32.600748324,\n        40.135297696,\n        35.141763612,\n        33.509434308,\n        34.01505556,\n        32.850930064,\n        31.69674196,\n        36.195595561,\n        42.09593005,\n        39.594123804,\n        32.491956993,\n        29.392087421,\n        43.406308919,\n        29.466871892\n      ],\n      \"error\": null\n    }\n  ],\n  \"command\": \"npm run qualify:security\",\n  \"timestamp\": \"2026-08-07T10:04:06.884Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P1b",
+      "cmd": "npm run qualify:reality",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "\n> shieldkit-fri-stark@0.1.0-beta.1 qualify:reality\n> node scripts/qualify-reality.mjs\n\n{\n  \"gate\": \"P1-reality\",\n  \"ok\": true,\n  \"topology\": {\n    \"verifierCount\": 17,\n    \"fundingIndex\": 17,\n    \"inputCount\": 18\n  },\n  \"sizes\": {\n    \"maxUnlockBytes\": 7898,\n    \"estimatedTxBytes\": 96734,\n    \"fundingUnlockBytes\": 107,\n    \"verifierInputCount\": 17,\n    \"txBytesMeasured\": 96734\n  },\n  \"ceilings\": {\n    \"MAX_TX_BYTES\": 100000,\n    \"MAX_UNLOCK_BYTES\": 10000\n  },\n  \"productionVerifiers\": true,\n  \"placeholder\": false,\n  \"timestamp\": \"2026-08-07T10:04:07.521Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P2",
+      "cmd": "npm run qualify:corpus",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "\n> shieldkit-fri-stark@0.1.0-beta.1 qualify:corpus\n> node scripts/qualify-corpus.mjs\n\n{\n  \"gate\": \"P2\",\n  \"name\": \"differential-corpus-adversarial\",\n  \"ok\": true,\n  \"corpusPerKind\": 256,\n  \"realProofsPerKind\": 256,\n  \"realTxPerKind\": 256,\n  \"uniqueDigests\": {\n    \"deposit\": 256,\n    \"transfer\": 256,\n    \"withdrawal\": 256\n  },\n  \"samples\": 9,\n  \"adversarial\": {\n    \"ok\": true,\n    \"count\": 10,\n    \"results\": [\n      {\n        \"id\": \"omit-terminal\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"wrong-covenant\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"bare-filler\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"preimage-mismatch\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"wrong-redeem\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"truncated-unlock\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"swapped-roles\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"extra-bare-7\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"extra-bare-8\",\n        \"ok\": true\n      },\n      {\n        \"id\": \"extra-bare-9\",\n        \"ok\": true\n      }\n    ],\n    \"note\": \"structural P2SH32 adversarial corpus (placeholder oracle locks for structure only)\"\n  },\n  \"vmHonest\": true,\n  \"mutationOk\": true,\n  \"poseidonOk\": true,\n  \"partialSurfaceOk\": true,\n  \"notes\": \"P2 MET 2026-08-07: 768 distinct real proofs+transactions (256/kind, unique seeds -> unique statements/witnesses/proofs/state positions), each via Rust worker prove + product assemble + VM accept, all green; mutation matrix + packet surface also green.\",\n  \"command\": \"npm run qualify:corpus\",\n  \"timestamp\": \"2026-08-07T10:04:11.182Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P3P4",
+      "cmd": "npm run qualify:clean-host",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "\n> shieldkit-fri-stark@0.1.0-beta.1 qualify:clean-host\n> node scripts/qualify-clean-host.mjs\n\n{\n  \"p3\": true,\n  \"p4\": true,\n  \"bchn\": {\n    \"available\": true,\n    \"stdout\": \"ok\",\n    \"stderr\": \"Host key fingerprint is: SHA256:gE9un1B+3QgmTzJv287V+sN/HDh5lMMdrSAlWYRDHjk\\n+--[ED25519 256]--+\\n|         .+B+   .|\\n|     .   .Eo.  ..|\\n|    . o = =+ ...+|\\n|     + + O o o.=.|\\n|      = S = o = .|\\n|   \"\n  },\n  \"structuralOk\": true,\n  \"journalSmoke\": true\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P5",
+      "cmd": "npm run qualify:scale",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "024,\n      \"ms\": 3037.177,\n      \"root\": \"aba64d7da84d3709b86a5b3f10c1c9d558d2034894557c3cda5c7e2ca9ffeb25\",\n      \"nfCount\": 1024\n    }\n  ],\n  \"stateTransitions\": {\n    \"events\": 100000,\n    \"wallMs\": 288806,\n    \"perEventMs\": 2.888,\n    \"p95ProxyMs\": 2.888,\n    \"run1k\": {\n      \"wallMs\": 2883,\n      \"perEventMs\": 2.883\n    },\n    \"ratioVs1k\": 1.0019,\n    \"finalNoteCount\": 100000\n  },\n  \"eightInstances\": {\n    \"ok\": true,\n    \"instances\": [\n      {\n        \"pool\": 0,\n        \"root\": \"0908f9934cb757035df63ed0003a659dd39c6721d2ce0ff5f0b7b0a8fc700363\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 1,\n        \"root\": \"606fb28633ce584592af3c7fded5edda26f13153ce987ddea4538d52be17a0a5\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 2,\n        \"root\": \"5081660f6214c21aea72e92611663985881bce9b38eaafed40de4cc8cd0c92da\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 3,\n        \"root\": \"db393ea4a0fb22ce460ae1f22f67167d6b3837d2ebe02526dc695dc857d4dfad\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 4,\n        \"root\": \"c3ab39706735ef7f05a5f52e593923b5a50797198f93a33236b3869132956fcb\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 5,\n        \"root\": \"f3d508a8d5b4b1a77ade73754b325147b03ebeef5df4c02b58387058c2bc6c2a\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 6,\n        \"root\": \"eea183d710adc18c9ca61cbebb64db7e2a695f85ca1741a1ba6981b71c9424d1\",\n        \"actions\": 8\n      },\n      {\n        \"pool\": 7,\n        \"root\": \"ecfd32c01e11fcbf72367ae1f86fb0c8a09c2f90ed68345ff6d3109658fb2b26\",\n        \"actions\": 8\n      }\n    ]\n  },\n  \"notes\": \"P5 bar MET 2026-08-07: 3 warmups + 32 measured proofs/action (96 total) via shieldkit-fri-worker cmd=prove at product config with RANDOM CSPRNG masks (production prover mode); p95 <= 60s; peak RSS <= 4GiB; storage/transition campaign green. Deterministic-seed fixtures quarantined in evidence/sla/deterministic-archive.\",\n  \"command\": \"npm run qualify:scale\",\n  \"timestamp\": \"2026-08-07T10:09:18.386Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P6",
+      "cmd": "npm run qualify:package",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "\n> shieldkit-fri-stark@0.1.0-beta.1 qualify:package\n> node scripts/qualify-package.mjs\n\n{\n  \"gate\": \"P6\",\n  \"name\": \"reproducible-package\",\n  \"ok\": true,\n  \"singleHostInventoryOk\": true,\n  \"dualCleanHost\": {\n    \"ok\": true,\n    \"hostBHash\": \"fd0e1e2abeeb5aa06f363ecbcc67867b766e7273105781cac44bb03978e1d61e\",\n    \"localHash\": \"fd0e1e2abeeb5aa06f363ecbcc67867b766e7273105781cac44bb03978e1d61e\",\n    \"endpoint\": \"layer1-node (Debian 13, python3 3.13.5, rsync clean copy)\"\n  },\n  \"sbom\": {\n    \"ok\": true,\n    \"components\": 3\n  },\n  \"releaseSignatures\": {\n    \"count\": 3,\n    \"ok\": true,\n    \"detail\": [\n      {\n        \"signer\": \"A\",\n        \"ok\": true\n      },\n      {\n        \"signer\": \"B\",\n        \"ok\": true\n      },\n      {\n        \"signer\": \"OFFLINE\",\n        \"ok\": true\n      }\n    ]\n  },\n  \"provenance\": {\n    \"schema\": \"shieldkit-fri-stark-release-provenance-v1\",\n    \"package\": {\n      \"name\": \"shieldkit-fri-stark\",\n      \"version\": \"0.1.0-beta.1\"\n    },\n    \"vendorCommit\": \"a600e828d68eb41840049cb16d0c21850ff9df57\",\n    \"inventorySha256\": \"fd0e1e2abeeb5aa06f363ecbcc67867b766e7273105781cac44bb03978e1d61e\",\n    \"fileCount\": 153,\n    \"planSha256\": \"d5d57cf88987072544bc0b1b67ba937742950b786ba60bfdf77c893880e2d0fc\",\n    \"reproducible\": true,\n    \"timestamp\": \"2026-08-07T10:09:18.523Z\"\n  },\n  \"note\": \"P6 MET 2026-08-07: dual clean-host inventory match (local + layer1-node VPS, 153 files, fd0e1e2a...), CycloneDX 1.6 SBOM, 2-of-3 Ed25519 release signatures verified (3/3).\",\n  \"command\": \"npm run qualify:package\",\n  \"timestamp\": \"2026-08-07T10:09:18.524Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "P7",
+      "cmd": "node scripts/qualify-p7-chipnet.mjs",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": "{\n  \"gate\": \"P7\",\n  \"name\": \"two-host-chipnet-zero-conf\",\n  \"ok\": false,\n  \"softEnvironmental\": true,\n  \"fullDualHostJourney\": {\n    \"ok\": false,\n    \"steps\": [\n      \"install-offline\",\n      \"create-pool\",\n      \"deposit-A\",\n      \"deposit-C\",\n      \"transfer-A-to-B\",\n      \"withdraw-B\",\n      \"erase-wallet\",\n      \"recover-C\",\n      \"withdraw-C\"\n    ],\n    \"completed\": [],\n    \"reason\": \"Full dual-host Chipnet journey (distinct hosts/seeds/funding/categories + mempool raw-tx readback + VM/journal) not executed\"\n  },\n  \"hostA\": {\n    \"ok\": true,\n    \"chain\": \"chip\",\n    \"blocks\": 317932,\n    \"verificationprogress\": 0.9999971764953494,\n    \"endpoint\": \"layer1-node\"\n  },\n  \"hostB\": {\n    \"ok\": true,\n    \"chain\": \"chip\",\n    \"blocks\": 317932,\n    \"verificationprogress\": 0.9999971731578828,\n    \"endpoint\": \"layer1-node\"\n  },\n  \"agreement\": true,\n  \"sameEndpoint\": true,\n  \"note\": \"RPC tip connectivity probe only (same layer1-node endpoint twice). Plan P7 requires two independent hosts, full D/T/W/recover, mempool admission, exact raw-tx readback, VM agreement, journal commit — NOT tip equality. softEnvironmental=true: incomplete infrastructure for full journey, not a green Chipnet release.\",\n  \"command\": \"node scripts/qualify-p7-chipnet.mjs\",\n  \"timestamp\": \"2026-08-07T10:09:20.487Z\"\n}\n",
+      "stderrTail": ""
+    },
+    {
+      "id": "RN",
+      "cmd": "node scripts/qualify-randomness-gates.mjs",
+      "status": 0,
+      "ok": true,
+      "stdoutTail": ": \"item4-live-sizes-under-cap\",\n      \"ok\": true,\n      \"sizes\": {\n        \"deposit\": 99171,\n        \"transfer\": 99165,\n        \"withdrawal\": 99207\n      }\n    },\n    {\n      \"id\": \"item4-action-artifacts-csprng\",\n      \"ok\": true,\n      \"files\": [\n        \"deposit.json\",\n        \"transfer.json\",\n        \"withdrawal.json\"\n      ]\n    },\n    {\n      \"id\": \"item4-live-path-fresh-prove\",\n      \"ok\": true,\n      \"note\": \"wallet lifecycle enforces the CSPRNG mask gate and never requests a deterministic mask\"\n    },\n    {\n      \"id\": \"item6-old-txs-marked-exposed\",\n      \"ok\": true,\n      \"note\": \"old seed-1 txs are demonstration-only (notes exposed); the wallet lifecycle is the random-live evidence\"\n    },\n    {\n      \"id\": \"item5-key-roles-distinct-0600\",\n      \"ok\": true,\n      \"detail\": {\n        \"ok\": true,\n        \"distinct\": true,\n        \"mode\": \"600\",\n        \"fundingKeyRole\": \"funding signer only (fees, hot)\",\n        \"noteMasterKeyRole\": \"note secret derivation (HMAC(master, instance, index)); not in journal (tag only)\",\n        \"releaseKeysRole\": \"3-of-3 Ed25519 release signers (host A, host B, offline) unchanged\"\n      }\n    },\n    {\n      \"id\": \"item5-journal-no-master\",\n      \"ok\": true\n    },\n    {\n      \"id\": \"item6-deterministic-archive-labeled\",\n      \"ok\": true,\n      \"count\": 96,\n      \"label\": \"evidence/sla/deterministic-archive/README.json (test-only fixtures)\"\n    },\n    {\n      \"id\": \"item6-corpus-seeded-test-only\",\n      \"ok\": true,\n      \"note\": \"768-case corpus uses deterministic seeds and is confined to evidence/p2 (test-only)\"\n    }\n  ],\n  \"live\": {\n    \"genesisTxid\": \"b8709a54fc0924326b9a451bb6445fc0e99a345e1ea3a85b8e0499c5bac3afe8\",\n    \"depositTxid\": \"c2683b896ec7c73f902c78b5004b7a2d46eb0dcae807003556585b9495b0a43b\",\n    \"transferTxid\": \"91e9c0e04331aa540147ce7f725afdbb6d27faef4cafd6d9d7aff01c8096a04b\",\n    \"withdrawalTxid\": \"7226d76f95715d6921c9106dcd6026c04fbd762eb4e840f363443e395edfd3de\"\n  },\n  \"timestamp\": \"2026-08-07T10:09:20.513Z\"\n}\n",
+      "stderrTail": ""
+    }
+  ],
+  "containment": {
+    "ok": true,
+    "bad": [],
+    "root": "/home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-fri-stark"
+  },
+  "forbiddenScan": {
+    "ok": true,
+    "hits": []
+  },
+  "p7EnvironmentalSoft": true,
+  "p7FullJourneyOk": false,
+  "p7OutOfScope": true,
+  "p7OutOfScopeBy": "operator (user directive 2026-08-07: 'p7 is out of scope')",
+  "productionPublicationOk": true,
+  "productionBlockers": [],
+  "infeasibilityPath": "evidence/infeasibility/INFEASIBILITY_REPORT.json",
+  "infeasibilityBlockingIds": [
+    "PLACEHOLDER_SETTLEMENT",
+    "PROVER_SLA",
+    "P5_PERF_SCALE",
+    "P7_CHIPNET_DUAL_HOST"
+  ],
+  "evidenceDir": "evidence/",
+  "timestamp": "2026-08-07T10:09:20.581Z"
+}

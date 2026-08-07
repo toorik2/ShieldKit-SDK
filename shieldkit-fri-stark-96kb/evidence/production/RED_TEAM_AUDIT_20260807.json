@@ -1,0 +1,87 @@
+{
+  "schema": "shieldkit-fri-red-team-audit-v1",
+  "date": "2026-08-07",
+  "scope": "adversarial review of shieldkit-fri-stark product gates and pool invariants (Chipnet-only beta, fresh-genesis experimental profile)",
+  "commit": "ce8dae0367282d8f4fc0bda4d8208aeef31ad720",
+  "vendorPin": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "adversaryModel": "attacker with full chain visibility, arbitrary tx construction, up to 100-bit computational advantage, no pool secrets; target = steal notes / break nullifier binding / forge state transitions / exceed standardness or consensus limits",
+  "findings": [
+    {
+      "id": "RT-1",
+      "severity": "info",
+      "title": "Vendor lineage is research-grade (unaudited upstream)",
+      "detail": "bch-fri-stark @ a600e828 is a research verifier lineage; product patches are recorded (evidence/production/*.diff) but the combined FRI-STARK verifier has no independent audit.",
+      "mitigation": "release claim is explicitly 'unaudited, Chipnet-only, experimental'; P2 corpus + mutation matrix + multi-oracle (libauth/cashvm/BCHN) exercised; no mainnet path."
+    },
+    {
+      "id": "RT-2",
+      "severity": "info",
+      "title": "cashvm fold-body divergence",
+      "detail": "the cashvm simulator diverges from libauth on the FRI fold body; the product referee is the real assemble + libauth p2sh_multi (allAccept), not the simulator.",
+      "mitigation": "every gate that matters (P1/P1b/P2/P3/P5/WS4) evaluates the REAL assembly via libauth + BCHN testmempoolaccept; the simulator is used only for cheap structural screening."
+    },
+    {
+      "id": "RT-3",
+      "severity": "low",
+      "title": "Kind-independent locks rely on k-from-blob and final-from-unlock encodings",
+      "detail": "the kind-independent encoding (k read from the blob input, final read from the unlock with constant-depth PICK tails) was verified by lock-identity checks (LOCK-IDENTITY TRUE, 0 drifts) across the corpus; a crafted non-kind action must still satisfy the full FRI statement.",
+      "mitigation": "all 768 corpus cases + forge rejects green; the statement digest binds kind; a mismatched kind fails the AIR/fold checks."
+    },
+    {
+      "id": "RT-4",
+      "severity": "low",
+      "title": "Zero-conf is inherently reorg-sensitive (product requirement)",
+      "detail": "the pool deliberately operates zero-conf; a chain reorg could orphan an action tx. The journal + recover-from-seed path rebuilds state from the chain, and actions are first-try only with fee=size+1 (no RBF).",
+      "mitigation": "documented product behavior; recover-from-seed exercised in the live lifecycle; no mainnet."
+    },
+    {
+      "id": "RT-5",
+      "severity": "info",
+      "title": "Deterministic seeds only in test/corpus",
+      "detail": "the corpus and SLA campaign use fixed seeds for reproducible vectors; production witness masks must draw from os.urandom (STK.prove seed=None path) \u2014 the pool client never fixes the mask seed.",
+      "mitigation": "the live chipnet lifecycle uses the client's random path; the deterministic seeds are confined to evidence generation."
+    },
+    {
+      "id": "RT-6",
+      "severity": "low",
+      "title": "Density pads are empirical",
+      "detail": "aggFRI/tailfinal/comp_trans pads sized by measurement (corpus worst-case op 4,755,209 -> pad 96); a future param change or new op sequence could shift density needs.",
+      "mitigation": "the 768-case corpus is the density regression net; any param change re-runs the corpus (P2 gate)."
+    },
+    {
+      "id": "RT-7",
+      "severity": "info",
+      "title": "Secrets handling",
+      "detail": "wallet keys + offline release key live in .codex-artifacts (0600) only; the release inventory excludes them; the VPS clean copy contains no secrets.",
+      "mitigation": "verified by the P6 dual-host inventory diff (only .codex-artifacts absent, as required)."
+    },
+    {
+      "id": "RT-8",
+      "severity": "info",
+      "title": "P7 dual-host journey out of scope (operator decision)",
+      "detail": "the two-independent-host journey is documented out of scope; a second host exists (layer1-node VPS) with a clean copy + node + worker verified, and the dual-host inventory matched.",
+      "mitigation": "documented in evidence/p7/P7_REPORT.json; the goal contract's documented-infeasible/out-of-scope path applies."
+    },
+    {
+      "id": "RT-9",
+      "severity": "resolved",
+      "title": "Deterministic-seed ZK gap CLOSED (2026-08-07)",
+      "detail": "The Rust prover had zero randomness (SplitMix64(seed) masks; seed default 1). Now: RngSource with 128-bit CSPRNG seeding (rand::thread_rng) for ZK masks + Merkle salts; production default is random; explicit seed remains test-only; the worker accepts caller-supplied wallet witnesses (note secrets = HMAC(master, instance, index), never a seed); the live wallet lifecycle broadcasts random-mask proofs (maskSource=csprng in every artifact); the enforcement gate (RN) fails the release on any seeded broadcast path; deterministic fixtures quarantined (evidence/sla/deterministic-archive + evidence/p2, labeled test-only).",
+      "residual": "The 4 ORIGINAL chipnet txs (757457ab..., a28eb87e..., c556db4e..., 99da5f86...) were built from seed-1 proof caches \u2014 their notes are EXPOSED/demonstration-only. The NEW wallet lifecycle (b8709a54..., c2683b89..., 91e9c0e0..., 7226d76f...) is the random-live evidence."
+    }
+  ],
+  "verdict": {
+    "releaseBlocking": false,
+    "summary": "All adversarial probes green; the deterministic-seed ZK gap is CLOSED (random-mask prover + wallet-derived witnesses + enforcement gates). Residual risks are documented product limitations (unaudited upstream, zero-conf, experimental). The original seed-1 chipnet txs are marked exposed/demonstration-only.",
+    "claim": "ShieldKit-FRI Beta \u2014 unaudited, Chipnet-only, fresh-genesis experimental profile; zero-conf admission/readback; no mainnet, production, encrypted-note privacy, or Groth-pool compatibility claim."
+  },
+  "evidenceRefs": [
+    "evidence/p2/CORPUS_SUMMARY.json (768 cases)",
+    "evidence/p1/P1_REPORT.json + P1_REALITY.json",
+    "evidence/p5/P5_REPORT.json (SLA campaign)",
+    "evidence/p6/P6_REPORT.json (dual-host inventory + signatures)",
+    "evidence/production/WS4_LIVE_E2E_20260806.json + one-tip-lifecycle/",
+    "evidence/production/PRODUCTION_REPORT.json"
+  ],
+  "timestamp": "2026-08-07T05:41:17+00:00"
+}

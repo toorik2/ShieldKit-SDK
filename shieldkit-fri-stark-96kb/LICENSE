@@ -1,0 +1,5 @@
+UNLICENSED — ShieldKit-FRI internal/Chipnet beta materials.
+
+Upstream BCH-FRI-STARK-Verifier lineage is research software retained under vendor/
+with commit pin; see THIRD_PARTY_NOTICES.md. Public redistribution of this package
+requires an explicit source grant materialised under P0 (FRI_STARK_REPLACEMENT_PLAN.md).

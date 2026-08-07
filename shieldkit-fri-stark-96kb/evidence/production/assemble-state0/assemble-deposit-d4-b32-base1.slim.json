@@ -1,0 +1,269 @@
+{
+  "schema": "shieldkit-fri-stark-sound-settlement-v1",
+  "productionVerifiers": true,
+  "placeholder": false,
+  "placeholderKind": null,
+  "topologyId": "fri-sound-lean-fused-state0-v1",
+  "kind": "deposit",
+  "depth": 4,
+  "friParams": {
+    "blowup": 32,
+    "queries": 8,
+    "grindBits": 8,
+    "fold_step": 3,
+    "deep": true
+  },
+  "domainPreflight": {
+    "ok": true,
+    "depth": 4,
+    "blowup": 32,
+    "fold_step": 3,
+    "T": 1024,
+    "N": 32768,
+    "N_is_8m": true,
+    "pad": null,
+    "reason": null
+  },
+  "domainPad": null,
+  "securityBits": 40.0,
+  "statement": {
+    "root": "881379245664449661",
+    "nf": "11154009705651292287",
+    "cm_out": [
+      "11477707993666098620",
+      "7265027288646044627"
+    ],
+    "depth": 4,
+    "kind": "deposit"
+  },
+  "roles": [
+    "blob",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "deepquery",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "aggFRI",
+    "comp_trans",
+    "comp_final"
+  ],
+  "nInputs": 19,
+  "inputBase": 1,
+  "roleIndexBase": 1,
+  "tipInputCount": 20,
+  "meta": {
+    "nq": 8,
+    "fri0": 10,
+    "comp0": 18,
+    "n_inputs": 19,
+    "input_base": 1,
+    "blob_idx": 1,
+    "role_index_base": 1,
+    "terminals": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19
+    ],
+    "bound": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "n_comp_trans": 1,
+    "fuse_sbox_state": true,
+    "inline_openers": true,
+    "inline_trace_opener": true,
+    "fuse_shard_tail": true
+  },
+  "vendorPin": "a600e828d68eb41840049cb16d0c21850ff9df57",
+  "engine": "vendor-native_ct_verifier_tx.build_sound_verifier_inputs",
+  "vm": {
+    "nInputs": 20,
+    "nFriRoles": 19,
+    "inputBase": 1,
+    "nOk": 19,
+    "allAccept": true,
+    "txBytes": 97605,
+    "underStandardLimit": true,
+    "maxUnlockBytes": 7780,
+    "maxRedeemBytes": 6053,
+    "unlockBarOk": true,
+    "txBarOk": true,
+    "fails": [],
+    "perInput": [
+      {
+        "idx": 1,
+        "role": "blob",
+        "ok": true,
+        "scriptSigBytes": 7780,
+        "redeemBytes": 1670
+      },
+      {
+        "idx": 2,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4796,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 3,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4800,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 4,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4803,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 5,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4801,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 6,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4796,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 7,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4799,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 8,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4797,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 9,
+        "role": "deepquery",
+        "ok": true,
+        "scriptSigBytes": 4800,
+        "redeemBytes": 2486
+      },
+      {
+        "idx": 10,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4685,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 11,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4684,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 12,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4681,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 13,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4681,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 14,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4683,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 15,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4674,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 16,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4681,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 17,
+        "role": "aggFRI",
+        "ok": true,
+        "scriptSigBytes": 4677,
+        "redeemBytes": 2247
+      },
+      {
+        "idx": 18,
+        "role": "comp_trans",
+        "ok": true,
+        "scriptSigBytes": 7546,
+        "redeemBytes": 6053
+      },
+      {
+        "idx": 19,
+        "role": "comp_final",
+        "ok": true,
+        "scriptSigBytes": 5561,
+        "redeemBytes": 5293
+      }
+    ]
+  },
+  "forge": {
+    "omit_final": {
+      "blobAccepts": false,
+      "rejectOk": true
+    }
+  },
+  "assembleSeconds": 86.393,
+  "proofCache": "/tmp/grok-goal-a75a99dfd55d/implementer/pf-cache/pf-deposit-d4-b32.pkl",
+  "roleInputCount": 19
+}
