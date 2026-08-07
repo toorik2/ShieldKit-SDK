@@ -28,6 +28,37 @@ Adding a future pool design (e.g. a FRI-STARK pool):
 | pf6-a3-direct-v1 | shieldkit-groth-54kb | bn254-onetx-pf6-a3-r1, 6 roles, 9-input | LIVE on chipnet (create/deposit/transfer/recover) |
 | fri-stark-96kb | shieldkit-fri-stark-96kb | FRI-STARK DEEP-ALI d20/b2048/n7/g30, 17 roles, 18-input, 100-bit, random-mask | LIVE on chipnet (create/deposit/transfer/withdraw/recover, wallet-driven notes) |
 
+## Using the FRI-STARK 96KB profile (fri-stark-96kb)
+
+The design root ships in the repo: `shieldkit-sdk/shieldkit-fri-stark-96kb/`
+(source only — builds, evidence dumps, and secrets stay local).
+
+1. **Build the prover worker** (one time):
+   ```
+   cd shieldkit-sdk/shieldkit-fri-stark-96kb
+   cargo build --release -p shieldkit-fri-worker
+   npm install
+   ```
+2. **Chipnet node access**: the profile talks to a BCHN chipnet node over SSH.
+   Default host `layer1-node` (with `sudo -n -u bchn bitcoin-cli`); override with
+   `CHIPNET_SSH=<user@host>` and adjust `BITCOIN_CLI` in
+   `shieldkit-fri-stark-96kb/scripts/lib/chipnet-fund-spend.mjs` for your node.
+3. **Wallet**: any chipnet wallet JSON with `privateKeyHex` (funding) +
+   `lockingBytecodeHex`; a `noteMasterKeyHex` is auto-derived and stored
+   alongside the wallet (0600). The wallet file must stay out of git
+   (`.codex-artifacts/` is ignored).
+4. **Run** (fresh pool → full lifecycle):
+   ```
+   node cli/scripts/shieldkit.mjs --profile fri-stark-96kb pool create  --funding-wallet <w> --data-home <dir>
+   node cli/scripts/shieldkit.mjs --profile fri-stark-96kb deposit      --funding-wallet <w> --data-home <dir>
+   node cli/scripts/shieldkit.mjs --profile fri-stark-96kb transfer     --funding-wallet <w> --data-home <dir>
+   node cli/scripts/shieldkit.mjs --profile fri-stark-96kb withdraw     --funding-wallet <w> --data-home <dir>
+   node cli/scripts/shieldkit.mjs --profile fri-stark-96kb recover      --funding-wallet <w> --data-home <dir>
+   ```
+   Each action = one zero-conf chipnet tx (≤ 100,000 B, fee = size+1) with a
+   FRESH random-mask FRI proof; note secrets derive from the wallet note-master
+   key (HMAC(master, instance, index)) — never a proof seed.
+
 ## Usage
 
 ```
