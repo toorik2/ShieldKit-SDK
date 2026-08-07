@@ -19,6 +19,13 @@ export const BENCH_SCHEMA = 'shieldkit-bench-scorecard-v1';
 export const BENCH_OVERLAP_SCHEMA = 'shieldkit-bench-overlap-v1';
 
 const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
+const { execSync: _execSync } = await import('node:child_process');
+const globTpl = (sdkRoot) => {
+  try {
+    const out = _execSync(`find ${sdkRoot}/.codex-build/test-tmp -maxdepth 3 -type d -name 'canonical-runtime-template' | head -1`, { encoding: 'utf8' }).trim();
+    return out || null;
+  } catch { return null; }
+};
 const median = (xs) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -119,12 +126,37 @@ export async function runBench(profileId, { coldStart = false, jsonOut = false }
     } catch (e) { b.freshError = String(e?.message ?? e).slice(0, 200); }
   }
   if (design.id === 'pf10' || design.id === undefined || design.id === null) {
-    // the fresh pf10 deposit prove: the witness generation is attempted with the pinned material;
-    // blocked on this host by the circom 2.2.0 wasm interface (getInputSignalSize=0 / setInputSignal not found)
-    // vs the available snarkjs 0.7.6 runtime — the exact blocker is reported, never a recorded pull.
-    b.freshRuns = [];
-    b.recorded = { medianSecondsByKind: null, sources: { fresh: 'attempted' } };
-    b.freshBlocker = 'the pf10 deposit witness generation is blocked on this host: the pinned g1_relation.wasm (circom 2.2.0) rejects the available snarkjs 0.7.6 runtime (getInputSignalSize returns 0 for every signal; setInputSignal throws "Signal not found"). The product pinned witness runtime is not present here. A fresh prove cannot run without a valid witness; the rapidsnark step on the pf10 zkey is expected ~2.2s (circuit-bound, same circuit for all action kinds).';
+    // the FRESH pf10 deposit prove: the deposit circuit input is built via the product's own
+    // v2-direct modules + the beta-ceremony material (main-chipnet.wasm 87f5878e + beta.zkey),
+    // then the witness + rapidsnark run on this host. (NOT the old pin's g1_relation.wasm —
+    // the product uses the beta ceremony's main-chipnet.wasm, which the 54kb vendor carries.)
+    try {
+      const G = path.join(SDK_ROOT, 'shieldkit-groth-94kb');
+      const tpl = globTpl(SDK_ROOT);
+      if (tpl) {
+        const { buildPf10DepositInput } = await import('./bench-pf10-input.mjs');
+        const inputPath = await buildPf10DepositInput({ G, tpl, root });
+        const outDir = path.join(root, 'evidence/03-implementation/bench-prove');
+        mkdirSync(outDir, { recursive: true });
+        const pf6Root = path.resolve(root, '../shieldkit-groth-54kb');
+        const prove = await import('file://' + path.join(pf6Root, 'src/prove-pf6.mjs'));
+        const t0 = performance.now();
+        const proved = prove.proveGroth16({
+          zkeyPath: path.join(pf6Root, 'vendor/product-current/circuit/beta.zkey'),
+          wasmPath: path.join(pf6Root, 'vendor/product-current/circuit/main-chipnet.wasm'),
+          circuitInputPath: inputPath, outDir,
+          proverBin: path.join(pf6Root, 'vendor/product-current/native/prover'),
+          snarkjsCli: path.join(SDK_ROOT, 'node_modules/.bin/snarkjs'),
+        });
+        const totalMs = performance.now() - t0;
+        b.freshRuns = [{ action: 'deposit', totalMs: Math.round(totalMs) }];
+        b.recorded = { medianSecondsByKind: { deposit: { runs: 1, medianSeconds: totalMs / 1000 } }, sources: { fresh: 'this host, the pf10 deposit (product v2-direct input + beta-ceremony wasm/zkey + rapidsnark)' } };
+      } else {
+        b.freshBlocker = 'the pf10 canonical runtime template (profile core + structural locks) is not present under .codex-build/test-tmp';
+      }
+    } catch (e) {
+      b.freshBlocker = String(e?.message ?? e).slice(0, 200);
+    }
   }
 
   // the fresh pf6 prove (Axis B, measured on this host)

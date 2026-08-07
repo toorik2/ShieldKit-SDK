@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T16:46:40",
+ "generated": "2026-08-07T16:58:43",
  "entries": [
   {
    "wp": 0,
@@ -291,6 +291,11 @@
    "wp": 3,
    "id": "03-implementation/bench-uniform-fresh.json",
    "what": "UNIFORM FRESH bench: pf6 2.09s + fri-stark 48.28s (deposit, this host); pf10 witness blocked (circom 2.2.0 interface) \u2014 no recorded pulls"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-uniform-fresh.json",
+   "what": "UNIFORM FRESH bench all three: pf10 2.24s + pf6 2.28s + fri-stark 48.52s (deposit, this host); the pf10 'blocker' corrected (wrong wasm \u2014 the beta ceremony's main-chipnet is the product material)"
   }
  ],
  "vendorPins": [

@@ -1,0 +1,47 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf10",
+  "capability": {
+    "scriptBytes": 94622,
+    "roles": 10,
+    "inputsPerAction": 13,
+    "proofSystem": "Groth16",
+    "txBytes": 97844,
+    "maxUnlockBytes": 10000,
+    "maxOpCost": 58073984,
+    "sources": {
+      "scriptBytes": "verifier.cash/intel/db/verifiers.json (toorik-bn254-intratx-general)",
+      "txBytes": "verifier.cash intel wire_bytes 94779 + tx overhead; PLAN.md ceilings table",
+      "maxOpCost": "verifier.cash intel db opcost 58,073,984"
+    }
+  },
+  "prep": {
+    "proverIdentity": "the product native Groth16 prover (setup-v2-native-prover)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": true,
+    "freshRuns": [
+      {
+        "action": "deposit",
+        "totalMs": 2291
+      }
+    ],
+    "recorded": {
+      "medianSecondsByKind": {
+        "deposit": {
+          "runs": 1,
+          "medianSeconds": 2.2906233030000003
+        }
+      },
+      "sources": {
+        "fresh": "this host, the pf10 deposit (product v2-direct input + beta-ceremony wasm/zkey + rapidsnark)"
+      }
+    }
+  },
+  "coldStart": false,
+  "commit": "514e424a534ad906c2114ebafd60c2dc0ad3412f",
+  "generated": "2026-08-07T13:56:54.744Z",
+  "totalMs": 2595
+}

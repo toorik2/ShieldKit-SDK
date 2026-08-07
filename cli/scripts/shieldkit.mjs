@@ -43,30 +43,24 @@ const BENCH_INDEX = process.argv.indexOf('--bench');
 const BENCH_COLD_START = process.argv.includes('--cold-start');
 const BENCH_JSON = process.argv.includes('--json');
 if (BENCH_INDEX >= 0) {
-  (async () => {
-    try {
-      const { runBench, compareScorecards } = await import('../bench.mjs');
-      const benchProfile = process.argv.indexOf('--profile') >= 0 ? process.argv[process.argv.indexOf('--profile') + 1] : undefined;
-      const compareIndex = process.argv.indexOf('--compare');
-      if (compareIndex >= 0) {
-        const a = await runBench(benchProfile, { coldStart: BENCH_COLD_START, jsonOut: false });
-        const bProfile = process.argv[compareIndex + 1];
-        const b = await runBench(bProfile, { coldStart: BENCH_COLD_START, jsonOut: false });
-        console.log(JSON.stringify(compareScorecards([a, b]), null, 2));
-        process.exit(0);
-      }
-      await runBench(benchProfile, { coldStart: BENCH_COLD_START, jsonOut: BENCH_JSON });
+  // the bench is a flag: run it and exit (top-level await — ESM)
+  try {
+    const { runBench, compareScorecards } = await import('../bench.mjs');
+    const benchProfile = process.argv.indexOf('--profile') >= 0 ? process.argv[process.argv.indexOf('--profile') + 1] : undefined;
+    const compareIndex = process.argv.indexOf('--compare');
+    if (compareIndex >= 0) {
+      const a = await runBench(benchProfile, { coldStart: BENCH_COLD_START, jsonOut: false });
+      const bProfile = process.argv[compareIndex + 1];
+      const b = await runBench(bProfile, { coldStart: BENCH_COLD_START, jsonOut: false });
+      console.log(JSON.stringify(compareScorecards([a, b]), null, 2));
       process.exit(0);
-    } catch (e) {
-      console.log(JSON.stringify({ ok: false, code: 'BENCH_INTERNAL', error: String(e?.message ?? e) }, null, 2));
-      process.exit(2);
     }
-  })();
-  // halt the normal dispatch: use a sentinel that falls through the original handling
-}
-if (BENCH_INDEX >= 0) {
-  // keep the process alive while the async bench completes; the IIFE above calls process.exit
-  await new Promise((r) => setTimeout(r, 0));
+    await runBench(benchProfile, { coldStart: BENCH_COLD_START, jsonOut: BENCH_JSON });
+    process.exit(0);
+  } catch (e) {
+    console.log(JSON.stringify({ ok: false, code: 'BENCH_INTERNAL', error: String(e?.message ?? e) }, null, 2));
+    process.exit(2);
+  }
 }
 const PROFILE_INDEX = process.argv.indexOf('--profile');
 const PROFILE_VALUE = PROFILE_INDEX >= 0 ? process.argv[PROFILE_INDEX + 1] : undefined;

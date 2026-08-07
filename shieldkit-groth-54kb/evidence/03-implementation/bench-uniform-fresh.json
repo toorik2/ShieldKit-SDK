@@ -1,24 +1,27 @@
 {
- "schema": "shieldkit-cli/bench-uniform-fresh/v1",
- "generated": "2026-08-07T16:46:40",
- "status": "UNIFORM FRESH BENCH \u2014 one deposit prove per design, same host, no recorded pulls",
- "protocol": "the bench now runs ONE deposit proof per design on this host (fresh only): pf6 via the prove-pf6 pipeline (witness+rapidsnark), fri-stark via the worker (depth 32, CSPRNG), pf10 via the pinned material (attempted; the witness generation is blocked by the circom 2.2.0 wasm interface).",
+ "schema": "shieldkit-cli/bench-uniform-fresh-v2/v1",
+ "generated": "2026-08-07T16:58:43",
+ "status": "UNIFORM FRESH BENCH \u2014 ALL THREE DESIGNS MEASURED on this host (one deposit prove each, no recorded pulls)",
+ "protocol": "one deposit prove per design, same host, same invocation: pf10 + pf6 via the beta-ceremony material (main-chipnet.wasm 87f5878e + beta.zkey) + rapidsnark; fri-stark via the worker (depth 32, CSPRNG, verifyOk).",
  "results": {
   "pf10": {
-   "freshProve": null,
-   "blocker": "the pinned g1_relation.wasm (circom 2.2.0) rejects the available snarkjs 0.7.6 runtime: getInputSignalSize returns 0 for every signal and setInputSignal throws 'Signal not found'. The product's pinned witness runtime is not present on this host. The rapidsnark step itself is expected ~2.2s (circuit-bound)."
+   "freshDepositSeconds": 2.24,
+   "prover": "rapidsnark (product material)"
   },
   "pf6-a3-direct-v1": {
-   "freshProveSeconds": 2.09,
-   "actions": "deposit 2.09 / transfer 2.13 / withdrawal 2.16",
-   "source": "fresh this host"
+   "freshDepositSeconds": 2.28,
+   "prover": "rapidsnark"
   },
   "fri-stark-96kb": {
-   "freshProveSeconds": 48.28,
+   "freshDepositSeconds": 48.52,
    "verifyOk": true,
-   "depth": 32,
-   "source": "fresh this host (the worker)"
+   "prover": "Rust DEEP-ALI (depth 32)"
   }
  },
- "comparison": "pf6 2.09s vs fri-stark 48.28s (fresh, same host) \u2014 23x; the pf10's fresh number is blocked by the witness toolchain, not measured."
+ "ratios": {
+  "pf6_vs_pf10": "1.02x",
+  "fri_vs_pf10": "21.6x",
+  "fri_vs_pf6": "21.3x"
+ },
+ "correction": "the earlier pf10 'blocker' was my own error: I used the OLD pin's g1_relation.wasm (f14eaf5b) instead of the beta ceremony's main-chipnet.wasm (87f5878e \u2014 the material the 54kb vendor already carries). With the correct wasm, the pf10's fresh witness + prove runs in 2.24 s and the proof verifies under the product VK (d38f3cfc). The parallel agent's restore of the proof-worker child modules also enabled the live pf10 CLI path."
 }
