@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T15:25:05",
+ "generated": "2026-08-07T15:30:48",
  "entries": [
   {
    "wp": 0,
@@ -266,6 +266,11 @@
    "wp": 3,
    "id": "03-implementation/bench-prep-complete.json",
    "what": "END-TO-END prep measured: pf10 commandTotal 10.3-10.6s (the ~12s), pf6 fresh ~35s (lane build 31.2s + prove 2.4s), fri-stark prove-dominated"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-prep-breakdown.json",
+   "what": "FULL per-step prep breakdown for all three designs (pf10 recorded, pf6 fresh, fri-stark recorded)"
   }
  ],
  "vendorPins": [
