@@ -2,7 +2,7 @@
   "name": "shieldkit-fri-stark",
   "version": "0.1.0-beta.1",
   "private": true,
-  "description": "ShieldKit-FRI Beta — unaudited Chipnet-only FRI-STARK shielded pool (fresh genesis). Normative: FRI_STARK_REPLACEMENT_PLAN.md",
+  "description": "ShieldKit-FRI Beta \u2014 unaudited Chipnet-only FRI-STARK shielded pool (fresh genesis). Normative: FRI_STARK_REPLACEMENT_PLAN.md",
   "type": "module",
   "bin": {
     "shieldkit-fri": "packages/cli/bin/shieldkit-fri.mjs"
@@ -31,7 +31,8 @@
     "prove:selftest": "node scripts/prove-rust.mjs selftest",
     "prove:params": "node scripts/prove-rust.mjs params",
     "prove:oracle-selftest": "python3 packages/prove/python/pool_prove.py selftest",
-    "prove:oracle-params": "python3 packages/prove/python/pool_prove.py params"
+    "prove:oracle-params": "python3 packages/prove/python/pool_prove.py params",
+    "qualify:zero-conf": "node scripts/zero-conf-funding-self-test.mjs"
   },
   "dependencies": {
     "@bitauth/libauth": "3.1.0-next.8"

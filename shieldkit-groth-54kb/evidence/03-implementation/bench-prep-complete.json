@@ -1,0 +1,31 @@
+{
+ "schema": "shieldkit-cli/bench-prep-complete/v1",
+ "generated": "2026-08-07T15:25:05",
+ "status": "END-TO-END action prep now measured for all three designs (the ~12s figure = the pf10's recorded command total)",
+ "endToEndPrepSeconds": {
+  "pf10": {
+   "prove": "2.16-2.40 (recorded)",
+   "actionTotalSeconds": [
+    9.72,
+    10.21
+   ],
+   "commandTotalSeconds": [
+    10.25,
+    10.63
+   ],
+   "source": "recorded bench/results pipeline"
+  },
+  "pf6": {
+   "prove": "2.44-2.50 fresh",
+   "laneBuildSeconds": 31.25,
+   "endToEndApprox": "~35s (incremental; a cold first lane build ~90-110s)",
+   "source": "FRESH this host"
+  },
+  "fri-stark": {
+   "prove": "27.57-34.62 (recorded P5 medians)",
+   "endToEndApprox": "prove-dominated (the packet/assembly not separately recorded)",
+   "source": "recorded P1/P5"
+  }
+ },
+ "answerToUser": "the ~12s is the pf10's END-TO-END action prep (command total 10.3-10.6s) \u2014 the earlier table showed only the prove step (2.16s); the full prep (packet + witness + prove + unlock assembly + admission) is what the pipeline's actionTotal/commandTotal measure. The pf6's full prep is now freshly measured: ~35s (the unlock-assembly lane build 31.2s + the prove 2.4s + the packet ~1s)."
+}

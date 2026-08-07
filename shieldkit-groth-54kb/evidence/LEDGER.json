@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T15:19:00",
+ "generated": "2026-08-07T15:25:05",
  "entries": [
   {
    "wp": 0,
@@ -261,6 +261,11 @@
    "wp": 3,
    "id": "03-implementation/bench-proof-times.json",
    "what": "pf10 holes filled with the same-circuit range; per-action live run blocked by a documented toolchain mismatch (pinned wasm getInputSignalSize=0)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-prep-complete.json",
+   "what": "END-TO-END prep measured: pf10 commandTotal 10.3-10.6s (the ~12s), pf6 fresh ~35s (lane build 31.2s + prove 2.4s), fri-stark prove-dominated"
   }
  ],
  "vendorPins": [

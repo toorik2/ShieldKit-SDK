@@ -105,6 +105,7 @@ function axisBFor(profileId, root) {
       measured: false,
       recorded: {
         medianSecondsByKind: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, { runs: v.length, medianSeconds: median(v) }])),
+        endToEndPrepSeconds: { note: 'recorded evidence covers the prove; the packet+assembly steps are not separately recorded — the prove dominates (27.6-34.6 s per action)' },
         coldProveSeconds: coldProve,
         sources: { proveSamples: 'evidence/p5/P5_REPORT.json', coldProve: 'evidence/p1/P1_REALITY.json' },
       },
@@ -121,6 +122,8 @@ function axisBFor(profileId, root) {
     try { const j = JSON.parse(readFileSync(path.join(benchResults, 'coldstart-prove.json'), 'utf8')); return j.totals?.timedMs ? j.totals.timedMs / 1000 : null; } catch { return null; }
   })();
   const gen = [pipe.sums?.proofGenerationMs, pipeLive.sums?.proofGenerationMs].filter((x) => x != null);
+  const actionTotal = [pipe.sums?.actionTotalMs, pipeLive.sums?.actionTotalMs].filter((x) => x != null);
+  const commandTotal = [pipe.sums?.commandTotalMs, pipeLive.sums?.commandTotalMs].filter((x) => x != null);
   return {
     proverIdentity: 'the product native Groth16 prover (setup-v2-native-prover)',
     host,
@@ -132,6 +135,12 @@ function axisBFor(profileId, root) {
         deposit: { runs: 1, medianSeconds: s0.prove_ms_p50 ? s0.prove_ms_p50 / 1000 : null },
         depositN10: { runs: 10, medianSeconds: s1.prove_ms_p50 ? s1.prove_ms_p50 / 1000 : null },
         allActionKindsSameCircuit: gen.length ? gen.map((x) => x / 1000) : null,
+      },
+      // END-TO-END action prep: the recorded full action (packet -> witness -> prove -> unlock
+      // assembly -> mempool admission) from the product's own bench pipeline.
+      endToEndPrepSeconds: {
+        actionTotalSeconds: actionTotal.length ? actionTotal.map((x) => x / 1000) : null,
+        commandTotalSeconds: commandTotal.length ? commandTotal.map((x) => x / 1000) : null,
       },
       coldProveSeconds: coldProve,
       blocker: 'per-action live witness generation on this host is blocked by a toolchain interface mismatch (the pinned g1_relation.wasm getInputSignalSize returns 0 under the available snarkjs 0.7.6 runtime; the product pinned witness machinery is not fully present). The recorded same-circuit range above is the honest coverage for deposit/transfer/withdrawal.',
@@ -187,6 +196,21 @@ export async function runBench(profileId, { coldStart = false, jsonOut = false }
         (timesByKind[kind] ??= []).push(totalMs / 1000);
       }
       b.freshRuns = freshRuns;
+      // END-TO-END action prep: the unlock assembly (the lane build) dominates the pf6's prep —
+      // measure ONE fresh lane build (the run-pf6-product-build with the deposit candidate)
+      let laneBuildSeconds = null;
+      try {
+        const laneRunner = path.join(root, 'src/run-pf6-product-build.mjs');
+        if (existsSync(laneRunner)) {
+          const candidateName = 'bn254-onetx-pf6-a3-shieldkit-deposit-r1.json';
+          const tLane = performance.now();
+          spawnSync(process.execPath, [laneRunner], {
+            env: { ...process.env, RUN_ID: 'pf6-bench-lane', CANDIDATE: candidateName },
+            encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024,
+          });
+          laneBuildSeconds = (performance.now() - tLane) / 1000;
+        }
+      } catch (e) { laneBuildSeconds = null; }
       // the cold prove: a FRESH subprocess's first prove (the prover binary + zkey cold load)
       let coldSeconds = null;
       try {
@@ -212,6 +236,11 @@ export async function runBench(profileId, { coldStart = false, jsonOut = false }
       } catch (e) { /* cold-prove measurement optional */ }
       b.recorded = {
         medianSecondsByKind: Object.fromEntries(Object.entries(timesByKind).map(([k, v]) => [k, { runs: v.length, medianSeconds: median(v) }])),
+        endToEndPrepSeconds: {
+          note: 'packet+input ~1s, witness+prove ~2.4s, unlock assembly (lane build) the rest',
+          laneBuildSeconds,
+          proveSeconds: timesByKind.deposit ? timesByKind.deposit[0] : null,
+        },
         coldProveSeconds: coldSeconds,
         sources: { fresh: 'this host, one action per kind (witness + rapidsnark); cold = a fresh subprocess first prove' },
       };

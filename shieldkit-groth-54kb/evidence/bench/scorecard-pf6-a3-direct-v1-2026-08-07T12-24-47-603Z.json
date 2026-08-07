@@ -1,0 +1,69 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf6-a3-direct-v1",
+  "capability": {
+    "scriptBytes": 54671,
+    "roles": 6,
+    "inputsPerAction": 9,
+    "proofSystem": "Groth16",
+    "txBytes": 59241,
+    "maxUnlockBytes": 9853,
+    "maxOpCost": 7093421,
+    "sources": {
+      "scriptBytes": "the pf6 pin (54,671) — 54kb design root profile.json",
+      "txBytes": "measured live deposit/transfer txs (59,241 B) — 54kb evidence",
+      "maxOpCost": "measured (withdrawal terminal 7,093,421) — 54kb evidence b02-final"
+    }
+  },
+  "prep": {
+    "proverIdentity": "rapidsnark + snarkjs wtns (vendor/product-current)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": true,
+    "freshRuns": [
+      {
+        "action": "deposit",
+        "totalMs": 2436
+      },
+      {
+        "action": "transfer",
+        "totalMs": 2495
+      },
+      {
+        "action": "withdrawal",
+        "totalMs": 2482
+      }
+    ],
+    "recorded": {
+      "medianSecondsByKind": {
+        "deposit": {
+          "runs": 1,
+          "medianSeconds": 2.43601642
+        },
+        "transfer": {
+          "runs": 1,
+          "medianSeconds": 2.4949568650000002
+        },
+        "withdrawal": {
+          "runs": 1,
+          "medianSeconds": 2.4822705079999996
+        }
+      },
+      "endToEndPrepSeconds": {
+        "note": "packet+input ~1s, witness+prove ~2.4s, unlock assembly (lane build) the rest",
+        "laneBuildSeconds": 31.247533246,
+        "proveSeconds": 2.43601642
+      },
+      "coldProveSeconds": 2.478225797,
+      "sources": {
+        "fresh": "this host, one action per kind (witness + rapidsnark); cold = a fresh subprocess first prove"
+      }
+    }
+  },
+  "coldStart": false,
+  "commit": "b3cdb7972b4fa010f35ceb6120ec9bfe70fc95fc",
+  "generated": "2026-08-07T12:24:47.603Z",
+  "totalMs": 41167
+}

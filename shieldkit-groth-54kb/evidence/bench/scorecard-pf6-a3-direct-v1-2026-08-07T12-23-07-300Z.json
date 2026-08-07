@@ -1,0 +1,46 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf6-a3-direct-v1",
+  "capability": {
+    "scriptBytes": 54671,
+    "roles": 6,
+    "inputsPerAction": 9,
+    "proofSystem": "Groth16",
+    "txBytes": 59241,
+    "maxUnlockBytes": 9853,
+    "maxOpCost": 7093421,
+    "sources": {
+      "scriptBytes": "the pf6 pin (54,671) — 54kb design root profile.json",
+      "txBytes": "measured live deposit/transfer txs (59,241 B) — 54kb evidence",
+      "maxOpCost": "measured (withdrawal terminal 7,093,421) — 54kb evidence b02-final"
+    }
+  },
+  "prep": {
+    "proverIdentity": "rapidsnark + snarkjs wtns (vendor/product-current)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": true,
+    "freshRuns": [
+      {
+        "action": "deposit",
+        "totalMs": 2448
+      },
+      {
+        "action": "transfer",
+        "totalMs": 2480
+      },
+      {
+        "action": "withdrawal",
+        "totalMs": 2435
+      }
+    ],
+    "recorded": null,
+    "freshError": "Cannot set properties of null (setting 'endToEndPrepSeconds')"
+  },
+  "coldStart": false,
+  "commit": "b3cdb7972b4fa010f35ceb6120ec9bfe70fc95fc",
+  "generated": "2026-08-07T12:23:07.300Z",
+  "totalMs": 38099
+}

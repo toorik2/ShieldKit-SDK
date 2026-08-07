@@ -30,6 +30,9 @@ const failJson = (code, message, extra = {}) => {
 };
 
 const hexToBytes = (h) => { const a = new Uint8Array(h.length / 2); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16); return a; };
+const locking = Buffer.from(wallet.lockingBytecodeHex, 'hex');
+const pub = hexToBin(wallet.publicKeyHex);
+const priv = hexToBin(wallet.privateKeyHex);
 
 // 1. ensure >= 2 plain UTXOs (gettxout-validated, mempool-inclusive view);
 //    if only one exists, SPLIT it into two halves (zero-conf, no block wait).
@@ -96,9 +99,6 @@ for (const u of plain2) {
 if (pick.length < 2) failJson('NOT_ENOUGH_UTXOS', `need 2 plain UTXOs, got ${pick.length}`);
 
 // 2. consolidate (fee = size+1 fixpoint with DER-sig 2-cycle fallback)
-const locking = Buffer.from(wallet.lockingBytecodeHex, 'hex');
-const pub = hexToBin(wallet.publicKeyHex);
-const priv = hexToBin(wallet.privateKeyHex);
 const sourceOutputs = pick.map((p) => ({ lockingBytecode: hexToBytes(p.scriptPubKey), valueSatoshis: p.valueSats }));
 const build = (fee) => {
   const tx = { version: 2,
