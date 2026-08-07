@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T15:30:48",
+ "generated": "2026-08-07T15:40:52",
  "entries": [
   {
    "wp": 0,
@@ -271,6 +271,11 @@
    "wp": 3,
    "id": "03-implementation/bench-prep-breakdown.json",
    "what": "FULL per-step prep breakdown for all three designs (pf10 recorded, pf6 fresh, fri-stark recorded)"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-prep-breakdown.json",
+   "what": "fri-stark steps measured fresh: prove 52.3s (depth 32) + unlock assembly ~5ms; the missing steps closed"
   }
  ],
  "vendorPins": [

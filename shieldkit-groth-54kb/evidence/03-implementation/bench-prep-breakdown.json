@@ -1,140 +1,38 @@
 {
- "schema": "shieldkit-cli/bench-prep-breakdown/v1",
- "generated": "2026-08-07T15:30:48",
- "status": "FULL per-step prep breakdown for all three pool designs",
- "breakdown": {
-  "pf10": {
-   "note": "recorded from the product's own bench pipeline (bench/results/pipeline{,-live}.json); sub-steps not separately recorded are derived: witness = proofTotal - proofGeneration",
-   "steps": [
-    {
-     "step": "packet + notes + session",
-     "seconds": "within localWork (sessionOpen 0.41-0.53 s recorded)",
-     "source": "recorded"
-    },
-    {
-     "step": "witness generation",
-     "seconds": [
-      1.056,
-      1.142
-     ],
-     "source": "derived (proofTotal 3.00-3.52 - proofGen 1.94-2.38)"
-    },
-    {
-     "step": "prove (native groth16)",
-     "seconds": [
-      1.943,
-      2.376
-     ],
-     "source": "recorded proofGenerationMs"
-    },
-    {
-     "step": "unlock assembly + local VM",
-     "seconds": [
-      3.37,
-      3.35
-     ],
-     "source": "derived (localWork 6.37-6.87 - proofTotal); localVmMs 0.22-0.31 recorded within"
-    },
-    {
-     "step": "admission (mempool)",
-     "seconds": [
-      4.077,
-      4.111
-     ],
-     "source": "recorded admissionMs (broadcast, not prep)"
-    },
-    {
-     "step": "action total (excl. admission)",
-     "seconds": [
-      9.72,
-      10.21
-     ],
-     "source": "recorded actionTotalMs"
-    },
-    {
-     "step": "command total",
-     "seconds": [
-      10.25,
-      10.63
-     ],
-     "source": "recorded commandTotalMs"
-    }
-   ],
-   "prepTotalExcludingAdmission": [
-    9.72,
-    10.21
-   ]
+ "schema": "shieldkit-cli/bench-prep-breakdown-fri/v1",
+ "generated": "2026-08-07T15:40:52",
+ "status": "fri-stark's missing steps now measured fresh (prove + unlock assembly); the packet+witness is the worker-internal trace (part of the prove)",
+ "friStarkSteps": [
+  {
+   "step": "packet (SFP1, 424 B) + witness prep",
+   "seconds": "witness (trace) is INSIDE the prove (the worker's prove_kind); the request-side statement/seed construction is ~ms \u2014 not separately instrumented",
+   "source": "worker main.rs + fresh run"
   },
-  "pf6": {
-   "note": "FRESH measurements on this host (this session); the lane build is the incremental cached build",
-   "steps": [
-    {
-     "step": "packet + circuit input",
-     "seconds": 0.29,
-     "source": "fresh"
-    },
-    {
-     "step": "witness (snarkjs wtns)",
-     "seconds": 0.63,
-     "source": "fresh"
-    },
-    {
-     "step": "prove (rapidsnark)",
-     "seconds": 1.67,
-     "source": "fresh"
-    },
-    {
-     "step": "unlock assembly (lane build)",
-     "seconds": 31.25,
-     "source": "fresh (incremental; a cold first lane build ~90-110 s)"
-    },
-    {
-     "step": "tx assembly + signing",
-     "seconds": 0.01,
-     "source": "fresh"
-    },
-    {
-     "step": "admission (testmempoolaccept)",
-     "seconds": "~0.05-0.2 (not prep)",
-     "source": "observed"
-    }
-   ],
-   "prepTotalExcludingAdmission": 33.85
+  {
+   "step": "prove (Rust DEEP-ALI, production depth 32, CSPRNG masks)",
+   "seconds": 52.27,
+   "source": "FRESH this host (one deposit; 3.65 GB peak RSS); recorded: P5 warm medians 27.6-34.6 s, P1 deep-20 81.9-89.7 s"
   },
-  "fri-stark": {
-   "note": "recorded from evidence/p1 + p5; the prove dominates; the packet/assembly steps are not separately recorded",
-   "steps": [
-    {
-     "step": "packet (SFP1) + witness",
-     "seconds": "not separately recorded",
-     "source": "recorded evidence"
-    },
-    {
-     "step": "prove (Rust DEEP-ALI)",
-     "seconds": {
-      "deposit": 27.57,
-      "transfer": 34.62,
-      "withdrawal": 33.55
-     },
-     "source": "recorded P5 medians of 32"
-    },
-    {
-     "step": "cold prove",
-     "seconds": 81.85,
-     "source": "recorded P1"
-    },
-    {
-     "step": "unlock assembly + tx",
-     "seconds": "not separately recorded",
-     "source": "recorded evidence"
-    }
-   ],
-   "prepTotalExcludingAdmission": "~28-35 (prove-dominated)"
+  {
+   "step": "unlock assembly (assemble-unlocks from the proof)",
+   "seconds": 0.005,
+   "source": "FRESH this host (the proof -> the unlocking hexes; ~5 ms)"
+  },
+  {
+   "step": "tx assembly + signing",
+   "seconds": "~ms (the unlock hexes wrap into the tx; the settle evidence's verifierUnlockingHex)",
+   "source": "settlement.json + the assemble result"
+  },
+  {
+   "step": "admission",
+   "seconds": "~0.05-0.2 (not prep)",
+   "source": "observed"
   }
- },
+ ],
+ "freshTotalPrep": "~52.3 s (prove-dominated: 99.99%)",
  "comparison": {
-  "pf10": "10.3-10.6 s command total (~12 s with session)",
-  "pf6": "~33.9 s fresh (unlock assembly 31.2 s dominates)",
-  "fri-stark": "~28-35 s (prove-dominated; the rest not separately recorded)"
+  "pf10": "10.3-10.6 s (recorded; prove 1.9-2.4 + witness 1.1 + assembly 3.4 + admission 4.1)",
+  "pf6": "~33.9 s (fresh; the lane-build assembly 31.2 s dominates)",
+  "fri-stark": "~52.3 s (fresh; the Rust prove 52.3 s dominates \u2014 the unlock assembly is ~5 ms)"
  }
 }
