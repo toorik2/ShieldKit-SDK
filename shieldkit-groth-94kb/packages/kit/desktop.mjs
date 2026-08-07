@@ -28,7 +28,7 @@ const profileExpectation = (profile) => Object.freeze({ network: profile.network
 // heavyweight primitive is loaded only when its explicit offline workflow is
 // selected; it remains profile-authenticated and never has a network fallback.
 const legacyMoved = (name) => () => {
-  const error = new Error(`${name} moved to previous-versions/legacy-research/v1-seven-carrier/; use shieldkit pool * for PF10`);
+  const error = new Error(`${name} moved to archived-pool-designs/legacy-research/v1-seven-carrier/; use shieldkit pool * for PF10`);
   error.code = 'LEGACY_V1_PATH_MOVED';
   return Promise.reject(error);
 };

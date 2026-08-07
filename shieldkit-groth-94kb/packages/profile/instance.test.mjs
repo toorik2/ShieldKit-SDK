@@ -56,7 +56,7 @@ test('instanceToKitConfig requires loaded bundle', () => {
 test('full playground load when matching profile bundle present', async () => {
   // Prefer playground/local ticket10-shaped bundle (instanceId must match instance.json).
   const candidates = [
-    path.join(root, 'previous-versions/02-use-chipnet-demo-pool/bundle'),
+    path.join(root, 'archived-pool-designs/02-use-chipnet-demo-pool/bundle'),
     path.join(root, '.cache/ticket10-e2e-20260726/pool/bundle'),
   ];
   let bundleDir = null;

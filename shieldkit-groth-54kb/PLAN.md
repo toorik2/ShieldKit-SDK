@@ -7,7 +7,7 @@ bytes**, score 54,949, **6 inputs / 1 transaction**, fixed VK, runtime proof
 binding, p2shchain state) and carry the result through every product release
 gate to a production-readiness declaration.
 
-**Document status:** v0.3 (2026-08-06) — WP-0..WP-2 DONE; WP-3 verifier side DONE (kit integration OPEN); WP-4 foundation (tamper 30/30); WP-8 ceremony-reuse recorded. See docs/STATUS.md. Gate IDs below are the real,
+**Document status:** v0.4 (2026-08-07) — ALL WORK PACKAGES WP-0..WP-9 CLOSED; the production-readiness declaration is in evidence/09-readiness/readiness-declaration.json; this plan is kept as the gate record (see docs/STATUS.md for the current state; the unified CLI + the design-root renames are reflected there). Gate IDs below are the real,
 code-enforced gates from the current product (`external-release-gate.mjs`,
 `REQUIREMENT_MATRIX.md`, `IMPLEMENTATION_PLAN.md`, check scripts). Do not
 rename gates; close them with evidence.
@@ -18,7 +18,7 @@ rename gates; close them with evidence.
 
 | Ceiling | Value | Current PF10 | pf6 target (expected) |
 |---|---|---|---|
-| Serialized transaction | ≤ 100,000 B | 97,844 B (deposit/transfer) | 9 inputs ⇒ well under; measure |
+| Serialized transaction | ≤ 100,000 B | 97,844 B (deposit/transfer); verifier script bytes 94,622 | 9 inputs ⇒ 59,241 B (measured) |
 | Every input unlocking bytecode | ≤ 10,000 B | max 10,000 (terminal) | terminal ~9 KB est. — CONFIRM (risk R5) |
 | Every VM resource | ≤ 100% | provisional pass only | re-measure per role |
 
@@ -136,7 +136,7 @@ Tasks (docs land in `design/`):
 Exit: `design/` docs signed off; all open questions resolved with evidence;
 topology ID + role list frozen (e.g. `pf6-a3-direct-v1`).
 
-### WP-3 — Implementation (contained src/) — **IN PROGRESS (M3 2026-08-06): 3/3 action verifier builds green + material + settlement assembler** → design/04, evidence/03-implementation/
+### WP-3 — Implementation (contained src/) — **DONE 2026-08-06/07** (3/3 action verifier builds green; full lifecycle mined on chipnet)
 Tasks:
 - `src/topology-pf6.mjs` — frozen topology ID/roles/layout (mirrors
   `packages/action/v2/topology.mjs` pattern; digest carrier/offset from WP-2).
@@ -154,7 +154,7 @@ Tasks:
   request-template; doctor.
 Exit: local mock/regtest e2e green for all actions; exact-topology checks pass.
 
-### WP-4 — Local qualification (B-02-final prep)
+### WP-4 — Local qualification (B-02-final prep) — **DONE** (B-02-final green)
 Tasks (mirror `v2-q*` script family in this folder):
 - Deterministic build: two independent builds byte-identical.
 - Fresh-VM libauth hard-limit pass (all ceilings, all actions).
@@ -164,7 +164,7 @@ Tasks (mirror `v2-q*` script family in this folder):
 - Standardness, utxo-envelope replay, measurements.json.
 Exit: `evidence/verification/*` complete for pf6 profile.
 
-### WP-5 — Chipnet live qualification (Q-08; no 30-day soak gate)
+### WP-5 — Chipnet live qualification (Q-08; no 30-day soak gate) — **DONE** (2 clean hosts; 32-note playground; soak revised out)
 Tasks:
 - 5×5 live campaign + live-action evidence bundles (mirror
   `v2-beta-live-*` scripts).
@@ -176,7 +176,7 @@ Tasks:
 Exit: `evidence/qualification/clean-host-{a,b}.json`,
 `evidence/chipnet/{instance,settlements,playground}.json`.
 
-### WP-6 — Formal & integration assurance
+### WP-6 — Formal & integration assurance — **DONE** (9/9 diff gates; forge 0; LeanBCH 27/27)
 Tasks:
 - Groth16-Formal already proves verifier layers 1–5 (TRUE). Extend the
   *integration surface*: atoms for the ShieldKit pf6 adapter (digest binding,
@@ -186,7 +186,7 @@ Tasks:
 Exit: `diff_*` gates green for integration layer; vectors committed under
 `evidence/formal/`.
 
-### WP-7 — Red team & adversarial audit (D-02 scope)
+### WP-7 — Red team & adversarial audit (D-02 scope) — **DONE** (matrix; 4 audit scopes blocker-complete)
 Tasks (mirror RED_TEAM_ADVERSARIAL_AUDIT_2026-08-06):
 - Attack matrix: forgery, state confusion, carrier substitution, digest
   mismatch, off-subgroup, dust/1-in-1000, reorg/concurrency, thread escape,
@@ -196,7 +196,7 @@ Tasks (mirror RED_TEAM_ADVERSARIAL_AUDIT_2026-08-06):
   with blocker-complete closure.
 Exit: `evidence/qualification/audit-closure.json` + signed reports.
 
-### WP-8 — Release (no ceremony; ceremony reuse)
+### WP-8 — Release (no ceremony; ceremony reuse) — **DONE** (scans; bundle; pin shieldkit-54kb-pf6-20260807-r1)
 Tasks:
 - **Ceremony policy (no new ceremony):** reuse the pinned single-contributor
   ceremony material — final.zkey `254a7bb2…`, verification_key.json
@@ -217,7 +217,7 @@ Tasks:
 Exit: `evidence/ceremony-reuse/*`, `pins/pf6-release.pin.json`, bundle +
 receipts.
 
-### WP-9 — Production-readiness declaration
+### WP-9 — Production-readiness declaration — **DONE** (evidence/09-readiness/readiness-declaration.json)
 Tasks:
 - Aggregate evidence ledger; remaining-risk register (accepted risks only);
   operations/monitoring notes (chipnet-only, zero-conf completion, no mainnet

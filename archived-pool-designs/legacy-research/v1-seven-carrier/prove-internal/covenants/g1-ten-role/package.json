@@ -1,0 +1,13 @@
+{
+  "name": "@shield.cash/g1-ten-role-settlement",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8"
+  },
+  "scripts": {
+    "test": "node --test *.test.mjs",
+    "falsify:13input": "node 13-input-context-falsifier.mjs"
+  }
+}

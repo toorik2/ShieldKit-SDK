@@ -1,0 +1,14 @@
+{
+  "name": "@shield.cash/g2-compressed-covenants-probe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8"
+  },
+  "scripts": {
+    "test": "node --test *.test.mjs",
+    "run:real-mutation-matrix": "node real-action-mutation-matrix.mjs",
+    "run:real-full10-leanbch": "node real-actions-full10-leanbch-crosscheck.mjs"
+  }
+}

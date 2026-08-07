@@ -72,11 +72,11 @@ test('legacy create-pool and chain E2E scripts are outside the PF10 product tree
     false,
   );
   assert.equal(
-    existsSync(path.join(repositoryRoot, 'previous-versions/legacy-research/v1-seven-carrier/create-pool.mjs')),
+    existsSync(path.join(repositoryRoot, 'archived-pool-designs/legacy-research/v1-seven-carrier/create-pool.mjs')),
     true,
   );
   assert.equal(
-    existsSync(path.join(repositoryRoot, 'previous-versions/legacy-research/v1-seven-carrier/chain-e2e-chipnet.mjs')),
+    existsSync(path.join(repositoryRoot, 'archived-pool-designs/legacy-research/v1-seven-carrier/chain-e2e-chipnet.mjs')),
     true,
   );
 });

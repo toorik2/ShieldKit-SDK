@@ -1,0 +1,23 @@
+{
+ "schema": "shieldkit-54kb/rename-archived-pool-designs/v1",
+ "generated": "2026-08-07T13:35:33",
+ "status": "previous-versions -> archived-pool-designs (git mv + 28 reference files updated; verified green)",
+ "details": {
+  "trackedFiles": 109,
+  "referenceFilesUpdated": 28,
+  "codeResolved": [
+   "cli/scripts/shieldkit.mjs (2)",
+   "shieldkit-groth-94kb/scripts/fetch-playground-bundle.mjs (2)"
+  ],
+  "docs": "sdk README, cli README, 94kb docs (PLAYGROUND/CHARTER/ARCHITECTURE/PROFILES/CHANGELOG/README), archived README title"
+ },
+ "verified": [
+  "version",
+  "pf10",
+  "pf6 doctor",
+  "pf6 chain-scan recovery",
+  "tests 8/8",
+  "playground path resolution + dir exists",
+  "zero remaining references"
+ ]
+}

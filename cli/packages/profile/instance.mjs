@@ -7,7 +7,7 @@
  * loadInstance(ref) resolves either:
  *   - a directory containing instance.json (+ local profile bundle), or
  *   - built-in demo ids: 02-use-chipnet-demo-pool | chipnet-playground | playground
- *   - folder lives under previous-versions/ (not the product root)
+ *   - folder lives under archived-pool-designs/ (not the product root)
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -30,13 +30,13 @@ const HASH = /^sha256:[0-9a-f]{64}$/;
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** shieldkit-groth/ (product tree) */
 const productRoot = path.resolve(here, '../..');
-/** monorepo root (parent of previous-versions/ and shieldkit-groth/) */
+/** monorepo root (parent of archived-pool-designs/ and shieldkit-groth/) */
 const monorepoRoot = path.resolve(here, '../../..');
 
 /** Logical Chipnet playground instance id (stable; not a filesystem path). */
 export const CHIPNET_PLAYGROUND_ID = '02-use-chipnet-demo-pool';
 /** Repo-relative folder for the archived playground tree. */
-export const CHIPNET_PLAYGROUND_DIR = 'previous-versions/02-use-chipnet-demo-pool';
+export const CHIPNET_PLAYGROUND_DIR = 'archived-pool-designs/02-use-chipnet-demo-pool';
 /** @deprecated alias */
 export const CHIPNET_PLAYGROUND_ID_LEGACY = 'chipnet-playground';
 /** @deprecated pre-numbering folder name */
@@ -157,8 +157,8 @@ async function resolveBundleDirectory(descriptor, opts) {
     fail(
       'PLAYGROUND_BUNDLE_MISSING',
       'Chipnet demo pool profile bundle not found. Fetch pinned release: '
-        + '`npm run fetch-playground-bundle` (sha256 in previous-versions/02-use-chipnet-demo-pool/instance.json), '
-        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See previous-versions/02-use-chipnet-demo-pool/README.md.',
+        + '`npm run fetch-playground-bundle` (sha256 in archived-pool-designs/02-use-chipnet-demo-pool/instance.json), '
+        + 'or set SHIELDKIT_PLAYGROUND_BUNDLE. See archived-pool-designs/02-use-chipnet-demo-pool/README.md.',
     );
   }
   // custom: default bundle/ beside instance.json

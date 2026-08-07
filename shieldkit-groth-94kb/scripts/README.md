@@ -3,9 +3,9 @@
 | File | Role |
 |------|------|
 | `shieldkit.mjs` | CLI |
-| legacy pool-act spine | moved to `previous-versions/legacy-research/v1-seven-carrier/` |
+| legacy pool-act spine | moved to `archived-pool-designs/legacy-research/v1-seven-carrier/` |
 | `create-pool.mjs` | scaffold / genesis |
-| legacy unlock-toolchain scripts | moved to `previous-versions/legacy-research/v1-seven-carrier/` |
+| legacy unlock-toolchain scripts | moved to `archived-pool-designs/legacy-research/v1-seven-carrier/` |
 | `fetch-playground-bundle.mjs` / `fetch-pin-artifacts.mjs` | profile arts |
 | `run-domain-tests.mjs` | `npm test`; it prints every selected and explicitly excluded test file, rejects skips/todos, and keeps artifact/external suites separate. Portable files have a 180-second supervisor deadline; the mandatory `test:v2:campaign:depth4` suite has an explicit 360-second per-file deadline for its production state-space test's 300-second Node timeout plus teardown. |
 | `v2-crash-qualification.mjs` | Explicit 10,000-case local durability campaign: `npm run qualification:v2:crash10k -- --output <new-evidence.json>` |

@@ -2,7 +2,7 @@
 
 Document version: 0.5 · Product/protocol authority (not an implementation spec).
 
-Primary path: **`shieldkit-groth/`**. Optional demo: **`previous-versions/02-use-chipnet-demo-pool/`**.
+Primary path: **`shieldkit-groth/`**. Optional demo: **`archived-pool-designs/02-use-chipnet-demo-pool/`**.
 
 ## Mission
 

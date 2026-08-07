@@ -2,7 +2,7 @@
 
 ```text
 shieldkit-groth/     product
-previous-versions/02-use-chipnet-demo-pool/   optional Chipnet demo
+archived-pool-designs/02-use-chipnet-demo-pool/   optional Chipnet demo
 ```
 
 | Path | Role |

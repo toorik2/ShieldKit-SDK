@@ -1,6 +1,6 @@
 /**
  * @shieldkit/action — PF10 / V2 Direct product surface.
- * Legacy seven-carrier prep/assembly lives under previous-versions/legacy-research/v1-seven-carrier/.
+ * Legacy seven-carrier prep/assembly lives under archived-pool-designs/legacy-research/v1-seven-carrier/.
  */
 
 export { encodeActionPacket, decodeActionPacket, DENOMINATION_SATS } from './packet.mjs';

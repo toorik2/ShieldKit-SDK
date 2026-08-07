@@ -30,6 +30,22 @@
         "proofSystem": "Groth16",
         "topology": "pf6-a3-direct-v1"
       }
+    },
+    {
+      "id": "fri-stark-96kb",
+      "displayName": "ShieldKit-FRI-STARK 96KB (d20/b2048/n7/g30, 100-bit, 17 roles, random-mask)",
+      "root": "../shieldkit-fri-stark-96kb",
+      "manifest": "profile.json",
+      "kind": "profile-module",
+      "module": "profiles/fri-stark-96kb.mjs",
+      "capability": {
+        "roles": 17,
+        "inputsPerAction": 18,
+        "proofSystem": "FRI-STARK",
+        "topology": "fri-sound-lean-fused-state0-v1",
+        "scriptBytes": 96734,
+        "securityBits": 100
+      }
     }
   ]
 }

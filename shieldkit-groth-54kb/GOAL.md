@@ -1,7 +1,7 @@
 ShieldKit-Groth-54KB: swap ShieldKit-Groth's verifier (PF10-FusedQGenesis: 10 roles, 13-input actions, 90,977 B unlocks) to the pinned bn254-onetx-pf6-a3-r1 verifier (reference: 54,671 script bytes, score 54,949, 6 roles genesis/exec0-3/terminal; actions become 9 inputs = 6 verifier + binding + state + funding) and carry it to a production-readiness declaration.
 
 RULES (hard):
-- Work only in /home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/; no writes to ../shieldkit-groth/, ../verifier.cash/, or ../Groth16-Formal/.
+- Work only in /home/toorik/Projects/ZK-Proofs/shieldkit-sdk/shieldkit-groth-54kb/; no writes to ../shieldkit-groth-94kb/, ../verifier.cash/, or ../Groth16-Formal/.
 - Execute PLAN.md WP-0..WP-9 in order; never skip, rename, or soften a gate.
 - Inherit the BCH privacy mission policy unchanged: chipnet-only, zero mainnet claims, RULE 0 constant gate (bch_constants.lookup before any BCH numeric fact), TOOL-INVENTORY gate (bch_tool_inventory.lookup before building anything).
 - Pinned toolchain only: cashc 1c707c1d, libauth 3.1.0-next.8, leanbch 51201015, Node 22.23.1, BCH-2026.

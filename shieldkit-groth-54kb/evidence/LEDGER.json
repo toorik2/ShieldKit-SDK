@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T09:08:13",
+ "generated": "2026-08-07T13:35:33",
  "entries": [
   {
    "wp": 0,
@@ -221,6 +221,16 @@
    "wp": 3,
    "id": "03-implementation/pf10-size-rename.json",
    "what": "PF10 measured at 94,622 script bytes; shieldkit-groth -> shieldkit-groth-94kb (compat symlink; nothing broke)"
+  },
+  {
+   "wp": 9,
+   "id": "03-implementation/docs-audit.json",
+   "what": "Docs correctness + cleanup audit: 6 findings fixed; all docs current; verified green"
+  },
+  {
+   "wp": 9,
+   "id": "03-implementation/rename-archived-pool-designs.json",
+   "what": "previous-versions -> archived-pool-designs (28 refs updated; verified)"
   }
  ],
  "vendorPins": [

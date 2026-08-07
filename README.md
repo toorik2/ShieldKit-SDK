@@ -40,6 +40,6 @@ Details: [`shieldkit-groth/bench/README.md`](./shieldkit-groth/bench/README.md) 
 
 ### Archives (not the product surface)
 
-- [`previous-versions/`](./previous-versions/) — learn site, V1 Chipnet playground, seven-carrier research
+- [`archived-pool-designs/`](./archived-pool-designs/) — learn site, V1 Chipnet playground, seven-carrier research
 
 **Mainnet is not a product claim.** No production, audit, or privacy-qualification claim in this beta.

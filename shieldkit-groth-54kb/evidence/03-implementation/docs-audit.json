@@ -1,0 +1,44 @@
+{
+ "schema": "shieldkit-54kb/docs-audit/v1",
+ "generated": "2026-08-07T09:11:17",
+ "status": "Docs correctness + cleanup audit COMPLETE; all findings fixed; verified green",
+ "findings": [
+  {
+   "file": "README.md",
+   "issue": "stale 'PLANNING / No implementation started'; PF10 '~91 KB'; missing the live/release/CLI state",
+   "fix": "full rewrite to the current state (production-ready, mined chains, release pin, unified CLI)"
+  },
+  {
+   "file": "docs/STATUS.md",
+   "issue": "WP-5/WP-6/WP-7/WP-9 OPEN; 'live deployment is the next milestone'",
+   "fix": "all WPs DONE with evidence; new items (CLI hoist, 94kb rename, residuals); PF10 script bytes 94,622"
+  },
+  {
+   "file": "PLAN.md",
+   "issue": "document status v0.3 with OPEN gates; PF10 tx size without the script-bytes note",
+   "fix": "v0.4 all-WPs-closed; the ceilings table updated"
+  },
+  {
+   "file": "GOAL.md",
+   "issue": "old product-tree name",
+   "fix": "shieldkit-groth -> shieldkit-groth-94kb"
+  },
+  {
+   "file": "cli/README.md",
+   "issue": "pf10 row referenced the old folder name",
+   "fix": "shieldkit-groth-94kb"
+  },
+  {
+   "file": "cli/profiles/pf6-a3-direct-v1.mjs",
+   "issue": "G import path used the symlink name",
+   "fix": "the real folder shieldkit-groth-94kb"
+  }
+ ],
+ "verified": [
+  "pf10 --version",
+  "pf6 pool doctor",
+  "pf6 chain-scan recovery",
+  "tests 8/8",
+  "no stale markers remaining"
+ ]
+}

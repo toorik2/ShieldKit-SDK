@@ -1,0 +1,6 @@
+{
+  "id": "shielded-action-public-input-v1",
+  "publicInputs": 2,
+  "outputs": 0,
+  "description": "Two big-endian u128 limbs of SHA256(752-byte SCAR action packet)"
+}

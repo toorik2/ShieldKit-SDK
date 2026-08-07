@@ -51,7 +51,7 @@ shieldkit-groth/packages/*/package-lock.json
 previous-versions/02-use-chipnet-demo-pool/bundle/
 
 # Local research workspace (not part of ShieldKit-Groth Beta product)
-shieldkit-fri-stark/
+shieldkit-fri-stark-96kb/
 
 # Scalability bench runtime outputs (never commit)
 shieldkit-groth/bench/results/
@@ -64,3 +64,6 @@ shieldkit-groth-54kb/vendor/verifier-workspace/vendor/
 shieldkit-groth-54kb/evidence/**/witness.wtns
 shieldkit-groth-54kb/evidence/**/prove/witness.wtns
 shieldkit-groth-54kb/pins/*.tar.gz
+
+# Archived demo-pool proving artifacts (fetch via scripts/fetch-playground-bundle.mjs; too large for git)
+archived-pool-designs/02-use-chipnet-demo-pool/bundle/artifacts/

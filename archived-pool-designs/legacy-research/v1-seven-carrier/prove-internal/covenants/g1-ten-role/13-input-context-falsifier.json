@@ -1,0 +1,22 @@
+{
+  "schema": "shield.cash/g1-13-input-context-falsifier/v1",
+  "status": "rejected-current-lock-topology",
+  "source": {
+    "verifierWorktree": "/tmp/verifiercash-shield-10role-019f8ed4",
+    "inputDump": ".vc/runs/g1-real-deposit/tmp/inputs_dump.json",
+    "baselineVerifierInputCount": 10,
+    "structuralRoleCount": 0
+  },
+  "mutation": {
+    "appendedInputs": ["binding-probe", "state-probe", "fee-probe"],
+    "locking": "standard P2SH32",
+    "redeem": "OP_SIZE OP_0 OP_NUMEQUALVERIFY OP_NOT",
+    "containsOpTrue": false
+  },
+  "result": {
+    "evaluatedInputCount": 13,
+    "accepted": ["genesis", "binding-probe", "state-probe", "fee-probe"],
+    "rejectedAtOpVerify": ["exec0", "exec1", "exec2", "exec3", "exec4", "exec5", "exec6", "finalize", "fused"],
+    "verdict": "The measured ten-role locks cannot be wrapped in a 13-input settlement envelope. Candidate A requires verifier regeneration."
+  }
+}

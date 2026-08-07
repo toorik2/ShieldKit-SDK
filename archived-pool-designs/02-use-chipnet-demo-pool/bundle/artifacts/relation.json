@@ -1,0 +1,10 @@
+{
+  "id": "shielded-action-v2-privacy-inputcm-zero",
+  "product": "ShieldKit-SDK",
+  "source": "circuits/g1-relation/src/g1_relation.circom",
+  "privacy": "packet inputCommitment field forced zero; membership uses private inputCm",
+  "r1csSha256": "sha256:90495b4676baa6e236834928c108bf6b6312a27d132de176a5027c4db0c2f945",
+  "wasmSha256": "sha256:56ebdf4ad593885898f3944d4248ec16669931b40eaae64997269064610410bb",
+  "verificationKeySha256": "sha256:201be49735767e67208a0c9dea3501b1f3a43a7bfb0b79eceb2d4c598fbf84b3",
+  "note": "Development-only privacy pin; densFuel locks reused (C7_VK_DIGEST densFuel-DROP)"
+}

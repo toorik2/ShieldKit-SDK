@@ -5,7 +5,7 @@
 | [USER_GUIDE.md](USER_GUIDE.md) | Current documentation boundary and legacy-material notice |
 | [SHARED_POOL_DESIGN.md](SHARED_POOL_DESIGN.md) | Shared tip + private notes (chain-as-log) |
 | [SHARED_POOL_REDTEAM.md](SHARED_POOL_REDTEAM.md) | Product tip/wallet red-team |
-| legacy seven-carrier SC red-team | moved to `previous-versions/legacy-research/v1-seven-carrier/` |
+| legacy seven-carrier SC red-team | moved to `archived-pool-designs/legacy-research/v1-seven-carrier/` |
 | [CHARTER.md](CHARTER.md) | Product / protocol authority |
 | [PRIVACY.md](PRIVACY.md) | Privacy claim + leakage matrix |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Package map |

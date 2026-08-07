@@ -1,0 +1,21 @@
+{
+  "schema": "shieldkit/unlock-builder-pins/v1",
+  "candidateId": "bn254-onetx-pf7-sub62-r1",
+  "pinLens": [8177, 6654, 7066, 7066, 8393, 7600, 9350],
+  "genesisUnlockTarget": 7600,
+  "terminalUnlockTarget": 9350,
+  "verifierTree": {
+    "note": "Phase 1 resolves an external checkout; Phase 2 vendors under ./vendor",
+    "preferredBranch": "research/bn254-unlock-length-stabilize",
+    "commit": "507d08f6b0134a68802397bf2d35313c0a34d80c",
+    "baseSeamCommit": "1d543756602edfd92081a0b58dba62d33d0aea34"
+  },
+  "leanbch": {
+    "commit": "ba8e7730e35c6d0bb5d4fa6fbce717073304c71c"
+  },
+  "cashc": {
+    "relativeRoot": "vendor/cashc-resched/packages/cashc",
+    "packageVersion": "0.14.0-next.1"
+  },
+  "roleNames": ["exec0", "exec1", "exec2", "exec3", "exec4", "genesis", "terminal"]
+}

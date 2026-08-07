@@ -56,7 +56,7 @@ const EXTERNAL_FIXTURE_TESTS = new Map([
   ['packages/kit/pool-act-fail-closed.test.mjs', 'ticket10 live pool and wallet fixtures'],
   ['packages/profile/instance.test.mjs', 'local playground-matching profile bundle'],
   ['packages/prove/lab/verifier-generator.test.mjs', 'local hash-pinned seven-carrier provenance archive'],
-  // V1 seven-carrier Chipnet fixtures relocated to previous-versions/legacy-research/v1-seven-carrier/.
+  // V1 seven-carrier Chipnet fixtures relocated to archived-pool-designs/legacy-research/v1-seven-carrier/.
   ['packages/pool/tip-rebuild-history.test.mjs', 'legacy seven-carrier recover fixtures'],
   ['packages/recover/raw-chain-recovery.test.mjs', 'legacy seven-carrier recover fixtures'],
   ['packages/recover/raw-settlement-history.test.mjs', 'legacy seven-carrier recover fixtures'],

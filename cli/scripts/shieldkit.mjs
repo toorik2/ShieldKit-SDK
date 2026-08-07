@@ -48,17 +48,33 @@ if (PROFILE_VALUE === 'pf10' || PROFILE_VALUE === 'shieldkit-groth') {
 }
 if (PROFILE_VALUE !== undefined && PROFILE_VALUE !== 'pf10' && PROFILE_VALUE !== 'shieldkit-groth') {
   try {
-    const { runPf6ProfileCommand, PF6_PROFILE_ID } = await import(
-      `../profiles/${PROFILE_VALUE}.mjs`
-    );
-    if (PF6_PROFILE_ID !== PROFILE_VALUE) {
-      throw new Error(`profile module identity mismatch: ${PF6_PROFILE_ID} != ${PROFILE_VALUE}`);
+    // Resolve the design root from the registry (pool-designs.json) so profile modules
+    // see SHIELDKIT_DESIGN_ROOT (the documented contract); fall back to the module's own
+    // relative resolution when the registry lacks the id.
+    try {
+      const registry = JSON.parse(readFileSync(path.join(__dirname, '../pool-designs.json'), 'utf8'));
+      const entry = (registry.designs || []).find((x) => x.id === PROFILE_VALUE);
+      if (entry?.root) {
+        process.env.SHIELDKIT_DESIGN_ROOT = path.resolve(__dirname, '..', entry.root);
+      }
+    } catch { /* registry optional */ }
+    // Profile-agnostic dispatch: each profile module exports a <PREFIX>_PROFILE_ID and a
+    // run<PREFIX>ProfileCommand; the pf6 module keeps the original names, later profiles
+    // (e.g. fri-stark-96kb) use their own prefix.
+    const mod = await import(`../profiles/${PROFILE_VALUE}.mjs`);
+    const runProfileCommand = mod.runPf6ProfileCommand ?? mod.runFriProfileCommand ?? mod.runProfileCommand;
+    const profileId = mod.PF6_PROFILE_ID ?? mod.FRI_PROFILE_ID ?? mod.PROFILE_ID;
+    if (typeof runProfileCommand !== 'function') {
+      throw new Error(`profile module ${PROFILE_VALUE} exports no run*ProfileCommand`);
+    }
+    if (profileId !== PROFILE_VALUE) {
+      throw new Error(`profile module identity mismatch: ${profileId} != ${PROFILE_VALUE}`);
     }
     // remove --profile from the argv before dispatching to the profile handler
     const profileArgv = [...process.argv.slice(2)];
     const profileArgvIndex = profileArgv.indexOf('--profile');
     if (profileArgvIndex >= 0) profileArgv.splice(profileArgvIndex, 2);
-    await runPf6ProfileCommand(profileArgv);
+    await runProfileCommand(profileArgv);
     process.exit(process.exitCode ?? 0);
   } catch (e) {
     if (e?.code === 'ERR_MODULE_NOT_FOUND' || e?.code === 'MODULE_NOT_FOUND') {
@@ -195,7 +211,7 @@ ${PRODUCT_STATUS.status} · maturity: ${PRODUCT_STATUS.maturityLabel}
 ${PRODUCT_STATUS.note}
 
 Product root: shieldkit-groth/  (kit · profile · PF10 CLI)
-Optional demo: previous-versions/02-use-chipnet-demo-pool/   (legacy research instance)
+Optional demo: archived-pool-designs/02-use-chipnet-demo-pool/   (legacy research instance)
 
   # Create and operate your pool (ShieldKit-Groth Beta / PF10 / Chipnet)
   pool create --funding-wallet <absolute-canonical-private-wallet-path> --funding-utxo <64-lowercase-hex-txid:vout> [--data-home <absolute-directory>] [--human|--json]
@@ -332,7 +348,7 @@ async function openKit() {
     } catch (e) {
       failJson(e.code || e.name || 'PLAYGROUND_ERROR', e.message || String(e), 2, {
         hint: 'npm run fetch-playground-bundle  or  SHIELDKIT_PLAYGROUND_BUNDLE',
-        docs: 'previous-versions/02-use-chipnet-demo-pool/README.md',
+        docs: 'archived-pool-designs/02-use-chipnet-demo-pool/README.md',
       });
     }
   }
@@ -382,14 +398,14 @@ async function cmdTip() {
     const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
-      : path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool');
+      : path.join(monorepoRoot, 'archived-pool-designs/02-use-chipnet-demo-pool');
     const { existsSync, readFileSync } = await import('node:fs');
     const { atomicWriteJson, repairPrivateFileMode } = await import('../packages/kit/secure-files.mjs');
     const instancePath = path.join(poolDir, 'instance.json');
     const bundleDir = path.join(poolDir, 'bundle');
     const statePath = path.join(poolDir, 'state.json');
     if (!existsSync(instancePath) || !existsSync(bundleDir)) {
-      failJson('POOL_MISSING', 'need previous-versions/02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
+      failJson('POOL_MISSING', 'need archived-pool-designs/02-use-chipnet-demo-pool/ (or --pool) with instance.json + bundle/', 2);
     }
     const instance = JSON.parse(readFileSync(instancePath, 'utf8'));
     const manifest = JSON.parse(readFileSync(path.join(bundleDir, 'manifest.json'), 'utf8'));
@@ -399,7 +415,7 @@ async function cmdTip() {
     const network = instance.network === 'mainnet' ? 'mainnet' : 'chipnet';
     const { createChainRpc } = await import('../packages/kit/chipnet-rpc.mjs');
     const { discoverStateTip } = await import('../packages/kit/state-tip.mjs');
-    failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to previous-versions/legacy-research/v1-seven-carrier/', 2);
+    failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to archived-pool-designs/legacy-research/v1-seven-carrier/', 2);
     const {
       fetchSettlementLogFromTip,
       settlementLogLooksComplete,
@@ -586,7 +602,7 @@ async function cmdPlaygroundDoctor() {
     }
     const body = {
       ...toolkitIdentity(),
-      story: 'ShieldKit creates shielded pools. Demo is previous-versions/02-use-chipnet-demo-pool/; product is shieldkit-groth/.',
+      story: 'ShieldKit creates shielded pools. Demo is archived-pool-designs/02-use-chipnet-demo-pool/; product is shieldkit-groth/.',
       product: 'shieldkit-groth/',
       playgroundRole: 'optional-demo-not-hosted-service',
       maturityDisclaimer: [
@@ -789,11 +805,11 @@ async function cmdAct(verb) {
     const { spawnSync } = await import('node:child_process');
     const { existsSync } = await import('node:fs');
     const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-    failJson('LEGACY_POOL_ACT_MOVED', 'legacy seven-carrier pool-act moved to previous-versions/legacy-research/v1-seven-carrier/; use shieldkit pool deposit|withdraw for PF10', 2);
+    failJson('LEGACY_POOL_ACT_MOVED', 'legacy seven-carrier pool-act moved to archived-pool-designs/legacy-research/v1-seven-carrier/; use shieldkit pool deposit|withdraw for PF10', 2);
     const script = null;
     const poolDir = arg('pool')
       ? path.resolve(arg('pool'))
-      : path.join(monorepoRoot, 'previous-versions/02-use-chipnet-demo-pool');
+      : path.join(monorepoRoot, 'archived-pool-designs/02-use-chipnet-demo-pool');
     if (!existsSync(path.join(poolDir, 'bundle'))) {
       failJson('POOL_BUNDLE', 'pool missing bundle/ — for playground: npm run fetch-playground-bundle', 2, {
         pool: poolDir,
@@ -832,7 +848,7 @@ async function cmdAct(verb) {
         kind: requestKind,
         fullAct: 'npm run shieldkit -- playground deposit --protocol v1-legacy --wallets ./wallets.json --scan-fees --broadcast',
         prepOnly: 'playground deposit --protocol v1-legacy --request prep.json',
-        feeNote: 'Legacy playground deposit needs a large fee UTXO; transfer/withdraw ~71k. See previous-versions/02-use-chipnet-demo-pool/README.md',
+        feeNote: 'Legacy playground deposit needs a large fee UTXO; transfer/withdraw ~71k. See archived-pool-designs/02-use-chipnet-demo-pool/README.md',
         rpc: 'Public Chipnet Fulcrum used by default; override with SHIELDKIT_RPC_URL or SHIELDKIT_ELECTRUM',
       },
     );
@@ -948,7 +964,7 @@ async function cmdRequestTemplate() {
     let bindingCarrierBaseValueSatoshis = '1000';
     try {
       const raw = await readFile(vsPath, 'utf8');
-      failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to previous-versions/legacy-research/v1-seven-carrier/', 2);
+      failJson('LEGACY_AUTHORITY_MOVED', 'legacy seven-carrier authority helpers moved to archived-pool-designs/legacy-research/v1-seven-carrier/', 2);
       const authority = parsePf7CarrierAuthority(JSON.parse(raw));
       bindingLockingBytecode = authority.settlementKernel.bindingLock.toString('hex');
       bindingCarrierBaseValueSatoshis = authority.settlementKernel.artifact.constants.bindingCarrierBaseSatoshis;
