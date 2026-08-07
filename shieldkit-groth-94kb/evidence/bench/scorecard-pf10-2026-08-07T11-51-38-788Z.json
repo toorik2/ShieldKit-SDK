@@ -1,0 +1,50 @@
+{
+  "schema": "shieldkit-bench-scorecard-v1",
+  "design": "pf10",
+  "capability": {
+    "scriptBytes": 94622,
+    "roles": 10,
+    "inputsPerAction": 13,
+    "proofSystem": "Groth16",
+    "txBytes": 97844,
+    "maxUnlockBytes": 10000,
+    "maxOpCost": 58073984,
+    "sources": {
+      "scriptBytes": "verifier.cash/intel/db/verifiers.json (toorik-bn254-intratx-general)",
+      "txBytes": "verifier.cash intel wire_bytes 94779 + tx overhead; PLAN.md ceilings table",
+      "maxOpCost": "verifier.cash intel db opcost 58,073,984"
+    }
+  },
+  "prep": {
+    "proverIdentity": "the product native Groth16 prover (setup-v2-native-prover)",
+    "host": {
+      "machine": "Omarchyzen",
+      "cpu": "13th Gen Intel(R) Core(TM) i9-13900H"
+    },
+    "measured": false,
+    "recorded": {
+      "medianSecondsByKind": {
+        "deposit": {
+          "runs": 1,
+          "medianSeconds": 2.158085613
+        },
+        "depositN10": {
+          "runs": 10,
+          "medianSeconds": 2.403741293
+        },
+        "proofGenerationSeconds": [
+          1.942995226,
+          2.3755038340000003
+        ]
+      },
+      "coldProveSeconds": 6.541074394,
+      "sources": {
+        "bench": "shieldkit-groth-94kb/bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json (recorded; a live re-measure needs the funded chipnet data-home)"
+      }
+    }
+  },
+  "coldStart": false,
+  "commit": "f63373ca823871b3a0fc56c7cd3d32db1b8df15d",
+  "generated": "2026-08-07T11:51:38.788Z",
+  "totalMs": 5
+}

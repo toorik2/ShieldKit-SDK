@@ -1,0 +1,25 @@
+{
+  "schema": "verifier.cash/control-plane/v1",
+  "worktreeBootstrap": {
+    "links": [
+      { "path": "node_modules", "required": true },
+      { "path": "harness/node_modules", "required": true },
+      { "path": "build/node_modules", "required": false },
+      { "path": "vendor/cashc-resched/node_modules", "required": false },
+      { "path": "vendor/cashc-resched/packages/cashc/node_modules", "required": false },
+      { "path": "vendor/cashc-resched/packages/cashc/dist", "required": true },
+      { "path": "vendor/cashc-resched/packages/cashscript/node_modules", "required": false },
+      { "path": "vendor/cashc-resched/packages/cashscript/dist", "required": false },
+      { "path": "vendor/cashc-resched/packages/utils/node_modules", "required": false },
+      { "path": "vendor/cashc-resched/packages/utils/dist", "required": false }
+    ],
+    "externalLinks": [
+      { "source": "../LeanBCH", "target": ".vc/deps/LeanBCH", "required": true }
+    ]
+  },
+  "retention": {
+    "runs": { "maxAgeDays": 14, "keepNewest": 20 },
+    "checks": { "maxAgeDays": 7, "keepNewest": 5 },
+    "finalizedArenas": { "maxAgeDays": 30, "keepNewest": 10 }
+  }
+}

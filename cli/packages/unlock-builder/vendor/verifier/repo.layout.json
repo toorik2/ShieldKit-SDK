@@ -1,0 +1,39 @@
+{
+  "schema": "verifier.cash/repository-layout/v1",
+  "trackedRootFiles": [
+    ".gitignore",
+    "AGENTS.md",
+    "Groth16.lean",
+    "README.md",
+    "control-plane.json",
+    "lake-manifest.json",
+    "lakefile.toml",
+    "lean-toolchain",
+    "package-lock.json",
+    "package.json",
+    "repo.layout.json",
+    "setup.sh"
+  ],
+  "trackedRoots": {
+    ".agents": { "class": "agent-guidance", "lifecycle": "durable", "owner": "core" },
+    ".codex": { "class": "control-plane", "lifecycle": "durable", "owner": "core" },
+    "Groth16": { "class": "formal-model", "lifecycle": "durable", "owner": "lean" },
+    "artifacts": { "class": "evidence-store", "lifecycle": "migration", "owner": "promotion", "fileBudget": 166, "migrationTarget": "lane-owned content-addressed evidence" },
+    "build": { "class": "legacy-active-build", "lifecycle": "migration", "owner": "core-exclusive", "fileBudget": 287, "migrationTarget": "lanes/*/src and packages/build" },
+    "catalogue": { "class": "evidence-index", "lifecycle": "migration", "owner": "promotion", "fileBudget": 209, "migrationTarget": "generated views from immutable evidence" },
+    "docs": { "class": "documentation", "lifecycle": "durable", "owner": "core" },
+    "fri_stark": { "class": "legacy-research", "lifecycle": "quarantined", "owner": "explicit-only", "fileBudget": 223, "migrationTarget": "lanes/fri-stark after a concrete candidate exists" },
+    "fri_stark55": { "class": "legacy-research", "lifecycle": "quarantined", "owner": "explicit-only", "fileBudget": 10, "migrationTarget": "lanes/fri-stark after a concrete candidate exists" },
+    "harness": { "class": "benchmark-harness", "lifecycle": "durable", "owner": "core-exclusive" },
+    "intel": { "class": "research-knowledge", "lifecycle": "migration", "owner": "curator", "fileBudget": 101, "migrationTarget": "generated evidence views and durable docs" },
+    "lanes": { "class": "agent-lanes", "lifecycle": "durable", "owner": "lane" },
+    "packages": { "class": "control-plane", "lifecycle": "durable", "owner": "core" },
+    "tools": { "class": "migration-tools", "lifecycle": "migration", "owner": "core-exclusive", "fileBudget": 264, "migrationTarget": "lane-local tools or packages/cli" },
+    "vendor": { "class": "vendored-toolchain", "lifecycle": "durable", "owner": "core-exclusive" }
+  },
+  "ignoredRoots": {
+    ".lake": "rebuildable Lean output",
+    ".vc": "ephemeral runs, checks, arenas, locks, and worktree-local dependencies",
+    "node_modules": "rebuildable root dependencies"
+  }
+}

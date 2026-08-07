@@ -126,6 +126,7 @@ export async function poolCreate(argv) {
   const wallet = walletFromPath(arg(argv, 'funding-wallet'));
   const funding = parseFundingUtxo(arg(argv, 'funding-utxo'));
   const dataHome = arg(argv, 'data-home');
+  mkdirSync(dataHome, { recursive: true });  // fresh data home support
   const journalPath = poolJournalPath(dataHome);
   if (existsSync(journalPath) && !flag(argv, 'resume')) {
     fail('BETA_POOL_EXISTS', `a pf6 pool journal already exists at ${journalPath}; use --resume to resume`);
@@ -304,7 +305,7 @@ export async function poolDoctor(argv) {
     zkey: existsSync(path.join(ROOT, 'vendor/product-current/circuit/beta.zkey')),
     wasm: existsSync(path.join(ROOT, 'vendor/product-current/circuit/main-chipnet.wasm')),
     laneCandidates: existsSync(path.join(ROOT, 'vendor/pf6-lane/candidates')),
-    journal: dataHome ? existsSync(poolJournalPath(dataHome)) : false,
+    journal: dataHome ? (existsSync(poolJournalPath(dataHome)) ? JSON.parse(readFileSync(poolJournalPath(dataHome), 'utf8')).ok !== false : true) : false,
   };
   const allOk = Object.values(checks).every(Boolean);
   okJson({
@@ -327,6 +328,11 @@ export async function poolDoctor(argv) {
 export async function runPf6ProfileCommand(argv) {
   const cmd = argv[0];
   try {
+    if (cmd === '--version' || cmd === '-v') {
+      console.log(JSON.stringify({ ok: true, product: 'ShieldKit-Groth-54KB', profile: PF6_PROFILE_ID,
+        version: '0.3.0-beta.1', toolkitVersion: '0.3.0-beta.1', roles: PF6_PROFILE_PIN.roles, scriptBytes: PF6_PROFILE_PIN.scriptBytes }, null, 2));
+      return;
+    }
     if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
       console.log(pf6Usage('pool'));
       return;

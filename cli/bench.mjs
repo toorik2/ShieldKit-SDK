@@ -110,20 +110,29 @@ function axisBFor(profileId, root) {
       },
     };
   }
-  // pf10: the product bench's recorded results (the bench/ is the source of truth); a live re-measure
-  // needs the funded chipnet data-home + the prover material
+  // pf10: the product bench's RECORDED results (bench/results is the source of truth)
   const benchResults = path.join(root, 'bench/results');
+  const readJson = (fn, dflt = {}) => { try { return JSON.parse(readFileSync(path.join(benchResults, fn), 'utf8')); } catch { return dflt; } };
+  const s0 = readJson('s0.json');
+  const s1 = readJson('s1-n10.json');
+  const pipe = readJson('pipeline.json');
+  const pipeLive = readJson('pipeline-live.json');
   const coldProve = (() => {
-    try { const j = JSON.parse(readFileSync(path.join(benchResults, 'coldstart-prove.json'), 'utf8')); return j.prove_ms_p50 ?? j.proveMs ?? null; } catch { return null; }
+    try { const j = JSON.parse(readFileSync(path.join(benchResults, 'coldstart-prove.json'), 'utf8')); return j.totals?.timedMs ? j.totals.timedMs / 1000 : null; } catch { return null; }
   })();
+  const gen = [pipe.sums?.proofGenerationMs, pipeLive.sums?.proofGenerationMs].filter((x) => x != null);
   return {
     proverIdentity: 'the product native Groth16 prover (setup-v2-native-prover)',
     host,
     measured: false,
     recorded: {
-      medianSecondsByKind: null,
+      medianSecondsByKind: {
+        deposit: { runs: 1, medianSeconds: s0.prove_ms_p50 ? s0.prove_ms_p50 / 1000 : null },
+        depositN10: { runs: 10, medianSeconds: s1.prove_ms_p50 ? s1.prove_ms_p50 / 1000 : null },
+        proofGenerationSeconds: gen.length ? gen.map((x) => x / 1000) : null,
+      },
       coldProveSeconds: coldProve,
-      sources: { bench: 'shieldkit-groth-94kb/bench/results/*.json (live re-measure needs the funded chipnet data-home + the prover material)' },
+      sources: { bench: 'shieldkit-groth-94kb/bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json (recorded; a live re-measure needs the funded chipnet data-home)' },
     },
   };
 }

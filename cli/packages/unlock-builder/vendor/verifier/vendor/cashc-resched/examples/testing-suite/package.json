@@ -1,0 +1,29 @@
+{
+  "name": "testing-suite",
+  "version": "0.14.0-next.1",
+  "description": "Example project to develop and test CashScript contracts",
+  "main": "index.js",
+  "type": "module",
+  "author": "mainnet-pat",
+  "license": "MIT",
+  "private": true,
+  "directories": {
+    "lib": "src",
+    "test": "test"
+  },
+  "scripts": {
+    "compile": "tsx tasks/compile.ts",
+    "lint": "eslint . --ext .ts --ignore-path ../../.eslintignore",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bitauth/libauth": "^3.1.0-next.8",
+    "cashc": "^0.14.0-next.1",
+    "cashscript": "^0.14.0-next.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.15"
+  }
+}

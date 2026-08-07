@@ -1,0 +1,55 @@
+{
+ "schema": "shieldkit-cli/bench-proof-times/v1",
+ "generated": "2026-08-07T14:51:50",
+ "status": "proof-building times across all three designs (recorded + one fresh)",
+ "times": {
+  "pf10": {
+   "prover": "product native Groth16 prover",
+   "deposit": {
+    "medianSeconds": 2.158,
+    "runs": 1
+   },
+   "depositN10": {
+    "medianSeconds": 2.404,
+    "runs": 10
+   },
+   "proofGenerationSeconds": [
+    1.943,
+    2.376
+   ],
+   "coldProveSeconds": 6.541,
+   "source": "bench/results/{s0,s1-n10,pipeline,pipeline-live,coldstart-prove}.json"
+  },
+  "pf6-a3-direct-v1": {
+   "prover": "rapidsnark + snarkjs",
+   "deposit": {
+    "medianSeconds": 2.35,
+    "runs": 1,
+    "fresh": "this host"
+   },
+   "source": "the unified --bench fresh measurement"
+  },
+  "fri-stark-96kb": {
+   "prover": "Rust Goldilocks DEEP-ALI",
+   "deposit": {
+    "medianSeconds": 27.572,
+    "runs": 32
+   },
+   "transfer": {
+    "medianSeconds": 34.618,
+    "runs": 32
+   },
+   "withdrawal": {
+    "medianSeconds": 33.553,
+    "runs": 32
+   },
+   "coldProveSeconds": 81.854,
+   "source": "evidence/p5/P5_REPORT.json + p1/P1_REALITY.json"
+  }
+ },
+ "comparison": {
+  "pf6_vs_pf10_ratio": 1.09,
+  "pf6_vs_friStark_ratio": 11.8,
+  "note": "the Groth16 designs are ~11-12x faster at proof building than the current FRI-STARK prover; prover identities differ \u2014 wall-clock only"
+ }
+}

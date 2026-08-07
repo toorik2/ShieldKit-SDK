@@ -1,0 +1,7 @@
+**/dist/
+**/node_modules/
+**/grammar/
+/website/
+*.js
+*.cjs
+examples/webapp

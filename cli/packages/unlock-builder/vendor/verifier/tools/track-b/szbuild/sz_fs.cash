@@ -1,0 +1,60 @@
+pragma cashscript ^0.13.0;
+contract SZfs() {
+    function spend(int a0,int a1,int a2,int a3,int a4,int a5,int a6,int a7,int a8,int a9,int a10,int a11, int b0,int b1,int b2,int b3,int b4,int b5,int b6,int b7,int b8,int b9,int b10,int b11, int c0,int c1,int c2,int c3,int c4,int c5,int c6,int c7,int c8,int c9,int c10,int c11, int q0,int q1,int q2,int q3,int q4,int q5,int q6,int q7,int q8,int q9,int q10) {
+        int P = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+        // COMMIT-THEN-CHALLENGE: z derived from ALL witnessed limbs (in the locking, never witnessed).
+        bytes32 td = hash256(toPaddedBytes(a0, 40) + toPaddedBytes(a1, 40) + toPaddedBytes(a2, 40) + toPaddedBytes(a3, 40) + toPaddedBytes(a4, 40) + toPaddedBytes(a5, 40) + toPaddedBytes(a6, 40) + toPaddedBytes(a7, 40) + toPaddedBytes(a8, 40) + toPaddedBytes(a9, 40) + toPaddedBytes(a10, 40) + toPaddedBytes(a11, 40) + toPaddedBytes(b0, 40) + toPaddedBytes(b1, 40) + toPaddedBytes(b2, 40) + toPaddedBytes(b3, 40) + toPaddedBytes(b4, 40) + toPaddedBytes(b5, 40) + toPaddedBytes(b6, 40) + toPaddedBytes(b7, 40) + toPaddedBytes(b8, 40) + toPaddedBytes(b9, 40) + toPaddedBytes(b10, 40) + toPaddedBytes(b11, 40) + toPaddedBytes(c0, 40) + toPaddedBytes(c1, 40) + toPaddedBytes(c2, 40) + toPaddedBytes(c3, 40) + toPaddedBytes(c4, 40) + toPaddedBytes(c5, 40) + toPaddedBytes(c6, 40) + toPaddedBytes(c7, 40) + toPaddedBytes(c8, 40) + toPaddedBytes(c9, 40) + toPaddedBytes(c10, 40) + toPaddedBytes(c11, 40) + toPaddedBytes(q0, 40) + toPaddedBytes(q1, 40) + toPaddedBytes(q2, 40) + toPaddedBytes(q3, 40) + toPaddedBytes(q4, 40) + toPaddedBytes(q5, 40) + toPaddedBytes(q6, 40) + toPaddedBytes(q7, 40) + toPaddedBytes(q8, 40) + toPaddedBytes(q9, 40) + toPaddedBytes(q10, 40));
+        int z = int(td) % P;
+        int z2 = (z * z) % P; int z3 = (z2 * z) % P; int z6 = (z3 * z3) % P; int z12 = (z6 * z6) % P;
+        int Mz = (z12 + 82 + 18 * P - (18 * z6) % P) % P;
+        int az = a11;
+        az = (az * z + a10) % P;
+        az = (az * z + a9) % P;
+        az = (az * z + a8) % P;
+        az = (az * z + a7) % P;
+        az = (az * z + a6) % P;
+        az = (az * z + a5) % P;
+        az = (az * z + a4) % P;
+        az = (az * z + a3) % P;
+        az = (az * z + a2) % P;
+        az = (az * z + a1) % P;
+        az = (az * z + a0) % P;
+        int bz = b11;
+        bz = (bz * z + b10) % P;
+        bz = (bz * z + b9) % P;
+        bz = (bz * z + b8) % P;
+        bz = (bz * z + b7) % P;
+        bz = (bz * z + b6) % P;
+        bz = (bz * z + b5) % P;
+        bz = (bz * z + b4) % P;
+        bz = (bz * z + b3) % P;
+        bz = (bz * z + b2) % P;
+        bz = (bz * z + b1) % P;
+        bz = (bz * z + b0) % P;
+        int cz = c11;
+        cz = (cz * z + c10) % P;
+        cz = (cz * z + c9) % P;
+        cz = (cz * z + c8) % P;
+        cz = (cz * z + c7) % P;
+        cz = (cz * z + c6) % P;
+        cz = (cz * z + c5) % P;
+        cz = (cz * z + c4) % P;
+        cz = (cz * z + c3) % P;
+        cz = (cz * z + c2) % P;
+        cz = (cz * z + c1) % P;
+        cz = (cz * z + c0) % P;
+        int qz = q10;
+        qz = (qz * z + q9) % P;
+        qz = (qz * z + q8) % P;
+        qz = (qz * z + q7) % P;
+        qz = (qz * z + q6) % P;
+        qz = (qz * z + q5) % P;
+        qz = (qz * z + q4) % P;
+        qz = (qz * z + q3) % P;
+        qz = (qz * z + q2) % P;
+        qz = (qz * z + q1) % P;
+        qz = (qz * z + q0) % P;
+
+        require((az * bz) % P == (qz * Mz + cz) % P);
+    }
+}

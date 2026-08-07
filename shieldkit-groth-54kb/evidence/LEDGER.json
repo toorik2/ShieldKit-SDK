@@ -1,6 +1,6 @@
 {
  "schema": "shieldkit-54kb/evidence-ledger/v1",
- "generated": "2026-08-07T14:34:05",
+ "generated": "2026-08-07T14:51:50",
  "entries": [
   {
    "wp": 0,
@@ -246,6 +246,11 @@
    "wp": 3,
    "id": "03-implementation/bench-flag.json",
    "what": "unified --bench flag: all three designs benchmarked (Axis A + Axis B); pf6 fresh 2.35s; compare works"
+  },
+  {
+   "wp": 3,
+   "id": "03-implementation/bench-proof-times.json",
+   "what": "Proof-building times across all three designs: pf6 2.35s fresh, pf10 2.16s recorded, fri-stark 27.6s recorded"
   }
  ],
  "vendorPins": [

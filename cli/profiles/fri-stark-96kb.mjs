@@ -488,6 +488,11 @@ export async function recoverCommand(argv) {
 export async function runFriProfileCommand(argv) {
   const cmd = argv[0];
   try {
+    if (cmd === '--version' || cmd === '-v') {
+      console.log(JSON.stringify({ ok: true, product: 'ShieldKit-FRI-STARK', profile: FRI_PROFILE_ID,
+        version: '0.1.0-beta.1', toolkitVersion: '0.3.0-beta.1', roles: FRI_PROFILE_PIN.roles, securityBits: FRI_PROFILE_PIN.securityBits }, null, 2));
+      return;
+    }
     if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') { console.log(friUsage()); return; }
     if (cmd === 'pool') {
       const sub = argv[1];
