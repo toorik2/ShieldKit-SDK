@@ -70,6 +70,7 @@ const REPOSITORY_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
   '..',
+  '..',
 );
 const BETA_IMPLEMENTATION_SCHEMA =
   'shieldkit/v2-beta-single-contributor-implementation/v1';
