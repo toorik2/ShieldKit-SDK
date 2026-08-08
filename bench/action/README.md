@@ -22,7 +22,6 @@ takes until the **exact** transaction is observed in the **BCHN mempool** after
 | --- | --- | --- |
 | **This package** | `shieldkit-action-benchmark-run/v2` | Primary e2e action benchmark |
 | `shieldkit-groth-94kb/bench` S0/S1/S2 | `shieldkit-component-bench-scorecard-v1` | Component prove/scaling microbenchmarks |
-| `cli/bench.mjs` | `shieldkit-isolated-proof-bench-v1` | Experimental isolated proof / axis compare |
 | Pipeline timings helper | `shieldkit-bench-pipeline-v1` | Operator table for PF10 product timings |
 
 Do not present component or isolated-proof scorecards as end-to-end performance.

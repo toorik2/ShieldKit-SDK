@@ -1,5 +1,0 @@
-*
-!dist/**
-!vitest/package.json
-!jest/package.json
-*.map

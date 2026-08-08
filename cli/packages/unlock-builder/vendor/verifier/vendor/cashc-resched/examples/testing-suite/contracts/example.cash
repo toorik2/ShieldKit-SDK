@@ -1,6 +1,0 @@
-contract Example() {
-  function test(int value) {
-    console.log(value, "test");
-    require(value == 1, "Wrong value passed");
-  }
-}

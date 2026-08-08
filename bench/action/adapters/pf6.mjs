@@ -24,7 +24,8 @@ export const PF6_DESIGN = 'pf6';
 export const PF6_PROFILE = 'pf6-a3-direct-v1';
 
 const DESIGN_ROOT = path.join(SDK_ROOT, 'shieldkit-groth-54kb');
-const PROFILE_MODULE = path.join(SDK_ROOT, 'cli/profiles/pf6-a3-direct-v1.mjs');
+const PROFILE_MODULE = path.join(DESIGN_ROOT, 'src/lifecycle-profile.mjs');
+const PROFILE_RUNNER = path.join(SDK_ROOT, 'bench/action/adapters/run-pf6-profile.mjs');
 
 /**
  * Attempt one PF6 live action.
@@ -62,11 +63,10 @@ export function runPf6Action(opts) {
 
   const script = scriptCandidates.find((p) => typeof p === 'string' && existsSync(p));
 
-  // Profile-based CLI via experimental lab (pool action through profile)
-  const labCli = path.join(SDK_ROOT, 'cli/scripts/shieldkit.mjs');
+  // Internal profile runner for the benchmark. This is not a second product CLI.
   const dataHome = opts.dataHome || process.env.SHIELDKIT_PF6_DATA_HOME || null;
 
-  if (!script && !(existsSync(labCli) && dataHome && existsSync(PROFILE_MODULE))) {
+  if (!script && !(existsSync(PROFILE_RUNNER) && dataHome && existsSync(PROFILE_MODULE))) {
     // Honest infrastructure fail-closed: no provisioned live path
     return buildFailClosedRun({
       design: PF6_DESIGN,
@@ -106,13 +106,12 @@ export function runPf6Action(opts) {
     const kind = action === 'withdrawal' ? 'withdraw' : action;
     const args = [
       'pool', kind,
-      '--profile', PF6_PROFILE,
       '--data-home', dataHome,
       '--json',
     ];
     if (kind === 'withdraw' && opts.to) args.push('--to', opts.to);
     if (kind === 'transfer' && opts.note) args.push('--note', opts.note);
-    result = spawnSync(process.execPath, [labCli, ...args], {
+    result = spawnSync(process.execPath, [PROFILE_RUNNER, ...args], {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
       env: { ...process.env },

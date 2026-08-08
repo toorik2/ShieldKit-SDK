@@ -3,7 +3,6 @@
  * Listing designs MUST NOT execute backend modules.
  */
 
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -239,17 +238,4 @@ export function showDesign(aliasOrId) {
 export function catalogContentHash() {
   const catalog = loadClosedCatalog();
   return createHash('sha256').update(JSON.stringify(catalog)).digest('hex');
-}
-
-/** Optional: verify lab registry JSON is not the product authority. */
-export function labRegistryPath() {
-  return path.join(SDK_ROOT, 'cli/pool-designs.json');
-}
-
-export function readLabRegistryIfPresent() {
-  try {
-    return JSON.parse(readFileSync(labRegistryPath(), 'utf8'));
-  } catch {
-    return null;
-  }
 }

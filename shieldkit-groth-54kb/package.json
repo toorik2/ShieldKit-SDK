@@ -3,8 +3,5 @@
   "version": "0.3.0-beta.1",
   "private": true,
   "type": "module",
-  "bin": {
-    "shieldkit": "cli/scripts/shieldkit.mjs"
-  },
   "description": "Experimental Chipnet-only PF6 verifier-pool Lab profile; explicitly unqualified"
 }
