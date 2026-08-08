@@ -51,7 +51,7 @@ npm run bench:component
 Never present a component scorecard as end-to-end preparation time. Reports must
 identify the exact profile, commit, prover, host, transaction, span DAG,
 acceptance observation, and cache mode. See the
-[action benchmark contract](../../bench/action/README.md).
+[action benchmark contract](../../bench/pipeline/README.md).
 
 ## Current evidence boundaries
 

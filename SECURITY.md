@@ -65,9 +65,9 @@ automatic replacement spend.
 Profile-specific evidence:
 
 - [PF6 Lab boundary](./docs/lab/pf6.md) and
-  [accepted risks](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-groth-54kb/evidence/accepted-risks.json)
+  [accepted risks](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/pf6/evidence/accepted-risks.json)
 - [FRI-STARK Lab boundary](./docs/lab/fri.md) and
-  [release verdict](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json)
-- [PF10 release pins](./shieldkit-groth-94kb/pins/)
+  [release verdict](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/fri/evidence/release/RELEASE_VERDICT.json)
+- [PF10 release pins](./designs/pf10/pins/)
 
 Internal reviews and green local tests are evidence, not independent audits.

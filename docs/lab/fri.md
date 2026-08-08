@@ -13,8 +13,8 @@ live-action record reports up to 99,207 bytes, below the 100,000-byte ceiling.
   and reproducible-package records within the declared scope;
 - an experimental Lab router and a separate package-local executable.
 
-See the [production report](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/evidence/production/PRODUCTION_REPORT.json)
-and [release verdict](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json).
+See the [production report](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/fri/evidence/production/PRODUCTION_REPORT.json)
+and [release verdict](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/fri/evidence/release/RELEASE_VERDICT.json).
 The directory name `evidence/production` is historical; it does not promote the
 profile beyond the verdict's permitted experimental beta claim.
 
@@ -35,4 +35,4 @@ profile beyond the verdict's permitted experimental beta claim.
 The in-tree replacement plan is a hashed qualification input and remains a
 Record, not user guidance.
 
-Research profile record (not unified mutation authority): [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-fri-stark-96kb/profile.json)
+Research profile record (not unified mutation authority): [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/fri/profile.json)

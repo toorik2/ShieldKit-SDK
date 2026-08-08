@@ -50,7 +50,7 @@ wallets.json
 !**/fixtures/**/inputs_dump.json
 
 # Root workspace lock is authoritative; package-local locks are unsupported.
-shieldkit-groth-94kb/packages/*/package-lock.json
+designs/pf10/packages/*/package-lock.json
 
 # large profile artifacts (not in git)
 previous-versions/02-use-chipnet-demo-pool/bundle/
@@ -58,60 +58,60 @@ previous-versions/02-use-chipnet-demo-pool/bundle/
 # Local research workspace — the FRI-STARK 96KB design root: only the SOURCE ships
 # (packages/crates/vendor/scripts + fixed-lock assemble artifacts + manifests).
 # Builds (.private), evidence dumps, and secrets (.codex-artifacts) stay local.
-shieldkit-fri-stark-96kb/*
-!shieldkit-fri-stark-96kb/packages/
-!shieldkit-fri-stark-96kb/crates/
-!shieldkit-fri-stark-96kb/scripts/
-!shieldkit-fri-stark-96kb/vendor/
-!shieldkit-fri-stark-96kb/profile.json
-!shieldkit-fri-stark-96kb/package.json
-!shieldkit-fri-stark-96kb/Cargo.toml
-!shieldkit-fri-stark-96kb/Cargo.lock
-!shieldkit-fri-stark-96kb/LICENSE
-!shieldkit-fri-stark-96kb/THIRD_PARTY_NOTICES.md
-!shieldkit-fri-stark-96kb/FRI_STARK_REPLACEMENT_PLAN.md
-!shieldkit-fri-stark-96kb/evidence/
-!shieldkit-fri-stark-96kb/evidence/production/
-!shieldkit-fri-stark-96kb/evidence/production/assemble-state0/
-!shieldkit-fri-stark-96kb/evidence/production/PRODUCTION_REPORT.json
-!shieldkit-fri-stark-96kb/evidence/production/RED_TEAM_AUDIT_20260807.json
-!shieldkit-fri-stark-96kb/evidence/release/
-!shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json
-!shieldkit-fri-stark-96kb/evidence/randomness-gates/
-shieldkit-fri-stark-96kb/evidence/*
-!shieldkit-fri-stark-96kb/evidence/production/
-shieldkit-fri-stark-96kb/evidence/production/*
-!shieldkit-fri-stark-96kb/evidence/production/assemble-state0/
-!shieldkit-fri-stark-96kb/evidence/production/PRODUCTION_REPORT.json
-!shieldkit-fri-stark-96kb/evidence/production/RED_TEAM_AUDIT_20260807.json
-!shieldkit-fri-stark-96kb/evidence/release/
-shieldkit-fri-stark-96kb/evidence/release/*
-!shieldkit-fri-stark-96kb/evidence/release/RELEASE_VERDICT.json
-!shieldkit-fri-stark-96kb/evidence/randomness-gates/
-shieldkit-fri-stark-96kb/evidence/randomness-gates/*
-shieldkit-fri-stark-96kb/node_modules/
-shieldkit-fri-stark-96kb/.private/
-shieldkit-fri-stark-96kb/.codex-artifacts/
-shieldkit-fri-stark-96kb/**/__pycache__/
-shieldkit-fri-stark-96kb/**/*.pyc
-shieldkit-fri-stark-96kb/vendor/**/.git/
-shieldkit-fri-stark-96kb/vendor/**/.git/**
-shieldkit-fri-stark-96kb/vendor/verifier.cash/.worktrees/
+designs/fri/*
+!designs/fri/packages/
+!designs/fri/crates/
+!designs/fri/scripts/
+!designs/fri/vendor/
+!designs/fri/profile.json
+!designs/fri/package.json
+!designs/fri/Cargo.toml
+!designs/fri/Cargo.lock
+!designs/fri/LICENSE
+!designs/fri/THIRD_PARTY_NOTICES.md
+!designs/fri/FRI_STARK_REPLACEMENT_PLAN.md
+!designs/fri/evidence/
+!designs/fri/evidence/production/
+!designs/fri/evidence/production/assemble-state0/
+!designs/fri/evidence/production/PRODUCTION_REPORT.json
+!designs/fri/evidence/production/RED_TEAM_AUDIT_20260807.json
+!designs/fri/evidence/release/
+!designs/fri/evidence/release/RELEASE_VERDICT.json
+!designs/fri/evidence/randomness-gates/
+designs/fri/evidence/*
+!designs/fri/evidence/production/
+designs/fri/evidence/production/*
+!designs/fri/evidence/production/assemble-state0/
+!designs/fri/evidence/production/PRODUCTION_REPORT.json
+!designs/fri/evidence/production/RED_TEAM_AUDIT_20260807.json
+!designs/fri/evidence/release/
+designs/fri/evidence/release/*
+!designs/fri/evidence/release/RELEASE_VERDICT.json
+!designs/fri/evidence/randomness-gates/
+designs/fri/evidence/randomness-gates/*
+designs/fri/node_modules/
+designs/fri/.private/
+designs/fri/.codex-artifacts/
+designs/fri/**/__pycache__/
+designs/fri/**/*.pyc
+designs/fri/vendor/**/.git/
+designs/fri/vendor/**/.git/**
+designs/fri/vendor/verifier.cash/.worktrees/
 
 # Scalability bench runtime outputs (never commit)
-shieldkit-groth-94kb/bench/results/
+designs/pf10/bench/results/
 
 # ShieldKit-54KB: heavy/regenerable vendor + witness intermediates (sha-pinned in vendor/pins + evidence manifests)
-shieldkit-groth-54kb/vendor/product-current/
-shieldkit-groth-54kb/vendor/verifier-workspace/.vc/
-shieldkit-groth-54kb/vendor/verifier-workspace/build/
-shieldkit-groth-54kb/vendor/verifier-workspace/vendor/
-shieldkit-groth-54kb/evidence/**/witness.wtns
-shieldkit-groth-54kb/evidence/**/prove/witness.wtns
-shieldkit-groth-54kb/pins/*.tar.gz
+designs/pf6/vendor/product-current/
+designs/pf6/vendor/verifier-workspace/.vc/
+designs/pf6/vendor/verifier-workspace/build/
+designs/pf6/vendor/verifier-workspace/vendor/
+designs/pf6/evidence/**/witness.wtns
+designs/pf6/evidence/**/prove/witness.wtns
+designs/pf6/pins/*.tar.gz
 
 # Archived demo-pool proving artifacts (fetch via scripts/fetch-playground-bundle.mjs; too large for git)
-archived-pool-designs/02-use-chipnet-demo-pool/bundle/artifacts/
+designs/pf10/demo/chipnet/bundle/artifacts/
 
 # Action benchmark raw outputs (promote deliberately)
 bench/results/

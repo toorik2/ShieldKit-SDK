@@ -13,8 +13,8 @@ verifier roles and nine inputs per action; its frozen reference verifier reports
   lifecycle corpus;
 - adversarial, formal, clean-host, and artifact-provenance records.
 
-Start with the [E2E story](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-groth-54kb/evidence/03-implementation/e2e-story-suite.json)
-and [B-02 final record](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-groth-54kb/evidence/04-qualification/b02-final.json).
+Start with the [E2E story](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/pf6/evidence/03-implementation/e2e-story-suite.json)
+and [B-02 final record](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/pf6/evidence/04-qualification/b02-final.json).
 
 ## Why it is not Product
 
@@ -27,5 +27,5 @@ and [B-02 final record](https://github.com/toorik2/ShieldKit-SDK/blob/main/shiel
   because its shard layout matched. Treat this as conditional risk, not closure.
 - The setup is single-contributor and does not establish ceremony independence.
 
-Research profile record (not unified mutation authority): [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-groth-54kb/profile.json) ·
-accepted risks: [`accepted-risks.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/shieldkit-groth-54kb/evidence/accepted-risks.json)
+Research profile record (not unified mutation authority): [`profile.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/pf6/profile.json) ·
+accepted risks: [`accepted-risks.json`](https://github.com/toorik2/ShieldKit-SDK/blob/main/designs/pf6/evidence/accepted-risks.json)
